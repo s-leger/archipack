@@ -18,13 +18,12 @@ Under the hood, i do write from scratch the cleaning code and intersection detec
 
 In order to work this script depends on
 - shapely
-- rtree
 
-both available as python wheels.
+available as python wheels.
 
 ## Setup under windows:
 
-The most easiest way to install shapely and rtree Python Binding is to use the packages available here rtree shapely. Choose the one that match the version of Python bundle with Blender eg: cp35-cp35m versions for blender 2.78.
+The most easiest way to install shapely Python Binding is to use the packages available here rtree shapely. Choose the one that match the version of Python bundle with Blender eg: cp35-cp35m versions for blender 2.78.
 
 You need pip to install *.whl package files. The Python installation bundle with Blender do not include pip but include distutils. So it's possible to install pip with a standard console:
 
@@ -38,4 +37,3 @@ To test the install open Blender Python console and type:
 
 from shapely import geometry
 
-from rtree import index
