@@ -2,5 +2,8 @@
 
 Welcome to the blenderPolygons
 
-[See wiki for info](https://github.com/s-leger/blenderPolygons/wiki)
+[Wiki Home](https://github.com/s-leger/blenderPolygons/wiki)   
+[Setup](https://github.com/s-leger/blenderPolygons/wiki/Setup)   
+[Usage](https://github.com/s-leger/blenderPolygons/wiki/Usage)   
 
+[Report issues](https://github.com/s-leger/blenderPolygons/issues)  
