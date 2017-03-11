@@ -49,7 +49,13 @@ from shapely.geometry import (
 )
 import shapely.ops
 import shapely.prepared
-import shapely.speedups
+
+try:
+    import shapely.speedups
+    if shapely.speedups.available:
+        shapely.speedups.enable()
+except:
+    pass
 
 from .bitarray import BitArray
 from .pyqtree import _QuadTree
@@ -60,8 +66,7 @@ from bpy.types import Operator, Panel, PropertyGroup
 from bpy.props import StringProperty, FloatProperty, PointerProperty, EnumProperty, IntProperty, BoolProperty
 from bpy.utils import previews as iconsLib
 
-if shapely.speedups.available:
-    shapely.speedups.enable()
+
     
 
 icons_dict = {}
