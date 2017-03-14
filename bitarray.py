@@ -5,6 +5,7 @@ import array
     basic bitarray
 """
 class BitArray():
+    
     def __init__(self, bitSize, fill = 0):
         self.size = bitSize
         intSize = bitSize >> 5
@@ -43,18 +44,32 @@ class BitArray():
         mask = 1 << offset
         self.bitArray[record] ^= mask
 
+    @property 
+    def len(self):
+        return len(self.bitArray)
+        
+    @property
+    def copy(self):
+        copy = BitArray(self.size)
+        for i in range(self.len):
+            copy.bitArray[i] = self.bitArray[i]
+        return copy        
+    
     @property
     def list(self):
-        return [x for x in range(0, self.size) if self.test(x) > 0]
+        return [x for x in range(self.size) if self.test(x) > 0]
 
     def none(self):
-        for i in range(0, len(self.bitArray)):
+        for i in range(self.len):
             self.bitArray[i] = 0
 
     def reverse(self):
-        for i in range(0, len(self.bitArray)):
+        for i in range(self.len):
             self.bitArray[i] = 4294967295 ^ self.bitArray[i]
 
     def all(self):
-        for i in range(0, len(self.bitArray)):
+        for i in range(self.len):
             self.bitArray[i] = 4294967295
+    
+
+        
