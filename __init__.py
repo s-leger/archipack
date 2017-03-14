@@ -33,7 +33,7 @@ bl_info = {
     'support': 'COMMUNITY',
     'category': '3D View'
     }
-    
+
 import os
 import sys
 import time
@@ -57,7 +57,7 @@ try:
         shapely.speedups.enable()
 except:
     pass
-    
+
 from .bitarray import BitArray
 from .pyqtree import _QuadTree
 from mathutils import Vector, Matrix
@@ -71,17 +71,17 @@ from bpy.app.handlers import persistent
 # module globals vars dict
 vars_dict = {
     # spacial tree for segments and points
-    'seg_tree': None, 
-    'point_tree': None, 
+    'seg_tree': None,
+    'point_tree': None,
     # keep track of shapely geometry selection sets
-    'select_polygons': None, 
+    'select_polygons': None,
     'select_lines': None,
     'select_points':None
     }
-    
+
 icons_dict = {}
 
-# module constants 
+# module constants
 # precision 1e-4 = 0.1mm
 EPSILON = 1.0e-4
 # Qtree params
@@ -118,12 +118,12 @@ class GlDrawOnScreen():
         bgl.glLineWidth(width)
         bgl.glBegin(bgl.GL_LINE_STRIP)
     def Line(self, x0, y0, x1, y1, colour, width=2):
-        self._start_line(colour, width) 
+        self._start_line(colour, width)
         bgl.glVertex2i(x0, y0)
         bgl.glVertex2i(x1, y1)
         self._end()
     def Rectangle(self, x0, y0, x1, y1, colour, width=2):
-        self._start_line(colour, width) 
+        self._start_line(colour, width)
         bgl.glVertex2i(x0, y0)
         bgl.glVertex2i(x1, y0)
         bgl.glVertex2i(x1, y1)
@@ -131,25 +131,25 @@ class GlDrawOnScreen():
         bgl.glVertex2i(x0, y0)
         self._end()
     def PolyLine(self, pts, colour, width=2):
-        self._start_line(colour, width) 
+        self._start_line(colour, width)
         for pt in pts:
             x, y = pt
             bgl.glVertex2i(x, y)
         self._end()
     def Polygon(self, pts, colour, width=2, style=bgl.GL_LINE):
-        self._start_line(colour, width, style) 
+        self._start_line(colour, width, style)
         #bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         #bgl.glEnable(bgl.GL_BLEND)
-        #bgl.glColor4f(*colour)    
+        #bgl.glColor4f(*colour)
         #bgl.glBegin(bgl.GL_POLYGON)
         for pt in pts:
             x, y = pt
-            bgl.glVertex2f(x, y)  
+            bgl.glVertex2f(x, y)
         self._end()
 
 class CoordSys(object):
     """
-        reference coordsys 
+        reference coordsys
         world : matrix from local to world
         invert: matrix from world to local
         width, height: bonding region size
@@ -164,7 +164,7 @@ class CoordSys(object):
                     x.append(obj.bound_box[0][0] + pos.x)
                     x.append(obj.bound_box[6][0] + pos.x)
                     y.append(obj.bound_box[0][1] + pos.y)
-                    y.append(obj.bound_box[6][1] + pos.y) 
+                    y.append(obj.bound_box[6][1] + pos.y)
             elif hasattr(objs[0], 'bounds'):
                 for geom in objs:
                     x0, y0, x1, y1 = geom.bounds
@@ -192,17 +192,17 @@ class CoordSys(object):
         self.invert = self.world.inverted()
         self.width  = width
         self.height = height
-        
+
 class Prolongement():
     """ intersection of two segments outside segment (projection)
         c0 = extremite sur le segment courant
         c1 = intersection point on oposite segment
         id = oposite segment id
-        t = param t on oposite segment 
+        t = param t on oposite segment
         d = distance from ends to segment
         insert = do we need to insert the point on other segment
         use id, c1 and t to insert segment slices
-    """ 
+    """
     def __init__(self, c0, c1, id, t, d):
         self.length = c0.distance(c1)
         self.c0 = c0
@@ -210,7 +210,7 @@ class Prolongement():
         self.id = id
         self.t = t
         self.d = d
-        
+
 class Point():
     def __init__(self, co, precision=EPSILON):
         self.users = 0
@@ -222,55 +222,55 @@ class Point():
     def geom(self):
         return shapely.geometry.Point(self.co)
     def vect(self, point):
-        """ vector from this point to another """    
+        """ vector from this point to another """
         return np.subtract(point.co, self.co)
     def distance(self, point):
-        """ euclidian distance between points """    
+        """ euclidian distance between points """
         return np.linalg.norm(self.vect(point))
     def add_user(self):
         self.users += 1
-        
+
 class Segment():
-    
+
     def __init__(self, c0, c1, extend=EPSILON):
-        
+
         self.c0 = c0
         self.c1 = c1
         self._splits = []
-        
+
         self.available = True
-        # ensure uniqueness when merge 
-        
+        # ensure uniqueness when merge
+
         self.opposite = False
         # this seg has an opposite
-        
+
         self.original = False
         # source of opposite
-        
+
         x0, y0, z0  = c0.co
         x1, y1, z1  = c1.co
         self.bounds = (min(x0, x1)-extend, min(y0, y1)-extend, max(x0, x1)+extend, max(y0, y1)+extend)
-    
+
     @property
     def splits(self):
         return sorted(self._splits)
-    
+
     @property
     def vect(self):
         """ vector c0-c1"""
         return np.subtract(self.c1.co, self.c0.co)
-        
+
     @property
     def vect_2d(self):
         v = self.vect
         v[2] = 0
         return v
-    
+
     def lerp(self, t):
         return np.add(self.c0.co, np.multiply(t, self.vect))
-    
+
     def _point_sur_segment(self, point):
-        """ _point_sur_segment 
+        """ _point_sur_segment
             point: Point
             t: param t de l'intersection sur le segment courant
             d: distance laterale perpendiculaire
@@ -283,10 +283,10 @@ class Segment():
         if d < EPSILON:
             if t > 0 and t < 1:
                 self._append_splits((t, point))
-        
+
     def is_end(self, point):
         return point == self.c0 or point == self.c1
-          
+
     def min_intersect_dist(self, t, point):
         """ distance intersection extremite la plus proche
             t: param t de l'intersection sur le segment courant
@@ -296,16 +296,16 @@ class Segment():
         if t > 0.5:
             return self.c1.distance(point)
         else:
-            return self.c0.distance(point)  
-            
+            return self.c0.distance(point)
+
     def intersect(self, segment):
-        """ point_sur_segment return 
+        """ point_sur_segment return
             p: point d'intersection
             u: param t de l'intersection sur le segment courant
             v: param t de l'intersection sur le segment segment
         """
         v2d = self.vect_2d
-        c2 = np.cross(segment.vect_2d, (0,0,1)) 
+        c2 = np.cross(segment.vect_2d, (0,0,1))
         d  = np.dot(v2d, c2)
         if d == 0:
             # segments paralleles
@@ -322,14 +322,14 @@ class Segment():
         co = self.lerp(u)
         #print("pt:%s u:%f v:%f" % (co, u, v))
         return True, co, u, v
-        
+
     def _append_splits(self, split):
         """
-            append a unique split point 
+            append a unique split point
         """
         if split not in self._splits:
             self._splits.append(split)
-            
+
     def slice(self, d, t, point):
         if d > EPSILON:
             if t > 0.5:
@@ -338,79 +338,79 @@ class Segment():
             else:
                 if point != self.c0:
                     self._append_splits((t,point))
-                    
+
     def add_user(self):
         self.c0.add_user()
         self.c1.add_user()
-        
+
     def consume(self):
         self.available = False
 
 class Shape():
-    """    
+    """
         Ensure uniqueness and fix precision issues by design
-        implicit closed with last point 
+        implicit closed with last point
         require point_tree and seg_tree
     """
-    
+
     def __init__(self, points=[]):
         """
             @vertex: list of coords
         """
         self.available = True
         # Ensure uniqueness of shape when merging
-    
+
         self._segs = []
         # Shape segments
-    
+
         self.shapeId = []
         # Id of shape in shapes to keep a track of shape parts when merging
-    
+
         self._create_segments(points)
-        
+
     def _create_segments(self, points):
         global vars_dict
         if vars_dict['seg_tree'] is None:
             raise RuntimeError('Shape._create_segments() require a global seg_tree spacial index ')
         # skip null segments with unique points test
         self._segs = list(vars_dict['seg_tree'].newSegment(points[v], points[v+1]) for v in range(len(points)-1) if points[v] != points[v+1])
-    
+
     @property
     def coords(self):
         coords = list(seg.c0.co for seg in self._segs)
         coords.append(self.c1.co)
         return coords
-        
+
     @property
     def points(self):
         points = list(seg.c0 for seg in self._segs)
         points.append(self.c1)
         return points
-    
+
     @property
     def c0(self):
         if not self.valid:
             raise RuntimeError('Shape does not contains any segments')
         return self._segs[0].c0
-    
+
     @property
     def c1(self):
         if not self.valid:
             raise RuntimeError('Shape does not contains any segments')
         return self._segs[-1].c1
-    
+
     @property
     def nbsegs(self):
         return len(self._segs)
-    
+
     @property
     def valid(self):
         return self.nbsegs > 0
-        
+
     @property
     def closed(self):
         return self.valid and bool(self.c0 == self.c1)
-    
+
     def merge(self, shape):
         """ merge this shape with specified shape
             shapes must share at least one vertex
@@ -426,14 +426,14 @@ class Shape():
         else:
             # should never happen
             raise RuntimeError("Shape merge failed {} {} {} {}".format(id(self), id(shape), self.shapeId, shape.shapeId))
-    
+
     def _reverse(self):
         """
             reverse vertex order
         """
         points = self.points[::-1]
         self._create_segments(points)
-                       
+
     def slice(self, shapes):
         """
             slice shape into smaller parts at intersections
@@ -453,8 +453,8 @@ class Shape():
         if len(points) > 0:
             points.append(self.c1)
             shape = Shape(points)
-            shapes.append(shape)    
-           
+            shapes.append(shape)
+
     def add_points(self):
         """
             add points from intersection data
@@ -467,22 +467,22 @@ class Shape():
                     points.append(split[1])
             points.append(self.c1)
         self._create_segments(points)
-        
+
     def set_users(self):
         """
             add users on segments and points
         """
         for seg in self._segs:
             seg.add_user()
-                   
+
     def consume(self):
         self.available = False
-         
+
 class Qtree(_QuadTree):
     """
         The top spatial index to be created by the user. Once created it can be
         populated with geographically placed members that can later be tested for
-        intersection with a user inputted geographic bounding box. 
+        intersection with a user inputted geographic bounding box.
     """
     def __init__(self, coordsys, extend=EPSILON, max_items=MAX_ITEMS, max_depth=MAX_DEPTH):
         """
@@ -491,16 +491,16 @@ class Qtree(_QuadTree):
         """
         self._extend = extend
         self._geoms = []
-        
+
         # store input coordsys
         self.coordsys = coordsys
-        
+
         super(Qtree, self).__init__(0, 0, coordsys.width, coordsys.height, max_items, max_depth)
-      
+
     @property
     def ngeoms(self):
         return len(self._geoms)
-     
+
     def build(self, geoms):
         """
             Build a spacial index from shapely geoms
@@ -510,11 +510,11 @@ class Qtree(_QuadTree):
         for i, geom in enumerate(geoms):
             self._insert(i, geom.bounds)
         print("Qtree.build() :%.2f seconds" % (time.time()-t))
-        
+
     def insert(self, id, geom):
         self._geoms.append(geom)
         self._insert(id, geom.bounds)
-    
+
     def newPoint(self, co):
         point = Point(co, self._extend)
         count, found  = self.intersects(point)
@@ -522,7 +522,7 @@ class Qtree(_QuadTree):
             return self._geoms[id]
         self.insert(self.ngeoms, point)
         return point
-    
+
     def newSegment(self, c0, c1):
         """
             allow "opposite" segments,
@@ -542,24 +542,24 @@ class Qtree(_QuadTree):
                 return old_seg.opposite
         self.insert(self.ngeoms, new_seg)
         return new_seg
-        
+
     def intersects(self, geom):
         selection = list(self._intersect(geom.bounds))
         count = len(selection)
         return count, sorted(selection)
-       
+
 class Io():
-    
+
     @staticmethod
     def build_default_mat(name, color=(1.0,1.0,1.0)):
-        midx = bpy.data.materials.find(name)   
+        midx = bpy.data.materials.find(name)
         if midx < 0:
             mat = bpy.data.materials.new(name)
             mat.diffuse_color = color
         else:
             mat = bpy.data.materials[midx]
         return mat
-        
+
     @staticmethod
     def ensure_iterable(obj):
         try:
@@ -567,18 +567,18 @@ class Io():
         except TypeError:
             obj = [obj]
         return obj
-    
+
     # Conversion methods
     @staticmethod
     def _to_geom(shape):
         if not shape.valid:
             raise RuntimeError('Cant convert invalid shape to Shapely LineString')
         return shapely.geometry.LineString(shape.coords)
-        
+
     @staticmethod
     def shapes_to_geoms(shapes):
         return [Io._to_geom(shape) for shape in shapes]
-    
+
     @staticmethod
     def _to_shape(geometry, shapes):
         global vars_dict
@@ -596,18 +596,18 @@ class Io():
             points =  list(vars_dict['point_tree'].newPoint(p) for p in list(geometry.coords))
             shape = Shape(points)
             shapes.append(shape)
-        
-    @staticmethod    
+
+    @staticmethod
     def geoms_to_shapes(geoms, shapes=[]):
         for geom in geoms:
             Io._to_shape(geom, shapes)
         return shapes
-    
+
     # Input methods
     @staticmethod
     def _interpolate_bezier(pts, wM, p0, p1, resolution):
-        # straight segment, worth testing here 
-        # since this can lower points count by a resolution factor 
+        # straight segment, worth testing here
+        # since this can lower points count by a resolution factor
         # use normalized to handle non linear t
         if resolution == 0:
             pts.append(wM * p0.co.to_3d())
@@ -617,22 +617,22 @@ class Io():
             d2 = (p1.co-p1.handle_left).normalized()
             if d1 == v and d2 == v:
                 pts.append(wM * p0.co.to_3d())
-            else:    
-                seg = interpolate_bezier(wM * p0.co, 
+            else:
+                seg = interpolate_bezier(wM * p0.co,
                     wM * p0.handle_right,
                     wM * p1.handle_left,
-                    wM * p1.co, 
+                    wM * p1.co,
                     resolution)
                 for i in range(resolution-1):
                     pts.append(seg[i].to_3d())
-            
+
     @staticmethod
     def _coords_from_spline(wM, resolution, spline):
         pts = []
         if spline.type == 'POLY':
             pts = [wM * p.co.to_3d() for p in spline.points]
             if spline.use_cyclic_u:
-                pts.append(pts[0])     
+                pts.append(pts[0])
         elif spline.type == 'BEZIER':
             points = spline.bezier_points
             for i in range(1, len(points)):
@@ -646,20 +646,20 @@ class Io():
                 Io._interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
         return pts
-    
+
     @staticmethod
     def _add_geom_from_curve(curve, invert_world, resolution, geoms):
-        wM = invert_world * curve.matrix_world 
+        wM = invert_world * curve.matrix_world
         for spline in curve.data.splines:
             pts = Io._coords_from_spline(wM, resolution, spline)
             geom = shapely.geometry.LineString(pts)
             geoms.append(geom)
-    
+
     @staticmethod
     def curves_to_geoms(curves, resolution, geoms=[]):
-        """ 
-            @curves : blender curves collection 
-            Return coordsys for outputs 
+        """
+            @curves : blender curves collection
+            Return coordsys for outputs
         """
         curves = Io.ensure_iterable(curves)
         coordsys = CoordSys(curves)
@@ -668,31 +668,31 @@ class Io():
             Io._add_geom_from_curve(curve, coordsys.invert, resolution, geoms)
         print("Io.curves_as_line() :%.2f seconds" % (time.time()-t))
         return coordsys
-        
+
     @staticmethod
     def _add_shape_from_curve(curve, invert_world, resolution, shapes):
         global vars_dict
-        wM = invert_world * curve.matrix_world 
+        wM = invert_world * curve.matrix_world
         for spline in curve.data.splines:
             pts = Io._coords_from_spline(wM, resolution, spline)
             pts = [vars_dict['point_tree'].newPoint(pt) for pt in pts]
             shape = Shape(points=pts)
             shapes.append(shape)
-    
+
     @staticmethod
     def curves_to_shapes(curves, coordsys, resolution, shapes=[]):
-        """ 
-            @curves : blender curves collection 
-            Return simple shapes 
+        """
+            @curves : blender curves collection
+            Return simple shapes
         """
         curves = Io.ensure_iterable(curves)
         t = time.time()
         for curve in curves:
             Io._add_shape_from_curve(curve, coordsys.invert, resolution, shapes)
         print("Io.curves_to_shapes() :%.2f seconds" % (time.time()-t))
-        
+
     # Output methods
-    @staticmethod 
+    @staticmethod
     def _poly_to_wall(scene, matrix_world, poly, height, name):
         global vars_dict
         curve = bpy.data.curves.new(name, type = 'CURVE')
@@ -704,28 +704,28 @@ class Io():
         Io._add_spline(curve, poly.exterior)
         for geom in poly.interiors:
             Io._add_spline(curve, geom)
-        curve_obj = bpy.data.objects.new(name, curve) 
+        curve_obj = bpy.data.objects.new(name, curve)
         curve_obj.matrix_world = matrix_world
         scene.objects.link(curve_obj)
         curve_obj.select = True
         return n_ext, n_int, curve_obj
-    
-    @staticmethod 
+
+    @staticmethod
     def wall_uv(me, bm):
-        
+
         for face in bm.faces:
             face.select = face.material_index > 0
-        
+
         bmesh.update_edit_mesh(me, True)
         bpy.ops.uv.cube_project(scale_to_bounds=False, correct_aspect=True)
 
         for face in bm.faces:
             face.select = face.material_index < 1
-            
+
         bmesh.update_edit_mesh(me, True)
         bpy.ops.uv.smart_project(use_aspect=True, stretch_to_bounds=False)
-        
-    @staticmethod 
+
+    @staticmethod
     def to_wall(scene, coordsys, geoms, height, name, walls = []):
         """
             use curve extrude as it does respect vertices number and is not removing doubles
@@ -754,7 +754,7 @@ class Io():
                     if len(f.verts) > 3:
                         nfaces = i
                         break
-                # walls without holes are inside        
+                # walls without holes are inside
                 mat_index = 1 if n_int > 0 else 2
                 for i in range(nfaces, nfaces+n_ext-1):
                     bm.faces[i].material_index = mat_index
@@ -770,7 +770,7 @@ class Io():
                 me.materials.append(int_mat)
                 walls.append(obj)
         return walls
-        
+
     @staticmethod
     def _add_spline(curve, geometry):
         coords = list(geometry.coords)
@@ -781,7 +781,7 @@ class Io():
         for i, coord in enumerate(coords):
             x,y,z = coord
             spline.points[i].co = (x,y,z,1)
-    
+
     @staticmethod
     def _as_spline(curve, geometry):
         """
@@ -800,7 +800,7 @@ class Io():
         else:
             # LinearRing, LineString and Shape
             Io._add_spline(curve, geometry)
-  
+
     @staticmethod
     def to_curve(scene, coordsys, geoms, name, dimensions = '3D'):
         global vars_dict
@@ -816,18 +816,18 @@ class Io():
         curve_obj.select = True
         print("Io.to_curves() :%.2f seconds" % (time.time()-t))
         return curve_obj
-    
+
     @staticmethod
     def to_curves(scene, coordsys, geoms, name, dimensions = '3D'):
         geoms = Io.ensure_iterable(geoms)
         return [Io.to_curve(scene, coordsys, geom, name, dimensions) for geom in geoms]
-         
+
 class ShapelyOps():
-     
+
     @staticmethod
     def min_bounding_rect(geom):
         """ min_bounding_rect
-            minimum area oriented bounding rect 
+            minimum area oriented bounding rect
         """
         # Compute edges (x2-x1,y2-y1)
         if geom.convex_hull.geom_type == 'Polygon':
@@ -871,7 +871,7 @@ class ShapelyOps():
             if (area < min_bbox[1]):
                 min_bbox = ( edge_angles[i], area, width, height, min_x, max_x, min_y, max_y )
         # Re-create rotation matrix for smallest rect
-        angle = min_bbox[0]   
+        angle = min_bbox[0]
         R = np.array([ [ cos(angle), cos(angle-(pi/2)) ], [ cos(angle+(pi/2)), cos(angle) ] ])
         # min/max x,y points are against baseline
         min_x = min_bbox[4]
@@ -894,53 +894,53 @@ class ShapelyOps():
             h = min_bbox[2]
         tM = Matrix([[a, b, 0, center_point[0]], [-b, a, 0, center_point[1]], [0,0,1,0], [0,0,0,1]])
         return tM, w, h
-        
+
     @staticmethod
     def detect_polygons(geoms):
         """ detect_polygons
-        """ 
+        """
         print("Ops.detect_polygons()")
         t = time.time()
         result, dangles, cuts, invalids = shapely.ops.polygonize_full(geoms)
         print("Ops.detect_polygons() :%.2f seconds" % (time.time()-t))
         return result, dangles, cuts, invalids
-        
+
     @staticmethod
     def optimize(geoms, tolerance=0.001, preserve_topology=True):
-        """ optimize 
-        """ 
+        """ optimize
+        """
         t = time.time()
         geoms = Io.ensure_iterable(geoms)
         optimized = [geom.simplify(tolerance, preserve_topology) for geom in geoms]
         print("Ops.optimize() :%.2f seconds" % (time.time()-t))
         return optimized
-        
+
     @staticmethod
     def union(geoms):
         """ union (shapely based)
             cascaded union - may require snap before use to fix precision issues
             use union2 for best performances
-        """         
+        """
         t = time.time()
         geoms = Io.ensure_iterable(geoms)
         collection = shapely.geometry.GeometryCollection(geoms)
         union = shapely.ops.cascaded_union(collection)
         print("Ops.union() :%.2f seconds" % (time.time()-t))
         return union
-  
+
 class ShapeOps():
-    
+
     @staticmethod
     def union(shapes, extend=0.001):
-        """ union2 (Shape based) 
+        """ union2 (Shape based)
             cascaded union
             require point_tree and seg_tree
-        """        
+        """
         split = ShapeOps.split(shapes, extend=extend)
         union = ShapeOps.merge(split)
         return union
-        
-    @staticmethod    
+
+    @staticmethod
     def _intersection_point(d, t, point, seg):
         if d > EPSILON:
             return point
@@ -948,10 +948,10 @@ class ShapeOps():
             return seg.c1
         else:
             return seg.c0
-    
-    @staticmethod        
+
+    @staticmethod
     def split(shapes, extend=0.01):
-        """ _split 
+        """ _split
             detect intersections between segments and slice shapes according
             is able to project segment ends on closest segment
             require point_tree and seg_tree
@@ -961,14 +961,14 @@ class ShapeOps():
         new_shapes = []
         segs = vars_dict['seg_tree']._geoms
         nbsegs = len(segs)
-        it_start = [None for x in range(nbsegs)] 
+        it_start = [None for x in range(nbsegs)]
         it_end   = [None for x in range(nbsegs)]
         for s, seg in enumerate(segs):
             count, idx = vars_dict['seg_tree'].intersects(seg)
             for id in idx:
                 if id > s:
                     intersect, co, u, v = seg.intersect(segs[id])
-                    if intersect:                    
+                    if intersect:
                         point = vars_dict['point_tree'].newPoint(co)
                         du = seg.min_intersect_dist(u, point)
                         dv = segs[id].min_intersect_dist(v, point)
@@ -981,7 +981,7 @@ class ShapeOps():
                                 it = Prolongement(seg.c0, pt, id, v, du)
                                 last = it_start[s]
                                 if last is None or last.length > it.length:
-                                    it_start[s] = it 
+                                    it_start[s] = it
                         elif u < 1:
                             # intersection sur segment s
                             seg.slice(du, u, pt)
@@ -999,7 +999,7 @@ class ShapeOps():
                                 it = Prolongement(segs[id].c0, pt, s, u, dv)
                                 last = it_start[id]
                                 if last is None or last.length > it.length:
-                                    it_start[id] = it 
+                                    it_start[id] = it
                         elif v < 1:
                             # intersection sur segment s
                             segs[id].slice(dv, v, pt)
@@ -1018,7 +1018,7 @@ class ShapeOps():
                 if it.d > EPSILON:
                     shape = Shape([it.c0, it.c1])
                     shapes.append(shape)
-        for it in it_end:            
+        for it in it_end:
             if it is not None:
                 #print("it_end[%s] id:%s t:%4f d:%4f" % (s, it.id, it.t, it.d) )
                 if it.t > 0 and it.t < 1:
@@ -1029,19 +1029,19 @@ class ShapeOps():
         print("Ops.split() intersect :%.2f seconds" % (time.time()-t))
         t = time.time()
         for shape in shapes:
-            shape.add_points() 
+            shape.add_points()
         for shape in shapes:
-            shape.set_users() 
+            shape.set_users()
         for shape in shapes:
             if shape.valid:
                 shape.slice(new_shapes)
         print("Ops.split() slice :%.2f seconds" % (time.time()-t))
         return new_shapes
-    
+
     @staticmethod
     def merge(shapes):
         """ merge
-            merge shapes ends 
+            merge shapes ends
             reverse use seg_tree
             does not need tree as all:
             - set shape ids to end vertices
@@ -1051,15 +1051,15 @@ class ShapeOps():
         t = time.time()
         merged = []
         nbshapes = len(shapes)
-        for i, shape in enumerate(shapes): 
+        for i, shape in enumerate(shapes):
             shape.available = True
             shape.shapeId = [i]
             shape.c0.shapeIds = []
             shape.c1.shapeIds = []
-        for i, shape in enumerate(shapes):  
+        for i, shape in enumerate(shapes):
             shape.c0.shapeIds.append(i)
             shape.c1.shapeIds.append(i)
-        for i, shape in enumerate(shapes): 
+        for i, shape in enumerate(shapes):
             shapeIds = shape.c1.shapeIds
             if len(shapeIds) == 2:
                 if shapeIds[0] in shape.shapeId:
@@ -1087,10 +1087,10 @@ class ShapeOps():
                 shape.consume()
                 merged.append(shape)
         print("Ops.merge() :%.2f seconds" % (time.time()-t))
-        return merged        
- 
+        return merged
+
 class Selectable(object):
-    
+
     """ selectable shapely geoms """
     def __init__(self, geoms, coordsys):
         # selection sets (bitArray)
@@ -1100,32 +1100,32 @@ class Selectable(object):
         # Rtree to speedup region selections
         self.tree = Qtree(coordsys)
         self.tree.build(geoms)
-        # BitArray ids of selected geoms 
+        # BitArray ids of selected geoms
         self.ba = BitArray(self.ngeoms)
         # Material to represent selection on screen
         self.mat = self.build_display_mat("Selected", color=bpy.context.user_preferences.themes[0].view_3d.object_selected)
         self.gl = GlDrawOnScreen()
         self.action = None
         self.store_index = 0
-    
+
     @property
     def coordsys(self):
         return self.tree.coordsys
-        
+
     @property
     def geoms(self):
         return self.tree._geoms
-       
+
     @property
     def ngeoms(self):
         return self.tree.ngeoms
-        
+
     @property
     def nsets(self):
         return len(self.selections)
-        
+
     def build_display_mat(self, name, color=(0.2,0.2,0)):
-        midx = bpy.data.materials.find(name)    
+        midx = bpy.data.materials.find(name)
         if midx < 0:
             mat = bpy.data.materials.new(name)
             mat.use_object_color = True
@@ -1136,19 +1136,19 @@ class Selectable(object):
         else:
             mat = bpy.data.materials[midx]
         return mat
-    
+
     def _unselect(self, selection):
         t = time.time()
         for i in selection:
             self.ba.clear(i)
         print("Selectable._unselect() :%.2f seconds" % (time.time()-t))
-        
+
     def _select(self, selection):
         t = time.time()
         for i in selection:
             self.ba.set(i)
         print("Selectable._select() :%.2f seconds" % (time.time()-t))
-        
+
     def _position_3d_from_coord(self, context, coord):
         """return point in local input coordsys
         """
@@ -1160,7 +1160,7 @@ class Selectable(object):
         loc = intersect_line_plane(ray_origin_mouse, ray_origin_mouse+view_vector_mouse, Vector((0,0,0)), Vector((0,0,1)), False)
         x, y, z = self.coordsys.invert * loc
         return (x, y, z)
-    
+
     def _position_2d_from_coord(self, context, coord):
         """ coord given in local input coordsys
         """
@@ -1170,7 +1170,7 @@ class Selectable(object):
         loc = view3d_utils.location_3d_to_region_2d(region, rv3d, self.coordsys.world * coord)
         x, y = loc
         return (int(x), int(y))
-    
+
     def _contains(self, context, coord, event):
         t = time.time()
         point = self._position_3d_from_coord(context, coord)
@@ -1185,7 +1185,7 @@ class Selectable(object):
         else:
             self._select(selection)
         self._draw(context)
-    
+
     def _intersects(self, context, coord, event):
         t = time.time()
         c0 = self._position_3d_from_coord(context, coord)
@@ -1199,13 +1199,13 @@ class Selectable(object):
             selection = [i for i in gids if prepared_poly.contains(self.geoms[i])]
         else:
             selection = [i for i in gids if prepared_poly.intersects(self.geoms[i])]
-        print("Selectable._intersects() :%.2f seconds" % (time.time()-t))  
+        print("Selectable._intersects() :%.2f seconds" % (time.time()-t))
         if event.shift:
             self._unselect(selection)
         else:
             self._select(selection)
         self._draw(context)
-    
+
     def _hide(self, context):
         t = time.time()
         if len(self.curves) > 0:
@@ -1213,7 +1213,7 @@ class Selectable(object):
                 for curve in self.curves:
                     data = curve.data
                     context.scene.objects.unlink(curve)
-                    bpy.data.objects.remove(curve, do_unlink=True)                
+                    bpy.data.objects.remove(curve, do_unlink=True)
                     if data is None:
                         return
                     name = data.name
@@ -1221,13 +1221,13 @@ class Selectable(object):
                         bpy.data.curves.remove(data, do_unlink=True)
             except:
                 pass
-            self.curves = [] 
-        print("Selectable._hide() :%.2f seconds" % (time.time()-t))      
-    
+            self.curves = []
+        print("Selectable._hide() :%.2f seconds" % (time.time()-t))
+
     def _draw(self, context):
         print("Selectable._draw() %s" % (self.coordsys.world))
         t = time.time()
-        self._hide(context) 
+        self._hide(context)
         selection = [self.geoms[i] for i in self.ba.list]
         if len(selection) > 1000:
             self.curves = [Io.to_curve(context.scene, self.coordsys, selection, 'selection', '3D')]
@@ -1240,11 +1240,11 @@ class Selectable(object):
                 curve.active_material = self.mat
             curve.select = True
         print("Selectable._draw() :%.2f seconds" % (time.time()-t))
-    
+
     def store(self):
         self.selections.append(self.ba.copy)
         self.store_index = self.nsets
-        
+
     def recall(self):
         if self.nsets > 0:
             if self.store_index < 1:
@@ -1252,8 +1252,8 @@ class Selectable(object):
             self.store_index -= 1
             self.ba = self.selections[self.store_index].copy
 
-class SelectPoints(Selectable):            
-    
+class SelectPoints(Selectable):
+
     def __init__(self, shapes, coordsys):
         geoms = []
         for shape in shapes:
@@ -1267,12 +1267,12 @@ class SelectPoints(Selectable):
                         point.users = 0
                         geoms.append(point.geom)
         super(SelectPoints, self).__init__(geoms, coordsys)
-    
+
     def _draw(self, context):
         """ override draw method """
         print("SelectPoints._draw()")
         t = time.time()
-        self._hide(context) 
+        self._hide(context)
         selection = list(self.geoms[i] for i in self.ba.list)
         geom = ShapelyOps.union(selection)
         self.curves = [Io.to_curve(context.scene, self.coordsys, geom.convex_hull, 'selection', '3D')]
@@ -1280,7 +1280,7 @@ class SelectPoints(Selectable):
             curve.color = (1,1,0,1)
             curve.select = True
         print("SelectPoints._draw() :%.2f seconds" % (time.time()-t))
-        
+
     def init(self, pick_tool, context, action):
         # Post selection actions
         self.selectMode = True
@@ -1290,13 +1290,13 @@ class SelectPoints(Selectable):
         self.drag = False
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
-        self.action = action 
+        self.action = action
         self._draw(context)
         print("SelectPoints.init()")
-    
+
     def complete(self, context):
         self._hide(context)
-        
+
     def select(self, context, coord, event):
         #print("Selection.select() mouse %s %s" % (abs(event.mouse_region_x - coord[0]), abs(event.mouse_region_y - coord[1])))
         t = time.time()
@@ -1304,13 +1304,13 @@ class SelectPoints(Selectable):
             self._intersects(context, coord, event)
         else:
             self._contains(context, (event.mouse_region_x, event.mouse_region_y), event)
-        print("SelectPoints.select() :%.2f seconds" % (time.time()-t))  
-    
+        print("SelectPoints.select() :%.2f seconds" % (time.time()-t))
+
     def keyboard(self, context, event):
         if event.type in {'A'}:
             if len(self.ba.list) > 0:
                 self.ba.none()
-            else:    
+            else:
                 self.ba.all()
         elif event.type in {'I'}:
             self.ba.reverse()
@@ -1339,7 +1339,7 @@ class SelectPoints(Selectable):
             self.ba.none()
             self.complete(context)
         self._draw(context)
-        
+
     def modal(self, context, event):
         if event.type in {'I', 'A', 'S', 'R', 'F'} and event.value == 'PRESS':
             self.keyboard(context, event)
@@ -1358,7 +1358,7 @@ class SelectPoints(Selectable):
         elif event.type == 'MOUSEMOVE':
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
         return {'RUNNING_MODAL'}
-    
+
     def draw_callback(self, _self, context):
         self.gl.String("Select with left mouse, SHIFT to unselect, drag for areas (crossing), ALT contains", 10, 139, 10, self.gl.explanation_colour)
         self.gl.String("ESC or right click when done", 10, 126, 10, self.gl.explanation_colour)
@@ -1371,24 +1371,24 @@ class SelectPoints(Selectable):
             x0, y0 = self.startPoint
             x1, y1 = self.endPoint
             self.gl.Rectangle(x0, y0, x1, y1, self.gl.line_colour)
-       
+
 class SelectLines(Selectable):
-    
+
     def __init__(self, geoms, coordsys):
         super(SelectLines, self).__init__(geoms, coordsys)
-    
+
     def _draw(self, context):
         """ override draw method """
         print("SelectLines._draw()")
         t = time.time()
-        self._hide(context) 
+        self._hide(context)
         selection = list(self.geoms[i] for i in self.ba.list)
         self.curves = [Io.to_curve(context.scene, self.coordsys, selection, 'selection', '3D')]
         for curve in self.curves:
             curve.color = (1,1,0,1)
             curve.select = True
         print("SelectLines._draw() :%.2f seconds" % (time.time()-t))
-        
+
     def init(self, pick_tool, context, action):
         # Post selection actions
         self.selectMode = True
@@ -1398,10 +1398,10 @@ class SelectLines(Selectable):
         self.drag = False
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
-        self.action = action 
+        self.action = action
         self._draw(context)
         print("SelectLines.init()")
-    
+
     def complete(self, context):
         print("SelectLines.complete()")
         t = time.time()
@@ -1421,7 +1421,7 @@ class SelectLines(Selectable):
                 result = Io.to_curve(scene, self.coordsys, resopt, 'union')
                 scene.objects.active = result
         print("SelectLines.complete() :%.2f seconds" % (time.time()-t))
-    
+
     def select(self, context, coord, event):
         #print("Selection.select() mouse %s %s" % (abs(event.mouse_region_x - coord[0]), abs(event.mouse_region_y - coord[1])))
         t = time.time()
@@ -1429,13 +1429,13 @@ class SelectLines(Selectable):
             self._intersects(context, coord, event)
         else:
             self._contains(context, (event.mouse_region_x, event.mouse_region_y), event)
-        print("SelectLines.select() :%.2f seconds" % (time.time()-t))  
-    
+        print("SelectLines.select() :%.2f seconds" % (time.time()-t))
+
     def keyboard(self, context, event):
         if event.type in {'A'}:
             if len(self.ba.list) > 0:
                 self.ba.none()
-            else:    
+            else:
                 self.ba.all()
         elif event.type in {'I'}:
             self.ba.reverse()
@@ -1444,7 +1444,7 @@ class SelectLines(Selectable):
         elif event.type in {'R'}:
             self.recall()
         self._draw(context)
-        
+
     def modal(self, context, event):
         if event.type in {'I', 'A', 'S', 'R'} and event.value == 'PRESS':
             self.keyboard(context, event)
@@ -1463,7 +1463,7 @@ class SelectLines(Selectable):
         elif event.type == 'MOUSEMOVE':
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
         return {'RUNNING_MODAL'}
-    
+
     def draw_callback(self, _self, context):
         self.gl.String("Select with left mouse, SHIFT to unselect, drag for areas (crossing), ALT contains", 10, 139, 10, self.gl.explanation_colour)
         self.gl.String("ESC or right click when done", 10, 126, 10, self.gl.explanation_colour)
@@ -1475,12 +1475,12 @@ class SelectLines(Selectable):
             x0, y0 = self.startPoint
             x1, y1 = self.endPoint
             self.gl.Rectangle(x0, y0, x1, y1, self.gl.line_colour)
-         
+
 class SelectPolygons(Selectable):
-    
+
     def __init__(self, geoms, coordsys):
         super(SelectPolygons, self).__init__(geoms, coordsys)
-        
+
     def store_point(self, context, coord, event):
         self.last_point = self._position_3d_from_coord(context, (event.mouse_region_x, event.mouse_region_y))
     """
@@ -1496,17 +1496,17 @@ class SelectPolygons(Selectable):
         self.drag = False
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
-        self.action = action 
+        self.action = action
         self._draw(context)
         print("SelectPolygons.init()")
-    
+
     def complete(self, context):
         print("SelectPolygons.complete()")
         t = time.time()
         scene = context.scene
         self._hide(context)
         selection = list(self.geoms[i] for i in self.ba.list)
-        if len(selection) > 0:            
+        if len(selection) > 0:
             if self.action == 'select':
                 result = Io.to_curve(scene, self.coordsys, selection, 'selection')
                 scene.objects.active = result
@@ -1540,7 +1540,7 @@ class SelectPolygons(Selectable):
                 self.ba.none()
                 scene.objects.active = result
         print("SelectPolygons.complete() :%.2f seconds" % (time.time()-t))
-    
+
     def select(self, context, coord, event):
         #print("Selection.select() mouse %s %s" % (abs(event.mouse_region_x - coord[0]), abs(event.mouse_region_y - coord[1])))
         t = time.time()
@@ -1549,12 +1549,12 @@ class SelectPolygons(Selectable):
         else:
             self._contains(context, (event.mouse_region_x, event.mouse_region_y), event)
         print("SelectPolygons.select() :%.2f seconds" % (time.time()-t))
-        
+
     def keyboard(self, context, event):
         if event.type in {'A'}:
             if len(self.ba.list) > 0:
                 self.ba.none()
-            else:    
+            else:
                 self.ba.all()
         elif event.type in {'I'}:
             self.ba.reverse()
@@ -1578,7 +1578,7 @@ class SelectPolygons(Selectable):
                 self.object_location = (tM, w, h)
             self.startPoint = self._position_2d_from_coord(context, tM.translation)
         self._draw(context)
-        
+
     def modal(self, context, event):
         if event.type in {'I', 'A', 'S', 'R', 'F', 'B'} and event.value == 'PRESS':
             self.keyboard(context, event)
@@ -1606,7 +1606,7 @@ class SelectPolygons(Selectable):
         if event.type == 'MOUSEMOVE':
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
         return {'RUNNING_MODAL'}
-    
+
     def draw_callback(self, _self, context):
         """
         # draw selection using gl.
@@ -1646,19 +1646,19 @@ class TOOLS_OP_PolyLib_Pick2DPoints(Operator):
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
                  'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE']
     action = StringProperty(name="action", default="select")
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
         return vars_dict['select_points'] is not None
-    
+
     def modal(self, context, event):
         global vars_dict
         context.area.tag_redraw()
         if event.type in self.pass_keys:
             return {'PASS_THROUGH'}
         return vars_dict['select_points'].modal(context, event)
-        
+
     def invoke(self, context, event):
         global vars_dict
         if vars_dict['select_points'] is None:
@@ -1671,7 +1671,7 @@ class TOOLS_OP_PolyLib_Pick2DPoints(Operator):
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
-  
+
 class TOOLS_OP_PolyLib_Pick2DLines(Operator):
     bl_idname = "tools.poly_lib_pick_2d_lines"
     bl_label = "Pick lines"
@@ -1681,19 +1681,19 @@ class TOOLS_OP_PolyLib_Pick2DLines(Operator):
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
                  'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE']
     action = StringProperty(name="action", default="select")
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
         return vars_dict['select_lines'] is not None
-    
+
     def modal(self, context, event):
         global vars_dict
         context.area.tag_redraw()
         if event.type in self.pass_keys:
             return {'PASS_THROUGH'}
         return vars_dict['select_lines'].modal(context, event)
-        
+
     def invoke(self, context, event):
         global vars_dict
         if vars_dict['select_lines'] is None:
@@ -1706,7 +1706,7 @@ class TOOLS_OP_PolyLib_Pick2DLines(Operator):
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
-                 
+
 class TOOLS_OP_PolyLib_Pick2DPolygons(Operator):
     bl_idname = "tools.poly_lib_pick_2d_polygons"
     bl_label = "Pick 2d"
@@ -1716,19 +1716,19 @@ class TOOLS_OP_PolyLib_Pick2DPolygons(Operator):
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
                  'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE']
     action = StringProperty(name="action", default="select")
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
         return vars_dict['select_polygons'] is not None
-        
+
     def modal(self, context, event):
         global vars_dict
         context.area.tag_redraw()
         if event.type in self.pass_keys:
             return {'PASS_THROUGH'}
         return vars_dict['select_polygons'].modal(context, event)
-    
+
     def invoke(self, context, event):
         global vars_dict
         if vars_dict['select_polygons'] is None:
@@ -1748,49 +1748,49 @@ class TOOLS_OP_PolyLib_Detect(Operator):
     bl_description = "Detect polygons from unordered splines"
     bl_options = {'REGISTER', 'UNDO'}
     extend = FloatProperty(name="extend", default=0.01, subtype='DISTANCE', unit='LENGTH', min=0)
-    
+
     @classmethod
     def poll(self, context):
         return len(context.selected_objects) > 0 and context.object is not None and context.object.type == 'CURVE'
-    
+
     def execute(self, context):
         global vars_dict
         print("Detect")
         t = time.time()
         objs = [obj for obj in context.selected_objects if obj.type == 'CURVE']
-        
+
         if len(objs) < 1:
             self.report({'WARNING'}, "Select a curve object before")
             return {'CANCELLED'}
-        
+
         for obj in objs:
             obj.select = False
-        
+
         coordsys = CoordSys(objs)
-        
+
         vars_dict['point_tree'] = Qtree(coordsys, extend=0.5*EPSILON)
         vars_dict['seg_tree']   = Qtree(coordsys, extend=self.extend)
-        
+
         # Shape based union
         shapes = []
         Io.curves_to_shapes(objs, coordsys, context.window_manager.poly_lib.resolution, shapes)
         union = ShapeOps.union(shapes, self.extend)
-        
+
         # output select points
         vars_dict['select_points'] = SelectPoints(shapes, coordsys)
-        
+
         geoms = Io.shapes_to_geoms(union)
-        
+
         # output select_lines
         vars_dict['select_lines'] = SelectLines(geoms, coordsys)
-        
+
         # Shapely based union
         # vars_dict['select_polygons'].io.curves_as_shapely(objs, lines)
         # geoms = vars_dict['select_polygons'].ops.union(lines, self.extend)
-        
+
         result, dangles, cuts, invalids = ShapelyOps.detect_polygons(geoms)
         vars_dict['select_polygons'] = SelectPolygons(result, coordsys)
-        
+
         if len(invalids) > 0:
             errs = Io.to_curve(context.scene, coordsys, invalids, "invalid_polygons")
             err_mat = vars_dict['select_polygons'].build_display_mat("Invalid_polygon", (1,0,0))
@@ -1803,17 +1803,17 @@ class TOOLS_OP_PolyLib_Detect(Operator):
             self.report({'WARNING'}, str(len(invalids)) + " invalid polygons detected")
         print("Detect :%.2f seconds polygons:%s invalids:%s" % (time.time()-t, len(result), len(invalids)))
         return {'FINISHED'}
-  
+
 class TOOLS_OP_PolyLib_Offset(Operator):
     bl_idname = "tools.poly_lib_offset"
     bl_label = "Offset"
     bl_description = "Offset lines"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     @classmethod
     def poll(self, context):
         return len(context.selected_objects) > 0 and context.object is not None and context.object.type == 'CURVE'
-    
+
     def execute(self, context):
         wm = context.window_manager.poly_lib
         objs = list(obj for obj in context.selected_objects if obj.type == 'CURVE')
@@ -1826,21 +1826,21 @@ class TOOLS_OP_PolyLib_Offset(Operator):
         coordsys = Io.curves_to_geoms(objs, wm.resolution, lines)
         offset = []
         for line in lines:
-            res = line.parallel_offset(wm.offset_distance, wm.offset_side, resolution=wm.offset_resolution,  join_style=int(wm.offset_join_style), mitre_limit=wm.offset_mitre_limit) 
+            res = line.parallel_offset(wm.offset_distance, wm.offset_side, resolution=wm.offset_resolution,  join_style=int(wm.offset_join_style), mitre_limit=wm.offset_mitre_limit)
             offset.append(res)
         result = Io.to_curve(context.scene, coordsys, offset, 'offset')
         return {'FINISHED'}
- 
+
 class TOOLS_OP_PolyLib_Simplify(Operator):
     bl_idname = "tools.poly_lib_simplify"
     bl_label = "Simplify"
     bl_description = "Simplify lines"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     @classmethod
     def poll(self, context):
         return len(context.selected_objects) > 0 and context.object is not None and context.object.type == 'CURVE'
-    
+
     def execute(self, context):
         global vars_dict
         wm = context.window_manager.poly_lib
@@ -1854,45 +1854,45 @@ class TOOLS_OP_PolyLib_Simplify(Operator):
         lines = []
         coordsys = Io.curves_to_geoms(objs, wm.resolution, lines)
         for line in lines:
-            res = line.simplify(wm.simplify_tolerance, preserve_topology=wm.simplify_preserve_topology) 
+            res = line.simplify(wm.simplify_tolerance, preserve_topology=wm.simplify_preserve_topology)
             simple.append(res)
         result = Io.to_curve(context.scene, coordsys, simple, 'simplify')
-        return {'FINISHED'}    
-       
+        return {'FINISHED'}
+
 class TOOLS_OP_PolyLib_OutputPolygons(Operator):
     bl_idname = "tools.poly_lib_output_polygons"
     bl_label = "Output Polygons"
     bl_description = "Output all polygons"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
         return vars_dict['select_polygons'] is not None
-        
+
     def execute(self, context):
         global vars_dict
         result = Io.to_curve(context.scene, vars_dict['select_polygons'].coordsys, vars_dict['select_polygons'].geoms, 'polygons')
         context.scene.objects.active = result
         return {'FINISHED'}
- 
+
 class TOOLS_OP_PolyLib_OutputLines(Operator):
     bl_idname = "tools.poly_lib_output_lines"
     bl_label = "Output lines"
     bl_description = "Output all lines"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
         return vars_dict['select_lines'] is not None
-    
+
     def execute(self, context):
         global vars_dict
         result = Io.to_curve(context.scene, vars_dict['select_lines'].coordsys, vars_dict['select_lines'].geoms, 'lines')
         context.scene.objects.active = result
         return {'FINISHED'}
- 
+
 class TOOLS_OP_PolyLib_Solidify(Operator):
     bl_idname = "tools.poly_lib_solidify"
     bl_label = "Extrude"
@@ -1909,26 +1909,26 @@ class TOOLS_OP_PolyLib_Solidify(Operator):
             return {'CANCELLED'}
         for obj in objs:
             obj.data.dimensions = '2D'
-            mod = obj.modifiers.new("Solidify", 'SOLIDIFY')    
+            mod = obj.modifiers.new("Solidify", 'SOLIDIFY')
             mod.thickness = wm.solidify_thickness
             mod.offset = 1.00
             mod.use_even_offset = True
             mod.use_quality_normals = True
         return {'FINISHED'}
- 
+
 class TOOLS_PT_PolyLib(Panel):
     bl_label = "Polygons"
     bl_idname = "TOOLS_PT_PolyLib"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Tools"
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
         return ((vars_dict['select_polygons'] is not None) or
-                (context.object is not None and context.object.type == 'CURVE')) 
-    
+                (context.object is not None and context.object.type == 'CURVE'))
+
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
@@ -1986,7 +1986,7 @@ class TOOLS_PT_PolyLib(Panel):
         row.prop(context.window_manager.poly_lib, "offset_join_style")
         row = box.row(align=True)
         row.prop(context.window_manager.poly_lib, "offset_mitre_limit")
-        
+
 class PolyLibParameters(PropertyGroup):
     bl_idname = 'tools.poly_lib_parameters'
     extend = FloatProperty(name="Extend", description="Extend to closest intersecting segment", default=0.01, subtype='DISTANCE', unit='LENGTH', min=0)
@@ -1999,15 +1999,15 @@ class PolyLibParameters(PropertyGroup):
     simplify_preserve_topology = BoolProperty(name = "Preserve topology", description="Preserve topology (fast without, but may introduce self crossing)", default = True)
     solidify_thickness = FloatProperty(name="Thickness", default=2.7, subtype='DISTANCE', unit='LENGTH', min=0)
     resolution = IntProperty(name="Bezier resolution", min=0, default=12)
-    
-@persistent    
+
+@persistent
 def load_handler(dummy):
     global vars_dict
     vars_dict['select_polygons'] = None
     vars_dict['select_lines'] = None
     vars_dict['seg_tree'] = None
     vars_dict['point_tree'] = None
-     
+
 def register():
     global icons_dict
     icons_dict = iconsLib.new()
@@ -2028,7 +2028,7 @@ def register():
     bpy.types.WindowManager.poly_lib = PointerProperty(type = PolyLibParameters)
     bpy.utils.register_class(TOOLS_PT_PolyLib)
     bpy.app.handlers.load_post.append(load_handler)
-    
+
 def unregister():
     global icons_dict
     iconsLib.remove(icons_dict)
@@ -2045,6 +2045,6 @@ def unregister():
     bpy.utils.unregister_class(PolyLibParameters)
     bpy.app.handlers.load_post.remove(load_handler)
     del bpy.types.WindowManager.poly_lib
- 
+
 if __name__ == "__main__":
     register()
