@@ -67,7 +67,7 @@ class Line():
         t = (c * (line.p-self.p))/d
         return True, self.lerp(t), t
     def steps(self, len):
-        steps = round(self.length / len, 0)
+        steps = max(1, round(self.length / len, 0))
         return 1 / steps, int(steps)
     def offset(self, offset):
         """
@@ -139,7 +139,7 @@ class Arc(Circle):
         a = self.a0+t*self.da
         return self.c+Vector((self.r*cos(a),self.r*sin(a)))
     def steps(self, len):
-        steps = round(self.length / len, 0)
+        steps = max(1, round(self.length / len, 0))
         return 1.0 / steps, int(steps)
     def offset(self, offset):
         """
@@ -1298,6 +1298,14 @@ class StairProperty(PropertyGroup):
             subtype='ANGLE', unit='ROTATION',
             update=update
             )
+    total_angle = FloatProperty(
+            name="angle",
+            min=-50*pi,
+            max=50*pi,
+            default=2*pi,
+            subtype='ANGLE', unit='ROTATION',
+            update=update
+            )
     faces_type = EnumProperty(
             items=(
                 ('CLOSED', 'Closed','',0),
@@ -1392,6 +1400,27 @@ class StairProperty(PropertyGroup):
         if self.presets == 'STAIR_USER':
             for part in self.parts:
                 g.add_part(part.type, self.faces_type, self.z_mode, self.step_z, bottom_z, center, max(width_left+0.01, width_right+0.01, part.radius), part.da, width_left, width_right, part.length, part.right_shape, part.left_shape)
+        elif self.presets == 'STAIR_O':
+            n_parts = max(1, int(round(abs(self.total_angle)/pi,0)))
+            if self.total_angle > 0:
+                dir = 1
+            else:
+                dir = -1
+            last_da = self.total_angle - dir * (n_parts-1) * pi
+            if dir * last_da > pi:
+                n_parts += 1
+                last_da -= dir * pi
+            abs_last = dir * last_da
+            
+            for part in range(n_parts-1):
+                g.add_part('D_STAIR', self.faces_type, self.z_mode, self.step_z, bottom_z, center, max(width_left+0.01, width_right+0.01, self.radius), dir*pi,  width_left, width_right, 1.0, self.right_shape, self.left_shape)
+            print("dir%s, last_da:%s abs_last:%s n_parts:%s" % (dir, last_da, abs_last, n_parts) )
+            if abs_last > 0:
+                if abs_last > pi/2:
+                    g.add_part('C_STAIR', self.faces_type, self.z_mode, self.step_z, bottom_z, center, max(width_left+0.01, width_right+0.01, self.radius), dir*pi/2,  width_left, width_right, 1.0, self.right_shape, self.left_shape)
+                    g.add_part('C_STAIR', self.faces_type, self.z_mode, self.step_z, bottom_z, center, max(width_left+0.01, width_right+0.01, self.radius), last_da - dir*pi/2,  width_left, width_right, 1.0, self.right_shape, self.left_shape)
+                else:
+                    g.add_part('C_STAIR', self.faces_type, self.z_mode, self.step_z, bottom_z, center, max(width_left+0.01, width_right+0.01, self.radius), last_da,  width_left, width_right, 1.0, self.right_shape, self.left_shape)
         else:
             for part in self.parts:
                 g.add_part(part.type, self.faces_type, self.z_mode, self.step_z, bottom_z, center, max(width_left+0.01, width_right+0.01, self.radius), self.da,  width_left, width_right, part.length, self.right_shape, self.left_shape)
@@ -1428,7 +1457,8 @@ class ARCHIPACK_PT_stair(Panel):
         row.prop(prop, 'presets')
         box = layout.box()
         box.prop(prop, 'faces_type')
-        box.prop(prop, 'n_parts')
+        if prop.presets != 'STAIR_O': 
+            box.prop(prop, 'n_parts')
         box.prop(prop, 'step_depth')
         box.prop(prop, 'width')
         box.prop(prop, 'x_offset')
@@ -1441,13 +1471,17 @@ class ARCHIPACK_PT_stair(Panel):
             row = layout.row()
             row.prop(prop, "radius")
             row = layout.row()
-            row.prop(prop, "da")                
+            if prop.presets == 'STAIR_O': 
+                row.prop(prop, 'total_angle')
+            else:
+                row.prop(prop, 'da')                
             row = layout.row(align=True)
             row.prop(prop, "left_shape", text="")
             row.prop(prop, "right_shape", text="")
-        for i, part in enumerate(prop.parts):
-            box = layout.box()
-            part.draw(box, context, i, prop.presets == 'STAIR_USER')
+        if prop.presets != 'STAIR_O': 
+            for i, part in enumerate(prop.parts):
+                box = layout.box()
+                part.draw(box, context, i, prop.presets == 'STAIR_USER')
         
     @classmethod
     def params(cls, o):
