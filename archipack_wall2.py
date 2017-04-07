@@ -168,11 +168,12 @@ class Arc(Circle):
         else:
             return Line(p, p-self.c)
     def sized_normal(self, t, size):
+        p = self.lerp(t)
         if self.da < 0:
-            return v = self.c-p
+            v = self.c-p
         else:
-            return v = p-self.c
-        return Line(self.lerp(t), length*v.normalized())
+            v = p-self.c
+        return Line(p, length*v.normalized())
     def lerp(self, t):
         a = self.a0+t*self.da
         return self.c+Vector((self.r*cos(a),self.r*sin(a)))
