@@ -930,14 +930,14 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
                 t_abs.append(t0)
             # Heights
             for j, t in enumerate(params_t):
-                if ((j==0 and i==0) or t_abs[j] != 0) and j < part.n_splits:
+                if ((j==0 and wall_idx==0) or t_abs[j] != 0) and j < part.n_splits:
                     x, y = wall.lerp(t_abs[j])
                     z = part.z[j]
                     pos = tM * Vector((x, y, z))
                     manip = Manipulator(context, "Z", "TOP", size, size, part, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height", index=j, pos=pos)
                     self.manipulators.append(manip)
                     pos = tM * Vector((x, y, 0.5+z))
-                    manip = Manipulator(context, "X", "TOP", size, size, part, "t", min=0.0, max=1, step_round=4, sensitive=0.1, label="position", index=j, pos=pos, normal=normal, label_factor=g.walls[i].length)
+                    manip = Manipulator(context, "X", "TOP", size, size, part, "t", min=0.0, max=1, step_round=4, sensitive=0.1, label="position", index=j, pos=pos, normal=normal, label_factor=wall.length)
                     self.manipulators.append(manip)
             x, y = wall.lerp(0.5)
             z = wall.get_z(0.5)
@@ -977,9 +977,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
             
     def modal(self, context, event):
         context.area.tag_redraw()
-        if self.o != context.active_object:
-            return {'FINISHED'}
-        if event.type == 'RIGHTMOUSE' and event.value == 'PRESS':
+        if self.o != context.active_object or (event.type == 'RIGHTMOUSE' and event.value == 'PRESS'):
             for manip in self.manipulators:
                 manip.exit()
             return {'FINISHED'}

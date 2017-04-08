@@ -871,9 +871,7 @@ class ARCHIPACK_OT_door_manipulate(Operator):
         
     def modal(self, context, event):
         context.area.tag_redraw()
-        if self.o != context.active_object:
-            return {'FINISHED'}
-        if event.type == 'RIGHTMOUSE' and event.value == 'PRESS':
+        if self.o != context.active_object or (event.type == 'RIGHTMOUSE' and event.value == 'PRESS'):
             self.x_manipulator.exit()
             self.y_manipulator.exit()
             self.z_manipulator.exit()
