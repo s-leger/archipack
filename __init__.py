@@ -29,7 +29,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 1),
+    'version': (1, 1, 1),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -118,7 +118,7 @@ class TOOLS_PT_PolyLib(Panel):
         row.operator("tools.poly_lib_pick_2d_polygons", icon_value=icons_dict["union"].icon_id, text ='Wall').action='wall'
         row.prop(context.window_manager.poly_lib, "solidify_thickness")
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_polygons", text ='Panel').action = 'window'
+        row.operator("tools.poly_lib_pick_2d_polygons", text ='Window').action = 'window'
         row.operator("tools.poly_lib_pick_2d_polygons", text ='Door').action = 'door'
         row.operator("tools.poly_lib_pick_2d_polygons", text ='Rectangle').action = 'rectangle'
         row = box.row(align=True)
