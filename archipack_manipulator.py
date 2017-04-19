@@ -74,8 +74,9 @@ class Manipulator():
             setattr(self.obj, self.attr, value / self.value_factor)
             
     def exit(self):
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-    
+        if self._handle is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+        self._handle = None
     def _position_3d_from_coord(self, context, coord):
         """return point in local input coordsys
         """
@@ -131,7 +132,6 @@ class Manipulator():
         self.manipulator_coords = position_2d_from_coord(context, self.origin)  
         
     def complete(self, context):
-        print("Manipulator.complete()")
         x, y, z = self._position_3d_from_coord(context, self.startPoint) - self._position_3d_from_coord(context, self.endPoint)
         if self.axis == 'X':
             v = round(x*self.sensitive, self.step_round)
@@ -141,7 +141,7 @@ class Manipulator():
             v = round(z*self.sensitive, self.step_round)
         self.delta = min(self.max, max(self.min, self.value - v)) - self.value
         self.set_value(self.value + self.delta)
-            
+        
     def modal(self, context, event):
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             if self.hover:
@@ -160,6 +160,7 @@ class Manipulator():
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
             self.draw_location(context)
             if self.active:
+                print("manip active")
                 self.complete(context)
                 return True
         return False
@@ -225,4 +226,35 @@ class Manipulator():
                 pts = [(-x, y), (0, -y), (x, y)]
         self.triangle(cx, cy, pts, color)
         self.string(self.label+":"+str(round(self.label_factor*(self.value+self.delta),2)), x+cx, cy, 10, color)
-  
+   
+class ManipulatorStack():
+    def __init__(self, context, updateCallback=None):
+        self.stack = []
+        self.o = context.active_object
+        self.update = updateCallback
+    def add(self, context, axis, location, size_x, size_y, obj, attr, min=0, max=1, step_round=2, sensitive=1, value_factor=1, label="value", label_factor=1, index=None, pos=None, normal=None):
+        manip = Manipulator(context, axis, location, size_x, size_y, obj, attr, 
+            min=min, max=max, step_round=step_round, sensitive=sensitive, 
+            value_factor=value_factor, label=label, label_factor=label_factor, 
+            index=index, pos=pos, normal=normal)
+        self.stack.append(manip)
+    def exit(self):
+        for manip in self.stack:
+            manip.exit()
+        self.stack = []
+    def modal(self, context, event):
+        context.area.tag_redraw()
+        if self.o != context.active_object or (event.type == 'RIGHTMOUSE' and event.value == 'PRESS'):
+            self.exit()
+            return {'FINISHED'}
+        for manip in self.stack:
+            if manip.modal(context, event):
+                return {'RUNNING_MODAL'}
+        inactive = True
+        for manip in self.stack:
+            if manip.active or manip.hover:
+                inactive = False
+        if inactive and self.update is not None:
+            self.update(context)
+        return {'PASS_THROUGH'}
+    

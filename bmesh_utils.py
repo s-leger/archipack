@@ -48,7 +48,7 @@ class BmeshEdit():
             bm.verts[i].co = v
     
     @staticmethod
-    def buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=False):
+    def buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=False, clean=False):
         bm = BmeshEdit._start(context, o)
         bm.clear()
         for v in verts:
@@ -64,7 +64,12 @@ class BmeshEdit():
         if weld:
             bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001)
         BmeshEdit._end(bm, o)
-        
+        if clean:
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.delete_loose()
+            bpy.ops.object.mode_set(mode='OBJECT')   
+            
     @staticmethod
     def verts(context, o, verts):
         """

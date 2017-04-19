@@ -32,7 +32,7 @@ from .panel import Panel as WindowPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
 from .archipack_door_panel import ARCHIPACK_OT_select_parent
-from .archipack_manipulator import Manipulator
+from .archipack_manipulator import ManipulatorStack
 
 BATTUE  = 0.01
 
@@ -1798,32 +1798,18 @@ class ARCHIPACK_OT_window_manipulate(Operator):
         return ARCHIPACK_PT_window.filter(context.active_object)
         
     def modal(self, context, event):
-        context.area.tag_redraw()
-        if self.o != context.active_object or (event.type == 'RIGHTMOUSE' and event.value == 'PRESS'):
-            self.x_manipulator.exit()
-            self.y_manipulator.exit()
-            self.z_manipulator.exit()
-            self.a_manipulator.exit()
-            return {'FINISHED'}
-        if self.x_manipulator.modal(context, event):
-            return {'RUNNING_MODAL'}
-        elif self.y_manipulator.modal(context, event):
-            return {'RUNNING_MODAL'}
-        elif self.z_manipulator.modal(context, event):
-            return {'RUNNING_MODAL'}
-        elif self.a_manipulator.modal(context, event):
-            return {'RUNNING_MODAL'}
-        return {'PASS_THROUGH'} 
+        return self.manips.modal(context, event)
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.o = context.active_object
+            self.manips = ManipulatorStack(context)
+            o = context.active_object
             # context, axis, location, size, size_x, size_y, action
-            obj = context.active_object.data.WindowProperty[0]
-            self.x_manipulator = Manipulator(context, "X", "TOP", 15, 15, obj, "x", min=0.01, max=50, step_round=2, sensitive=2, label="width")
-            self.y_manipulator = Manipulator(context, "Y", "BOTTOM", 15, 15, obj, "y", min=0.01, max=50, step_round=2, sensitive=2, label="depth")
-            self.z_manipulator = Manipulator(context, "Z", "TOP", 15, 15, obj, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height")
-            self.a_manipulator = Manipulator(context, "Z", "BOTTOM", 15, 15, obj, "altitude", min=0.0, max=50, step_round=2, sensitive=1, label="altitude")
+            obj = o.data.WindowProperty[0]
+            self.manips.add(context, "X", "TOP", 15, 15, obj, "x", min=0.01, max=50, step_round=2, sensitive=2, label="width")
+            self.manips.add(context, "Y", "BOTTOM", 15, 15, obj, "y", min=0.01, max=50, step_round=2, sensitive=2, label="depth")
+            self.manips.add(context, "Z", "TOP", 15, 15, obj, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height")
+            self.manips.add(context, "Z", "BOTTOM", 15, 15, obj, "altitude", min=0.0, max=50, step_round=2, sensitive=1, label="altitude")
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:

@@ -75,7 +75,7 @@ class Panel():
         0     5
         
     """
-    def __init__(self, closed_shape, index, x, y, idmat, side_cap_front=-1, side_cap_back=-1,closed_path=True, subdiv_x=0, subdiv_y=0):
+    def __init__(self, closed_shape, index, x, y, idmat, side_cap_front=-1, side_cap_back=-1,closed_path=True, subdiv_x=0, subdiv_y=0, user_path_verts=0,user_path_uv_v=None):
         self.closed_shape = closed_shape
         self.closed_path = closed_path
         self.index = index
@@ -86,7 +86,9 @@ class Panel():
         self.side_cap_back  = side_cap_back
         self.subdiv_x = subdiv_x
         self.subdiv_y = subdiv_y
-        
+        self.user_path_verts = user_path_verts
+        self.user_path_uv_v = user_path_uv_v
+    
     @property
     def n_pts(self):
         return len(self.y)
@@ -110,15 +112,15 @@ class Panel():
         x.append(x[0])
         y = [y for y in self.y]
         y.append(y[0])
-        uv_y = []
+        uv_u = []
         uv = 0
-        uv_y.append(uv)
+        uv_u.append(uv)
         for i in range(len(self.index)):
             dx = x[i+1] - x[i]
             dy = y[i+1] - y[i]
             uv += sqrt(dx*dx+dy*dy)
-            uv_y.append(uv)
-        return uv_y
+            uv_u.append(uv)
+        return uv_u
     
     def path_sections(self, steps, path_type):
         """
@@ -137,6 +139,8 @@ class Panel():
             n_path_verts = 3
         elif path_type == 'PENTAGON':
             n_path_verts = 5
+        elif path_type == 'USER_DEFINED':
+            n_path_verts = self.user_path_verts
         if self.closed_path:
             n_path_faces = n_path_verts
         else:
@@ -577,7 +581,7 @@ class Panel():
     ############################
     # Vertices
     ############################
-    def vertices(self, steps, offset, center, origin, size, radius, angle_y, pivot, shape_z=None, path_type='ROUND'):
+    def vertices(self, steps, offset, center, origin, size, radius, angle_y, pivot, shape_z=None, path_type='ROUND', axis='XZ'):
         verts = []
         if shape_z is None:
             shape_z = [0 for x in self.x]
@@ -596,11 +600,20 @@ class Panel():
             coords = [self._get_circle_coords(steps, offset, center, origin, Vector((radius.x-x,0))) for i, x in enumerate(self.x)]
         else:
             coords = [self._get_rectangular_coords(offset, size, x, pivot, shape_z[i]) for i, x in enumerate(self.x)]
-        for i in range(len(coords[0])):
-            for j, p in enumerate(self.index):
-                x, z = coords[p][i]
-                y = self.y[j]
-                verts.append((x,y,z))
+        # vertical panel (as for windows)
+        if axis == 'XZ':
+            for i in range(len(coords[0])):
+                for j, p in enumerate(self.index):
+                    x, z = coords[p][i]
+                    y = self.y[j]
+                    verts.append((x,y,z))
+        # horizontal panel (table and so on)
+        elif axis == 'XY':
+            for i in range(len(coords[0])):
+                for j, p in enumerate(self.index):
+                    x, y = coords[p][i]
+                    z = self.y[j]
+                    verts.append((x,y,z))
         return verts
     ############################
     # Faces     
@@ -673,6 +686,8 @@ class Panel():
             uv_v.insert(0, y0 - origin.y)
             uv_v.append(y1 - origin.y)
             uv_v.append(size.x)
+        elif path_type == 'USER_DEFINED':
+            uv_v = self.user_path_uv_v
         elif path_type == 'CIRCLE':
             uv_r = 2*pi*radius.x / steps
             uv_v = [uv_r for i in range(steps+1)]

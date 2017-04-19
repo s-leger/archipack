@@ -29,7 +29,7 @@ from .bmesh_utils import BmeshEdit as bmed
 from .materialutils import MaterialUtils
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt
-from .archipack_manipulator import Manipulator, position_2d_from_coord
+from .archipack_manipulator import ManipulatorStack, position_2d_from_coord
 
 class Line():
     def __init__(self, p, v):
@@ -851,21 +851,22 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
     
     def store_childs(self, o, g):
         dmax = 2*o.data.Wall2Property[0].width
-        itM = o.matrix_world.inverted() * o.parent.matrix_world
-        rM = itM.to_3x3()
         self.relocate = []
-        for child in o.parent.children:
-            if child != o:
-                tM = child.matrix_world.to_3x3()
-                pt = (itM * child.location).to_2d()
-                dir_y = (rM * tM * Vector((0,1,0))).to_2d()
-                for wall_idx, wall in enumerate(g.walls):
-                    res, d, t = wall.point_sur_segment(pt)
-                    dir = -wall.normal(t).v.normalized()
-                    if res and abs(d) < dmax:
-                        #print("%s dir:%s dir_y:%s d:%s len:%s" % (child.name, dir, dir_y, d, (dir-dir_y).length))
-                        self.relocate.append((wall_idx, child.name, d, t, child.location.z, (dir-dir_y).length > 0.5))
-        self.sort_child(self.relocate)
+        if o.parent is not None:
+            itM = o.matrix_world.inverted() * o.parent.matrix_world
+            rM = itM.to_3x3()
+            for child in o.parent.children:
+                if child != o:
+                    tM = child.matrix_world.to_3x3()
+                    pt = (itM * child.location).to_2d()
+                    dir_y = (rM * tM * Vector((0,1,0))).to_2d()
+                    for wall_idx, wall in enumerate(g.walls):
+                        res, d, t = wall.point_sur_segment(pt)
+                        dir = -wall.normal(t).v.normalized()
+                        if res and abs(d) < dmax:
+                            #print("%s dir:%s dir_y:%s d:%s len:%s" % (child.name, dir, dir_y, d, (dir-dir_y).length))
+                            self.relocate.append((wall_idx, child.name, d, t, child.location.z, (dir-dir_y).length > 0.5))
+            self.sort_child(self.relocate)
         
     def relocate_childs(self, context, o, g):
         if not hasattr(self, "relocate"):
@@ -899,9 +900,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         props = self.o.data.Wall2Property[0]
         props.update_parts()
         center = Vector((0,0))
-        for manip in self.manipulators:
-            manip.exit()
-        self.manipulators = []
+        self.manips.exit()
         g = WallGenerator()
         manip_t = [g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, props.flip) for part in props.parts]
         
@@ -911,8 +910,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         
         x, y = g.walls[-1].lerp(1.1)
         pos = tM * Vector((x, y, 1.5))
-        manip = Manipulator(context, "X", "TOP", size, size, props, "n_parts", min=props.n_parts, max=31, step_round=0, sensitive=1, label="add parts", pos=pos)
-        self.manipulators.append(manip)
+        self.manips.add(context, "X", "TOP", size, size, props, "n_parts", min=props.n_parts, max=31, step_round=0, sensitive=1, label="add parts", pos=pos)
                    
         for wall_idx, params_t in enumerate(manip_t):
             
@@ -934,16 +932,14 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
                     x, y = wall.lerp(t_abs[j])
                     z = part.z[j]
                     pos = tM * Vector((x, y, z))
-                    manip = Manipulator(context, "Z", "TOP", size, size, part, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height", index=j, pos=pos)
-                    self.manipulators.append(manip)
+                    self.manips.add(context, "Z", "TOP", size, size, part, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height", index=j, pos=pos)
                     pos = tM * Vector((x, y, 0.5+z))
-                    manip = Manipulator(context, "X", "TOP", size, size, part, "t", min=0.0, max=1, step_round=4, sensitive=0.1, label="position", index=j, pos=pos, normal=normal, label_factor=wall.length)
-                    self.manipulators.append(manip)
+                    self.manips.add(context, "X", "TOP", size, size, part, "t", min=0.0, max=1, step_round=4, sensitive=0.1, label="position", index=j, pos=pos, normal=normal, label_factor=wall.length)
+                    
             x, y = wall.lerp(0.5)
             z = wall.get_z(0.5)
             pos = tM * Vector((x, y,1.0+z))
-            manip = Manipulator(context, "X", "TOP", size, size, part, "splits", min=1, max=31, step_round=0, sensitive=1, label="split", pos=pos, normal=normal)
-            self.manipulators.append(manip)
+            self.manips.add(context, "X", "TOP", size, size, part, "splits", min=1, max=31, step_round=0, sensitive=1, label="split", pos=pos, normal=normal)
             
             # Length and radius
             x, y = wall.lerp(1)
@@ -961,40 +957,23 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
             n1 = wall.sized_normal(0, 1.1).gl_pts(context, tM)
             """
             if part.type == 'S_WALL':
-                manip = Manipulator(context, "X", "TOP", size, size, part, "length", min=0.0, max=100, step_round=2, sensitive=1, label="length", pos=pos, normal=normal)
+                self.manips.add(context, "X", "TOP", size, size, part, "length", min=0.0, max=100, step_round=2, sensitive=1, label="length", pos=pos, normal=normal)
             else:
-                manip = Manipulator(context, "X", "TOP", size, size, part, "radius", min=0.0, max=100, step_round=2, sensitive=0.5, label="radius", pos=pos)
-                self.manipulators.append(manip)
+                self.manips.add(context, "X", "TOP", size, size, part, "radius", min=0.0, max=100, step_round=2, sensitive=0.5, label="radius", pos=pos)
                 x, y = wall.lerp(0.5)
                 pos = tM * Vector((x, y, 0.0))
-                manip = Manipulator(context, "X", "TOP", size, size, part, "da", min=-180, max=180, step_round=1, sensitive=10, label="angle", pos=pos, value_factor=180/pi)
+                self.manips.add(context, "X", "TOP", size, size, part, "da", min=-180, max=180, step_round=1, sensitive=10, label="angle", pos=pos, value_factor=180/pi)
             # start angle
-            self.manipulators.append(manip)
             x, y = wall.lerp(0)
             pos = tM * Vector((x, y, 0.0))
-            manip = Manipulator(context, "X", "TOP", size, size, part, "a0", min=-180, max=180, step_round=1, sensitive=10, label="start angle", pos=pos, value_factor=180/pi)
-            self.manipulators.append(manip)
+            self.manips.add(context, "X", "TOP", size, size, part, "a0", min=-180, max=180, step_round=1, sensitive=10, label="start angle", pos=pos, value_factor=180/pi)
             
     def modal(self, context, event):
-        context.area.tag_redraw()
-        if self.o != context.active_object or (event.type == 'RIGHTMOUSE' and event.value == 'PRESS'):
-            for manip in self.manipulators:
-                manip.exit()
-            return {'FINISHED'}
-        for manip in self.manipulators:
-            if manip.modal(context, event):
-                return {'RUNNING_MODAL'}
-        active = False
-        for manip in self.manipulators:
-            if manip.active or manip.hover:
-                active = True
-        if active == False:
-            self.update(context)
-        return {'PASS_THROUGH'} 
+        return self.manips.modal(context, event)
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.manipulators = []
+            self.manips = ManipulatorStack(context, self.update)
             self.relocate = []
             self.o = context.active_object
             self.update(context)
