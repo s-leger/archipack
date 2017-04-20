@@ -74,7 +74,6 @@ class Project():
         size = -cos(pi-0.5*acos(c))
         return direction.normalized(), size
     
-
 class Line(Project):
     def __init__(self, p, v):
         self.p = p
@@ -287,7 +286,7 @@ class Stair():
         zs = self.z0 + i * self.step_height
         if self.z_mode == 'LINEAR':
             z0 = max(0, zl)
-            z1 = z0 - self.nose_z
+            z1 = z0 - self.bottom_z
             verts.extend([(x, y, z0),(x, y, z1)])
         else:
             if "FULL" in self.steps_type:
@@ -319,7 +318,7 @@ class Stair():
         zs = self.z0 + i * self.step_height
         if self.z_mode == 'LINEAR':
             z0 = max(0, zl)
-            z1 = z0 - self.nose_z
+            z1 = z0 - self.bottom_z
             verts.extend([(x, y, z1),(x, y, z0)])
         else:
             if "FULL" in self.steps_type:
@@ -417,46 +416,44 @@ class Stair():
         # a matrix to project verts 
         # into uv space for horizontal parts of this step
         # so uv = (rM * vertex).to_2d()
-        no = part.normal(t).offset(nose_y)
-        v = no.v.normalized()
+        tl = t-nose_y/self.get_length("LEFT")
+        tr = t-nose_y/self.get_length("RIGHT")
+        t2, part, dz, shape = self.get_part(tl, "LEFT")
+        p0 = part.lerp(t2)
+        t2, part, dz, shape = self.get_part(tr, "RIGHT")        
+        p1 = part.lerp(t2)
+        v = (p1-p0).normalized()
         return Matrix([
-            [-v.y,v.x, 0, no.p.x],
-            [v.x, v.y, 0, no.p.y],
+            [-v.y,v.x, 0, p0.x],
+            [v.x, v.y, 0, p0.y],
             [0,    0,  1, 0],
             [0,    0,  0, 1]
         ]).inverted()
+        
     def _make_nose(self, i, s, verts, faces, matids, uvs, nose_y):
         
         t = self.t_step * i
         
-        if 'Curved' in type(self).__name__: 
-            nr = self.r_arc
-            nl = self.l_arc
-        else:
-            nr = self.r_line
-            nl = self.l_line
-        
         # a matrix to project verts 
         # into uv space for horizontal parts of this step
         # so uv = (rM * vertex).to_2d()
-        rM = self.get_proj_matrix(nl, t, nose_y)
+        rM = self.get_proj_matrix(self, t, nose_y)
         
         if self.z_mode == 'LINEAR':
             return rM
         
-        
         f = len(verts)
-            
-        nr = nr.normal(t).offset(nose_y)
-        nl = nl.normal(t).reversed.offset(-nose_y)
         
-        t2, part, dz, shape = self.get_part(t, "LEFT")
-        res, p, u = part.intersect(nl)
-        self.p3d_left(verts, p, s, u)
+        tl = t-nose_y/self.get_length("LEFT")
+        tr = t-nose_y/self.get_length("RIGHT")
         
-        t2, part, dz, shape = self.get_part(t, "RIGHT")        
-        res, p, u = part.intersect(nr)
-        self.p3d_right(verts, p, s, u)
+        t2, part, dz, shape = self.get_part(tl, "LEFT")
+        p0 = part.lerp(t2)
+        self.p3d_left(verts, p0, s, t2)
+        
+        t2, part, dz, shape = self.get_part(tr, "RIGHT")        
+        p1 = part.lerp(t2)
+        self.p3d_right(verts, p1, s, t2)
         
         start = 3
         end   = 6
@@ -470,7 +467,7 @@ class Stair():
         faces += [(f+j, f+j+1, f+j+offset+1, f+j+offset) for j in range(start, end)]
         
         u = nose_y
-        v = (nr.p-nl.p).length
+        v = (p1-p0).length
         w = verts[f+2][2]-verts[f+3][2]
         s = int((end-start)/2)
         uvs += [[(u, verts[f+j][2]), (u, verts[f+j+1][2]), (0,verts[f+j+1][2]), (0,verts[f+j][2])] for j in range(start, start+s)]
@@ -562,8 +559,6 @@ class Stair():
         faces += [(f+j, f+j+1, f+j+offset+1, f+j+offset) for j in range(start, end)]
         faces.append((f+end,f+start,f+offset+start,f+offset+end))
     
-        
-    
 class StraightStair(Stair, Line):
     def __init__(self, p, v, left_offset, right_offset, steps_type, nose_type, z_mode, nose_z, bottom_z):
         Stair.__init__(self, left_offset, right_offset, steps_type, nose_type, z_mode, nose_z, bottom_z)
@@ -598,14 +593,14 @@ class StraightStair(Stair, Line):
             uvs.append([(0, 0), (0, 1), (1, 1), (1,0)])
     def get_length(self, side):
         return self.length
-    def get_lerp_vect(self, posts, side, i, t_step, respect_edges):
+    def get_lerp_vect(self, posts, side, i, t_step, respect_edges, z_offset=0):
         t0 = i * t_step
         t, part, dz, shape = self.get_part(t0, side)
         n = part.normal(t)
         z0 = self.get_z(t0, 'STEP')
         z1 = self.get_z(t0, 'LINEAR')
-        posts.append((n, dz, z0, z1))
-        return t0
+        posts.append((n, dz, z0, z1+t0*z_offset))
+        return [t0]
         
     def n_posts(self, post_spacing, side, respect_edges):
         return self.steps(post_spacing)
@@ -770,7 +765,7 @@ class CurvedStair(Stair, Arc):
                 if t <= 0.25:
                     return 4 * t, t0, 0.25*self.height, shape
                 elif t <= 0.75:
-                    return 2 * ( t - 0.25 ), tc, 0.5*self.height, shape
+                    return 2 * (t - 0.25), tc, 0.5*self.height, shape
                 else:
                     return 4 * (t - 0.75), t1, 0.25*self.height, shape
             else:    
@@ -779,10 +774,10 @@ class CurvedStair(Stair, Arc):
                 else:
                     return 2 * (t - 0.5), t1, 0.5*self.height, shape 
                     
-    def get_lerp_vect(self, posts, side, i, t_step, respect_edges):
+    def get_lerp_vect(self, posts, side, i, t_step, respect_edges, z_offset=0):
         
         t0 = i * t_step
-        t2 = t0
+        res = [t0]
         t1 = t0 + t_step
         zs = self.get_z(t0, 'STEP')
         zl = self.get_z(t0, 'LINEAR')
@@ -790,7 +785,7 @@ class CurvedStair(Stair, Arc):
         # vect normal
         t, part, dz, shape = self.get_part(t0, side)
         n = part.normal(t)
-        posts.append((n, dz, zs, zl))
+        posts.append((n, dz, zs, zl + t0*z_offset))
         
         if shape != 'CIRCLE' and respect_edges:
             if self.edges_multiples:
@@ -799,23 +794,24 @@ class CurvedStair(Stair, Arc):
                     zl = self.get_z(0.25, 'LINEAR')
                     t, part, dz, shape = self.get_part(0.25, side)
                     n = part.normal(1)
-                    posts.append((n, dz, zs, zl))
-                    t2 = 0.25
+                    posts.append((n, dz, zs, zl + 0.25*z_offset))
+                    res.append(0.25)
                 if t0 < 0.75 and t1 > 0.75:
                     zs = self.get_z(0.75, 'STEP')
                     zl = self.get_z(0.75, 'LINEAR')
                     t, part, dz, shape = self.get_part(0.75, side)
                     n = part.normal(1)
-                    posts.append((n, dz, zs, zl))
-                    t2 = 0.75
+                    posts.append((n, dz, zs, zl + 0.75*z_offset))
+                    res.append(0.75)
             elif t0 < 0.5 and t1 > 0.5:
                     zs = self.get_z(0.5, 'STEP')
                     zl = self.get_z(0.5, 'LINEAR')
                     t, part, dz, shape = self.get_part(0.5, side)
                     n = part.normal(1)
-                    posts.append((n, dz, zs, zl))
-                    t2 = 0.5
-        return t2
+                    posts.append((n, dz, zs, zl + 0.5*z_offset))
+                    res.append(0.5)
+        return res
+        
     def n_posts(self, post_spacing, side, respect_edges):
         if side == 'LEFT':
             arc, t0, shape = self.l_arc, self.l_t0, self.l_shape
@@ -1180,8 +1176,9 @@ class StairGenerator():
                     self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs)
         else:
             """
-            # panels between posts
-            # this is near production ready, still need to be exposed
+                Panels between posts
+                TODO: take account of first step after Landings
+                (z variation in the middle of panel)
             """ 
             if enable_l: 
                 for i, p0 in enumerate(l_posts):
@@ -1215,7 +1212,7 @@ class StairGenerator():
         n_steps = self.n_steps(step_depth)
         self.set_height(height / n_steps)
         for j, stair in enumerate(self.stairs):
-            stair.z0 += z_offset+part_z
+            stair.z0 += z_offset + part_z
             stair.n_step *= 2
             stair.t_step /= 2
             stair.step_height /= 2
@@ -1229,7 +1226,7 @@ class StairGenerator():
             stair.r_shape = params[j][2]
             stair.bottom_z = params[j][3]
             stair.steps_type = params[j][4]
-            stair.z0 -= z_offset+part_z
+            stair.z0 -= z_offset + part_z
 
     def make_profile(self, profile, idmat, side, slice, height, step_depth, x_offset, z_offset, extend, verts, faces, matids, uvs):
         for stair in self.stairs:
@@ -1280,26 +1277,37 @@ class StairGenerator():
             t_step = 1/n_step
                
             last_t = 1.0
-            
+            do_last= True
+            lerp_z = 0
             # last section 1 step before stair
             if 'Landing' in type(stair).__name__ and stair.next_type == 'STAIR':
                 if not slice:
                     line = stair.normal(1).offset(self.stairs[s+1].step_depth)
                     res, p, t_part = part.intersect(line)
-                    res, d, last_t = part.point_sur_segment(p)
+                    # does perpendicular line intersects circle ?
+                    if res:
+                        last_t = 1-self.stairs[s+1].step_depth/stair.get_length(side)
+                        if last_t < 0:
+                            do_last = False
+                    else:
+                        # in this case, lerp z over one step
+                        do_last = False
+                        lerp_z = stair.step_height
                         
             if s == n_stairs:
                 n_step += 1
-            cur_t = 0 
-            for i in range(n_step):
-                cur_t = stair.get_lerp_vect(sections[-1], side, i, t_step, True)
-                if cur_t > last_t:
-                    del sections[-1][-1]
-                    break
-        
+            
+            for i in range(n_step):                
+                res_t = stair.get_lerp_vect(sections[-1], side, i, t_step, True, z_offset=lerp_z)
+                # remove corner section
+                for cur_t in res_t:
+                    if cur_t > 0 and cur_t > last_t:
+                        sections[-1] = sections[-1][:-1]
+                    
             # last section 1 step before next stair start
             if 'Landing' in type(stair).__name__ and stair.next_type == 'STAIR':
-                stair.get_lerp_vect(sections[-1], side, 1, last_t, True)
+                if do_last:
+                    stair.get_lerp_vect(sections[-1], side, 1, last_t, False)
                 if slice:
                     sections.append([])
                     if extend > 0:
@@ -1725,12 +1733,12 @@ class StairProperty(PropertyGroup):
         )
     left_panel = BoolProperty(
             name='left',
-            default=True,
+            default=False,
             update=update
             )
     right_panel = BoolProperty(
             name='right',
-            default=True,
+            default=False,
             update=update
             )
     panel_alt= FloatProperty(
@@ -1835,12 +1843,12 @@ class StairProperty(PropertyGroup):
     left_handrail=BoolProperty(
             name="left",
             update=update,
-            default=False
+            default=True
             )
     right_handrail=BoolProperty(
             name="right",
             update=update,
-            default=False
+            default=True
             )
     handrail_offset = FloatProperty(
             name="offset",
@@ -1873,6 +1881,37 @@ class StairProperty(PropertyGroup):
             default=True,
             update=update
             )
+    handrail_profil = EnumProperty(
+            name="Profil",
+            items=(
+                ('SQUARE', 'Square','',0),
+                ('CIRCLE', 'Circle','',1),
+                ('COMPLEX', 'Circle over square','',2)
+                ),
+            default='SQUARE',
+            update=update
+            )
+    handrail_x= FloatProperty(
+            name="width",
+            min=-0.001, max=100,
+            default=0.04, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
+    handrail_y= FloatProperty(
+            name="height",
+            min=0.001, max=100,
+            default=0.04, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
+    handrail_radius = FloatProperty(
+            name="radius",
+            min=0.001, max=100,
+            default=0.02, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
     
     left_string=BoolProperty(
             name="left",
@@ -2094,15 +2133,23 @@ class StairProperty(PropertyGroup):
                 g.make_part(self.height, self.step_depth, self.ladder_x[i], self.ladder_z[i], 
                         -offset_x - self.ladder_offset[i], self.ladder_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
         
-        handrail = [3*Vector(x) for x in reversed([(-0.0038, 0.0375), (-0.0019, 0.0381), (0.0, 0.0383), 
-            (0.002, 0.0381), (0.0038, 0.0375), (0.0056, 0.0366), (0.0071, 0.0354), (0.0083, 0.0339), 
-            (0.0092, 0.0321), (0.0098, 0.0302), (0.01, 0.0283), (0.0098, 0.0263), (0.0092, 0.0245), 
-            (0.0083, 0.0227), (0.0071, 0.0212), (0.0056, 0.02), (0.0051, 0.0185), (0.0066, 0.0171), 
-            (0.01, 0.0171), (0.01, 0.0), (-0.01, 0.0), (-0.01, 0.0171), (-0.0066, 0.0171), (-0.0051, 0.0185), 
-            (-0.0056, 0.02), (-0.0071, 0.0212), (-0.0083, 0.0227), (-0.0092, 0.0245), (-0.0098, 0.0263), 
-            (-0.01, 0.0283), (-0.0098, 0.0302), (-0.0092, 0.0321), (-0.0083, 0.0339), (-0.0071, 0.0354), (-0.0056, 0.0366)])]
-        
-        
+        if self.handrail_profil == 'COMPLEX':
+            sx = self.handrail_x
+            sy = self.handrail_y
+            handrail = [Vector((sx*x, sy*y)) for x, y in [
+                (-0.28, 1.83), (-0.355, 1.77), (-0.415, 1.695), (-0.46, 1.605), (-0.49, 1.51), (-0.5, 1.415), (-0.49, 1.315), 
+				(-0.46, 1.225), (-0.415, 1.135), (-0.355, 1.06), (-0.28, 1.0), (-0.255, 0.925), (-0.33, 0.855), (-0.5, 0.855), 
+				(-0.5, 0.0), (0.5, 0.0), (0.5, 0.855), (0.33, 0.855), (0.255, 0.925), (0.28, 1.0), (0.355, 1.06), (0.415, 1.135), 
+				(0.46, 1.225), (0.49, 1.315), (0.5, 1.415), (0.49, 1.51), (0.46, 1.605), (0.415, 1.695), (0.355, 1.77), (0.28, 1.83), 
+				(0.19, 1.875), (0.1, 1.905), (0.0, 1.915), (-0.095, 1.905), (-0.19, 1.875)]]
+        elif self.handrail_profil == 'SQUARE':
+            x = 0.5*self.handrail_x
+            y = self.handrail_y
+            handrail = [Vector((-x,0)),Vector((-x,y)),Vector((x,y)),Vector((x,0))]
+        elif self.handrail_profil == 'CIRCLE':
+            r = self.handrail_radius
+            handrail = [Vector((r*sin(0.1*a*pi), r*(0.5+cos(0.1*a*pi)))) for a in range(0, 20)]
+            
         if self.right_handrail:
             g.make_profile(handrail, int(self.idmat_handrail), "RIGHT", self.handrail_slice_right, self.height, self.step_depth, 
                 self.x_offset + offset_x + self.handrail_offset, self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
@@ -2221,6 +2268,12 @@ class ARCHIPACK_PT_stair(Panel):
                 box.prop(prop, 'handrail_alt')
                 box.prop(prop, 'handrail_offset')
                 box.prop(prop, 'handrail_extend')
+                box.prop(prop, 'handrail_profil')
+                if prop.handrail_profil != 'CIRCLE':
+                    box.prop(prop, 'handrail_x')
+                    box.prop(prop, 'handrail_y')
+                else:
+                    box.prop(prop, 'handrail_radius')
                 row = box.row(align=True)
                 row.prop(prop, 'handrail_slice_left')
                 row.prop(prop, 'handrail_slice_right')
@@ -2403,8 +2456,6 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'} 
              
-             
-            
 bpy.utils.register_class(StairMaterialProperty)
 bpy.utils.register_class(StairPartProperty)
 bpy.utils.register_class(StairProperty)

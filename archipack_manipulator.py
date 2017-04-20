@@ -26,6 +26,7 @@ class Manipulator():
         self.hover_color  = (1.0, 1.0, 0.0, 1.0)
         self.basis_color  = (1.0, 1.0, 1.0, 1.0)
         self.manipulator_size = (0.5 * size_x, 0.5 * size_y)
+        self.manipulator_coords = (0,0) 
         self.startPoint = (0,0)
         self.endPoint = (0,0)
         self.active = False

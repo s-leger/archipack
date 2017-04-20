@@ -444,7 +444,7 @@ class WindowProperty(PropertyGroup):
             description='altitude', update=update,
             )
     offset = FloatProperty(
-            name='offset',
+        name='offset',
             min=-100, max=100,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
@@ -1087,11 +1087,12 @@ class WindowProperty(PropertyGroup):
         for row in self.rows:
             row_n += 1
             if row_n < self.n_rows and not is_circle and self.window_type != 'RAIL':
-                z = row.height
+                z = row.height 
                 shape = 'RECTANGLE'
             else:
                 z = max(2*self.frame_x+0.001, self.z - offset.y)
                 shape = self.shape
+            
             self.warning = bool(z > self.z - offset.y)
             if self.warning:
                 break
@@ -1210,7 +1211,7 @@ class WindowProperty(PropertyGroup):
             return center, origin, size, radius
         """
         y = self.z - sum([row.height for row in self.rows[:self.n_rows-1]])
-        radius_b = 0.001 - self.frame_x + min(y, self.elipsis_b)
+        radius_b = max(0, 0.001 - 2*self.frame_x + min(y, self.elipsis_b))
         return Vector((0, self.z - radius_b, 0)), Vector((0, 0, 0)), Vector((self.x, self.z, 0)), Vector((self.x/2, radius_b, 0))
     
     def get_radius(self):
