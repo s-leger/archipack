@@ -1073,7 +1073,7 @@ class StairGenerator():
             faces.append((f,f+1,f+2,f+3,f+4,f+5,f+6,f+7,f+8,f+9))
             matids.append(self.stairs[-1].idmat_bottom)
             uvs.append([(0,0),(.1,0),(.2,0),(.3,0),(.4,0),(.4,1),(.3,1),(.2,1),(.1,1),(0,1)])
-    def get_post(self, post, post_x, post_y, post_z, post_alt, id_mat, verts, faces, matids, uvs, bottom="STEP"):
+    def get_post(self, post, post_x, post_y, post_z, post_alt, sub_offset_x, id_mat, verts, faces, matids, uvs, bottom="STEP"):
         n, dz, z0, z1 = post
         
         if bottom == "STEP":
@@ -1087,10 +1087,11 @@ class StairGenerator():
         vn = n.v.normalized()
         dx = post_x * Vector((vn.y, -vn.x))
         dy = post_y * vn
-        x0, y0 = n.p + dx + dy
-        x1, y1 = n.p + dx - dy 
-        x2, y2 = n.p - dx - dy
-        x3, y3 = n.p - dx + dy 
+        oy =  sub_offset_x * vn
+        x0, y0 = n.p + dx + dy + oy
+        x1, y1 = n.p + dx - dy + oy
+        x2, y2 = n.p - dx - dy + oy
+        x3, y3 = n.p - dx + dy + oy 
         f = len(verts)
         verts.extend([(x0, y0, z0),(x0, y0, z1),
                     (x1, y1, z0),(x1, y1, z1),
@@ -1108,13 +1109,13 @@ class StairGenerator():
         z = [(0,0), (post_x,0),(post_x,post_y), (0,post_y)]
         uvs.extend([x, y, x, y, z, z]) 
        
-    def get_panel(self, subs, altitude, panel_x, panel_z, idmat, verts, faces, matids, uvs):
+    def get_panel(self, subs, altitude, panel_x, panel_z, sub_offset_x, idmat, verts, faces, matids, uvs):
         n_subs = len(subs)
         if n_subs < 1:
             return
         f = len(verts)
-        x0 = -0.5*panel_x
-        x1 = 0.5*panel_x
+        x0 = sub_offset_x-0.5*panel_x
+        x1 = sub_offset_x+0.5*panel_x
         z0 = 0
         z1 = panel_z
         profile = [Vector((x0,z0)),Vector((x1,z0)),Vector((x1,z1)),Vector((x0,z1))]
@@ -1172,27 +1173,28 @@ class StairGenerator():
         
         if side == "LEFT":
             offset = move_x - x_offset
-            offset_sub = offset - sub_offset_x
+            #offset_sub = offset - sub_offset_x
         else:
             offset = move_x + x_offset
-            offset_sub = offset + sub_offset_x
+            #offset_sub = offset + sub_offset_x
             
         for s, stair in enumerate(self.stairs):
             if 'Curved' in type(stair).__name__:
                 if side == "LEFT":
+                    part = stair.l_arc
                     shape = stair.l_shape
                 else:
+                    part = stair.r_arc
                     shape = stair.r_shape
                 # Note: use left part as reference for post distances
                 # use right part as reference for panels
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(offset, shape)
-                stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset_sub, shape)
-                stair.l_shape = shape
-                stair.r_shape = shape
-                part = stair.l_arc
+                stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset, shape)
+                
+                
             else:
                 stair.l_line = stair.offset(offset)
-                stair.r_line = stair.offset(offset_sub)
+                stair.r_line = stair.offset(offset)
                 part = stair.l_line
                 
             lerp_z = 0
@@ -1205,23 +1207,23 @@ class StairGenerator():
                     res, p, t_part = part.intersect(line)
                     # does perpendicular line intersects circle ?
                     if res:
-                        edge_size = self.stairs[s+1].step_depth/stair.get_length("LEFT")
+                        edge_size = self.stairs[s+1].step_depth/stair.get_length(side)
                         edge_t = 1-edge_size
                     else:
                         # in this case, lerp z over one step
                         lerp_z = stair.step_height
                         
-            t_step, n_step = stair.n_posts(post_spacing, "LEFT", respect_edges)
+            t_step, n_step = stair.n_posts(post_spacing, side, respect_edges)
             
             # space between posts
-            sp = stair.get_length("LEFT")
+            sp = stair.get_length(side)
             # post size
             t_post = post_x/sp
             
             if s == n_stairs:
                 n_step += 1
             for i in range(n_step):
-                res_t = stair.get_lerp_vect([], "LEFT", i, t_step, respect_edges)
+                res_t = stair.get_lerp_vect([], side, i, t_step, respect_edges)
                 # subs
                 if s < n_stairs or i < n_step-1:
                     res_t.append((i+1)*t_step)
@@ -1234,7 +1236,7 @@ class StairGenerator():
                         t_subs = dt/n_subs
                         for k in range(1,n_subs):
                             t = t0+k*t_subs
-                            stair.get_lerp_vect(subs, "RIGHT", 1, t0+k*t_subs, False)
+                            stair.get_lerp_vect(subs, side, 1, t0+k*t_subs, False)
                             if t > edge_t:
                                 n, dz, z0, z1 = subs[-1]
                                 subs[-1] = n, dz, z0, z1+(t-edge_t)/edge_size*stair.step_height
@@ -1243,7 +1245,7 @@ class StairGenerator():
                                 subs[-1] = n, dz, z0, z1+t*stair.step_height
                                 
         for i, post in enumerate(subs):
-            self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs, bottom=bottom)
+            self.get_post(post, x, y, z, altitude, sub_offset_x, mat, verts, faces, matids, uvs, bottom=bottom)
         self.reset_shapes()
         
     def make_post(self, height, step_depth, x, y, z, altitude, side, post_spacing, respect_edges, move_x, x_offset, mat, 
@@ -1275,7 +1277,7 @@ class StairGenerator():
                     l_posts[-1] = (n, dz, z0-stair.step_height, z1)
                     
         for i, post in enumerate(l_posts):
-            self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs)
+            self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
     
     def make_panels(self, height, step_depth, x, z, post_x, altitude, side, post_spacing, panel_dist, respect_edges, move_x, x_offset, sub_offset_x, mat, 
         verts, faces, matids, uvs):
@@ -1286,10 +1288,10 @@ class StairGenerator():
         
         if side == "LEFT":
             offset = move_x - x_offset
-            offset_sub = offset - sub_offset_x
+            #offset_sub = offset - sub_offset_x
         else:
             offset = move_x + x_offset
-            offset_sub = offset + sub_offset_x
+            #offset_sub = offset + sub_offset_x
             
         for s, stair in enumerate(self.stairs):
             
@@ -1304,17 +1306,17 @@ class StairGenerator():
                     is_circle = stair.r_shape == "CIRCLE"
                     shape = stair.r_shape
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(offset, shape)
-                stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset_sub, shape)
+                stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset, shape)
                 stair.r_shape = shape
                 stair.l_shape = shape
             else:
                 stair.l_line = stair.offset(offset)
-                stair.r_line = stair.offset(offset_sub)
+                stair.r_line = stair.offset(offset)
             
             # space between posts
-            sp = stair.get_length("LEFT")
+            sp = stair.get_length(side)
             
-            t_step, n_step = stair.n_posts(post_spacing, "LEFT", respect_edges)
+            t_step, n_step = stair.n_posts(post_spacing, side, respect_edges)
             
             if is_circle and 'Curved' in type(stair).__name__:
                 panel_da = abs(stair.da)/pi*180/n_step
@@ -1328,7 +1330,7 @@ class StairGenerator():
             if s == n_stairs:
                 n_step += 1
             for i in range(n_step):
-                res_t = stair.get_lerp_vect([], "LEFT", i, t_step, respect_edges)
+                res_t = stair.get_lerp_vect([], side, i, t_step, respect_edges)
                 # subs
                 if s < n_stairs or i < n_step-1:
                     res_t.append((i+1)*t_step)
@@ -1340,12 +1342,12 @@ class StairGenerator():
                     if dt > 0:
                         panel = []
                         for k in range(panel_step):
-                            stair.get_lerp_vect(panel, "RIGHT", 1, t_curve, True, t0_abs=t0+k*t_curve)  
-                        stair.get_lerp_vect(panel, "RIGHT", 1, t1, False)
+                            stair.get_lerp_vect(panel, side, 1, t_curve, True, t0_abs=t0+k*t_curve)  
+                        stair.get_lerp_vect(panel, side, 1, t1, False)
                         subs.append(panel)
         for sub in subs:
-            self.get_panel( sub, altitude, x, z, mat, verts, faces, matids, uvs)
-        self.reset_shapes()
+            self.get_panel( sub, altitude, x, z, sub_offset_x, mat, verts, faces, matids, uvs)
+        #self.reset_shapes()
         
     def make_part(self, height, step_depth, part_x, part_z, x_move, x_offset, z_offset, z_mode, steps_type, verts, faces, matids, uvs):
         # NOTE: may allow FULL_HEIGHT
@@ -2379,7 +2381,7 @@ class StairProperty(PropertyGroup):
         
         if self.left_subs:
             g.make_subs(self.height, self.step_depth, 0.5*self.subs_x, 0.5*self.subs_y, self.subs_z, 0.5*self.post_x, self.subs_alt, self.subs_bottom, 'LEFT', self.handrail_slice_left, post_spacing, self.subs_spacing, self.post_corners, 
-                  self.x_offset, offset_x, self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
+                  self.x_offset, offset_x, -self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
         
         if self.right_subs:
             g.make_subs(self.height, self.step_depth, 0.5*self.subs_x, 0.5*self.subs_y, self.subs_z, 0.5*self.post_x, self.subs_alt, self.subs_bottom, 'RIGHT', self.handrail_slice_right, post_spacing, self.subs_spacing, self.post_corners, 
@@ -2387,7 +2389,7 @@ class StairProperty(PropertyGroup):
         
         if self.left_panel:
             g.make_panels(self.height, self.step_depth, 0.5*self.panel_x, self.panel_z, 0.5*self.post_x, self.panel_alt, 'LEFT', post_spacing, self.panel_dist, self.post_corners, 
-                    self.x_offset, offset_x, self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
+                    self.x_offset, offset_x, -self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
         if self.right_panel:
             g.make_panels(self.height, self.step_depth, 0.5*self.panel_x, self.panel_z, 0.5*self.post_x, self.panel_alt, 'RIGHT', post_spacing, self.panel_dist, self.post_corners, 
