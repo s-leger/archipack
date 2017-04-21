@@ -1074,16 +1074,17 @@ class StairGenerator():
             matids.append(self.stairs[-1].idmat_bottom)
             uvs.append([(0,0),(.1,0),(.2,0),(.3,0),(.4,0),(.4,1),(.3,1),(.2,1),(.1,1),(0,1)])
     def get_post(self, post, post_x, post_y, post_z, post_alt, sub_offset_x, id_mat, verts, faces, matids, uvs, bottom="STEP"):
-        n, dz, z0, z1 = post
+        n, dz, zs, zl = post
         
         slope = dz*post_x
+        z3 = zl + post_z + post_alt - slope
+        z4 = zl + post_z + post_alt + slope
         if bottom == "STEP":
-            z0 += post_alt
+            z0 = zs + post_alt
+            z1 = zs + post_alt
         else:
-            z0 = z1 + post_alt
-        z1 += post_z+post_alt
-        z2 = z1+slope
-        z1-=slope
+            z0 = zl + post_alt - slope
+            z1 = zl + post_alt + slope
         vn = n.v.normalized()
         dx = post_x * Vector((vn.y, -vn.x))
         dy = post_y * vn
@@ -1093,10 +1094,10 @@ class StairGenerator():
         x2, y2 = n.p - dx - dy + oy
         x3, y3 = n.p - dx + dy + oy 
         f = len(verts)
-        verts.extend([(x0, y0, z0),(x0, y0, z1),
-                    (x1, y1, z0),(x1, y1, z1),
-                    (x2, y2, z0),(x2, y2, z2),
-                    (x3, y3, z0),(x3, y3, z2)])
+        verts.extend([(x0, y0, z0),(x0, y0, z3),
+                    (x1, y1, z0),(x1, y1, z3),
+                    (x2, y2, z1),(x2, y2, z4),
+                    (x3, y3, z1),(x3, y3, z4)])
         faces.extend([(f, f+1, f+3, f+2),
                     (f+2, f+3, f+5, f+4),
                     (f+4, f+5, f+7, f+6),
@@ -1190,8 +1191,6 @@ class StairGenerator():
                 # use right part as reference for panels
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(offset, shape)
                 stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset, shape)
-                
-                
             else:
                 stair.l_line = stair.offset(offset)
                 stair.r_line = stair.offset(offset)
@@ -1246,7 +1245,7 @@ class StairGenerator():
                                 
         for i, post in enumerate(subs):
             self.get_post(post, x, y, z, altitude, sub_offset_x, mat, verts, faces, matids, uvs, bottom=bottom)
-        self.reset_shapes()
+        
         
     def make_post(self, height, step_depth, x, y, z, altitude, side, post_spacing, respect_edges, move_x, x_offset, mat, 
         verts, faces, matids, uvs):
@@ -1288,16 +1287,12 @@ class StairGenerator():
         
         if side == "LEFT":
             offset = move_x - x_offset
-            #offset_sub = offset - sub_offset_x
         else:
             offset = move_x + x_offset
-            #offset_sub = offset + sub_offset_x
             
         for s, stair in enumerate(self.stairs):
             
             is_circle = False
-            # Note: use left part as reference for post distances
-            # use right part as reference for panels 
             if 'Curved' in type(stair).__name__:
                 if side == "LEFT":
                     is_circle = stair.l_shape == "CIRCLE"
@@ -1307,8 +1302,6 @@ class StairGenerator():
                     shape = stair.r_shape
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(offset, shape)
                 stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset, shape)
-                stair.r_shape = shape
-                stair.l_shape = shape
             else:
                 stair.l_line = stair.offset(offset)
                 stair.r_line = stair.offset(offset)
@@ -1579,7 +1572,7 @@ class StairMaterialProperty(PropertyGroup):
         for o in selected:
             props = ARCHIPACK_PT_stair.params(o)
             if props:
-                for part in props.ladder_mat:
+                for part in props.rail_mat:
                     if part == self:
                         return props
         return None
@@ -1817,16 +1810,8 @@ class StairProperty(PropertyGroup):
             ),
         default='STAIR_I', update=update_preset
         )
-    left_ladder=BoolProperty(
-        name="left",
-        update=update,
-        default=False
-        )
-    right_ladder=BoolProperty(
-        name="right",
-        update=update,
-        default=False
-        )
+    
+    
     left_post = BoolProperty(
             name='left',
             default=True,
@@ -1840,7 +1825,7 @@ class StairProperty(PropertyGroup):
     post_spacing = FloatProperty(
             name="spacing",
             min=0.001, max=1000,
-            default=0.80, precision=2, step=1,
+            default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             ) 
@@ -1893,12 +1878,12 @@ class StairProperty(PropertyGroup):
     
     left_subs = BoolProperty(
             name='left',
-            default=True,
+            default=False,
             update=update
             )
     right_subs = BoolProperty(
             name='right',
-            default=True,
+            default=False,
             update=update
             )
     subs_spacing = FloatProperty(
@@ -1961,12 +1946,12 @@ class StairProperty(PropertyGroup):
     
     left_panel = BoolProperty(
             name='left',
-            default=False,
+            default=True,
             update=update
             )
     right_panel = BoolProperty(
             name='right',
-            default=False,
+            default=True,
             update=update
             )
     panel_alt= FloatProperty(
@@ -2011,14 +1996,24 @@ class StairProperty(PropertyGroup):
         update=update
         )
     
-    ladder_n = IntProperty(
+    left_rail=BoolProperty(
+        name="left",
+        update=update,
+        default=False
+        )
+    right_rail=BoolProperty(
+        name="right",
+        update=update,
+        default=False
+        )
+    rail_n = IntProperty(
             name="number",
             default=1,
             min=0,
             max=31,
             update=update
             )
-    ladder_x = FloatVectorProperty(
+    rail_x = FloatVectorProperty(
             name="width",
             default=[
                 0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,
@@ -2032,7 +2027,7 @@ class StairProperty(PropertyGroup):
             unit='LENGTH',
             update=update
             ) 
-    ladder_z = FloatVectorProperty(
+    rail_z = FloatVectorProperty(
             name="height",
             default=[
                 0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,
@@ -2046,7 +2041,7 @@ class StairProperty(PropertyGroup):
             unit='LENGTH',
             update=update
             ) 
-    ladder_offset = FloatVectorProperty(
+    rail_offset = FloatVectorProperty(
             name="offset",
             default=[
                 0,0,0,0,0,0,0,0,
@@ -2060,7 +2055,7 @@ class StairProperty(PropertyGroup):
             unit='LENGTH',
             update=update
             ) 
-    ladder_alt = FloatVectorProperty(
+    rail_alt = FloatVectorProperty(
             name="altitude",
             default=[
                 1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
@@ -2074,7 +2069,7 @@ class StairProperty(PropertyGroup):
             unit='LENGTH',
             update=update
             ) 
-    ladder_mat = CollectionProperty(type=StairMaterialProperty)
+    rail_mat = CollectionProperty(type=StairMaterialProperty)
     
     left_handrail=BoolProperty(
             name="left",
@@ -2245,7 +2240,7 @@ class StairProperty(PropertyGroup):
     steps_expand = BoolProperty(
         default = False
         )    
-    balluster_expand = BoolProperty(
+    rail_expand = BoolProperty(
             default = False
             )
     idmats_expand = BoolProperty(
@@ -2284,11 +2279,11 @@ class StairProperty(PropertyGroup):
     def update_parts(self):
     
         # remove ladders materials
-        for i in range(len(self.ladder_mat), self.ladder_n, -1):
-            self.ladder_mat.remove(i-1)
+        for i in range(len(self.rail_mat), self.rail_n, -1):
+            self.rail_mat.remove(i-1)
         # add ladders
-        for i in range(len(self.ladder_mat), self.ladder_n):
-            self.ladder_mat.add()
+        for i in range(len(self.rail_mat), self.rail_n):
+            self.rail_mat.add()
         
         
         # remove parts
@@ -2395,19 +2390,19 @@ class StairProperty(PropertyGroup):
             g.make_panels(self.height, self.step_depth, 0.5*self.panel_x, self.panel_z, 0.5*self.post_x, self.panel_alt, 'RIGHT', post_spacing, self.panel_dist, self.post_corners, 
                     self.x_offset, offset_x, self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
-        if self.right_ladder:
-            for i in range(self.ladder_n):
-                id_materials = [int(self.ladder_mat[i].index) for j in range(6)]
+        if self.right_rail:
+            for i in range(self.rail_n):
+                id_materials = [int(self.rail_mat[i].index) for j in range(6)]
                 g.set_matids(id_materials)
-                g.make_part(self.height, self.step_depth, self.ladder_x[i], self.ladder_z[i], 
-                        self.x_offset, offset_x + self.ladder_offset[i], self.ladder_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
+                g.make_part(self.height, self.step_depth, self.rail_x[i], self.rail_z[i], 
+                        self.x_offset, offset_x + self.rail_offset[i], self.rail_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
         
-        if self.left_ladder:
-            for i in range(self.ladder_n):
-                id_materials = [int(self.ladder_mat[i].index) for j in range(6)]
+        if self.left_rail:
+            for i in range(self.rail_n):
+                id_materials = [int(self.rail_mat[i].index) for j in range(6)]
                 g.set_matids(id_materials)
-                g.make_part(self.height, self.step_depth, self.ladder_x[i], self.ladder_z[i], 
-                        self.x_offset, -offset_x - self.ladder_offset[i], self.ladder_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
+                g.make_part(self.height, self.step_depth, self.rail_x[i], self.rail_z[i], 
+                        self.x_offset, -offset_x - self.rail_offset[i], self.rail_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
         
         if self.handrail_profil == 'COMPLEX':
             sx = self.handrail_x
@@ -2524,7 +2519,6 @@ class ARCHIPACK_PT_stair(Panel):
             row.prop(prop, 'steps_expand',icon="TRIA_RIGHT", icon_only=True, text="Steps", emboss=False)
                
         box = layout.box()
-        #box.label(text="Handrail")
         row = box.row(align=True)
         if prop.handrail_expand:
             row.prop(prop, 'handrail_expand',icon="TRIA_DOWN", icon_only=True, text="Handrail", emboss=False)
@@ -2600,7 +2594,6 @@ class ARCHIPACK_PT_stair(Panel):
             box.prop(prop, 'subs_bottom')
             
         box = layout.box()
-        #box.label(text="Panels")
         row = box.row(align=True)
         if prop.panel_expand:
             row.prop(prop, 'panel_expand',icon="TRIA_DOWN", icon_only=True, text="Panels", emboss=False)
@@ -2617,22 +2610,22 @@ class ARCHIPACK_PT_stair(Panel):
             
         box = layout.box()
         row = box.row(align=True)
-        if prop.balluster_expand:
-            row.prop(prop, 'balluster_expand',icon="TRIA_DOWN", icon_only=True, text="Rails", emboss=False)
+        if prop.rail_expand:
+            row.prop(prop, 'rail_expand',icon="TRIA_DOWN", icon_only=True, text="Rails", emboss=False)
         else:
-            row.prop(prop, 'balluster_expand',icon="TRIA_RIGHT", icon_only=True, text="Rails", emboss=False)
-        row.prop(prop, 'left_ladder')
-        row.prop(prop, 'right_ladder')            
-        if prop.balluster_expand:
-            box.prop(prop, 'ladder_n')
-            for i in range(prop.ladder_n):
+            row.prop(prop, 'rail_expand',icon="TRIA_RIGHT", icon_only=True, text="Rails", emboss=False)
+        row.prop(prop, 'left_rail')
+        row.prop(prop, 'right_rail')            
+        if prop.rail_expand:
+            box.prop(prop, 'rail_n')
+            for i in range(prop.rail_n):
                 box = layout.box()
-                box.label(text="Ladder" + str(i+1))
-                box.prop(prop, 'ladder_x', index=i)
-                box.prop(prop, 'ladder_z', index=i)
-                box.prop(prop, 'ladder_alt', index=i)
-                box.prop(prop, 'ladder_offset', index=i)
-                box.prop(prop.ladder_mat[i], 'index', text="")
+                box.label(text="Rail " + str(i+1))
+                box.prop(prop, 'rail_x', index=i)
+                box.prop(prop, 'rail_z', index=i)
+                box.prop(prop, 'rail_alt', index=i)
+                box.prop(prop, 'rail_offset', index=i)
+                box.prop(prop.rail_mat[i], 'index', text="")
             
         box = layout.box()
         row = box.row()
