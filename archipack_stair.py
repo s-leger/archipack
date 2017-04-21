@@ -597,6 +597,7 @@ class StraightStair(Stair, Line):
         else:
             t0 = i * t_step
         t, part, dz, shape = self.get_part(t0, side)
+        dz/=part.length
         n = part.normal(t)
         z0 = self.get_z(t0, 'STEP')
         z1 = self.get_z(t0, 'LINEAR')
@@ -788,6 +789,7 @@ class CurvedStair(Stair, Arc):
         # vect normal
         t, part, dz, shape = self.get_part(t0, side)
         n = part.normal(t)
+        dz/=part.length
         posts.append((n, dz, zs, zl + t0*z_offset))
         
         if shape != 'CIRCLE' and respect_edges:
@@ -1072,11 +1074,15 @@ class StairGenerator():
             uvs.append([(0,0),(.1,0),(.2,0),(.3,0),(.4,0),(.4,1),(.3,1),(.2,1),(.1,1),(0,1)])
     def get_post(self, post, post_x, post_y, post_z, post_alt, id_mat, verts, faces, matids, uvs, bottom="STEP"):
         n, dz, z0, z1 = post
+        
         if bottom == "STEP":
             z0 += post_alt
         else:
             z0 = z1 + post_alt
+        slope = dz*post_y
         z1 += post_z+post_alt
+        z2 = z1+slope
+        z1-=slope
         vn = n.v.normalized()
         dx = post_x * Vector((vn.y, -vn.x))
         dy = post_y * vn
@@ -1087,8 +1093,8 @@ class StairGenerator():
         f = len(verts)
         verts.extend([(x0, y0, z0),(x0, y0, z1),
                     (x1, y1, z0),(x1, y1, z1),
-                    (x2, y2, z0),(x2, y2, z1),
-                    (x3, y3, z0),(x3, y3, z1)])
+                    (x2, y2, z0),(x2, y2, z2),
+                    (x3, y3, z0),(x3, y3, z2)])
         faces.extend([(f, f+1, f+3, f+2),
                     (f+2, f+3, f+5, f+4),
                     (f+4, f+5, f+7, f+6),
@@ -1237,7 +1243,9 @@ class StairGenerator():
             else:
                 stair.l_line = stair.offset(move_x - x_offset)
                 stair.r_line = stair.offset(move_x + x_offset)
-        
+            
+            slope = stair.height/stair.get_length(side)
+            
             t_step, n_step = stair.n_posts(post_spacing, side, respect_edges)
              
             if s == n_stairs:
@@ -1893,6 +1901,13 @@ class StairProperty(PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             ) 
+    subs_offset_x = FloatProperty(
+            name="offset",
+            min=-100.0, max=100,
+            default=0.0, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
     subs_bottom = EnumProperty(
             name="Bottom",
             items=(
@@ -1947,12 +1962,20 @@ class StairProperty(PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             ) 
+    panel_offset_x = FloatProperty(
+            name="offset",
+            min=-100.0, max=100,
+            default=0.0, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
     idmat_panel = EnumProperty(
         name="Panels",
         items=materials_enum,
         default='5',
         update=update
         )
+    
     ladder_n = IntProperty(
             name="number",
             default=1,
@@ -2323,19 +2346,19 @@ class StairProperty(PropertyGroup):
         
         if self.left_subs:
             g.make_subs(self.height, self.step_depth, 0.5*self.subs_x, 0.5*self.subs_y, self.subs_z, 0.5*self.post_x, self.subs_alt, self.subs_bottom, 'LEFT', self.handrail_slice_left, post_spacing, self.subs_spacing, self.post_corners, 
-                  self.x_offset, offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
+                  self.x_offset, offset_x+self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
         
         if self.right_subs:
             g.make_subs(self.height, self.step_depth, 0.5*self.subs_x, 0.5*self.subs_y, self.subs_z, 0.5*self.post_x, self.subs_alt, self.subs_bottom, 'RIGHT', self.handrail_slice_right, post_spacing, self.subs_spacing, self.post_corners, 
-                  self.x_offset, offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
+                  self.x_offset, offset_x+self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
         
         if self.left_panel:
             g.make_panels(self.height, self.step_depth, 0.5*self.panel_x, self.panel_z, 0.5*self.post_x, self.panel_alt, 'LEFT', post_spacing, self.panel_dist, self.post_corners, 
-                    self.x_offset, offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
+                    self.x_offset, offset_x+self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
         if self.right_panel:
             g.make_panels(self.height, self.step_depth, 0.5*self.panel_x, self.panel_z, 0.5*self.post_x, self.panel_alt, 'RIGHT', post_spacing, self.panel_dist, self.post_corners, 
-                    self.x_offset, offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
+                    self.x_offset, offset_x+self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
         if self.right_ladder:
             for i in range(self.ladder_n):
@@ -2492,7 +2515,6 @@ class ARCHIPACK_PT_stair(Panel):
             row.prop(prop, 'handrail_slice_right')
        
         box = layout.box()
-        #box.label(text="String")
         row = box.row(align=True)
         if prop.string_expand:
             row.prop(prop, 'string_expand',icon="TRIA_DOWN", icon_only=True, text="String", emboss=False)
@@ -2512,25 +2534,25 @@ class ARCHIPACK_PT_stair(Panel):
             row.prop(prop, 'post_expand',icon="TRIA_DOWN", icon_only=True, text="Post", emboss=False)
         else:
             row.prop(prop, 'post_expand',icon="TRIA_RIGHT", icon_only=True, text="Post", emboss=False)
-        #box.label(text="Post")
         row.prop(prop, 'left_post')
         row.prop(prop, 'right_post')
         if prop.post_expand:
-            box.prop(prop, 'post_spacing')
+            box.prop(prop, 'post_corners')
+            if not prop.post_corners:
+                box.prop(prop, 'post_spacing')
             box.prop(prop, 'post_x')
             box.prop(prop, 'post_y')
             box.prop(prop, 'post_z')
             box.prop(prop, 'post_alt')
             box.prop(prop, 'post_offset_x')
-            box.prop(prop, 'post_corners')
-        
+            
         box = layout.box()
         row = box.row(align=True)
         if prop.subs_expand:
             row.prop(prop, 'subs_expand',icon="TRIA_DOWN", icon_only=True, text="Subs", emboss=False)
         else:
             row.prop(prop, 'subs_expand',icon="TRIA_RIGHT", icon_only=True, text="Subs", emboss=False)
-        #box.label(text="Post")
+        
         row.prop(prop, 'left_subs')
         row.prop(prop, 'right_subs')
         if prop.subs_expand:
@@ -2539,6 +2561,7 @@ class ARCHIPACK_PT_stair(Panel):
             box.prop(prop, 'subs_y')
             box.prop(prop, 'subs_z')
             box.prop(prop, 'subs_alt')
+            box.prop(prop, 'subs_offset_x')
             box.prop(prop, 'subs_bottom')
             
         box = layout.box()
@@ -2555,6 +2578,7 @@ class ARCHIPACK_PT_stair(Panel):
             box.prop(prop, 'panel_x')
             box.prop(prop, 'panel_z')
             box.prop(prop, 'panel_alt')
+            box.prop(prop, 'panel_offset_x')
             
         box = layout.box()
         row = box.row(align=True)
