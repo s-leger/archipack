@@ -981,7 +981,8 @@ class CurvedLanding(CurvedStair):
             return self.z0
 
 class StairGenerator():
-    def __init__(self):
+    def __init__(self, parts):
+        self.parts = parts
         self.last_type = 'NONE'
         self.stairs = []
         self.steps_type = 'NONE'
@@ -1156,6 +1157,12 @@ class StairGenerator():
         v = Vector((0,0))
         uvs += lofter.uv(16, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
     
+    def reset_shapes(self):
+        for s, stair in enumerate(self.stairs):
+            if 'Curved' in type(stair).__name__:
+                stair.l_shape = self.parts[s].left_shape
+                stair.r_shape = self.parts[s].right_shape
+               
     def make_subs(self, height, step_depth, x, y, z, post_x, altitude, bottom, side, slice, post_spacing, sub_spacing, respect_edges, move_x, x_offset, sub_offset_x, mat, 
         verts, faces, matids, uvs):
         n_steps = self.n_steps(step_depth)
@@ -1177,9 +1184,11 @@ class StairGenerator():
                 else:
                     shape = stair.r_shape
                 # Note: use left part as reference for post distances
-                # use right part as reference for panels 
+                # use right part as reference for panels
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(offset, shape)
                 stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset_sub, shape)
+                stair.l_shape = shape
+                stair.r_shape = shape
                 part = stair.l_arc
             else:
                 stair.l_line = stair.offset(offset)
@@ -1235,6 +1244,7 @@ class StairGenerator():
                                 
         for i, post in enumerate(subs):
             self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs, bottom=bottom)
+        self.reset_shapes()
         
     def make_post(self, height, step_depth, x, y, z, altitude, side, post_spacing, respect_edges, move_x, x_offset, mat, 
         verts, faces, matids, uvs):
@@ -1295,6 +1305,8 @@ class StairGenerator():
                     shape = stair.r_shape
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(offset, shape)
                 stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(offset_sub, shape)
+                stair.r_shape = shape
+                stair.l_shape = shape
             else:
                 stair.l_line = stair.offset(offset)
                 stair.r_line = stair.offset(offset_sub)
@@ -1333,7 +1345,8 @@ class StairGenerator():
                         subs.append(panel)
         for sub in subs:
             self.get_panel( sub, altitude, x, z, mat, verts, faces, matids, uvs)
-
+        self.reset_shapes()
+        
     def make_part(self, height, step_depth, part_x, part_z, x_move, x_offset, z_offset, z_mode, steps_type, verts, faces, matids, uvs):
         # NOTE: may allow FULL_HEIGHT
         params = [(stair.z_mode, stair.l_shape, stair.r_shape, stair.bottom_z, stair.steps_type) for stair in self.stairs]
@@ -2311,7 +2324,7 @@ class StairProperty(PropertyGroup):
         width_left  = 0.5*self.width - self.x_offset
         width_right = 0.5*self.width + self.x_offset   
         
-        g = StairGenerator()
+        g = StairGenerator(self.parts)
         if self.presets == 'STAIR_USER':
             for part in self.parts:
                 g.add_part(part.type, self.steps_type, self.nose_type, self.z_mode, self.nose_z, bottom_z, center, max(width_left+0.01,
