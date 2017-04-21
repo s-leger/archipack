@@ -1076,11 +1076,11 @@ class StairGenerator():
     def get_post(self, post, post_x, post_y, post_z, post_alt, sub_offset_x, id_mat, verts, faces, matids, uvs, bottom="STEP"):
         n, dz, z0, z1 = post
         
+        slope = dz*post_x
         if bottom == "STEP":
             z0 += post_alt
         else:
             z0 = z1 + post_alt
-        slope = dz*post_y
         z1 += post_z+post_alt
         z2 = z1+slope
         z1-=slope
