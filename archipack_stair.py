@@ -252,7 +252,7 @@ class Stair():
         self.right_offset = right_offset
         self.last_height = 0
     def set_matids(self, matids):
-        self.idmat_top, self.idmat_face_top, self.idmat_face_bottom, self.idmat_side, self.idmat_bottom = matids 
+        self.idmat_top, self.idmat_step_front, self.idmat_raise, self.idmat_side, self.idmat_bottom, self.idmat_step_side = matids 
     def set_height(self, step_height, z0):
         self.step_height = step_height
         self.z0 = z0
@@ -460,9 +460,9 @@ class Stair():
         offset= 10
         
         # left, top, right 
-        matids.extend([self.idmat_side,
+        matids.extend([self.idmat_step_side,
              self.idmat_top,
-             self.idmat_side])
+             self.idmat_step_side])
              
         faces += [(f+j, f+j+1, f+j+offset+1, f+j+offset) for j in range(start, end)]
         
@@ -483,13 +483,13 @@ class Stair():
         if self.steps_type != 'OPEN':
             if 'STRAIGHT' in self.nose_type:
                 # front face bottom straight
-                matids.append(self.idmat_face_bottom)
+                matids.append(self.idmat_raise)
                 faces.append((f+12, f+17, f+16, f+13))
                 uvs.append([(0,w), (v,w), (v,0), (0,0)])
                 
             elif 'OBLIQUE' in self.nose_type:        
                 # front face bottom oblique
-                matids.append(self.idmat_face_bottom)
+                matids.append(self.idmat_raise)
                 faces.append((f+12, f+17, f+6, f+3))
                 
                 uvs.append([(0,w), (v,w), (v,0), (0,0)])
@@ -504,7 +504,7 @@ class Stair():
                 
         # front face top
         w = verts[f+3][2]-verts[f+4][2]
-        matids.append(self.idmat_face_top)
+        matids.append(self.idmat_step_front)
         faces.append((f+4, f+3, f+6, f+5))
         uvs.append([(0,0), (0,w), (v,w), (v,0)])
         return rM
@@ -523,9 +523,9 @@ class Stair():
             start = 3
             end   = 6
             offset= 10
-            matids.extend([self.idmat_side,
+            matids.extend([self.idmat_step_side,
                  self.idmat_top,
-                 self.idmat_side,
+                 self.idmat_step_side,
                  self.idmat_bottom])
         else:
             # faces dessus-dessous-lateral marches fermees
@@ -535,9 +535,9 @@ class Stair():
             matids.extend([self.idmat_side,
                  self.idmat_side,
                  self.idmat_side,
-                 self.idmat_side,
+                 self.idmat_step_side,
                  self.idmat_top,
-                 self.idmat_side,
+                 self.idmat_step_side,
                  self.idmat_side,
                  self.idmat_side,
                  self.idmat_side,
@@ -552,9 +552,7 @@ class Stair():
         s = int((end-start)/2)
         uvs += [[(u_l0, verts[f+j][2]), (u_l0, verts[f+j+1][2]), (u_l1, verts[f+j+offset+1][2]), (u_l1, verts[f+j+offset][2])] for j in range(start, start+s)]
         self.project_uv(rM, uvs, verts, [f+start+s, f+start+s+1, f+start+s+offset+1, f+start+s+offset])
-        #uvs.append([(u_l0, 0), (u_r0, w), (u_r1, w), (u_l1,0)])
         uvs += [[(u_r0, verts[f+j][2]), (u_r0, verts[f+j+1][2]), (u_r1, verts[f+j+offset+1][2]), (u_r1, verts[f+j+offset][2])] for j in range(start+s+1, end)]
-        #uvs.append([(u_r1, w), (u_l1,0), (u_l0, 0), (u_r0, w)])
         self.project_uv(rM, uvs, verts, [f+end, f+start, f+offset+start,f+offset+end])
         faces += [(f+j, f+j+1, f+j+offset+1, f+j+offset) for j in range(start, end)]
         faces.append((f+end,f+start,f+offset+start,f+offset+end))
@@ -589,12 +587,15 @@ class StraightStair(Stair, Line):
         
         if "OPEN" in self.steps_type:
             faces.append((f+13, f+14, f+15, f+16))
-            matids.append(self.idmat_face_top)
+            matids.append(self.idmat_step_front)
             uvs.append([(0, 0), (0, 1), (1, 1), (1,0)])
     def get_length(self, side):
         return self.length
-    def get_lerp_vect(self, posts, side, i, t_step, respect_edges, z_offset=0):
-        t0 = i * t_step
+    def get_lerp_vect(self, posts, side, i, t_step, respect_edges, z_offset=0, t0_abs=None):
+        if t0_abs is not None:
+            t0 = t0_abs
+        else:
+            t0 = i * t_step
         t, part, dz, shape = self.get_part(t0, side)
         n = part.normal(t)
         z0 = self.get_z(t0, 'STEP')
@@ -745,7 +746,7 @@ class CurvedStair(Stair, Arc):
         if "OPEN" in self.steps_type and self.z_mode != 'LINEAR':
             # back face top
             faces.append((f+13, f+14, f+15, f+16))
-            matids.append(self.idmat_face_top)
+            matids.append(self.idmat_step_front)
             uvs.append([(0, 0), (0, 1), (1, 1), (1,0)])
             
     def get_part(self, t, side):
@@ -774,9 +775,11 @@ class CurvedStair(Stair, Arc):
                 else:
                     return 2 * (t - 0.5), t1, 0.5*self.height, shape 
                     
-    def get_lerp_vect(self, posts, side, i, t_step, respect_edges, z_offset=0):
-        
-        t0 = i * t_step
+    def get_lerp_vect(self, posts, side, i, t_step, respect_edges, z_offset=0, t0_abs=None):
+        if t0_abs is not None:
+            t0 = t0_abs
+        else:
+            t0 = i * t_step
         res = [t0]
         t1 = t0 + t_step
         zs = self.get_z(t0, 'STEP')
@@ -884,7 +887,7 @@ class StraightLanding(StraightStair):
         
         if "OPEN" in self.steps_type and self.next_type != 'LANDING':
             faces.append((f+13, f+14, f+15, f+16))
-            matids.append(self.idmat_face_top)
+            matids.append(self.idmat_step_front)
             uvs.append([(0, 0), (0, 1), (1, 1), (1,0)])
         
     def straight_landing(self, length):
@@ -936,20 +939,8 @@ class CurvedLanding(CurvedStair):
             return 1
         
     def make_step(self, i, verts, faces, matids, uvs, nose_y=0): 
-        """
-        if i == self.n_step and self.steps_type in ['CLOSED','FULL']:
-            if self.next_type == 'STAIR':
-                p = self.l_arc.lerp(1)
-                self.p3d_end(verts, p, j, 1)
-                p = self.r_arc.lerp(1)
-                self.p3d_end(verts, p, j, 1)
-                # close last part bottom
-                #faces.append((f, f+4, f+5, f+6, f+2,f+1))
-                return
-            elif self.next_type == 'NONE':
-                #faces.append((f, f+4, f+5, f+6, f+7, f+3, f+2, f+1))
-        """
-        if i == 0 and self.last_type != 'LANDING':
+        
+        if i == 0 and 'LANDING' not in self.last_type:
             rM = self._make_nose(i, 0, verts, faces, matids, uvs, nose_y)
         else:
             rM = self.get_proj_matrix(self.l_arc, self.t_step * i, nose_y)
@@ -969,12 +960,12 @@ class CurvedLanding(CurvedStair):
             f = self._make_step(self.t_step, i, 0, verts)
             f = self._make_edge(self.t_step, i, 0, f, rM, verts, faces, matids, uvs)
           
-        self._make_step(self.t_step, i+1, 0, verts, i == self.n_step-1 and self.next_type != 'LANDING')
+        self._make_step(self.t_step, i+1, 0, verts, i == self.n_step-1 and 'LANDING' not in self.next_type)
         self.make_faces(f, rM,  verts, faces, matids, uvs)
         
-        if "OPEN" in self.steps_type and self.next_type != 'LANDING':
+        if "OPEN" in self.steps_type and 'LANDING' not in self.next_type:
             faces.append((f+13, f+14, f+15, f+16))
-            matids.append(self.idmat_face_top)
+            matids.append(self.idmat_step_front)
             uvs.append([(0, 0), (0, 1), (1, 1), (1,0)])
         
     def straight_landing(self, length):
@@ -1062,7 +1053,7 @@ class StairGenerator():
         self.set_height(height / n_steps)
         #if self.steps_type in ['CLOSED', 'FULL'] and len(self.stairs) > 0:
             #faces.append((0,1,5,4))
-            #matids.append(self.stairs[-1].idmat_face_bottom)
+            #matids.append(self.stairs[-1].idmat_raise)
         for s, stair in enumerate(self.stairs):
             for i in range(stair.n_step):
                 stair.make_step(i, verts, faces, matids, uvs, nose_y=nose_y)
@@ -1079,9 +1070,12 @@ class StairGenerator():
             faces.append((f,f+1,f+2,f+3,f+4,f+5,f+6,f+7,f+8,f+9))
             matids.append(self.stairs[-1].idmat_bottom)
             uvs.append([(0,0),(.1,0),(.2,0),(.3,0),(.4,0),(.4,1),(.3,1),(.2,1),(.1,1),(0,1)])
-    def get_post(self, post, post_x, post_y, post_z, post_alt, id_mat, verts, faces, matids, uvs):
+    def get_post(self, post, post_x, post_y, post_z, post_alt, id_mat, verts, faces, matids, uvs, bottom="STEP"):
         n, dz, z0, z1 = post
-        z0 += post_alt
+        if bottom == "STEP":
+            z0 += post_alt
+        else:
+            z0 = z1 + post_alt
         z1 += post_z+post_alt
         vn = n.v.normalized()
         dx = post_x * Vector((vn.y, -vn.x))
@@ -1107,41 +1101,135 @@ class StairGenerator():
         z = [(0,0), (post_x,0),(post_x,post_y), (0,post_y)]
         uvs.extend([x, y, x, y, z, z]) 
        
-    def get_panel(self, n0, n1, dist, z0, z1, panel_x, panel_z, id_mat, verts, faces, matids, uvs):
-        dp = n1.p-n0.p
-        c0 = dp.normalized()
-        v0 = Vector((c0.y, -c0.x))
-        dx = dist * c0
-        dy = panel_x * v0
-        dz = (z1-z0)/dp.length*dist
-        x0, y0 = n0.p + dx + dy
-        x1, y1 = n1.p - dx + dy
-        x2, y2 = n1.p - dx - dy 
-        x3, y3 = n0.p + dx - dy
-        z0, z1 = z0+dz, z1-dz 
-        z2, z3 = z0+panel_z, z1+panel_z
+    def get_panel(self, subs, altitude, panel_x, panel_z, idmat, verts, faces, matids, uvs):
+        n_subs = len(subs)
+        if n_subs < 1:
+            return
         f = len(verts)
-        verts.extend([(x0, y0, z0),(x0, y0, z2),
-                    (x3, y3, z0),(x3, y3, z2),
-                    (x2, y2, z1),(x2, y2, z3),
-                    (x1, y1, z1),(x1, y1, z3)])
-        faces.extend([(f, f+1, f+3, f+2),
-                    (f+2, f+3, f+5, f+4),
-                    (f+4, f+5, f+7, f+6),
-                    (f+6, f+7, f+1, f),
-                    (f, f+2, f+4, f+6),
-                    (f+7, f+5, f+3, f+1)])
-        matids.extend([id_mat, id_mat, id_mat, id_mat, id_mat, id_mat])
-        uv = [(0,0), (0,1), (1,1), (1, 0)]
-        uvs.extend([uv, uv, uv, uv, uv, uv]) 
-       
-    def make_post(self, height, step_depth, x, y, z, altitude, post_spacing, panel_dist, respect_edges, move_x, x_offset, enable_r, enable_l, mat, enable_post, 
+        x0 = -0.5*panel_x
+        x1 = 0.5*panel_x
+        z0 = 0
+        z1 = panel_z
+        profile = [Vector((x0,z0)),Vector((x1,z0)),Vector((x1,z1)),Vector((x0,z1))]
+        uv_v = 0
+        user_path_uv_v = [] 
+        n_sections = n_subs-1
+        n, dz, zs, zl = subs[0]
+        p0 = n.p
+        v0 = n.v.normalized()
+        for s, section in enumerate(subs):
+            n, dz, zs, zl = section
+            p1 = n.p
+            if s < n_sections:
+                v1 = subs[s+1][0].v.normalized()
+            dir = (v0+v1).normalized()
+            scale = 1/cos(0.5*acos(min(1, max(-1, v0*v1)))) 
+            for p in profile:
+                x, y = n.p + scale * p.x * dir
+                z = zl + p.y + altitude
+                verts.append((x,y,z))
+            if s > 0:
+                user_path_uv_v.append((p1 - p0).length)
+            p0 = p1
+            v0 = v1
+            
+        # build faces using Panel    
+        lofter = Lofter(
+            # closed_shape, index, x, y, idmat
+            True,
+            [i for i in range(len(profile))],
+            [p.x for p in profile],
+            [p.y for p in profile],
+            [idmat for i in range(len(profile))],
+            closed_path=False,
+            user_path_uv_v=user_path_uv_v,
+            user_path_verts=n_subs
+            )
+        faces += lofter.faces(16, offset=f, path_type='USER_DEFINED')
+        matids += lofter.mat(16, idmat, idmat, path_type='USER_DEFINED')
+        v = Vector((0,0))
+        uvs += lofter.uv(16, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
+    
+    def make_subs(self, height, step_depth, x, y, z, post_x, altitude, bottom, side, slice, post_spacing, sub_spacing, respect_edges, move_x, x_offset, mat, 
+        verts, faces, matids, uvs):
+        n_steps = self.n_steps(step_depth)
+        self.set_height(height / n_steps)
+        n_stairs = len(self.stairs)-1
+        subs = []
+        
+        for s, stair in enumerate(self.stairs):
+            if 'Curved' in type(stair).__name__:
+                if side == 'LEFT':
+                    stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(move_x - x_offset, stair.l_shape)
+                    part = stair.l_arc
+                else:
+                    stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(move_x + x_offset, stair.r_shape)
+                    part = stair.r_arc
+            else:
+                if side == 'LEFT':
+                    stair.l_line = stair.offset(move_x - x_offset)
+                    part = stair.l_line
+                else:
+                    stair.r_line = stair.offset(move_x + x_offset)
+                    part = stair.r_line
+               
+            lerp_z = 0
+            edge_t = 1
+            edge_size = 0
+            # interpolate z near end landing         
+            if 'Landing' in type(stair).__name__ and stair.next_type == 'STAIR':
+                if not slice:
+                    line = stair.normal(1).offset(self.stairs[s+1].step_depth)
+                    res, p, t_part = part.intersect(line)
+                    # does perpendicular line intersects circle ?
+                    if res:
+                        edge_size = self.stairs[s+1].step_depth/stair.get_length(side)
+                        edge_t = 1-edge_size
+                    else:
+                        # in this case, lerp z over one step
+                        lerp_z = stair.step_height
+                        
+            t_step, n_step = stair.n_posts(post_spacing, side, respect_edges)
+            
+            # space between posts
+            sp = stair.get_length(side)
+            # post size
+            t_post = post_x/sp
+            
+            if s == n_stairs:
+                n_step += 1
+            for i in range(n_step):
+                res_t = stair.get_lerp_vect([], side, i, t_step, respect_edges)
+                # subs
+                if s < n_stairs or i < n_step-1:
+                    res_t.append((i+1)*t_step)
+                for j in range(len(res_t)-1):
+                    t0 = res_t[j]+t_post 
+                    t1 = res_t[j+1]-t_post
+                    dt = t1-t0
+                    n_subs = int(sp*dt/sub_spacing)
+                    if n_subs > 0:
+                        t_subs = dt/n_subs
+                        for k in range(1,n_subs):
+                            t = t0+k*t_subs
+                            stair.get_lerp_vect(subs, side, 1, t0+k*t_subs, False)
+                            if t > edge_t:
+                                n, dz, z0, z1 = subs[-1]
+                                subs[-1] = n, dz, z0, z1+(t-edge_t)/edge_size*stair.step_height
+                            if lerp_z > 0:
+                                n, dz, z0, z1 = subs[-1]
+                                subs[-1] = n, dz, z0, z1+t*stair.step_height
+                                
+        for i, post in enumerate(subs):
+            self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs, bottom=bottom)
+        
+    def make_post(self, height, step_depth, x, y, z, altitude, side, post_spacing, respect_edges, move_x, x_offset, mat, 
         verts, faces, matids, uvs):
         n_steps = self.n_steps(step_depth)
         self.set_height(height / n_steps)
         l_posts = []
-        r_posts = []
         n_stairs = len(self.stairs)-1
+        
         for s, stair in enumerate(self.stairs):
             if type(stair).__name__ in ['CurvedStair', 'CurvedLanding']:
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(move_x - x_offset, stair.l_shape)
@@ -1149,49 +1237,75 @@ class StairGenerator():
             else:
                 stair.l_line = stair.offset(move_x - x_offset)
                 stair.r_line = stair.offset(move_x + x_offset)
-            if enable_l:
-                t_step, n_step = stair.n_posts(post_spacing, 'LEFT', respect_edges)
-                if s == n_stairs:
-                    n_step += 1
-                for i in range(n_step):
-                    stair.get_lerp_vect(l_posts, 'LEFT', i, t_step, respect_edges)
-                    if s == n_stairs and i == n_step-1:
-                        n, dz, z0, z1 = l_posts[-1]
-                        l_posts[-1] = (n, dz, z0-stair.step_height, z1)
-            if enable_r:  
-                t_step, n_step = stair.n_posts(post_spacing, 'RIGHT', respect_edges)
-                if s == n_stairs:
-                    n_step += 1
-                for i in range(n_step):
-                    stair.get_lerp_vect(r_posts, 'RIGHT', i, t_step, respect_edges)
-                    if s == n_stairs and i == n_step-1:
-                        n, dz, z0, z1 = r_posts[-1]
-                        r_posts[-1] = (n, dz, z0-stair.step_height, z1)
-        if enable_post: 
-            if enable_l:
-                for i, post in enumerate(l_posts):
-                    self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs)
-            if enable_r:    
-                for i, post in enumerate(r_posts):
-                    self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs)
-        else:
-            """
-                Panels between posts
-                TODO: take account of first step after Landings
-                (z variation in the middle of panel)
-            """ 
-            if enable_l: 
-                for i, p0 in enumerate(l_posts):
-                    if i < len(l_posts)-1:
-                        n0, dz, zx, z0 = p0
-                        n1, dz, zx, z1 = l_posts[i+1]
-                        self.get_panel( n0, n1, panel_dist, z0+altitude, z1+altitude, x, z, mat, verts, faces, matids, uvs)
-            if enable_r: 
-                for i, p0 in enumerate(r_posts):
-                    if i < len(r_posts)-1:
-                        n0, dz, zx, z0 = p0
-                        n1, dz, zx, z1 = r_posts[i+1]
-                        self.get_panel( n0, n1, panel_dist, z0+altitude, z1+altitude, x, z, mat, verts, faces, matids, uvs)
+        
+            t_step, n_step = stair.n_posts(post_spacing, side, respect_edges)
+             
+            if s == n_stairs:
+                n_step += 1
+            for i in range(n_step):
+                res_t = stair.get_lerp_vect(l_posts, side, i, t_step, respect_edges)
+                    
+                if s == n_stairs and i == n_step-1:
+                    n, dz, z0, z1 = l_posts[-1]
+                    l_posts[-1] = (n, dz, z0-stair.step_height, z1)
+                    
+        for i, post in enumerate(l_posts):
+            self.get_post(post, x, y, z, altitude, mat, verts, faces, matids, uvs)
+    
+    def make_panels(self, height, step_depth, x, z, post_x, altitude, side, post_spacing, panel_dist, respect_edges, move_x, x_offset, mat, 
+        verts, faces, matids, uvs):
+        n_steps = self.n_steps(step_depth)
+        self.set_height(height / n_steps)
+        subs = []
+        n_stairs = len(self.stairs)-1
+        
+        for s, stair in enumerate(self.stairs):
+            # space between posts
+            sp = stair.get_length(side)
+            is_circle = False
+            if 'Curved' in type(stair).__name__:
+                if side == "LEFT":
+                    is_circle = stair.l_shape == "CIRCLE"
+                else:
+                    is_circle = stair.r_shape == "CIRCLE"
+                stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(move_x - x_offset, stair.l_shape)
+                stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(move_x + x_offset, stair.r_shape)
+            else:
+                stair.l_line = stair.offset(move_x - x_offset)
+                stair.r_line = stair.offset(move_x + x_offset)
+        
+            t_step, n_step = stair.n_posts(post_spacing, side, respect_edges)
+            
+            if is_circle and 'Curved' in type(stair).__name__:
+                panel_da = abs(stair.da)/pi*180/n_step
+                panel_step = max(1, int(panel_da/6))
+            else:
+                panel_step = 1
+            
+            # post size
+            t_post = (post_x+panel_dist)/sp
+            
+            if s == n_stairs:
+                n_step += 1
+            for i in range(n_step):
+                res_t = stair.get_lerp_vect([], side, i, t_step, respect_edges)
+                # subs
+                if s < n_stairs or i < n_step-1:
+                    res_t.append((i+1)*t_step)
+                for j in range(len(res_t)-1):
+                    t0 = res_t[j]+t_post 
+                    t1 = res_t[j+1]-t_post
+                    dt = t1-t0
+                    t_curve = dt/panel_step
+                    if dt > 0:
+                        panel = []
+                        for k in range(panel_step):
+                            stair.get_lerp_vect(panel, side, 1, t_curve, True, t0_abs=t0+k*t_curve)  
+                        stair.get_lerp_vect(panel, side, 1, t1, False)
+                        subs.append(panel)
+        for sub in subs:
+            self.get_panel( sub, altitude, x, z, mat, verts, faces, matids, uvs)
+
     def make_part(self, height, step_depth, part_x, part_z, x_offset, z_offset, z_mode, steps_type, verts, faces, matids, uvs):
         # NOTE: may allow FULL_HEIGHT
         params = [(stair.z_mode, stair.l_shape, stair.r_shape, stair.bottom_z, stair.steps_type) for stair in self.stairs]
@@ -1513,10 +1627,12 @@ class StairPartProperty(PropertyGroup):
                 row = box.row()
                 row.prop(self, "da")
             else:
+                row = box.row()
                 row.prop(self, "length")
-            row = box.row(align=True)
-            row.prop(self, "left_shape", text="")
-            row.prop(self, "right_shape", text="")
+            if self.type in ['C_STAIR', 'C_LANDING', 'D_STAIR', 'D_LANDING']:
+                row = box.row(align=True)
+                row.prop(self, "left_shape", text="")
+                row.prop(self, "right_shape", text="")
         else:
             if self.type in ['S_STAIR', 'S_LANDING']:
                 box = layout.box()
@@ -1619,7 +1735,7 @@ class StairProperty(PropertyGroup):
                 ('STRAIGHT', 'Straight','',0),
                 ('OBLIQUE', 'Oblique','',1),
                 ),
-            default='OBLIQUE',
+            default='STRAIGHT',
             update=update
             )
     left_shape = EnumProperty(
@@ -1681,21 +1797,21 @@ class StairProperty(PropertyGroup):
     post_spacing = FloatProperty(
             name="spacing",
             min=0.001, max=1000,
-            default=0.50, precision=2, step=1,
+            default=0.80, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             ) 
     post_x = FloatProperty(
             name="width",
             min=0.001, max=1000,
-            default=0.03, precision=2, step=1,
+            default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             ) 
     post_y = FloatProperty(
             name="length",
             min=0.001, max=1000,
-            default=0.03, precision=2, step=1,
+            default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             ) 
@@ -1716,7 +1832,7 @@ class StairProperty(PropertyGroup):
     post_offset_x = FloatProperty(
             name="offset",
             min=-100.0, max=100,
-            default=0.0, precision=2, step=1,
+            default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             ) 
@@ -1731,6 +1847,68 @@ class StairProperty(PropertyGroup):
         default='4',
         update=update
         )
+    
+    left_subs = BoolProperty(
+            name='left',
+            default=True,
+            update=update
+            )
+    right_subs = BoolProperty(
+            name='right',
+            default=True,
+            update=update
+            )
+    subs_spacing = FloatProperty(
+            name="spacing",
+            min=0.001, max=1000,
+            default=0.10, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
+    subs_x = FloatProperty(
+            name="width",
+            min=0.001, max=1000,
+            default=0.02, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
+    subs_y = FloatProperty(
+            name="length",
+            min=0.001, max=1000,
+            default=0.02, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
+    subs_z = FloatProperty(
+            name="height",
+            min=0.001, max=1000,
+            default=1, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
+    subs_alt= FloatProperty(
+            name="altitude",
+            min=-100, max=1000,
+            default=0, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            ) 
+    subs_bottom = EnumProperty(
+            name="Bottom",
+            items=(
+                ('STEP', 'Follow step','',0),
+                ('LINEAR', 'Linear','',1),
+                ),
+            default='STEP',
+            update=update
+            )
+    idmat_subs = EnumProperty(
+        name="Subs",
+        items=materials_enum,
+        default='4',
+        update=update
+        )
+    
     left_panel = BoolProperty(
             name='left',
             default=False,
@@ -1893,7 +2071,7 @@ class StairProperty(PropertyGroup):
             )
     handrail_x= FloatProperty(
             name="width",
-            min=-0.001, max=100,
+            min=0.001, max=100,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -1959,22 +2137,22 @@ class StairProperty(PropertyGroup):
         default='1',
         update=update
         )
-    idmat_face_bottom = EnumProperty(
-        name="Front bot",
+    idmat_raise = EnumProperty(
+        name="Raise",
         items=materials_enum,
-        default='0',
+        default='1',
         update=update
         )
-    idmat_face_top = EnumProperty(
-        name="Front up",
+    idmat_step_front = EnumProperty(
+        name="Step front",
         items=materials_enum,
-        default='0',
+        default='3',
         update=update
         )
     idmat_top = EnumProperty(
         name="Top",
         items=materials_enum,
-        default='0',
+        default='3',
         update=update
         )
     idmat_side = EnumProperty(
@@ -1983,10 +2161,16 @@ class StairProperty(PropertyGroup):
         default='1',
         update=update
         )
+    idmat_step_side = EnumProperty(
+        name="Step Side",
+        items=materials_enum,
+        default='3',
+        update=update
+        )
     idmat_handrail = EnumProperty(
         name="Handrail",
         items=materials_enum,
-        default='4',
+        default='3',
         update=update
         )
     idmat_string = EnumProperty(
@@ -2000,12 +2184,32 @@ class StairProperty(PropertyGroup):
     parts_expand = BoolProperty(
             default = False
             )
+    steps_expand = BoolProperty(
+        default = False
+        )    
     balluster_expand = BoolProperty(
             default = False
             )
     idmats_expand = BoolProperty(
             default = False
             )
+    handrail_expand = BoolProperty(
+        default = False
+        )
+    string_expand = BoolProperty(
+        default = False
+        )
+    post_expand = BoolProperty(
+        default = False
+        )
+    panel_expand = BoolProperty(
+        default = False
+        )    
+    subs_expand = BoolProperty(
+        default = False
+        )    
+    
+    
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -2052,8 +2256,8 @@ class StairProperty(PropertyGroup):
         faces = []
         matids = []
         uvs = []
-        #top, int(self.idmat_face_top), int(self.idmat_face_bottom), int(self.idmat_side), int(self.idmat_bottom) 
-        id_materials = [int(self.idmat_top), int(self.idmat_face_top), int(self.idmat_face_bottom), int(self.idmat_side), int(self.idmat_bottom)]
+        #top, int(self.idmat_step_front), int(self.idmat_raise), int(self.idmat_side), int(self.idmat_bottom) 
+        id_materials = [int(self.idmat_top), int(self.idmat_step_front), int(self.idmat_raise), int(self.idmat_side), int(self.idmat_bottom), int(self.idmat_step_side)]
         
         # depth at bottom
         bottom_z = self.bottom_z
@@ -2105,30 +2309,44 @@ class StairProperty(PropertyGroup):
         
         # Ladder
         offset_x =  0.5 * self.width - self.post_offset_x
-        if self.left_post or self.right_post:
-            post_spacing = self.post_spacing
-            if self.post_corners:
-                post_spacing = 10000
-            g.make_post(self.height, self.step_depth, 0.5*self.post_x, 0.5*self.post_y, self.post_z, self.post_alt, post_spacing, 0, self.post_corners, 
-                  self.x_offset, offset_x, self.right_post, self.left_post, int(self.idmat_post), True, verts, faces, matids, uvs)
+        post_spacing = self.post_spacing
+        if self.post_corners:
+            post_spacing = 10000 
+            
+        if self.left_post:
+            g.make_post(self.height, self.step_depth, 0.5*self.post_x, 0.5*self.post_y, self.post_z, self.post_alt, 'LEFT', post_spacing, self.post_corners, 
+                  self.x_offset, offset_x, int(self.idmat_post), verts, faces, matids, uvs)
+        
+        if self.right_post:
+            g.make_post(self.height, self.step_depth, 0.5*self.post_x, 0.5*self.post_y, self.post_z, self.post_alt, 'RIGHT', post_spacing, self.post_corners, 
+                  self.x_offset, offset_x, int(self.idmat_post), verts, faces, matids, uvs)
+        
+        if self.left_subs:
+            g.make_subs(self.height, self.step_depth, 0.5*self.subs_x, 0.5*self.subs_y, self.subs_z, 0.5*self.post_x, self.subs_alt, self.subs_bottom, 'LEFT', self.handrail_slice_left, post_spacing, self.subs_spacing, self.post_corners, 
+                  self.x_offset, offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
+        
+        if self.right_subs:
+            g.make_subs(self.height, self.step_depth, 0.5*self.subs_x, 0.5*self.subs_y, self.subs_z, 0.5*self.post_x, self.subs_alt, self.subs_bottom, 'RIGHT', self.handrail_slice_right, post_spacing, self.subs_spacing, self.post_corners, 
+                  self.x_offset, offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
+        
+        if self.left_panel:
+            g.make_panels(self.height, self.step_depth, 0.5*self.panel_x, self.panel_z, 0.5*self.post_x, self.panel_alt, 'LEFT', post_spacing, self.panel_dist, self.post_corners, 
+                    self.x_offset, offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
-        if self.left_panel or self.right_panel:
-            post_spacing = self.post_spacing
-            if self.post_corners:
-                post_spacing = 10000
-            g.make_post(self.height, self.step_depth, 0.5*self.panel_x, 0, self.panel_z, self.panel_alt, post_spacing, self.panel_dist, self.post_corners, 
-                    self.x_offset, offset_x, self.right_panel, self.left_panel, int(self.idmat_panel), False, verts, faces, matids, uvs)
+        if self.right_panel:
+            g.make_panels(self.height, self.step_depth, 0.5*self.panel_x, self.panel_z, 0.5*self.post_x, self.panel_alt, 'RIGHT', post_spacing, self.panel_dist, self.post_corners, 
+                    self.x_offset, offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
         if self.right_ladder:
             for i in range(self.ladder_n):
-                id_materials = [int(self.ladder_mat[i].index) for j in range(5)]
+                id_materials = [int(self.ladder_mat[i].index) for j in range(6)]
                 g.set_matids(id_materials)
                 g.make_part(self.height, self.step_depth, self.ladder_x[i], self.ladder_z[i], 
                         offset_x + self.ladder_offset[i], self.ladder_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
         
         if self.left_ladder:
             for i in range(self.ladder_n):
-                id_materials = [int(self.ladder_mat[i].index) for j in range(5)]
+                id_materials = [int(self.ladder_mat[i].index) for j in range(6)]
                 g.set_matids(id_materials)
                 g.make_part(self.height, self.step_depth, self.ladder_x[i], self.ladder_z[i], 
                         -offset_x - self.ladder_offset[i], self.ladder_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
@@ -2172,7 +2390,7 @@ class StairProperty(PropertyGroup):
         
          
          
-        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=False, clean=False)
+        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
         
         
         #bpy.ops.mesh.select_linked()
@@ -2213,12 +2431,6 @@ class ARCHIPACK_PT_stair(Panel):
         box.prop(prop, 'x_offset')
         #box.prop(prop, 'z_mode')
         box = layout.box()
-        box.prop(prop, 'steps_type')
-        box.prop(prop, 'step_depth')
-        box.prop(prop, 'nose_type')
-        box.prop(prop, 'nose_z')
-        box.prop(prop, 'nose_y')
-        box = layout.box()
         row = box.row()
         if prop.parts_expand:
             row.prop(prop, 'parts_expand',icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
@@ -2240,91 +2452,144 @@ class ARCHIPACK_PT_stair(Panel):
                     part.draw(layout, context, i, prop.presets == 'STAIR_USER')
         else:
             row.prop(prop, 'parts_expand',icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
+        
         box = layout.box()
         row = box.row()
-        if prop.balluster_expand:
-            row.prop(prop, 'balluster_expand',icon="TRIA_DOWN", icon_only=True, text="Components", emboss=False)
-            box = layout.box()
-            row = box.row()
-            row = box.row(align=True)
-            row.prop(prop, 'left_ladder')
-            row.prop(prop, 'right_ladder')            
-            if prop.right_ladder or prop.left_ladder:
-                box.prop(prop, 'ladder_n')
-                for i in range(prop.ladder_n):
-                    box = layout.box()
-                    box.label(text="Ladder" + str(i+1))
-                    box.prop(prop, 'ladder_x', index=i)
-                    box.prop(prop, 'ladder_z', index=i)
-                    box.prop(prop, 'ladder_alt', index=i)
-                    box.prop(prop, 'ladder_offset', index=i)
-                    box.prop(prop.ladder_mat[i], 'index', text="")
-            box = layout.box()
-            box.label(text="Handrail")
-            row = box.row(align=True)
-            row.prop(prop, 'left_handrail')
-            row.prop(prop, 'right_handrail')
-            if prop.left_handrail or prop.right_handrail:
-                box.prop(prop, 'handrail_alt')
-                box.prop(prop, 'handrail_offset')
-                box.prop(prop, 'handrail_extend')
-                box.prop(prop, 'handrail_profil')
-                if prop.handrail_profil != 'CIRCLE':
-                    box.prop(prop, 'handrail_x')
-                    box.prop(prop, 'handrail_y')
-                else:
-                    box.prop(prop, 'handrail_radius')
-                row = box.row(align=True)
-                row.prop(prop, 'handrail_slice_left')
-                row.prop(prop, 'handrail_slice_right')
-            box = layout.box()
-            box.label(text="String")
-            row = box.row(align=True)
-            row.prop(prop, 'left_string')
-            row.prop(prop, 'right_string')
-            if prop.left_string or prop.right_string:
-                box.prop(prop, 'string_x')
-                box.prop(prop, 'string_z')
-                box.prop(prop, 'string_alt')
-                box.prop(prop, 'string_offset')
-            box = layout.box()
-            box.label(text="Post")
-            row = box.row(align=True)
-            row.prop(prop, 'left_post')
-            row.prop(prop, 'right_post')
-            if prop.left_post or prop.right_post:
-                box.prop(prop, 'post_spacing')
-                box.prop(prop, 'post_x')
-                box.prop(prop, 'post_y')
-                box.prop(prop, 'post_z')
-                box.prop(prop, 'post_alt')
-                box.prop(prop, 'post_offset_x')
-                box.prop(prop, 'post_corners')
-            box = layout.box()
-            box.label(text="Panels")
-            row = box.row(align=True)
-            row.prop(prop, 'left_panel')
-            row.prop(prop, 'right_panel')
-            if prop.left_panel or prop.right_panel:
-                box.prop(prop, 'panel_dist')
-                box.prop(prop, 'panel_x')
-                box.prop(prop, 'panel_z')
-                box.prop(prop, 'panel_alt')
+        if prop.steps_expand:
+            row.prop(prop, 'steps_expand',icon="TRIA_DOWN", icon_only=True, text="Steps", emboss=False)
+            box.prop(prop, 'steps_type')
+            box.prop(prop, 'step_depth')
+            box.prop(prop, 'nose_type')
+            box.prop(prop, 'nose_z')
+            box.prop(prop, 'nose_y')
         else:
-            row.prop(prop, 'balluster_expand',icon="TRIA_RIGHT", icon_only=True, text="Components", emboss=False)
+            row.prop(prop, 'steps_expand',icon="TRIA_RIGHT", icon_only=True, text="Steps", emboss=False)
+               
+        box = layout.box()
+        #box.label(text="Handrail")
+        row = box.row(align=True)
+        if prop.handrail_expand:
+            row.prop(prop, 'handrail_expand',icon="TRIA_DOWN", icon_only=True, text="Handrail", emboss=False)
+        else:
+            row.prop(prop, 'handrail_expand',icon="TRIA_RIGHT", icon_only=True, text="Handrail", emboss=False)
+        
+        row.prop(prop, 'left_handrail')
+        row.prop(prop, 'right_handrail')
+            
+        if prop.handrail_expand:
+        #if prop.left_handrail or prop.right_handrail:
+            box.prop(prop, 'handrail_alt')
+            box.prop(prop, 'handrail_offset')
+            box.prop(prop, 'handrail_extend')
+            box.prop(prop, 'handrail_profil')
+            if prop.handrail_profil != 'CIRCLE':
+                box.prop(prop, 'handrail_x')
+                box.prop(prop, 'handrail_y')
+            else:
+                box.prop(prop, 'handrail_radius')
+            row = box.row(align=True)
+            row.prop(prop, 'handrail_slice_left')
+            row.prop(prop, 'handrail_slice_right')
+       
+        box = layout.box()
+        #box.label(text="String")
+        row = box.row(align=True)
+        if prop.string_expand:
+            row.prop(prop, 'string_expand',icon="TRIA_DOWN", icon_only=True, text="String", emboss=False)
+        else:
+            row.prop(prop, 'string_expand',icon="TRIA_RIGHT", icon_only=True, text="String", emboss=False)
+        row.prop(prop, 'left_string')
+        row.prop(prop, 'right_string')
+        if prop.string_expand:
+            box.prop(prop, 'string_x')
+            box.prop(prop, 'string_z')
+            box.prop(prop, 'string_alt')
+            box.prop(prop, 'string_offset')
+            
+        box = layout.box()
+        row = box.row(align=True)
+        if prop.post_expand:
+            row.prop(prop, 'post_expand',icon="TRIA_DOWN", icon_only=True, text="Post", emboss=False)
+        else:
+            row.prop(prop, 'post_expand',icon="TRIA_RIGHT", icon_only=True, text="Post", emboss=False)
+        #box.label(text="Post")
+        row.prop(prop, 'left_post')
+        row.prop(prop, 'right_post')
+        if prop.post_expand:
+            box.prop(prop, 'post_spacing')
+            box.prop(prop, 'post_x')
+            box.prop(prop, 'post_y')
+            box.prop(prop, 'post_z')
+            box.prop(prop, 'post_alt')
+            box.prop(prop, 'post_offset_x')
+            box.prop(prop, 'post_corners')
+        
+        box = layout.box()
+        row = box.row(align=True)
+        if prop.subs_expand:
+            row.prop(prop, 'subs_expand',icon="TRIA_DOWN", icon_only=True, text="Subs", emboss=False)
+        else:
+            row.prop(prop, 'subs_expand',icon="TRIA_RIGHT", icon_only=True, text="Subs", emboss=False)
+        #box.label(text="Post")
+        row.prop(prop, 'left_subs')
+        row.prop(prop, 'right_subs')
+        if prop.subs_expand:
+            box.prop(prop, 'subs_spacing')
+            box.prop(prop, 'subs_x')
+            box.prop(prop, 'subs_y')
+            box.prop(prop, 'subs_z')
+            box.prop(prop, 'subs_alt')
+            box.prop(prop, 'subs_bottom')
+            
+        box = layout.box()
+        #box.label(text="Panels")
+        row = box.row(align=True)
+        if prop.panel_expand:
+            row.prop(prop, 'panel_expand',icon="TRIA_DOWN", icon_only=True, text="Panels", emboss=False)
+        else:
+            row.prop(prop, 'panel_expand',icon="TRIA_RIGHT", icon_only=True, text="Panels", emboss=False)
+        row.prop(prop, 'left_panel')
+        row.prop(prop, 'right_panel')
+        if prop.panel_expand:
+            box.prop(prop, 'panel_dist')
+            box.prop(prop, 'panel_x')
+            box.prop(prop, 'panel_z')
+            box.prop(prop, 'panel_alt')
+            
+        box = layout.box()
+        row = box.row(align=True)
+        if prop.balluster_expand:
+            row.prop(prop, 'balluster_expand',icon="TRIA_DOWN", icon_only=True, text="Rails", emboss=False)
+        else:
+            row.prop(prop, 'balluster_expand',icon="TRIA_RIGHT", icon_only=True, text="Rails", emboss=False)
+        row.prop(prop, 'left_ladder')
+        row.prop(prop, 'right_ladder')            
+        if prop.balluster_expand:
+            box.prop(prop, 'ladder_n')
+            for i in range(prop.ladder_n):
+                box = layout.box()
+                box.label(text="Ladder" + str(i+1))
+                box.prop(prop, 'ladder_x', index=i)
+                box.prop(prop, 'ladder_z', index=i)
+                box.prop(prop, 'ladder_alt', index=i)
+                box.prop(prop, 'ladder_offset', index=i)
+                box.prop(prop.ladder_mat[i], 'index', text="")
+            
         box = layout.box()
         row = box.row()
         
         if prop.idmats_expand:
             row.prop(prop, 'idmats_expand',icon="TRIA_DOWN", icon_only=True, text="Materials", emboss=False)
             box.prop(prop, 'idmat_top')
-            box.prop(prop, 'idmat_face_top')
-            box.prop(prop, 'idmat_face_bottom')
-            box.prop(prop, 'idmat_bottom')
             box.prop(prop, 'idmat_side')
+            box.prop(prop, 'idmat_bottom')
+            box.prop(prop, 'idmat_step_side')
+            box.prop(prop, 'idmat_step_front')
+            box.prop(prop, 'idmat_raise')
             box.prop(prop, 'idmat_handrail')
             box.prop(prop, 'idmat_panel')
             box.prop(prop, 'idmat_post')
+            box.prop(prop, 'idmat_subs')
             box.prop(prop, 'idmat_string')
         else:
             row.prop(prop, 'idmats_expand',icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
