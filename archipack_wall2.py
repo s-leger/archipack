@@ -1,3 +1,5 @@
+# -*- coding:utf-8 -*-
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -29,7 +31,7 @@ from .bmesh_utils import BmeshEdit as bmed
 from .materialutils import MaterialUtils
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt
-from .archipack_manipulator import ManipulatorStack, position_2d_from_coord
+from .archipack_manipulator import ManipulatorProperty
 
 class Line():
     def __init__(self, p, v):
@@ -86,8 +88,8 @@ class Line():
         else:
             c = p - radius * self.cross_z.normalized()
         return Arc(c, radius, self.angle_normal, da)
-    def straight(self, length):
-        return Line(self.p+self.v, self.v.normalized()*length)
+    def straight(self, length, t=1):
+        return Line(self.lerp(t), self.v.normalized()*length)
     def rotate(self, da):
         cs = cos(da)
         sn = sin(da)
@@ -109,12 +111,10 @@ class Line():
         d = (self.v.x*dp.y-self.v.y*dp.x)/dl
         t = (self.v*dp)/(dl*dl)
         return t > 0 and t < 1, d, t 
-    def gl_pts(self, context, tM):
+    def gl_pts(self):
         p0 = self.p.to_3d()
         p1 = (self.p+self.v).to_3d()
-        gl_0 = position_2d_from_coord(context, tM * p0)
-        gl_1 = position_2d_from_coord(context, tM * p1)
-        return [gl_0, gl_1]
+        return [p0, p1]
         
 class Circle():
     def __init__(self, c, radius):
@@ -198,8 +198,8 @@ class Arc(Circle):
         if self.da > 0:
             v = -v
         return Line(p, v)
-    def straight(self, length):
-        return self.tangeant(1,length)
+    def straight(self, length, t=1):
+        return self.tangeant(t,length)
     def rotate(self, da):
         cs = cos(da)
         sn = sin(da)
@@ -213,10 +213,10 @@ class Arc(Circle):
         a = atan2(dp.y, dp.x)
         t = (a - self.a0)/self.da
         return t > 0 and t < 1, d, t
-    def gl_pts(self, context, tM):
-        n_pts = int(round(self.da/pi*6,0))
+    def gl_pts(self):
+        n_pts = max(1, int(round(abs(self.da)/pi*30,0)))
         t_step = 1/n_pts
-        return [position_2d_from_coord(context, tM * self.lerp(i*t_step).to_3d()) for i in range(n_pts+1)]
+        return [self.lerp(i*t_step).to_3d() for i in range(n_pts+1)]
            
 class Wall():
     def __init__(self, last, z, t, flip):
@@ -247,7 +247,7 @@ class Wall():
         z = self.get_z(t)
         verts.append((x, y, 0))
         verts.append((x, y, z))
-    def make_step(self, i, verts, faces):
+    def make_wall(self, i, verts, faces):
         t = self.t_step[i]
         f = len(verts)
         self.p3d(verts, t)
@@ -283,9 +283,10 @@ class CurvedWall(Wall, Arc):
         self.n_step = len(self.t_step)-1
                  
 class WallGenerator():
-    def __init__(self):
+    def __init__(self, parts):
         self.last_type = 'NONE'
         self.walls = []
+        self.parts = parts
         self.faces_type = 'NONE'
     def add_part(self, type, center, radius, a0, da, length, part_z, part_t, n_splits, flip):
         
@@ -342,10 +343,30 @@ class WallGenerator():
         return manip_index
         
     def make_wall(self, step_angle, verts, faces):
-        for wall in self.walls:
+        for i, wall in enumerate(self.walls):
+            manipulators = self.parts[i].manipulators
+            # angle from last to current segment
+            if i > 0:
+                v0 = self.walls[i-1].straight(-1, 1).v.to_3d()
+                v1 = wall.straight(1, 0).v.to_3d()
+                manipulators[0].set_pts([wall.lerp(0).to_3d(), v0, v1])
+            if type(wall).__name__ == "StraightWall":
+                # segment length
+                manipulators[1].type = 'SIZE'
+                manipulators[1].prop1_name = "length"
+                manipulators[1].set_pts([wall.lerp(0).to_3d(), wall.lerp(1).to_3d(), (1,0,0)])
+            else:
+                # segment radius + angle
+                v0 = (wall.lerp(0)-wall.c).to_3d()
+                v1 = (wall.lerp(1)-wall.c).to_3d()
+                manipulators[1].type = 'ARC_ANGLE_RADIUS'
+                manipulators[1].prop1_name = "da"
+                manipulators[1].prop2_name = "radius"
+                manipulators[1].set_pts([wall.c.to_3d(), v0, v1])
+                
             wall.param_t(step_angle)
-            for i in range(wall.n_step+1):
-                wall.make_step(i, verts, faces)
+            for j in range(wall.n_step+1):
+                wall.make_wall(j, verts, faces)
                 
     def debug(self, verts):
         for wall in self.walls:
@@ -355,6 +376,9 @@ class WallGenerator():
             
 def update(self, context):
     self.update(context)
+
+def update_manipulators(self, context):
+    self.update(context, refresh_manipulators=True)
  
 def set_splits(self, value):
     if self.n_splits != value:
@@ -374,7 +398,7 @@ class Wall2PartProperty(PropertyGroup):
                 ('C_WALL', 'Curved','',1)
                 ),
             default='S_WALL',
-            update=update
+            update=update_manipulators
             )
     length = FloatProperty(
             name="length",
@@ -447,7 +471,8 @@ class Wall2PartProperty(PropertyGroup):
         update=update
         )
     auto_update=BoolProperty(default=True)
-    
+    manipulators = CollectionProperty(type=ManipulatorProperty)
+
     def _set_t(self, splits):
         t = 1/splits
         for i in range(splits):
@@ -467,12 +492,12 @@ class Wall2PartProperty(PropertyGroup):
                         return props
         return None
         
-    def update(self, context):
+    def update(self, context, refresh_manipulators=False):
         if not self.auto_update:
             return 
         props = self.find_in_selection(context)
         if props is not None:
-            props.update(context)
+            props.update(context, refresh_manipulators)
         
     def draw(self, layout, context, index):
         row = layout.row(align=True)
@@ -504,7 +529,7 @@ class Wall2Property(PropertyGroup):
             name="parts",
             min=1,
             max=32,
-            default=1, update=update
+            default=1, update=update_manipulators
             )
     step_angle = FloatProperty(
             name="step angle",
@@ -518,7 +543,7 @@ class Wall2Property(PropertyGroup):
             name="width",
             min=0.01,
             max=100.0,
-            default=1.2,
+            default=0.2,
             update=update
             )
     x_offset = FloatProperty(
@@ -550,17 +575,24 @@ class Wall2Property(PropertyGroup):
             update=update
             )
     auto_update=BoolProperty(default=True)
+    manipulators = CollectionProperty(type=ManipulatorProperty)
+    refresh_manipulators=BoolProperty(default=False)
     
     def insert_part(self, context, where):
         self.auto_update = False
         part_0 = self.parts[where]
         part_0.length /=2
         part_0.da /=2
-        self.parts.add()
+        p = self.parts.add()
+        s = p.manipulators.add()
+        s.type = "ANGLE"
+        s.prop1_name = "a0"
+        s = p.manipulators.add()
+        s.prop1_name = "length"
         part_1 = self.parts[len(self.parts)-1] 
         part_1.type = part_0.type
-        part_1.z_left = part_0.z_left
-        part_1.z_right = part_0.z_right
+        #part_1.z_left = part_0.z_left
+        #part_1.z_right = part_0.z_right
         part_1.length = part_0.length
         part_1.da = part_0.da
         part_1.a0 = part_0.a0
@@ -596,9 +628,14 @@ class Wall2Property(PropertyGroup):
             self.parts.remove(i-1)
         # add rows
         for i in range(len(self.parts), self.n_parts):
-            self.parts.add()
-               
-    def update(self, context):   
+            p = self.parts.add()
+            s = p.manipulators.add()
+            s.type = "ANGLE"
+            s.prop1_name = "a0"
+            s = p.manipulators.add()
+            s.prop1_name = "length"   
+            
+    def update(self, context, refresh_manipulators=False):   
         
         if not self.auto_update:
             return
@@ -613,11 +650,17 @@ class Wall2Property(PropertyGroup):
         verts = []
         faces = []
         
-        g = WallGenerator()
+        #self.set_gl_points(0, [(0,0,0),(-self.width,0,0),(-1,0,0)])
+        
+        g = WallGenerator(self.parts)
         for part in self.parts:
             g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, self.flip)
         g.make_wall(self.step_angle, verts, faces)
-       
+        
+        self.manipulators[0].set_pts([(0,0,0),(-self.width,0,0),(-1,0,0)])
+        
+        self.manipulators[1].set_pts([g.walls[-1].lerp(1.1).to_3d(),g.walls[-1].lerp(1.1+0.5/g.walls[-1].length).to_3d(),(-1,0,0)])
+        
         if self.closed:
             f = len(verts)
             faces.append((f-2, 0, 1, f-1))
@@ -634,6 +677,9 @@ class Wall2Property(PropertyGroup):
         
         modif.thickness = self.width
         modif.offset = self.x_offset
+        
+        if refresh_manipulators:
+            self.refresh_manipulators=True
         
         # restore context
         try:
@@ -719,6 +765,11 @@ class ARCHIPACK_OT_wall2(Operator):
         m = bpy.data.meshes.new("Wall")
         o = bpy.data.objects.new("Wall", m)
         d = m.Wall2Property.add()
+        s = d.manipulators.add()
+        s.prop1_name = "width"
+        s = d.manipulators.add()
+        s.prop1_name = "n_parts"
+        s.type = 'COUNTER'
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o 
@@ -894,14 +945,14 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
                 [0,0,0,1]
             ])
             
-    def update(self, context):
+    def _update(self, context):
         size = 10
         tM = self.o.matrix_world
         props = self.o.data.Wall2Property[0]
         props.update_parts()
         center = Vector((0,0))
         self.manips.exit()
-        g = WallGenerator()
+        g = WallGenerator(props)
         manip_t = [g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, props.flip) for part in props.parts]
         
         self.relocate_childs(context, self.o, g)
@@ -910,7 +961,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         
         x, y = g.walls[-1].lerp(1.1)
         pos = tM * Vector((x, y, 1.5))
-        self.manips.add(context, "X", "TOP", size, size, props, "n_parts", min=props.n_parts, max=31, step_round=0, sensitive=1, label="add parts", pos=pos)
+        self.manips.add(context, "X", "TOP", size, size, props, "n_parts", min=max(1,props.n_parts), max=min(props.n_parts+1,31), step_round=0, sensitive=1, label="add parts", pos=pos)
                    
         for wall_idx, params_t in enumerate(manip_t):
             
@@ -966,8 +1017,9 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
             # start angle
             x, y = wall.lerp(0)
             pos = tM * Vector((x, y, 0.0))
-            self.manips.add(context, "X", "TOP", size, size, part, "a0", min=-180, max=180, step_round=1, sensitive=10, label="start angle", pos=pos, value_factor=180/pi)
             
+            self.manips.add(context, "X", "TOP", size, size, part, "a0", min=-180, max=180, step_round=1, sensitive=10, label="start angle", pos=pos, value_factor=180/pi)
+    """        
     def modal(self, context, event):
         return self.manips.modal(context, event)
         
@@ -982,7 +1034,69 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'} 
- 
+    """
+    def exit(self, context):
+        for manip in self.manips:
+            manip.exit()
+            
+    def setup(self, context):
+        self.exit(context)
+        self.manips = []
+        o = context.active_object
+        d = o.data.Wall2Property[0]
+        for i, part in enumerate(d.parts):
+            if i >= d.n_parts:
+                break
+            self.manips.append(part.manipulators[1].setup(context, o, part))
+            if i > 0:
+                self.manips.append(part.manipulators[0].setup(context, o, part))
+        self.manips.append(d.manipulators[0].setup(context, o, d))
+        self.manips.append(d.manipulators[1].setup(context, o, d))
+    
+    def update(self, context):
+        center = Vector((0,0))
+        o = context.active_object
+        d = o.data.Wall2Property[0]
+        g = WallGenerator(d)
+        for part in d.parts:
+            g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, d.flip) 
+        self.relocate_childs(context, o, g)
+        context.scene.update()
+        self.store_childs(o, g)
+        
+    def modal(self, context, event):
+        o = context.active_object
+        if o is None or not ARCHIPACK_PT_wall2.filter(o):
+            self.exit(context)
+            return {'FINISHED'}
+        d = o.data.Wall2Property[0]
+        if d.refresh_manipulators:
+            d.refresh_manipulators = False
+            self.setup(context)
+        context.area.tag_redraw()
+        if event.type == 'RIGHTMOUSE':
+            self.exit(context)
+            return {'FINISHED'}
+        for manip in self.manips:
+            if manip.modal(context, event):
+                return {'RUNNING_MODAL'}
+        if event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
+            self.update(context)
+        return {'PASS_THROUGH'}
+        
+    def invoke(self, context, event):
+        if context.space_data.type == 'VIEW_3D':
+            self.manips = []
+            self.relocate = []
+            self.update(context)
+            self.setup(context)
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+        else:
+            self.report({'WARNING'}, "Active space must be a View3d")
+            return {'CANCELLED'} 
+        
+            
 bpy.utils.register_class(Wall2PartProperty)
 bpy.utils.register_class(Wall2Property)
 Mesh.Wall2Property = CollectionProperty(type=Wall2Property)

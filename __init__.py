@@ -176,7 +176,8 @@ class TOOLS_PT_Archipack_Tools(Panel):
         row = box.row(align=True)
         row.operator("archipack.auto_boolean", text="Robust", icon='HAND').interactive = False
         row.operator("archipack.auto_boolean", text="Interactive", icon='AUTO').interactive = True
- 
+        #row.operator("archipack.manipulate", text="Test manipulator", icon='AUTO')
+        
 class TOOLS_PT_Archipack_Create(Panel):
     bl_label = "Archipack"
     bl_idname = "TOOLS_PT_Archipack_Create"

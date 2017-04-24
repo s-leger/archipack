@@ -1,3 +1,5 @@
+# -*- coding:utf-8 -*-
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -32,7 +34,7 @@ from .panel import Panel as WindowPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
 from .archipack_door_panel import ARCHIPACK_OT_select_parent
-from .archipack_manipulator import ManipulatorStack
+from .archipack_manipulator import ManipulatorProperty
 
 BATTUE  = 0.01
 
@@ -611,6 +613,10 @@ class WindowProperty(PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='handle altitude', update=update_childs,
             )
+            
+    refresh_manipulators=BoolProperty(default=False)
+    manipulators = CollectionProperty(type=ManipulatorProperty)
+   
     # layout related
     display_detail=BoolProperty(
         default=False
@@ -1248,6 +1254,11 @@ class WindowProperty(PropertyGroup):
         
         # support for instances childs, update at object level
         self.synch_childs(context, o)
+        x, y = 0.5*self.x, 0.5*self.y
+        self.manipulators[0].set_pts([(-x,-y,0),(x,-y,0),(1,0,0)])
+        self.manipulators[1].set_pts([(-x,-y,0),(-x,y,0),(-1,0,0)])
+        self.manipulators[2].set_pts([(x,-y,self.altitude),(x,-y,self.altitude+self.z),(-1,0,0)])
+        self.manipulators[3].set_pts([(x,-y,0),(x,-y,self.altitude),(-1,0,0)])
         
         # restore context
         bpy.ops.object.select_all(action="DESELECT")
@@ -1571,6 +1582,17 @@ class ARCHIPACK_OT_window(Operator):
         d.y = self.y
         d.z = self.z
         d.altitude = self.altitude
+        s = d.manipulators.add()
+        s.prop1_name = "x"
+        s = d.manipulators.add()
+        s.prop1_name = "y"
+        s = d.manipulators.add()
+        s.prop1_name = "z"
+        s.normal = Vector((0,1,0))
+        s = d.manipulators.add()
+        s.prop1_name = "altitude"
+        s.normal = Vector((0,1,0))
+        
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o 
@@ -1602,7 +1624,13 @@ class ARCHIPACK_OT_window(Operator):
         o = context.active_object
         if o.data is not None and 'WindowProperty' in o.data:
             o.data.WindowProperty[0].update(context)
-            
+            bpy.ops.object.select_linked(type='OBDATA')
+            for linked in context.selected_objects:
+                if linked != o: 
+                    linked.data.WindowProperty[0].update(context)
+        o.select = True
+        context.scene.objects.active = o
+        
     def unique(self, context):
         sel = [o for o in context.selected_objects]
         bpy.ops.object.select_all(action="DESELECT")
@@ -1798,25 +1826,48 @@ class ARCHIPACK_OT_window_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_window.filter(context.active_object)
         
+    def exit(self, context):
+        for manip in self.manips:
+            manip.exit()
+            
+    def setup(self, context):
+        self.exit(context)
+        self.manips = []
+        o = context.active_object
+        d = o.data.WindowProperty[0]
+        m = d.manipulators
+        self.manips.append(m[0].setup(context, o, d))
+        self.manips.append(m[1].setup(context, o, d))
+        self.manips.append(m[2].setup(context, o, d))
+        self.manips.append(m[3].setup(context, o, d))
+    
     def modal(self, context, event):
-        return self.manips.modal(context, event)
+        o = context.active_object
+        if o is None or not ARCHIPACK_PT_window.filter(o):
+            self.exit(context)
+            return {'FINISHED'}
+        d = o.data.WindowProperty[0]
+        if d.refresh_manipulators:
+            d.refresh_manipulators = False
+            self.setup(context)
+        context.area.tag_redraw()
+        if event.type == 'RIGHTMOUSE':
+            self.exit(context)
+            return {'FINISHED'}
+        for manip in self.manips:
+            if manip.modal(context, event):
+                return {'RUNNING_MODAL'}
+        return {'PASS_THROUGH'}
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.manips = ManipulatorStack(context)
-            o = context.active_object
-            # context, axis, location, size, size_x, size_y, action
-            obj = o.data.WindowProperty[0]
-            self.manips.add(context, "X", "TOP", 15, 15, obj, "x", min=0.01, max=50, step_round=2, sensitive=2, label="width")
-            self.manips.add(context, "Y", "BOTTOM", 15, 15, obj, "y", min=0.01, max=50, step_round=2, sensitive=2, label="depth")
-            self.manips.add(context, "Z", "TOP", 15, 15, obj, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height")
-            self.manips.add(context, "Z", "BOTTOM", 15, 15, obj, "altitude", min=0.0, max=50, step_round=2, sensitive=1, label="altitude")
+            self.manips = []
+            self.setup(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'} 
-             
+            return {'CANCELLED'}         
             
 bpy.utils.register_class(WindowPanelRowProperty)
 bpy.utils.register_class(WindowPanelProperty)

@@ -1,3 +1,5 @@
+# -*- coding:utf-8 -*-
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -30,7 +32,7 @@ from .materialutils import MaterialUtils
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from math import sin, cos, tan, pi, atan2, sqrt, floor, acos
-from .archipack_manipulator import ManipulatorStack
+from .archipack_manipulator import ManipulatorProperty
 
 class Project():
     def proj_xy(self, t, next=None):
@@ -833,7 +835,7 @@ class CurvedStair(Stair, Arc):
             else:
                 length = 2*t0.length
         steps = step_factor * max(1, round(length / post_spacing, 0))
-        print("respect_edges:%s t_step:%s n_step:%s" % (respect_edges, 1.0 / steps, int(steps)))
+        #print("respect_edges:%s t_step:%s n_step:%s" % (respect_edges, 1.0 / steps, int(steps)))
         return 1.0 / steps, int(steps)
         
 class StraightLanding(StraightStair):
@@ -986,13 +988,19 @@ class StairGenerator():
         self.last_type = 'NONE'
         self.stairs = []
         self.steps_type = 'NONE'
+        self.sum_da = 0
+        
     def add_part(self, type, steps_type, nose_type, z_mode, nose_z, bottom_z, center, radius, da, width_left, width_right, length, left_shape, right_shape):
         self.steps_type = steps_type
         if len(self.stairs) < 1:
             s = None
         else:
             s = self.stairs[-1]
-        # start a new stair    
+        
+        if "S_" not in type:    
+            self.sum_da += da
+        
+        # start a new stair 
         if s is None:
             if type == 'S_STAIR':
                 p = Vector((0,0))
@@ -1058,6 +1066,31 @@ class StairGenerator():
             #faces.append((0,1,5,4))
             #matids.append(self.stairs[-1].idmat_raise)
         for s, stair in enumerate(self.stairs):
+            manipulator = self.parts[s].manipulators[0]
+            # Store Gl Points for manipulators
+            if 'Curved' in type(stair).__name__:
+                c = stair.c
+                p0 = (stair.lerp(0)-c).to_3d()
+                p1 = (stair.lerp(1)-c).to_3d()
+                # store on x axis
+                manipulator.set_pts([(c.x, c.y, stair.top), p0, p1])
+                manipulator.type = 'ARC_ANGLE_RADIUS'
+                manipulator.prop1_name = 'da'
+                manipulator.prop2_name = 'radius'
+                #self.parts[s].set_gl_points(0, [(c.x, c.y, stair.top), v0, v1])
+            else:
+                if self.sum_da > 0:
+                    side = 1
+                else:
+                    side = -1
+                v0 = stair.lerp(0)
+                v1 = stair.lerp(1)
+                manipulator.set_pts([(v0.x, v0.y, stair.top), (v1.x, v1.y, stair.top), (side, 0, 0)])
+                manipulator.type = 'SIZE'
+                manipulator.prop1_name = 'length'
+                # store on y axis for generic manipulators to work
+                #self.parts[s].set_gl_points(1, [(v0.x, v0.y, stair.top), (v1.x, v1.y, stair.top), (side, 0, 0)])
+                
             for i in range(stair.n_step):
                 stair.make_step(i, verts, faces, matids, uvs, nose_y=nose_y)
                 if s < len(self.stairs)-1 and self.steps_type != 'OPEN' and 'Landing' in type(stair).__name__ and stair.next_type != "LANDING":
@@ -1245,7 +1278,6 @@ class StairGenerator():
                                 
         for i, post in enumerate(subs):
             self.get_post(post, x, y, z, altitude, sub_offset_x, mat, verts, faces, matids, uvs, bottom=bottom)
-        
         
     def make_post(self, height, step_depth, x, y, z, altitude, side, post_spacing, respect_edges, move_x, x_offset, mat, 
         verts, faces, matids, uvs):
@@ -1519,6 +1551,9 @@ class StairGenerator():
 def update(self, context):
     self.update(context)
 
+def update_manipulators(self, context):
+    self.update(context, refresh_manipulators=True)
+    
 def update_preset(self, context):
     self.auto_update = False
     if self.presets == 'STAIR_I':
@@ -1546,7 +1581,7 @@ def update_preset(self, context):
         self.parts[1].type = 'D_STAIR'
         self.da = pi
     self.auto_update = True
-    self.update(context)
+    self.update(context, refresh_manipulators=True)
  
 materials_enum = (
             ('0','Ceiling','',0),
@@ -1580,7 +1615,7 @@ class StairMaterialProperty(PropertyGroup):
         props = self.find_in_selection(context)
         if props is not None:
             props.update(context)
-     
+   
 class StairPartProperty(PropertyGroup):
     type = EnumProperty(
             items=(
@@ -1592,7 +1627,7 @@ class StairPartProperty(PropertyGroup):
                 ('D_LANDING', 'Dual Curved landing','',5)
                 ),
             default='S_STAIR',
-            update=update
+            update=update_manipulators
             )
     length = FloatProperty(
             name="length",
@@ -1632,7 +1667,8 @@ class StairPartProperty(PropertyGroup):
             default='RECTANGLE',
             update=update
             )
-        
+    manipulators = CollectionProperty(type=ManipulatorProperty)
+
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -1646,11 +1682,11 @@ class StairPartProperty(PropertyGroup):
                     if part == self:
                         return props
         return None
-        
-    def update(self, context):
+    
+    def update(self, context, refresh_manipulators=False):
         props = self.find_in_selection(context)
         if props is not None:
-            props.update(context)
+            props.update(context, refresh_manipulators)
         
     def draw(self, layout, context, index, user_mode):
         if user_mode:
@@ -1676,12 +1712,13 @@ class StairPartProperty(PropertyGroup):
                 row.prop(self, "length")
         
 class StairProperty(PropertyGroup):
+    
     parts = CollectionProperty(type=StairPartProperty)
     n_parts = IntProperty(
             name="parts",
             min=1,
             max=32,
-            default=1, update=update
+            default=1, update=update_manipulators
             )
     step_depth = FloatProperty(
             name="Going",
@@ -2262,7 +2299,9 @@ class StairProperty(PropertyGroup):
         default = False
         )    
     
-    
+    refresh_manipulators=BoolProperty(default=False)
+    manipulators = CollectionProperty(type=ManipulatorProperty)
+   
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -2285,15 +2324,17 @@ class StairProperty(PropertyGroup):
         for i in range(len(self.rail_mat), self.rail_n):
             self.rail_mat.add()
         
-        
         # remove parts
         for i in range(len(self.parts), self.n_parts, -1):
             self.parts.remove(i-1)
         # add parts
         for i in range(len(self.parts), self.n_parts):
-            self.parts.add()
-        
-    def update(self, context):   
+            p = self.parts.add()
+            m = p.manipulators.add()
+            m.type = 'SIZE'
+            m.prop1_name = 'length'
+            
+    def update(self, context, refresh_manipulators=False):   
         
         if not self.auto_update:
             return
@@ -2321,6 +2362,13 @@ class StairProperty(PropertyGroup):
         width_left  = 0.5*self.width - self.x_offset
         width_right = 0.5*self.width + self.x_offset   
         
+        # store gl pts x axis for width maipulator
+        self.manipulators[0].set_pts([(-width_left, 0, 0), (width_right, 0, 0), (1, 0, 0)])
+        #self.set_gl_points(0, [(-width_left, 0, 0), (width_right, 0, 0), (1, 0, 0)])
+        # store gl pts z axis for height manipulator
+        self.manipulators[1].set_pts([(0, 0, 0), (0, 0, self.height), (1, 0, 0)])
+        #self.set_gl_points(2, [(0, 0, 0), (0, 0, self.height), (1, 0, 0)])
+        
         g = StairGenerator(self.parts)
         if self.presets == 'STAIR_USER':
             for part in self.parts:
@@ -2341,7 +2389,6 @@ class StairProperty(PropertyGroup):
             for part in range(n_parts-1):
                 g.add_part('D_STAIR', self.steps_type, self.nose_type, self.z_mode, self.nose_z, bottom_z, center, max(width_left+0.01, 
                             width_right+0.01, self.radius), dir*pi,  width_left, width_right, 1.0, self.left_shape, self.right_shape)
-            print("dir%s, last_da:%s abs_last:%s n_parts:%s" % (dir, last_da, abs_last, n_parts) )
             if round(abs_last, 2) > 0:
                 if abs_last > pi/2:
                     g.add_part('C_STAIR', self.steps_type, self.nose_type, self.z_mode, self.nose_z, bottom_z, center, max(width_left+0.01, 
@@ -2352,6 +2399,7 @@ class StairProperty(PropertyGroup):
                     g.add_part('C_STAIR', self.steps_type, self.nose_type, self.z_mode, self.nose_z, bottom_z, center, max(width_left+0.01, 
                             width_right+0.01, self.radius), last_da,  width_left, width_right, 1.0, self.left_shape, self.right_shape)
         else:
+            # STAIR_L STAIR_I STAIR_U
             for part in self.parts:
                 g.add_part(part.type, self.steps_type, self.nose_type, self.z_mode, self.nose_z, bottom_z, center, max(width_left+0.01, 
                             width_right+0.01, self.radius), self.da,  width_left, width_right, part.length, self.left_shape, self.right_shape)
@@ -2445,6 +2493,8 @@ class StairProperty(PropertyGroup):
          
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
         
+        if refresh_manipulators:
+            self.refresh_manipulators = True
         
         #bpy.ops.mesh.select_linked()
         #bpy.ops.mesh.faces_shade_smooth()
@@ -2694,6 +2744,11 @@ class ARCHIPACK_OT_stair(Operator):
         m = bpy.data.meshes.new("Stair")
         o = bpy.data.objects.new("Stair", m)
         d = m.StairProperty.add()
+        s = d.manipulators.add()
+        s.prop1_name = "width"
+        s = d.manipulators.add()
+        s.prop1_name = "height"
+        s.normal = Vector((0,1,0))
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o 
@@ -2731,47 +2786,55 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_stair.filter(context.active_object)
         
-    def modal(self, context, event):
-        return self.manips.modal(context, event)
-        
-    def update(self, context):
-        self.manips.exit()
+    def exit(self, context):
+        for manip in self.manips:
+            manip.exit()
+            
+    def setup(self, context):
+        self.exit(context)
+        self.manips = []
         o = context.active_object
-        # context, axis, location, size, size_x, size_y, action
-        obj = o.data.StairProperty[0]
-        tM = o.matrix_world
-        self.manips.add(context, "X", "TOP", 15, 15, obj, "width", min=0.01, max=50, step_round=2, sensitive=2, label="width", pos = tM * Vector((0.5*obj.width, 0, 0)))
-        if obj.presets == 'STAIR_O':
-            pos = tM * Vector((obj.radius-0.5*obj.width, obj.radius, 0))
-            self.manips.add(context, "Y", "TOP", 15, 15, obj, "radius", min=0.01, max=50, step_round=2, sensitive=1, label="radius", pos=pos )
-        elif obj.presets == 'STAIR_I':
-            pos = tM * Vector((0.5*obj.width, obj.parts[0].length, obj.height))
-            self.manips.add(context, "Y", "TOP", 15, 15, obj.parts[0], "length", min=0.01, max=50, step_round=2, sensitive=1, label="length", pos=pos)
-        elif obj.presets == 'STAIR_L':
-            pos = tM * Vector((0.5*obj.width, obj.parts[0].length, 0.3*obj.height))
-            self.manips.add(context, "Y", "TOP", 15, 15, obj.parts[0], "length", min=0.01, max=50, step_round=2, sensitive=1, label="length", pos=pos)
-            pos = tM * Vector((0.5*obj.width, obj.parts[0].length+obj.radius+0.5*obj.width, 0.5*obj.height))
-            self.manips.add(context, "Y", "TOP", 15, 15, obj, "radius", min=0.01, max=50, step_round=2, sensitive=2, label="radius", pos=pos)
-            #pos = tM * Vector((0.5*obj.width, obj.parts[0].length, 0))
-            #self.manips.add(context, "Y", "BOTTOM", 15, 15, obj.parts[2], "length", min=0.01, max=50, step_round=2, sensitive=2, label="length", pos=pos)
-        elif obj.presets == 'STAIR_U':
-            pos = tM * Vector((0.5*obj.width, obj.parts[0].length, 0.3*obj.height))
-            self.manips.add(context, "Y", "TOP", 15, 15, obj.parts[0], "length", min=0.01, max=50, step_round=2, sensitive=1, label="length", pos=pos)
-            pos = tM * Vector((0.5*obj.width, obj.parts[0].length+obj.radius+0.5*obj.width, 0.5*obj.height))
-            self.manips.add(context, "Y", "TOP", 15, 15, obj, "radius", min=0.01, max=50, step_round=2, sensitive=1, label="radius", pos=pos)
-            #pos = tM * Vector((0.5*obj.width, obj.parts[0].length, 0))
-            #self.manips.add(context, "Y", "BOTTOM", 15, 15, obj.parts[2], "length", min=0.01, max=50, step_round=2, sensitive=2, label="length", pos=pos)
-        self.manips.add(context, "Z", "TOP", 15, 15, obj, "height", min=0.01, max=50, step_round=2, sensitive=1, label="height")
+        d = o.data.StairProperty[0]
+        if d.presets is not 'STAIR_O':
+            for i, part in enumerate(d.parts):
+                if i >= d.n_parts:
+                    break
+                if "S_" in part.type or d.presets in ['STAIR_USER']:
+                    for j, manipulator in enumerate(part.manipulators):
+                        self.manips.append(manipulator.setup(context, o, part))
+        if d.presets in ['STAIR_U','STAIR_L']:
+            self.manips.append(d.parts[1].manipulators[0].setup(context, o, d))
+        self.manips.append(d.manipulators[0].setup(context, o, d))
+        self.manips.append(d.manipulators[1].setup(context, o, d))
+    
+    def modal(self, context, event):
+        o = context.active_object
+        if o is None or not ARCHIPACK_PT_stair.filter(o):
+            self.exit(context)
+            return {'FINISHED'}
+        d = o.data.StairProperty[0]
+        if d.refresh_manipulators:
+            d.refresh_manipulators = False
+            self.setup(context)
+        context.area.tag_redraw()
+        if event.type == 'RIGHTMOUSE':
+            self.exit(context)
+            return {'FINISHED'}
+        for manip in self.manips:
+            if manip.modal(context, event):
+                return {'RUNNING_MODAL'}
+        return {'PASS_THROUGH'}
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.manips = ManipulatorStack(context, self.update)
-            self.update(context)
+            self.manips = []
+            self.setup(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'} 
+
              
 bpy.utils.register_class(StairMaterialProperty)
 bpy.utils.register_class(StairPartProperty)

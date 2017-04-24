@@ -1,3 +1,5 @@
+# -*- coding:utf-8 -*-
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -21,12 +23,11 @@
 #
 # ----------------------------------------------------------
 
-
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
-from bpy.props import FloatProperty, IntProperty, CollectionProperty, EnumProperty  
+from bpy.props import FloatProperty, IntProperty, CollectionProperty, EnumProperty, BoolProperty  
 from mathutils import Vector, Matrix
 
 # door component objects (panels, handles ..)
@@ -35,7 +36,7 @@ from .panel import Panel as DoorPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, door_handle_horizontal_01
 from .archipack_door_panel import ARCHIPACK_PT_door_panel, ARCHIPACK_OT_door_panel
-from .archipack_manipulator import ManipulatorStack
+from .archipack_manipulator import ManipulatorProperty
 
 SPACING = 0.005
 BATTUE  = 0.01
@@ -181,7 +182,9 @@ class DoorProperty(PropertyGroup):
                 ),
             default='BOTH', update=update_childs,
             )
-            
+    refresh_manipulators=BoolProperty(default=False)
+    manipulators = CollectionProperty(type=ManipulatorProperty)
+           
        
     @property
     def frame(self):
@@ -523,6 +526,12 @@ class DoorProperty(PropertyGroup):
         # support for instances childs, update at object level
         self.synch_childs(context, o)
         
+        x, y = 0.5*self.x, 0.5*self.y
+        self.manipulators[0].set_pts([(-x,-y,0),(x,-y,0),(1,0,0)])
+        self.manipulators[1].set_pts([(-x,-y,0),(-x,y,0),(-1,0,0)])
+        self.manipulators[2].set_pts([(x,-y,0),(x,-y,self.z),(-1,0,0)])
+        
+        
         # restore context
         bpy.ops.object.select_all(action="DESELECT")
         
@@ -791,6 +800,13 @@ class ARCHIPACK_OT_door(Operator):
         d.panels_x = self.panels_x
         d.panels_y = self.panels_y 
         d.handle = self.handle
+        s = d.manipulators.add()
+        s.prop1_name = "x"
+        s = d.manipulators.add()
+        s.prop1_name = "y"
+        s = d.manipulators.add()
+        s.prop1_name = "z"
+        s.normal = Vector((0,1,0))
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o 
@@ -869,22 +885,51 @@ class ARCHIPACK_OT_door_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_door.filter(context.active_object)
         
+    def exit(self, context):
+        for manip in self.manips:
+            manip.exit()
+            
+    def setup(self, context):
+        self.exit(context)
+        self.manips = []
+        o = context.active_object
+        d = o.data.DoorProperty[0]
+        m = d.manipulators
+        self.manips.append(m[0].setup(context, o, d))
+        self.manips.append(m[1].setup(context, o, d))
+        self.manips.append(m[2].setup(context, o, d))
+    
     def modal(self, context, event):
-        return self.manips.modal(context, event)
+        o = context.active_object
+        if o is None or not ARCHIPACK_PT_door.filter(o):
+            self.exit(context)
+            return {'FINISHED'}
+        d = o.data.DoorProperty[0]
+        if d.refresh_manipulators:
+            d.refresh_manipulators = False
+            self.setup(context)
+        context.area.tag_redraw()
+        if event.type == 'RIGHTMOUSE':
+            self.exit(context)
+            return {'FINISHED'}
+        for manip in self.manips:
+            if manip.modal(context, event):
+                return {'RUNNING_MODAL'}
+        return {'PASS_THROUGH'}
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.manips = ManipulatorStack(context)
-            obj = context.active_object.data.DoorProperty[0]
-            self.manips.add(context, "X", "TOP", 15, 15, obj, "x", min=0.01, max=50, step_round=2, sensitive=2, label="width")
-            self.manips.add(context, "Y", "BOTTOM", 15, 15, obj, "y", min=0.01, max=50, step_round=2, sensitive=2, label="depth")
-            self.manips.add(context, "Z", "TOP", 15, 15, obj, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height")
+            self.manips = []
+            self.setup(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'} 
- 
+
+    
+    
+    
 bpy.utils.register_class(DoorProperty)
 Mesh.DoorProperty = CollectionProperty(type=DoorProperty)
 bpy.utils.register_class(ARCHIPACK_PT_door)
