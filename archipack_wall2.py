@@ -600,14 +600,14 @@ class Wall2Property(PropertyGroup):
         self.parts.move(len(self.parts)-1, where)
         self.n_parts += 1
         self.auto_update = True
-        self.update(context)
+        self.update(context, refresh_manipulators = True)
         
     def remove_part(self, context, where):
         self.auto_update = False
         self.parts.remove(where)
         self.n_parts -= 1
         self.auto_update = True
-        self.update(context)
+        self.update(context, refresh_manipulators = True)
        
     def find_in_selection(self, context):
         """
@@ -657,8 +657,9 @@ class Wall2Property(PropertyGroup):
             g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, self.flip)
         g.make_wall(self.step_angle, verts, faces)
         
+        # Width
         self.manipulators[0].set_pts([(0,0,0),(-self.width,0,0),(-1,0,0)])
-        
+        # Parts COUNTER
         self.manipulators[1].set_pts([g.walls[-1].lerp(1.1).to_3d(),g.walls[-1].lerp(1.1+0.5/g.walls[-1].length).to_3d(),(-1,0,0)])
         
         if self.closed:
