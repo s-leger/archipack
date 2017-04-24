@@ -807,7 +807,7 @@ class ManipulatorProperty(PropertyGroup):
     
     def get_pts(self, tM):
         rM = tM.to_3x3()
-        if self.type == 'SIZE':
+        if self.type in ['SIZE', 'COUNTER']:
             return tM*self.p0, tM*self.p1, self.p2, rM*self.normal
         else:
             return tM*self.p0, rM*self.p1, rM*self.p2, rM*self.normal
