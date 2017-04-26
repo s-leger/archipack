@@ -219,8 +219,9 @@ class Arc(Circle):
         return [self.lerp(i*t_step).to_3d() for i in range(n_pts+1)]
            
 class Wall():
-    def __init__(self, last, z, t, flip):
+    def __init__(self, last, wall_z, z, t, flip):
         self.z = z
+        self.wall_z = wall_z
         self.t = t
         self.flip = flip
         self.z_step = len(z)
@@ -244,7 +245,7 @@ class Wall():
                 faces.append((f, f+2, f+3, f+1))
     def p3d(self, verts, t):
         x, y = self.lerp(t)
-        z = self.get_z(t)
+        z = self.wall_z+self.get_z(t)
         verts.append((x, y, 0))
         verts.append((x, y, z))
     def make_wall(self, i, verts, faces):
@@ -252,30 +253,30 @@ class Wall():
         f = len(verts)
         self.p3d(verts, t)
         self.make_faces(i, f, faces)
-    def straight_wall(self, last, length, da, z, t):
+    def straight_wall(self, last, length, da, wall_z, z, t):
         r = last.straight(length).rotate(da)
-        return StraightWall(last, r.p, r.v, z, t, self.flip)
-    def curved_wall(self, last, a0, da, radius, z, t):
+        return StraightWall(last, r.p, r.v, wall_z, z, t, self.flip)
+    def curved_wall(self, last, a0, da, radius, wall_z, z, t):
         n = last.normal(1).rotate(a0).scale(radius)
         if da < 0:
             n.v = -n.v
         a0 = n.angle
         c = n.p - n.v
-        return CurvedWall(last, c, radius, a0, da, z, t, self.flip)
+        return CurvedWall(last, c, radius, a0, da, wall_z, z, t, self.flip)
         
 class StraightWall(Wall, Line):
-    def __init__(self, last, p, v, z, t, flip):
+    def __init__(self, last, p, v, wall_z, z, t, flip):
         Line.__init__(self, p, v)
-        Wall.__init__(self, last, z, t, flip)
+        Wall.__init__(self, last, wall_z, z, t, flip)
     
     def param_t(self, step_angle):
         self.t_step = self.t
         self.n_step = len(self.t)-1
         
 class CurvedWall(Wall, Arc):
-    def __init__(self, last, c, radius, a0, da, z, t, flip):
+    def __init__(self, last, c, radius, a0, da, wall_z, z, t, flip):
         Arc.__init__(self, c, radius, a0, da)
-        Wall.__init__(self, last, z, t, flip)
+        Wall.__init__(self, last, wall_z, z, t, flip)
     
     def param_t(self, step_angle):
         t_step, n_step = self.steps(step_angle) 
@@ -288,7 +289,7 @@ class WallGenerator():
         self.walls = []
         self.parts = parts
         self.faces_type = 'NONE'
-    def add_part(self, type, center, radius, a0, da, length, part_z, part_t, n_splits, flip):
+    def add_part(self, type, center, radius, a0, da, length, wall_z, part_z, part_t, n_splits, flip):
         
         # TODO:
         # refactor this part (height manipulators)
@@ -328,18 +329,18 @@ class WallGenerator():
             if type == 'S_WALL':
                 p = Vector((0,0))
                 v = length*Vector((cos(a0),sin(a0)))
-                s = StraightWall(s, p, v, z, t, flip)
+                s = StraightWall(s, p, v, wall_z, z, t, flip)
             elif type == 'C_WALL':
                 if da < 0:
                     c = Vector((radius,0))
                 else:
                     c = Vector((-radius,0))
-                s = CurvedWall(s, c, radius, a0, da, z, t, flip)
+                s = CurvedWall(s, c, radius, a0, da, wall_z, z, t, flip)
         else:
             if type == 'S_WALL':
-                s = s.straight_wall(s, length, a0, z, t)
+                s = s.straight_wall(s, length, a0, wall_z, z, t)
             elif type == 'C_WALL':
-                s = s.curved_wall(s, a0, da, radius, z, t)
+                s = s.curved_wall(s, a0, da, radius, wall_z, z, t)
         self.walls.append(s)
         self.last_type = type
         return manip_index
@@ -437,10 +438,10 @@ class Wall2PartProperty(PropertyGroup):
             min=0,
             max=1000,
             default=[
-                    2.4,2.4,2.4,2.4,2.4,2.4,2.4,2.4,
-                    2.4,2.4,2.4,2.4,2.4,2.4,2.4,2.4,
-                    2.4,2.4,2.4,2.4,2.4,2.4,2.4,2.4,
-                    2.4,2.4,2.4,2.4,2.4,2.4,1
+                    0,0,0,0,0,0,0,0,
+                    0,0,0,0,0,0,0,0,
+                    0,0,0,0,0,0,0,0,
+                    0,0,0,0,0,0,0
                 ],
             size=31,
             update=update
@@ -575,6 +576,12 @@ class Wall2Property(Manipulable, PropertyGroup):
             default=0.2,
             update=update
             )
+    z = FloatProperty(
+        name='height',
+            min=0.1, max=10000,
+            default=2.7, precision=2,
+            description='height', update=update,
+            )
     x_offset = FloatProperty(
         name="x offset",
             min=-1, max=1,
@@ -660,7 +667,7 @@ class Wall2Property(Manipulable, PropertyGroup):
         center = Vector((0,0))    
         g = WallGenerator(self.parts)
         for part in self.parts:
-            g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, self.flip)
+            g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, self.z, part.z, part.t, part.n_splits, self.flip)
         return g
         
     def update_parts(self, o):
@@ -722,7 +729,9 @@ class Wall2Property(Manipulable, PropertyGroup):
         self.manipulators[0].set_pts([(0,0,0),(-self.width,0,0),(-1,0,0)])
         # Parts COUNTER
         self.manipulators[1].set_pts([g.walls[-1].lerp(1.1).to_3d(),g.walls[-1].lerp(1.1+0.5/g.walls[-1].length).to_3d(),(-1,0,0)])
-
+        # Height
+        self.manipulators[2].set_pts([(0,0,0),(0,0,self.z),(-1,0,0)])
+        
         if self.realtime:
             # update child location and size
             self.relocate_childs(context, o, g)
@@ -1068,6 +1077,7 @@ class ARCHIPACK_PT_wall2(Panel):
         box.prop(prop, 'n_parts')
         box.prop(prop, 'step_angle')
         box.prop(prop, 'width')
+        box.prop(prop, 'z')
         box.prop(prop, 'flip')
         box.prop(prop, 'x_offset')
         row = layout.row()
@@ -1129,6 +1139,9 @@ class ARCHIPACK_OT_wall2(Operator):
         s = d.manipulators.add()
         s.prop1_name = "n_parts"
         s.type = 'COUNTER'
+        s = d.manipulators.add()
+        s.prop1_name = "z"
+        s.normal = (0,1,0)
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o 
