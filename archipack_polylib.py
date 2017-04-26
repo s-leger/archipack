@@ -325,8 +325,9 @@ class Segment():
             u: param t de l'intersection sur le segment courant
             v: param t de l'intersection sur le segment segment
         """
-        c1 = Vector((segment.vect_2x.y, -segment.vect_2d.x))
-        d  = self.vect_2d * c1
+        v2d = self.vect_2d
+        c2 = np.cross(segment.vect_2d, (0,0,1)) 
+        d  = np.dot(v2d, c2)
         if d == 0:
             # segments paralleles
             segment._point_sur_segment(self.c0)
@@ -334,10 +335,11 @@ class Segment():
             self._point_sur_segment(segment.c0)
             self._point_sur_segment(segment.c1)
             return False, 0, 0, 0
-        dv = segment.c0 - self.c0
-        c2 = Vector((self.vect_2x.y, -self.vect_2d.x))
-        u = c1*dv/d
-        v = c2*dv/d
+        c1 = np.cross(v2d, (0,0,1))
+        v3 = self.c0.vect(segment.c0)
+        v3[2] = 0.0
+        u = np.dot(c2,v3)/d
+        v = np.dot(c1,v3)/d
         co = self.lerp(u)
         return True, co, u, v
         
@@ -1343,7 +1345,7 @@ class SelectPoints(Selectable):
                 scene = context.scene
                 geom = ShapelyOps.union(sel)
                 if event.alt:
-                    tM, w, h = ShapelyOps.min_bounding_rect(geom)
+                    tM, w, h, l_pts, w_pts = ShapelyOps.min_bounding_rect(geom)
                     x0 = -w/2.0
                     y0 = -h/2.0
                     x1 = w/2.0
@@ -1619,13 +1621,13 @@ class SelectPolygons(Selectable):
             if self.action == 'rectangle':
                 self.complete(context)
             else:
-                self.selectMode = not self.selectMode
                 sel  = [self.geoms[i] for i in self.ba.list]
                 if len(sel) > 0:
+                    self.selectMode = not self.selectMode
                     geom = ShapelyOps.union(sel)
                     tM, w, h, l_pts, w_pts = ShapelyOps.min_bounding_rect(geom)
                     self.object_location = (tM, w, h, l_pts, w_pts)
-                self.startPoint = self._position_2d_from_coord(context, tM.translation)
+                    self.startPoint = self._position_2d_from_coord(context, tM.translation)
         self._draw(context)
         
     def modal(self, context, event):
