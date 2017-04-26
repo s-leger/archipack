@@ -34,7 +34,7 @@ from .panel import Panel as WindowPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
 from .archipack_door_panel import ARCHIPACK_OT_select_parent
-from .archipack_manipulator import ManipulatorProperty
+from .archipack_manipulator import Manipulable
 
 BATTUE  = 0.01
 
@@ -394,7 +394,7 @@ class WindowPanelProperty(PropertyGroup):
         active.select = True
         context.scene.objects.active = active  
             
-class WindowProperty(PropertyGroup):
+class WindowProperty(Manipulable, PropertyGroup):
     x = FloatProperty(
             name='width',
             min=0.25, max=10000,
@@ -613,10 +613,7 @@ class WindowProperty(PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='handle altitude', update=update_childs,
             )
-            
-    refresh_manipulators=BoolProperty(default=False)
-    manipulators = CollectionProperty(type=ManipulatorProperty)
-   
+    
     # layout related
     display_detail=BoolProperty(
         default=False
@@ -1254,6 +1251,8 @@ class WindowProperty(PropertyGroup):
         
         # support for instances childs, update at object level
         self.synch_childs(context, o)
+        
+        # store 3d points for gl manipulators
         x, y = 0.5*self.x, 0.5*self.y
         self.manipulators[0].set_pts([(-x,-y,0),(x,-y,0),(1,0,0)])
         self.manipulators[1].set_pts([(-x,-y,0),(-x,y,0),(-1,0,0)])
@@ -1584,8 +1583,12 @@ class ARCHIPACK_OT_window(Operator):
         d.altitude = self.altitude
         s = d.manipulators.add()
         s.prop1_name = "x"
+        s.prop2_name = "x"
+        s.type = "SIZE_LOC"
         s = d.manipulators.add()
         s.prop1_name = "y"
+        s.prop2_name = "y"
+        s.type = "SIZE_LOC"
         s = d.manipulators.add()
         s.prop1_name = "z"
         s.normal = Vector((0,1,0))
@@ -1825,50 +1828,22 @@ class ARCHIPACK_OT_window_manipulate(Operator):
     @classmethod
     def poll(self, context):
         return ARCHIPACK_PT_window.filter(context.active_object)
-        
-    def exit(self, context):
-        for manip in self.manips:
-            manip.exit()
-            
-    def setup(self, context):
-        self.exit(context)
-        self.manips = []
-        o = context.active_object
-        d = o.data.WindowProperty[0]
-        m = d.manipulators
-        self.manips.append(m[0].setup(context, o, d))
-        self.manips.append(m[1].setup(context, o, d))
-        self.manips.append(m[2].setup(context, o, d))
-        self.manips.append(m[3].setup(context, o, d))
     
     def modal(self, context, event):
-        o = context.active_object
-        if o is None or not ARCHIPACK_PT_window.filter(o):
-            self.exit(context)
-            return {'FINISHED'}
-        d = o.data.WindowProperty[0]
-        if d.refresh_manipulators:
-            d.refresh_manipulators = False
-            self.setup(context)
-        context.area.tag_redraw()
-        if event.type == 'RIGHTMOUSE':
-            self.exit(context)
-            return {'FINISHED'}
-        for manip in self.manips:
-            if manip.modal(context, event):
-                return {'RUNNING_MODAL'}
-        return {'PASS_THROUGH'}
+        return self.d.manipulable_modal(context, event)   
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.manips = []
-            self.setup(context)
+            o = context.active_object
+            self.d = o.data.WindowProperty[0]
+            self.d.manipulable_invoke(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'}         
-            
+            return {'CANCELLED'} 
+
+           
 bpy.utils.register_class(WindowPanelRowProperty)
 bpy.utils.register_class(WindowPanelProperty)
 Mesh.WindowPanelProperty = CollectionProperty(type=WindowPanelProperty)

@@ -29,7 +29,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 1, 1),
+    'version': (1, 1, 2),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',

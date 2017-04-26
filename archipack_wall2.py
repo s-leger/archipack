@@ -31,7 +31,9 @@ from .bmesh_utils import BmeshEdit as bmed
 from .materialutils import MaterialUtils
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt
-from .archipack_manipulator import ManipulatorProperty
+from .archipack_manipulator import Manipulable, ManipulatorProperty
+
+generator = None
 
 class Line():
     def __init__(self, p, v):
@@ -378,7 +380,7 @@ def update(self, context):
     self.update(context)
 
 def update_manipulators(self, context):
-    self.update(context, refresh_manipulators=True)
+    self.update(context, manipulable_refresh=True)
  
 def set_splits(self, value):
     if self.n_splits != value:
@@ -472,7 +474,8 @@ class Wall2PartProperty(PropertyGroup):
         )
     auto_update=BoolProperty(default=True)
     manipulators = CollectionProperty(type=ManipulatorProperty)
-
+    # ui related
+    expand = BoolProperty(default=False)
     def _set_t(self, splits):
         t = 1/splits
         for i in range(splits):
@@ -492,38 +495,64 @@ class Wall2PartProperty(PropertyGroup):
                         return props
         return None
         
-    def update(self, context, refresh_manipulators=False):
+    def update(self, context, manipulable_refresh=False):
         if not self.auto_update:
             return 
         props = self.find_in_selection(context)
         if props is not None:
-            props.update(context, refresh_manipulators)
+            props.update(context, manipulable_refresh)
         
     def draw(self, layout, context, index):
-        row = layout.row(align=True)
-        row.label(text="Part "+str(index+1))
-        row.prop(self, "type", text="")
-        row = layout.row(align=True)
-        row.operator("archipack.wall2_insert", text="Split").index = index
-        row.operator("archipack.wall2_remove", text="Remove").index = index
-        if self.type == 'C_WALL':
-            row = layout.row()
-            row.prop(self, "radius")
-            row = layout.row()
-            row.prop(self, "da")
-        else:
-            row = layout.row()
-            row.prop(self, "length")
-        row = layout.row()
-        row.prop(self, "a0")
-        row = layout.row()
-        row.prop(self, "splits")
-        for split in range(self.n_splits):
-            row = layout.row()
-            row.prop(self, "z", text="alt", index=split)
-            row.prop(self, "t", text="pos", index=split)
         
-class Wall2Property(PropertyGroup):
+        row = layout.row(align=True)
+        if self.expand:
+            row.prop(self, 'expand',icon="TRIA_DOWN", icon_only=True, text="Part "+str(index+1), emboss=False)
+        else:
+            row.prop(self, 'expand',icon="TRIA_RIGHT", icon_only=True, text="Part "+str(index+1), emboss=False)
+        #row.label(text="Part "+str(index+1))
+        row.prop(self, "type", text="")
+            
+        if self.expand:        
+            row = layout.row(align=True)
+            row.operator("archipack.wall2_insert", text="Split").index = index
+            row.operator("archipack.wall2_remove", text="Remove").index = index
+            if self.type == 'C_WALL':
+                row = layout.row()
+                row.prop(self, "radius")
+                row = layout.row()
+                row.prop(self, "da")
+            else:
+                row = layout.row()
+                row.prop(self, "length")
+            row = layout.row()
+            row.prop(self, "a0")
+            row = layout.row()
+            row.prop(self, "splits")
+            for split in range(self.n_splits):
+                row = layout.row()
+                row.prop(self, "z", text="alt", index=split)
+                row.prop(self, "t", text="pos", index=split)
+
+class Wall2ChildProperty(PropertyGroup):
+    # Size  Loc
+    # Delta Loc
+    manipulators=CollectionProperty(type=ManipulatorProperty)
+    name = StringProperty()
+    wall_idx = IntProperty()
+    pos = FloatVectorProperty(subtype='XYZ')
+    flip = BoolProperty(default=False)
+    
+    def get_child(self, context):
+        d = None
+        child = context.scene.objects.get(self.name)
+        if child.data is not None:
+            if 'WindowProperty' in child.data:
+                d = child.data.WindowProperty[0]
+            elif 'DoorProperty' in child.data:
+                d = child.data.DoorProperty[0]
+        return child, d
+       
+class Wall2Property(Manipulable, PropertyGroup):
     parts = CollectionProperty(type=Wall2PartProperty)
     n_parts = IntProperty(
             name="parts",
@@ -575,10 +604,13 @@ class Wall2Property(PropertyGroup):
             update=update
             )
     auto_update=BoolProperty(default=True)
-    manipulators = CollectionProperty(type=ManipulatorProperty)
-    refresh_manipulators=BoolProperty(default=False)
+    realtime=BoolProperty(default=True, name="RealTime", description="Relocate childs in realtime")
+    # dumb manipulators to show sizes between childs
+    childs_manipulators=CollectionProperty(type=ManipulatorProperty)
+    childs=CollectionProperty(type=Wall2ChildProperty)
     
     def insert_part(self, context, where):
+        self.manipulable_disable()
         self.auto_update = False
         part_0 = self.parts[where]
         part_0.length /=2
@@ -600,14 +632,15 @@ class Wall2Property(PropertyGroup):
         self.parts.move(len(self.parts)-1, where)
         self.n_parts += 1
         self.auto_update = True
-        self.update(context, refresh_manipulators = True)
+        self.update(context, manipulable_refresh = True)
         
     def remove_part(self, context, where):
+        self.manipulable_disable()
         self.auto_update = False
         self.parts.remove(where)
         self.n_parts -= 1
         self.auto_update = True
-        self.update(context, refresh_manipulators = True)
+        self.update(context, manipulable_refresh = True)
        
     def find_in_selection(self, context):
         """
@@ -622,52 +655,82 @@ class Wall2Property(PropertyGroup):
                 return active, selected, o
         return active, selected, None
     
-    def update_parts(self):
+    def get_generator(self):
+        # print("get_generator")
+        center = Vector((0,0))    
+        g = WallGenerator(self.parts)
+        for part in self.parts:
+            g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, self.flip)
+        return g
+        
+    def update_parts(self, o):
+        # print("update_parts")
         # remove rows
+        row_change = False
         for i in range(len(self.parts), self.n_parts, -1):
+            row_change = True
             self.parts.remove(i-1)
+        
         # add rows
         for i in range(len(self.parts), self.n_parts):
+            row_change = True
             p = self.parts.add()
             s = p.manipulators.add()
             s.type = "ANGLE"
             s.prop1_name = "a0"
             s = p.manipulators.add()
+            s.type = "SIZE"
             s.prop1_name = "length"   
-            
-    def update(self, context, refresh_manipulators=False):   
         
+        g = self.get_generator()
+        
+        if row_change:
+            self.setup_childs(o, g)
+        
+        return g
+        
+    def update(self, context, manipulable_refresh=False):   
+        # print("update manipulable_refresh:%s" % (manipulable_refresh))
+            
         if not self.auto_update:
             return
+            
         active, selected, o = self.find_in_selection(context)
         
         if o is None:
             return
-            
-        self.update_parts()
         
-        center = Vector((0,0))
+        if manipulable_refresh:
+            # prevent crash by removing all manipulators refs to datablock before changes 
+            self.manipulable_disable(context)
+            
         verts = []
         faces = []
         
-        #self.set_gl_points(0, [(0,0,0),(-self.width,0,0),(-1,0,0)])
-        
-        g = WallGenerator(self.parts)
-        for part in self.parts:
-            g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, self.flip)
+        g = self.update_parts(o)
+        # print("make_wall")
         g.make_wall(self.step_angle, verts, faces)
-        
-        # Width
-        self.manipulators[0].set_pts([(0,0,0),(-self.width,0,0),(-1,0,0)])
-        # Parts COUNTER
-        self.manipulators[1].set_pts([g.walls[-1].lerp(1.1).to_3d(),g.walls[-1].lerp(1.1+0.5/g.walls[-1].length).to_3d(),(-1,0,0)])
         
         if self.closed:
             f = len(verts)
             faces.append((f-2, 0, 1, f-1))
             
+        # print("buildmesh")    
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=True)
         
+        # Width
+        self.manipulators[0].set_pts([(0,0,0),(-self.width,0,0),(-1,0,0)])
+        # Parts COUNTER
+        self.manipulators[1].set_pts([g.walls[-1].lerp(1.1).to_3d(),g.walls[-1].lerp(1.1+0.5/g.walls[-1].length).to_3d(),(-1,0,0)])
+
+        if self.realtime:
+            # update child location and size
+            self.relocate_childs(context, o, g)
+            # store gl points
+            self.update_childs(context, o, g)
+        else:
+            bpy.ops.archipack.wall2_delay_update(name=o.name)
+            
         modif = o.modifiers.get('Wall')
         if modif is None:
             modif = o.modifiers.new('Wall', 'SOLIDIFY')
@@ -679,8 +742,9 @@ class Wall2Property(PropertyGroup):
         modif.thickness = self.width
         modif.offset = self.x_offset
         
-        if refresh_manipulators:
-            self.refresh_manipulators=True
+        if manipulable_refresh:
+            # print("manipulable_refresh=True")
+            self.manipulable_refresh=True
         
         # restore context
         try:
@@ -691,7 +755,291 @@ class Wall2Property(PropertyGroup):
         
         active.select = True
         context.scene.objects.active = active  
+    
+    # manipulable 
+    def child_partition(self, array, begin, end):
+        pivot = begin
+        for i in range(begin+1, end+1):
+            # wall idx
+            if array[i][0] < array[begin][0]:
+                pivot += 1
+                array[i], array[pivot] = array[pivot], array[i]
+            # param t on the wall
+            elif array[i][0] == array[begin][0] and array[i][3] <= array[begin][3]:
+                pivot += 1
+                array[i], array[pivot] = array[pivot], array[i]
+        array[pivot], array[begin] = array[begin], array[pivot]
+        return pivot
+
+    def sort_child(self, array, begin=0, end=None):
+        # print("sort_child")
+        if end is None:
+            end = len(array) - 1
+        def _quicksort(array, begin, end):
+            if begin >= end:
+                return
+            pivot = self.child_partition(array, begin, end)
+            _quicksort(array, begin, pivot-1)
+            _quicksort(array, pivot+1, end)
+        return _quicksort(array, begin, end)
+    
+    def add_child(self, name, wall_idx, pos, flip):
+        # print("add_child %s %s" % (name, wall_idx))
+        c = self.childs.add()
+        c.name = name
+        c.wall_idx = wall_idx
+        c.pos = pos
+        c.flip = flip
+        m = c.manipulators.add()
+        m.type = 'DELTA_LOC'
+        m.prop1_name = "x"
+        m = c.manipulators.add()
+        m.type = 'SIZE_LOC'
+        m.prop1_name = "x"
+        m.prop2_name = "x"
+    
+    def setup_childs(self, o, g):
+        """
+            Store childs
+            create manipulators
+            call after a boolean oop
+        """
+        # print("setup_childs")
+            
+        self.childs.clear()
+        self.childs_manipulators.clear()
+        if o.parent is None:
+            return
+        for i in range(self.n_parts):
+            m = self.childs_manipulators.add()
+            m.type = 'DUMB_SIZE'
+        relocate = []
+        dmax = 2*self.width   
+        itM = o.matrix_world.inverted() * o.parent.matrix_world
+        rM = itM.to_3x3()
+        for child in o.parent.children:
+            if child != o:
+                tM = child.matrix_world.to_3x3()
+                pt = (itM * child.location).to_2d()
+                dir_y = (rM * tM * Vector((0,1,0))).to_2d()
+                for wall_idx, wall in enumerate(g.walls):
+                    res, d, t = wall.point_sur_segment(pt)
+                    dir = -wall.normal(t).v.normalized()
+                    if res and t > 0 and t < 1 and abs(d) < dmax:
+                        m = self.childs_manipulators.add()
+                        m.type = 'DUMB_SIZE'
+                        relocate.append((child.name, wall_idx, (t*wall.length, d, child.location.z), (dir-dir_y).length > 0.5))
+        self.sort_child(relocate)
+        for child in relocate:
+            name, wall_idx, pos, flip = child
+            self.add_child(name, wall_idx, pos, flip)
+
+    def relocate_childs(self, context, o, g):
+        """
+            Move and resize childs after wall edition
+        """
+        ## print("relocate_childs")
+        
+        w = self.width
+        if self.flip:
+            w = -w
+        tM = o.matrix_world
+        for child in self.childs:
+            c, d = child.get_child(context)
+            if c is None:
+                continue
+            t = child.pos.x/g.walls[child.wall_idx].length        
+            n = g.walls[child.wall_idx].normal(t)
+            rx, ry = -n.v.normalized()
+            rx, ry = ry, -rx
+            if child.flip:
+                rx, ry = -rx, -ry
+            #context.scene.objects.active = c
+            if d is not None:
+                c.select = True
+                d.y = w
+                d.update(context)
+                c.select = False
+                x, y = n.p - (0.5*w * n.v.normalized())
+            else:    
+                x, y = n.p - (child.pos.y * n.v.normalized())
+            #c.select = False
+            context.scene.objects.active = o
+            # preTranslate
+            c.matrix_world = tM * Matrix([
+                [rx,-ry,0,x],
+                [ry,rx,0,y],
+                [0,0,1,child.pos.z],
+                [0,0,0,1]
+            ])
+     
+    def update_childs(self, context, o, g):
+        """
+            setup gl points for childs
+        """
+        # print("update_childs")
+        
+        if o.parent is None:
+            return
+            
+        itM = o.matrix_world.inverted() * o.parent.matrix_world
+        m_idx = 0
+        for wall_idx, wall in enumerate(g.walls):
+            p0 = wall.lerp(0)    
+            for child in self.childs:
+                if child.wall_idx == wall_idx:
+                    c, d = child.get_child(context)
+                    if d is not None:
+                        dt = 0.5*d.x/wall.length
+                        pt = (itM * c.location).to_2d()
+                        res, y, t = wall.point_sur_segment(pt)
+                        child.pos = (wall.length*t, y, child.pos.z)
+                        p1 = wall.lerp(t-dt)
+                        # dumb
+                        self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5,0,0)])
+                        m_idx += 1
+                        # delta loc
+                        x, y = 0.5*d.x, 0.5*d.y
+                        if child.flip:
+                            side = -1
+                        else:
+                            side = 1      
+                        child.manipulators[0].set_pts([(-x,side*-y,0),(x,side*-y,0),(side,0,0)])
+                        # loc size
+                        child.manipulators[1].set_pts([(-x,side*-y,0),(x,side*-y,0),(0.5*side,0,0)])
+                        p0 = wall.lerp(t+dt)
+            p1 = wall.lerp(1)  
+            self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5,0,0)])
+            m_idx += 1
+                  
+    def manipulate_childs(self, context):
+        """
+            setup child manipulators
+        """
+        # print("manipulate_childs")
+            
+        for wall_idx in range(self.n_parts):
+            for child in self.childs:
+                if child.wall_idx == wall_idx:
+                    c, d = child.get_child(context)
+                    if d is not None:
+                        self.manip_stack.append(child.manipulators[0].setup(context, c, d))
+                        self.manip_stack.append(child.manipulators[1].setup(context, c, d))
+    
+    def manipulable_manipulate(self, context, type):
+        # print("manipulable_manipulate %s" % (type))
+        if type in ['DeltaLocationManipulator', 'SizeLocationManipulator']:
+            # update manipulators pos of childs 
+            o = context.active_object
+            if o.parent is None:
+                return
+            g = self.get_generator()
+            itM = o.matrix_world.inverted() * o.parent.matrix_world
+            for child in self.childs:
+                c, d = child.get_child(context)
+                if d is not None:
+                    wall = g.walls[child.wall_idx]
+                    pt = (itM * c.location).to_2d()
+                    res, d, t = wall.point_sur_segment(pt)
+                    child.pos = (t*wall.length, d, child.pos.z)
+            if not self.realtime:
+                self.update_childs(context, o, g)
+            # trigger update by hand since those manipulations 
+            # dosen't affect wall data
+            self.update(context)
+      
+    def manipulable_setup(self, context):
+        # print("manipulable_setup")
+        self.manipulable_disable(context)
+        o = context.active_object
+        d = self
+        
+        # setup childs manipulators
+        self.manipulate_childs(context)
+        
+        for i, part in enumerate(d.parts):
+            if i >= d.n_parts:
+                break
+            # length / radius+angle
+            self.manip_stack.append(part.manipulators[1].setup(context, o, part))
+            if i > 0:
+                # start angle 
+                self.manip_stack.append(part.manipulators[0].setup(context, o, part))
+        # width + counter
+        for m in self.manipulators:
+            self.manip_stack.append(m.setup(context, o, self))  
+        # dumb between childs
+        for m in self.childs_manipulators:
+            self.manip_stack.append(m.setup(context, o, self))
+            
+    def manipulable_exit(self, context):
+        return
+    
+    def manipulable_invoke(self, context):
+        """
+            call this in operator invoke() 
+        """
+        # print("manipulable_invoke")
+        
+        self.manip_stack = []
+        o = context.active_object
+        g = self.get_generator()
+        # setup childs manipulators
+        self.setup_childs(o, g)
+        # store gl points
+        self.update_childs(context, o, g)
+        self.manipulable_release(context)
+        self.manipulable_setup(context)
  
+# use 2 globals to store a timer and state of update_action 
+update_timer = None
+update_timer_updating = False
+
+class ARCHIPACK_OT_wall2_delay_update(Operator):
+    bl_idname = "archipack.wall2_delay_update"
+    bl_label = "Update childs with a delay"
+    
+    name = StringProperty()
+    
+    def modal(self, context, event):
+        global update_timer_updating
+        if event.type == 'TIMER' and not update_timer_updating:
+            update_timer_updating = True
+            o = context.scene.objects.get(self.name)
+            #print("delay update of %s" % (self.name))
+            if o is not None:
+                o.select = True
+                context.scene.objects.active = o
+                d = o.data.Wall2Property[0]
+                g = d.get_generator()
+                # update child location and size
+                d.relocate_childs(context, o, g)
+                # store gl points
+                d.update_childs(context, o, g)
+                self.cancel(context)
+        return {'PASS_THROUGH'}
+
+    def execute(self, context):
+        global update_timer
+        global update_timer_updating
+        if update_timer is not None:
+            if update_timer_updating:
+                return {'CANCELLED'}
+            # reset update_timer so it only occurs once 0.1s after last action
+            context.window_manager.event_timer_remove(update_timer)
+            update_timer = context.window_manager.event_timer_add(0.1, context.window)
+            return {'CANCELLED'}
+        update_timer_updating = False
+        context.window_manager.modal_handler_add(self)
+        update_timer = context.window_manager.event_timer_add(0.1, context.window)
+        return {'RUNNING_MODAL'}
+
+    def cancel(self, context):
+        global update_timer
+        context.window_manager.event_timer_remove(update_timer)
+        update_timer = None
+        return {'CANCELLED'}
+   
 class ARCHIPACK_PT_wall2(Panel):
     bl_idname = "ARCHIPACK_PT_wall2"
     bl_label = "Wall"
@@ -705,7 +1053,9 @@ class ARCHIPACK_PT_wall2(Panel):
         if prop is None:
             return
         layout = self.layout
-        layout.operator("archipack.wall2_manipulate")
+        row = layout.row(align=True)
+        row.operator("archipack.wall2_manipulate")
+        row.prop(prop, 'realtime')
         box = layout.box()
         box.prop(prop, 'n_parts')
         box.prop(prop, 'step_angle')
@@ -873,232 +1223,38 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_wall2.filter(context.active_object)
     
-    def child_partition(self, array, begin, end):
-        pivot = begin
-        for i in range(begin+1, end+1):
-            # wall idx
-            if array[i][0] < array[begin][0]:
-                pivot += 1
-                array[i], array[pivot] = array[pivot], array[i]
-                # param t on the wall
-            elif array[i][0] == array[begin][0] and array[i][3] <= array[begin][3]:
-                pivot += 1
-                array[i], array[pivot] = array[pivot], array[i]
-            else:
-                pivot += 1
-                array[i], array[pivot] = array[pivot], array[i]
-        array[pivot], array[begin] = array[begin], array[pivot]
-        return pivot
-
-    def sort_child(self, array, begin=0, end=None):
-        if end is None:
-            end = len(array) - 1
-        def _quicksort(array, begin, end):
-            if begin >= end:
-                return
-            pivot = self.child_partition(array, begin, end)
-            _quicksort(array, begin, pivot-1)
-            _quicksort(array, pivot+1, end)
-        return _quicksort(array, begin, end)
-    
-    def store_childs(self, o, g):
-        dmax = 2*o.data.Wall2Property[0].width
-        self.relocate = []
-        if o.parent is not None:
-            itM = o.matrix_world.inverted() * o.parent.matrix_world
-            rM = itM.to_3x3()
-            for child in o.parent.children:
-                if child != o:
-                    tM = child.matrix_world.to_3x3()
-                    pt = (itM * child.location).to_2d()
-                    dir_y = (rM * tM * Vector((0,1,0))).to_2d()
-                    for wall_idx, wall in enumerate(g.walls):
-                        res, d, t = wall.point_sur_segment(pt)
-                        dir = -wall.normal(t).v.normalized()
-                        if res and abs(d) < dmax:
-                            #print("%s dir:%s dir_y:%s d:%s len:%s" % (child.name, dir, dir_y, d, (dir-dir_y).length))
-                            self.relocate.append((wall_idx, child.name, d, t, child.location.z, (dir-dir_y).length > 0.5))
-            self.sort_child(self.relocate)
-        
-    def relocate_childs(self, context, o, g):
-        if not hasattr(self, "relocate"):
-            return
-        tM = o.matrix_world
-        for i, name, d, t, z, flip in self.relocate:
-            child = context.scene.objects.get(name)
-            if child is None:
-                print("child is none")
-                continue
-            n = g.walls[i].normal(t)
-            rx, ry = -n.v.normalized()
-            rx, ry = ry, -rx
-            if flip:
-                rx, ry = -rx, -ry
-                #print("flip %s rx:%s, ry:%s cxx:%s, cxy:%s cyx:%s, cyy:%s" %(child.name, rx, ry, child.matrix_world[0][0], child.matrix_world[0][1], child.matrix_world[1][0], child.matrix_world[1][1]) )
-            #else:
-            #    print("%s rx:%s, ry:%s cxx:%s, cxy:%s cyx:%s, cyy:%s" %(child.name, rx, ry, child.matrix_world[0][0], child.matrix_world[0][1], child.matrix_world[1][0], child.matrix_world[1][1]) )
-            x, y = n.p - (d * n.v.normalized())
-            # preTranslate
-            child.matrix_world = tM * Matrix([
-                [rx,-ry,0,x],
-                [ry,rx,0,y],
-                [0,0,1,z],
-                [0,0,0,1]
-            ])
-            
-    def _update(self, context):
-        size = 10
-        tM = self.o.matrix_world
-        props = self.o.data.Wall2Property[0]
-        props.update_parts()
-        center = Vector((0,0))
-        self.manips.exit()
-        g = WallGenerator(props)
-        manip_t = [g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, props.flip) for part in props.parts]
-        
-        self.relocate_childs(context, self.o, g)
-        context.scene.update()
-        self.store_childs(self.o, g)
-        
-        x, y = g.walls[-1].lerp(1.1)
-        pos = tM * Vector((x, y, 1.5))
-        self.manips.add(context, "X", "TOP", size, size, props, "n_parts", min=max(1,props.n_parts), max=min(props.n_parts+1,31), step_round=0, sensitive=1, label="add parts", pos=pos)
-                   
-        for wall_idx, params_t in enumerate(manip_t):
-            
-            childs = [child for child in self.relocate if child[0] == wall_idx]
-            
-            part = props.parts[wall_idx]
-            wall = g.walls[wall_idx]
-            normal = wall.straight(1).v.to_3d()
-            t0 = 0
-            t_abs = []
-            for t in part.t:
-                t0 += t
-                if t0 > 1:
-                    t0 = 1
-                t_abs.append(t0)
-            # Heights
-            for j, t in enumerate(params_t):
-                if ((j==0 and wall_idx==0) or t_abs[j] != 0) and j < part.n_splits:
-                    x, y = wall.lerp(t_abs[j])
-                    z = part.z[j]
-                    pos = tM * Vector((x, y, z))
-                    self.manips.add(context, "Z", "TOP", size, size, part, "z", min=0.01, max=50, step_round=2, sensitive=1, label="height", index=j, pos=pos)
-                    pos = tM * Vector((x, y, 0.5+z))
-                    self.manips.add(context, "X", "TOP", size, size, part, "t", min=0.0, max=1, step_round=4, sensitive=0.1, label="position", index=j, pos=pos, normal=normal, label_factor=wall.length)
-                    
-            x, y = wall.lerp(0.5)
-            z = wall.get_z(0.5)
-            pos = tM * Vector((x, y,1.0+z))
-            self.manips.add(context, "X", "TOP", size, size, part, "splits", min=1, max=31, step_round=0, sensitive=1, label="split", pos=pos, normal=normal)
-            
-            # Length and radius
-            x, y = wall.lerp(1)
-            pos = tM * Vector((x, y, 1.0))
-            """
-            child = context.scene.objects.get(c[1])
-            x = child.data.WindowProperty[0].x
-            dt = 0.5*x/wall.length
-            c[3]-dt
-            c[3]+dt
-            """
-            """
-            o = wall.offset(1).gl_pts(context, tM)
-            n0 = wall.sized_normal(0, 1.1).gl_pts(context, tM)
-            n1 = wall.sized_normal(0, 1.1).gl_pts(context, tM)
-            """
-            if part.type == 'S_WALL':
-                self.manips.add(context, "X", "TOP", size, size, part, "length", min=0.0, max=100, step_round=2, sensitive=1, label="length", pos=pos, normal=normal)
-            else:
-                self.manips.add(context, "X", "TOP", size, size, part, "radius", min=0.0, max=100, step_round=2, sensitive=0.5, label="radius", pos=pos)
-                x, y = wall.lerp(0.5)
-                pos = tM * Vector((x, y, 0.0))
-                self.manips.add(context, "X", "TOP", size, size, part, "da", min=-180, max=180, step_round=1, sensitive=10, label="angle", pos=pos, value_factor=180/pi)
-            # start angle
-            x, y = wall.lerp(0)
-            pos = tM * Vector((x, y, 0.0))
-            
-            self.manips.add(context, "X", "TOP", size, size, part, "a0", min=-180, max=180, step_round=1, sensitive=10, label="start angle", pos=pos, value_factor=180/pi)
-    """        
     def modal(self, context, event):
-        return self.manips.modal(context, event)
+        return self.d.manipulable_modal(context, event)
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.manips = ManipulatorStack(context, self.update)
-            self.relocate = []
-            self.o = context.active_object
-            self.update(context)
+            o = context.active_object
+            self.d = o.data.Wall2Property[0]
+            self.d.manipulable_invoke(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'} 
-    """
-    def exit(self, context):
-        for manip in self.manips:
-            manip.exit()
-            
-    def setup(self, context):
-        self.exit(context)
-        self.manips = []
-        o = context.active_object
-        d = o.data.Wall2Property[0]
-        for i, part in enumerate(d.parts):
-            if i >= d.n_parts:
-                break
-            self.manips.append(part.manipulators[1].setup(context, o, part))
-            if i > 0:
-                self.manips.append(part.manipulators[0].setup(context, o, part))
-        self.manips.append(d.manipulators[0].setup(context, o, d))
-        self.manips.append(d.manipulators[1].setup(context, o, d))
     
-    def update(self, context):
-        center = Vector((0,0))
-        o = context.active_object
-        d = o.data.Wall2Property[0]
-        g = WallGenerator(d)
-        for part in d.parts:
-            g.add_part(part.type, center, part.radius, part.a0, part.da, part.length, part.z, part.t, part.n_splits, d.flip) 
-        self.relocate_childs(context, o, g)
-        context.scene.update()
-        self.store_childs(o, g)
+    def execute(self, context):
+        """
+            For use in boolean ops
+        """
+        if ARCHIPACK_PT_wall2.filter(context.active_object):
+            o = context.active_object
+            d = o.data.Wall2Property[0]
+            g = d.get_generator()
+            d.setup_childs(o, g)
+            d.update_childs(context, o, g)
+            d.manipulable_release(context)
+            d.update(context)
+            o.select = True
+            context.scene.objects.active = o
+        return {'FINISHED'} 
         
-    def modal(self, context, event):
-        o = context.active_object
-        if o is None or not ARCHIPACK_PT_wall2.filter(o):
-            self.exit(context)
-            return {'FINISHED'}
-        d = o.data.Wall2Property[0]
-        if d.refresh_manipulators:
-            d.refresh_manipulators = False
-            self.setup(context)
-        context.area.tag_redraw()
-        if event.type == 'RIGHTMOUSE':
-            self.exit(context)
-            return {'FINISHED'}
-        for manip in self.manips:
-            if manip.modal(context, event):
-                return {'RUNNING_MODAL'}
-        if event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
-            self.update(context)
-        return {'PASS_THROUGH'}
-        
-    def invoke(self, context, event):
-        if context.space_data.type == 'VIEW_3D':
-            self.manips = []
-            self.relocate = []
-            self.update(context)
-            self.setup(context)
-            context.window_manager.modal_handler_add(self)
-            return {'RUNNING_MODAL'}
-        else:
-            self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'} 
-        
-            
 bpy.utils.register_class(Wall2PartProperty)
+bpy.utils.register_class(Wall2ChildProperty)
 bpy.utils.register_class(Wall2Property)
 Mesh.Wall2Property = CollectionProperty(type=Wall2Property)
 bpy.utils.register_class(ARCHIPACK_PT_wall2)
@@ -1106,4 +1262,4 @@ bpy.utils.register_class(ARCHIPACK_OT_wall2)
 bpy.utils.register_class(ARCHIPACK_OT_wall2_insert)
 bpy.utils.register_class(ARCHIPACK_OT_wall2_remove)
 bpy.utils.register_class(ARCHIPACK_OT_wall2_manipulate)
-
+bpy.utils.register_class(ARCHIPACK_OT_wall2_delay_update)

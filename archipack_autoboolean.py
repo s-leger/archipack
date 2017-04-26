@@ -234,6 +234,9 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             bpy.ops.object.select_all(action='DESELECT')
             for wall in walls:
                 self.autoboolean(context, wall)
+                wall.select = True
+                context.scene.objects.active = wall
+                bpy.ops.archipack.wall2_manipulate('EXEC_DEFAULT')
             # reselect walls
             bpy.ops.object.select_all(action='DESELECT')
             for wall in walls:

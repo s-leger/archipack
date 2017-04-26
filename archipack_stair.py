@@ -32,7 +32,7 @@ from .materialutils import MaterialUtils
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from math import sin, cos, tan, pi, atan2, sqrt, floor, acos
-from .archipack_manipulator import ManipulatorProperty
+from .archipack_manipulator import Manipulable, ManipulatorProperty
 
 class Project():
     def proj_xy(self, t, next=None):
@@ -1552,7 +1552,7 @@ def update(self, context):
     self.update(context)
 
 def update_manipulators(self, context):
-    self.update(context, refresh_manipulators=True)
+    self.update(context, manipulable_refresh=True)
     
 def update_preset(self, context):
     self.auto_update = False
@@ -1581,7 +1581,7 @@ def update_preset(self, context):
         self.parts[1].type = 'D_STAIR'
         self.da = pi
     self.auto_update = True
-    self.update(context, refresh_manipulators=True)
+    self.update(context, manipulable_refresh=True)
  
 materials_enum = (
             ('0','Ceiling','',0),
@@ -1683,10 +1683,10 @@ class StairPartProperty(PropertyGroup):
                         return props
         return None
     
-    def update(self, context, refresh_manipulators=False):
+    def update(self, context, manipulable_refresh=False):
         props = self.find_in_selection(context)
         if props is not None:
-            props.update(context, refresh_manipulators)
+            props.update(context, manipulable_refresh)
         
     def draw(self, layout, context, index, user_mode):
         if user_mode:
@@ -1710,8 +1710,9 @@ class StairPartProperty(PropertyGroup):
                 box = layout.box()
                 row = box.row()
                 row.prop(self, "length")
-        
-class StairProperty(PropertyGroup):
+
+                      
+class StairProperty(Manipulable, PropertyGroup):
     
     parts = CollectionProperty(type=StairPartProperty)
     n_parts = IntProperty(
@@ -2220,7 +2221,6 @@ class StairProperty(PropertyGroup):
             update=update
             ) 
     
-    auto_update=BoolProperty(default=True)
     idmat_bottom = EnumProperty(
         name="Bottom",
         items=materials_enum,
@@ -2299,8 +2299,13 @@ class StairProperty(PropertyGroup):
         default = False
         )    
     
-    refresh_manipulators=BoolProperty(default=False)
-    manipulators = CollectionProperty(type=ManipulatorProperty)
+    # Flag to prevent mesh update while making bulk changes over variables
+    # use : 
+    # .auto_update = False
+    # bulk changes
+    # .auto_update = True
+    # .update(context, manipulable_refresh=True)
+    auto_update=BoolProperty(default=True)
    
     def find_in_selection(self, context):
         """
@@ -2317,16 +2322,18 @@ class StairProperty(PropertyGroup):
     
     def update_parts(self):
     
-        # remove ladders materials
+        # remove rails materials
         for i in range(len(self.rail_mat), self.rail_n, -1):
             self.rail_mat.remove(i-1)
-        # add ladders
+            
+        # add rails
         for i in range(len(self.rail_mat), self.rail_n):
             self.rail_mat.add()
         
         # remove parts
         for i in range(len(self.parts), self.n_parts, -1):
             self.parts.remove(i-1)
+        
         # add parts
         for i in range(len(self.parts), self.n_parts):
             p = self.parts.add()
@@ -2334,7 +2341,7 @@ class StairProperty(PropertyGroup):
             m.type = 'SIZE'
             m.prop1_name = 'length'
             
-    def update(self, context, refresh_manipulators=False):   
+    def update(self, context, manipulable_refresh=False):   
         
         if not self.auto_update:
             return
@@ -2342,6 +2349,10 @@ class StairProperty(PropertyGroup):
         
         if o is None:
             return
+        
+        # clean up manipulators before any data model change
+        if manipulable_refresh:
+            self.manipulable_disable(context)
             
         self.update_parts()
         
@@ -2493,12 +2504,12 @@ class StairProperty(PropertyGroup):
          
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
         
-        if refresh_manipulators:
-            self.refresh_manipulators = True
+        # enable manipulators rebuild
+        if manipulable_refresh:
+            self.manipulable_refresh = True
         
         #bpy.ops.mesh.select_linked()
         #bpy.ops.mesh.faces_shade_smooth()
-        
         
         # restore context
         try:
@@ -2509,6 +2520,36 @@ class StairProperty(PropertyGroup):
         
         active.select = True
         context.scene.objects.active = active  
+ 
+    def manipulable_setup(self, context):
+        """
+            TODO: Implement the setup part as per parent object basis
+            
+            self.manipulable_disable(context)
+            o = context.active_object
+            for m in self.manipulators:
+                self.manip_stack.append(m.setup(context, o, self))            
+        
+        """
+        #raise NotImplementedError
+        self.manipulable_disable(context)
+        o = context.active_object
+        d = self
+        
+        if d.presets is not 'STAIR_O':
+            for i, part in enumerate(d.parts):
+                if i >= d.n_parts:
+                    break
+                if "S_" in part.type or d.presets in ['STAIR_USER']:
+                    for j, m in enumerate(part.manipulators):
+                        self.manip_stack.append(m.setup(context, o, part))
+        
+        if d.presets in ['STAIR_U','STAIR_L']:
+            self.manip_stack.append(d.parts[1].manipulators[0].setup(context, o, d))
+        
+        for m in self.manipulators:
+            self.manip_stack.append(m.setup(context, o, self))
+     
  
 class ARCHIPACK_PT_stair(Panel):
     bl_idname = "ARCHIPACK_PT_stair"
@@ -2785,57 +2826,25 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
     @classmethod
     def poll(self, context):
         return ARCHIPACK_PT_stair.filter(context.active_object)
-        
-    def exit(self, context):
-        for manip in self.manips:
-            manip.exit()
-            
-    def setup(self, context):
-        self.exit(context)
-        self.manips = []
-        o = context.active_object
-        d = o.data.StairProperty[0]
-        if d.presets is not 'STAIR_O':
-            for i, part in enumerate(d.parts):
-                if i >= d.n_parts:
-                    break
-                if "S_" in part.type or d.presets in ['STAIR_USER']:
-                    for j, manipulator in enumerate(part.manipulators):
-                        self.manips.append(manipulator.setup(context, o, part))
-        if d.presets in ['STAIR_U','STAIR_L']:
-            self.manips.append(d.parts[1].manipulators[0].setup(context, o, d))
-        self.manips.append(d.manipulators[0].setup(context, o, d))
-        self.manips.append(d.manipulators[1].setup(context, o, d))
     
     def modal(self, context, event):
-        o = context.active_object
-        if o is None or not ARCHIPACK_PT_stair.filter(o):
-            self.exit(context)
-            return {'FINISHED'}
-        d = o.data.StairProperty[0]
-        if d.refresh_manipulators:
-            d.refresh_manipulators = False
-            self.setup(context)
-        context.area.tag_redraw()
-        if event.type == 'RIGHTMOUSE':
-            self.exit(context)
-            return {'FINISHED'}
-        for manip in self.manips:
-            if manip.modal(context, event):
-                return {'RUNNING_MODAL'}
-        return {'PASS_THROUGH'}
+        return self.d.manipulable_modal(context, event)
         
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
-            self.manips = []
-            self.setup(context)
+            o = context.active_object
+            self.d = o.data.StairProperty[0]
+            self.d.manipulable_invoke(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'} 
 
-             
+
+      
+        
+  
 bpy.utils.register_class(StairMaterialProperty)
 bpy.utils.register_class(StairPartProperty)
 bpy.utils.register_class(StairProperty)

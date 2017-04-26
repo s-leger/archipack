@@ -28,7 +28,12 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import intersect_line_plane, intersect_point_line, intersect_line_sphere
 from bpy_extras import view3d_utils 
 from bpy.types import Operator, PropertyGroup
-from bpy.props import EnumProperty, FloatVectorProperty, StringProperty
+from bpy.props import EnumProperty, FloatVectorProperty, StringProperty, CollectionProperty, BoolProperty
+
+# Arrow sizes (world units)
+arrow_size = 0.1
+# Handle area size (pixels)
+handle_size = 10
 
 class Gl():
     """
@@ -36,6 +41,7 @@ class Gl():
     """
     def __init__(self):
         self.width = 1
+        self.pos_2d = Vector((0,0))
         self.colour_active = (1.0, 0.0, 0.0, 1.0)
         self.colour_hover  = (1.0, 1.0, 0.0, 1.0)
         self.colour_normal = (1.0, 1.0, 1.0, 1.0)
@@ -49,7 +55,7 @@ class Gl():
         scene = context.scene
         region = context.region
         rv3d = context.region_data
-        loc = view3d_utils.location_3d_to_region_2d(region, rv3d, coord)
+        loc = view3d_utils.location_3d_to_region_2d(region, rv3d, coord, self.pos_2d)
         return loc
     def _end(self):
         bgl.glEnd()
@@ -243,7 +249,6 @@ class GlHandle(Gl):
         self.size = size
         self.sensor_size = sensor_size
         self.pos_3d = Vector((0,0,0))
-        self.pos_2d = Vector((0,0))
         self.up_axis = Vector((0,0,0))
         self.c_axis = Vector((0,0,0))
         self.hover = False
@@ -299,7 +304,7 @@ class Manipulator():
         """
             o : object to manipulate
             datablock : object data to manipulate
-            glprovider: object data implementing gl_points(tM)
+            glprovider: object ManipulatorProperty datablock (tM)
         """
         self.o = o
         self.datablock = datablock
@@ -311,8 +316,12 @@ class Manipulator():
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
     def exit(self):
+        #print("Manipulator.exit() %s" % (type(self).__name__))
         if self._handle is not None:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+        self.o = None
+        self.datablock = None
+        self.glprovider = None
         self._handle = None
     def press(self):
         raise NotImplementedError
@@ -337,20 +346,49 @@ class Manipulator():
         scene = context.scene
         region = context.region
         rv3d = context.region_data
+        rM = context.active_object.matrix_world.to_3x3()
         view_vector_mouse = view3d_utils.region_2d_to_vector_3d(region, rv3d, self.mouse_pos)
         ray_origin_mouse  = view3d_utils.region_2d_to_origin_3d(region, rv3d, self.mouse_pos)
-        return intersect_line_plane(ray_origin_mouse, ray_origin_mouse+view_vector_mouse, self.origin, self.glprovider.normal, False)
-    def get_value(self, attr, index=-1):
-        if index > -1:
-            return getattr(self.datablock, attr)[index]
-        else:
-            return getattr(self.datablock, attr)
-    def set_value(self, attr, value, index=-1):
-        if self.get_value(attr, index) != value:
+        return intersect_line_plane(ray_origin_mouse, ray_origin_mouse+view_vector_mouse, self.origin, rM*self.glprovider.normal, False)
+    def get_value(self, data, attr, index=-1):
+        try:
             if index > -1:
-                getattr(self.datablock, attr)[index] = value
+                return getattr(data, attr)[index]
             else:
-                setattr(self.datablock, attr, value)
+                return getattr(data, attr)
+        except:
+            return 0
+    def set_value(self, context, data, attr, value, index=-1):
+        try:
+             if self.get_value(data, attr, index) != value:
+                # switch context so unselected object may be manipulable too
+                old = context.active_object
+                state = self.o.select
+                self.o.select = True
+                context.scene.objects.active = self.o
+                if index > -1:
+                    getattr(data, attr)[index] = value
+                else:
+                    setattr(data, attr, value)
+                self.o.select = state
+                old.select = True
+                context.scene.objects.active = old
+        except:
+            pass
+    def preTranslate(self, tM, vec):
+        return tM * Matrix([
+		[1,0,0,vec.x],
+		[0,1,0,vec.y],
+		[0,0,1,vec.z],
+		[0,0,0,1]])
+    def move(self, axis, value):
+        if axis == 'x':
+            tM = self.preTranslate(self.o.matrix_world, Vector((value,0,0)))
+        elif axis == 'y':
+            tM = self.preTranslate(self.o.matrix_world, Vector((0,value,0)))
+        else:
+            tM = self.preTranslate(self.o.matrix_world, Vector((0,0,value)))
+        self.o.matrix_world = tM   
 
 """
 class PointManipulator(Manipulator):
@@ -384,15 +422,14 @@ class PointManipulator(Manipulator):
         self.pos_3d = self.get_pos3d(context)
         self.delta = self.pos_3d-self.origin
     def draw_callback(self, _self, context):
-        size = 0.1
+        
         self.handle.draw(context, self.pos_3d, size, Vector((0,1,0)))
 """
 
 class CounterManipulator(Manipulator):
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        size = 0.1
-        self.handle_left  = TriHandle(handle_size, size, selectable=True)
-        self.handle_right = TriHandle(handle_size, size, selectable=True)
+        self.handle_left  = TriHandle(handle_size, arrow_size, selectable=True)
+        self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
         self.line_0 = GlLine()
         self.label  = GlText()
         Manipulator.__init__(self, context, o, datablock, glprovider)
@@ -401,13 +438,13 @@ class CounterManipulator(Manipulator):
         self.handle_left.check_hover(self.mouse_pos)
     def press(self, context, event):
         if self.handle_right.hover:
-            value = self.get_value(self.glprovider.prop1_name)
-            self.set_value(self.glprovider.prop1_name, value+1)
+            value = self.get_value(self.datablock, self.glprovider.prop1_name)
+            self.set_value(context, self.datablock, self.glprovider.prop1_name, value+1)
             self.handle_right.active = True
             return True
         if self.handle_left.hover:
-            value = self.get_value(self.glprovider.prop1_name)
-            self.set_value(self.glprovider.prop1_name, value-1)
+            value = self.get_value(self.datablock, self.glprovider.prop1_name)
+            self.set_value(context, self.datablock, self.glprovider.prop1_name, value-1)
             self.handle_left.active = True
             return True
         return False
@@ -436,7 +473,7 @@ class CounterManipulator(Manipulator):
         self.line_0.v = right-left
         self.line_0.z_axis = normal
         self.label.z_axis = normal
-        value = self.get_value(self.glprovider.prop1_name)
+        value = self.get_value(self.datablock, self.glprovider.prop1_name)
         self.handle_left.set_pos(context, self.line_0.p, -self.line_0.v, normal=normal)
         self.handle_right.set_pos(context, self.line_0.lerp(1), self.line_0.v, normal=normal)
         self.label.set_pos(context, value, self.line_0.lerp(0.5), self.line_0.v, normal=normal)
@@ -447,9 +484,9 @@ class CounterManipulator(Manipulator):
 
 class SizeManipulator(Manipulator):
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        size = 0.1
-        self.handle_left  = TriHandle(handle_size, size)
-        self.handle_right = TriHandle(handle_size, size, selectable=True)
+        
+        self.handle_left  = TriHandle(handle_size, arrow_size)
+        self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
         self.line_0 = GlLine()
         self.line_1 = GlLine()
         self.line_2 = GlLine()
@@ -483,8 +520,7 @@ class SizeManipulator(Manipulator):
         length = (self.line_0.p-pt).length
         if event.alt:
             length = round(length,1)
-        self.set_value(self.glprovider.prop1_name, length)
-    
+        self.set_value(context, self.datablock, self.glprovider.prop1_name, length)
     def draw_callback(self, _self, context):
         """
             draw on screen feedback using gl.
@@ -510,6 +546,137 @@ class SizeManipulator(Manipulator):
         self.handle_left.draw(context)
         self.handle_right.draw(context)
   
+class SizeLocationManipulator(SizeManipulator):
+    def __init__(self, context, o, datablock, glprovider, handle_size):
+        SizeManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
+        self.handle_left.selectable=True
+    def check_hover(self):
+        self.handle_right.check_hover(self.mouse_pos)
+        self.handle_left.check_hover(self.mouse_pos)
+    def press(self, context, event):
+        if self.handle_right.hover:
+            self.handle_right.active = True
+            return True
+        if self.handle_left.hover:
+            self.handle_left.active = True
+            return True
+        return False
+    def release(self, context, event):
+        self.check_hover()
+        self.handle_right.active = False
+        self.handle_left.active = False
+        return False
+    def mouse_move(self, context, event):
+        self.mouse_position(event)
+        if self.handle_right.active or self.handle_left.active:
+            self.update(context, event)
+            return True
+        else:
+            self.check_hover()
+        return False
+    def update(self, context, event):
+        # 0  1  2
+        # |_____|
+        #
+        pt = self.get_pos3d(context)
+        pt, t = intersect_point_line(pt, self.line_0.p, self.line_2.p)
+        
+        len_0 = (pt-self.line_0.p).length
+        len_1 = (pt-self.line_2.p).length
+        
+        length = max(len_0, len_1)
+        
+        if event.alt:
+            length = round(length,1)
+            
+        dl = length-self.line_1.length
+            
+        #pos = self.get_value(self.o.location, self.glprovider.prop2_name)
+        
+        if len_0 > len_1:
+            dl = 0.5*dl
+        else:
+            dl = -0.5*dl
+        self.move(self.glprovider.prop2_name, dl)
+        #self.set_value(context, self.o.location, self.glprovider.prop2_name, pos)   
+        self.set_value(context, self.datablock, self.glprovider.prop1_name, length)
+  
+class DeltaLocationManipulator(SizeManipulator):
+    def __init__(self, context, o, datablock, glprovider, handle_size):
+        SizeManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
+        
+    def check_hover(self):
+        self.handle_right.check_hover(self.mouse_pos)
+    def press(self, context, event):
+        if self.handle_right.hover:
+            self.handle_right.active = True
+            return True
+        
+        return False
+    def release(self, context, event):
+        self.check_hover()
+        self.handle_right.active = False
+        
+        return False
+    def mouse_move(self, context, event):
+        self.mouse_position(event)
+        if self.handle_right.active:
+            self.update(context, event)
+            return True
+        else:
+            self.check_hover()
+        return False
+    def update(self, context, event):
+        # 0  1  2
+        # |_____|
+        #
+        p0 = self.line_1.p
+        c = self.line_1.lerp(0.5)
+        pt = self.get_pos3d(context)
+        pt, t = intersect_point_line(pt, p0, c)
+        
+        len_0 = 0.5*self.line_1.length
+        len_1 = (pt-p0).length
+        
+        dl = (pt-c).length
+        
+        if event.alt:
+            dl = round(dl,1)
+        
+        if len_0 < len_1:
+            dl = dl
+        else:
+            dl = -dl   
+        self.move(self.glprovider.prop1_name, dl)
+    def draw_callback(self, _self, context):
+        """
+            draw on screen feedback using gl.
+        """
+        left, right, side, normal = self.glprovider.get_pts(self.o.matrix_world)
+        self.origin = left
+        self.line_1.p = left
+        self.line_1.v = right-left
+        self.line_1.z_axis = normal
+        #self.label.z_axis = normal
+        self.handle_left.set_pos(context, self.line_1.lerp(0.5), -self.line_1.v, normal=normal)
+        self.handle_right.set_pos(context, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
+        #self.label.set_pos(context, self.line_1.length, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
+        #self.label.draw(context)
+        #self.line_0.draw(context)
+        #self.line_1.draw(context)
+        #self.line_2.draw(context)
+        self.handle_left.draw(context)
+        self.handle_right.draw(context)
+           
+class DumbSizeManipulator(SizeManipulator):
+    """
+        Show size while not being editable
+    """
+    def __init__(self, context, o, datablock, glprovider, handle_size):
+        SizeManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
+        self.handle_right.selectable=False
+    def mouse_move(self, context, event):
+        return False
 """  
 class LengthOrientationManipulator(SizeManipulator):
     def __init__(self, context, o, datablock, glprovider, handle_size):
@@ -525,10 +692,10 @@ class AngleManipulator(Manipulator):
         bound to [-pi, pi]
     """
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        size = 0.1
+        
         # Angle
-        self.handle_right = TriHandle(handle_size, size, selectable=True)
-        self.handle_center = SquareHandle(handle_size, size)
+        self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
+        self.handle_center = SquareHandle(handle_size, arrow_size)
         self.arc    = GlArc()
         self.line_0 = GlLine()
         self.line_1 = GlLine()
@@ -580,7 +747,7 @@ class AngleManipulator(Manipulator):
             if event.alt:
                 da = round(da/pi*180,0)/180*pi    
             
-            self.set_value(self.glprovider.prop1_name, da)
+            self.set_value(context, self.datablock, self.glprovider.prop1_name, da)
             
     def draw_callback(self, _self, context):
         
@@ -601,7 +768,7 @@ class AngleManipulator(Manipulator):
         self.line_1.v = right
         self.line_1.v = self.line_1.cross.normalized()
         self.arc.a0 = self.line_0.angle
-        self.arc.da = self.get_value(self.glprovider.prop1_name)
+        self.arc.da = self.get_value(self.datablock, self.glprovider.prop1_name)
         self.arc.r  = 1.0
         #self.handle_left.set_pos(context, self.line_0.lerp(1), self.line_0.v)
         self.handle_right.set_pos(context, self.line_1.lerp(1), self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
@@ -626,12 +793,12 @@ class ArcAngleManipulator(Manipulator):
         bound to [-pi, pi]
     """
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        size = 0.1
+        
         # Fixed
-        self.handle_left  = SquareHandle(handle_size, size)
+        self.handle_left  = SquareHandle(handle_size, arrow_size)
         # Angle
-        self.handle_right = TriHandle(handle_size, size, selectable=True)
-        self.handle_center = SquareHandle(handle_size, size)
+        self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
+        self.handle_center = SquareHandle(handle_size, arrow_size)
         self.arc    = GlArc()
         self.line_0 = GlLine()
         self.line_1 = GlLine()
@@ -698,7 +865,8 @@ class ArcAngleManipulator(Manipulator):
             if event.alt:
                 da = round(da/pi*180,0)/180*pi    
             
-            self.set_value(self.glprovider.prop1_name, da)
+            self.set_value(context, self.datablock, self.glprovider.prop1_name, da)
+            
     def draw_callback(self, _self, context):
         
         # center : 3d points 
@@ -717,7 +885,7 @@ class ArcAngleManipulator(Manipulator):
         self.line_0.v = left
         self.line_1.v = right
         self.arc.a0 = self.line_0.angle
-        self.arc.da = self.get_value(self.glprovider.prop1_name)
+        self.arc.da = self.get_value(self.datablock, self.glprovider.prop1_name)
         self.arc.r  = left.length
         self.handle_left.set_pos(context, self.line_0.lerp(1), self.line_0.v)
         self.handle_right.set_pos(context, self.line_1.lerp(1), self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
@@ -737,8 +905,8 @@ class ArcAngleManipulator(Manipulator):
 class ArcAngleRadiusManipulator(ArcAngleManipulator):
     def __init__(self, context, o, datablock, glprovider, handle_size):
         ArcAngleManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
-        size = 0.1
-        self.handle_center = TriHandle(handle_size, size, selectable=True)
+        
+        self.handle_center = TriHandle(handle_size, arrow_size, selectable=True)
         self.active_center =  False       
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
@@ -775,7 +943,7 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
         radius = (left-p).length
         if event.alt:
             radius = round(radius,1)
-        self.set_value(self.glprovider.prop2_name, radius)
+        self.set_value(context, self.datablock, self.glprovider.prop2_name, radius)
         
 class ManipulatorProperty(PropertyGroup):
     """
@@ -789,9 +957,12 @@ class ManipulatorProperty(PropertyGroup):
     type = EnumProperty(
         items=(
             ('SIZE','Size','Generic size manipulator',0),
-            ('ANGLE','Angle','Angle between two vectors',1),
-            ('ARC_ANGLE_RADIUS','Arc based angle','',2),
-            ('COUNTER','Counter increase and decrease','',3),
+            ('SIZE_LOC','Size Location','Generic size from border manipulator',1),
+            ('ANGLE','Angle','Angle between two vectors',2),
+            ('ARC_ANGLE_RADIUS','Arc based angle','',3),
+            ('COUNTER','Counter increase and decrease','',4),
+            ('DUMB_SIZE','Dumb Size','Generic size not editable',5),
+            ('DELTA_LOC', 'Delta location', 'Move object on an axis',6)
         ),
         default='SIZE'
     )
@@ -807,23 +978,135 @@ class ManipulatorProperty(PropertyGroup):
     
     def get_pts(self, tM):
         rM = tM.to_3x3()
-        if self.type in ['SIZE', 'COUNTER']:
+        if self.type in ['SIZE', 'COUNTER', 'SIZE_LOC', 'DUMB_SIZE', 'DELTA_LOC']:
             return tM*self.p0, tM*self.p1, self.p2, rM*self.normal
         else:
             return tM*self.p0, rM*self.p1, rM*self.p2, rM*self.normal
             
     def setup(self, context, o, datablock):
         """
+            Factory return a manipulator object
             o:         object
             datablock: datablock to modify
         """
+        global handle_size
         if self.type == 'SIZE':
-            return SizeManipulator(context, o, datablock, self, 10)
+            return SizeManipulator(context, o, datablock, self, handle_size)
+        elif self.type == 'SIZE_LOC':
+            return SizeLocationManipulator(context, o, datablock, self, handle_size)
         elif self.type == 'ANGLE':
-            return AngleManipulator(context, o, datablock, self, 10)
+            return AngleManipulator(context, o, datablock, self, handle_size)
         elif self.type == 'ARC_ANGLE_RADIUS':
-            return ArcAngleRadiusManipulator(context, o, datablock, self, 10)
+            return ArcAngleRadiusManipulator(context, o, datablock, self, handle_size)
         elif self.type == 'COUNTER':
-            return CounterManipulator(context, o, datablock, self, 10)
-            
+            return CounterManipulator(context, o, datablock, self, handle_size)
+        elif self.type == 'DUMB_SIZE':
+            return DumbSizeManipulator(context, o, datablock, self, handle_size)
+        elif self.type == 'DELTA_LOC':
+            return  DeltaLocationManipulator(context, o, datablock, self, handle_size)   
+                        
 bpy.utils.register_class(ManipulatorProperty)
+
+# a global manipulator stack reference for use 
+# as fallback when internal loose reference.
+# prevent Blender "ACCESS_VIOLATION" crashes
+# NOTE: use a dict here to prevent potential
+# collisions between many objects being in
+# manipulate mode (at create time)
+manip_stack = []
+
+class Manipulable():
+    """
+        A class extending PropertyGroup to setup gl manipulators
+        Beware : prevent crash calling manipulable_disable() 
+                 before changing manipulated data
+    """
+    manipulators = CollectionProperty(type=ManipulatorProperty, description="store 3d points to draw gl manipulators")
+    manipulable_refresh=BoolProperty(default=False, description="Flag enable to rebuild manipulators when data model change")
+    
+    def manipulable_disable(self, context):
+        """
+            disable gl draw handlers
+        """
+        global manip_stack
+            
+        if not hasattr(self, "manip_stack"):
+            # prevent blender crash by loosing reference on this one
+            self.manip_stack = manip_stack
+        
+        for m in self.manip_stack:
+            m.exit()
+            
+        self.manip_stack = []
+        manip_stack = self.manip_stack
+        
+    def manipulable_setup(self, context):
+        """
+            TODO: Implement the setup part as per parent object basis
+        """ 
+        self.manipulable_disable(context)
+        o = context.active_object
+        for m in self.manipulators:
+            self.manip_stack.append(m.setup(context, o, self))            
+    
+    def manipulable_invoke(self, context):
+        """
+            call this in operator invoke() 
+        """
+        self.manip_stack = []
+        self.manipulable_setup(context)
+    
+    def manipulable_modal(self, context, event):
+        """
+            call in operator modal()
+        """
+        # setup again when manipulators type change
+        if self.manipulable_refresh:
+            self.manipulable_refresh = False
+            self.manipulable_setup(context)
+        
+        context.area.tag_redraw()
+        
+        if event.type in {'RIGHTMOUSE','ESC'}:
+            self.manipulable_disable(context)
+            self.manipulable_exit(context)
+            return {'FINISHED'}
+        
+        for m in self.manip_stack:    
+            if m.modal(context, event):
+                self.manipulable_manipulate(context, type=type(m).__name__)
+                return {'RUNNING_MODAL'}
+                
+        # allow any action on release        
+        if event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
+            self.manipulable_release(context)
+        
+        return {'PASS_THROUGH'}
+        
+    # Callbacks
+    def manipulable_release(self, context):
+        """
+            Override with action to do on mouse release
+            eg: big update
+        """
+        return
+    
+    def manipulable_exit(self, context):
+        """
+            Override with action to do when modal exit
+        """
+        return
+    
+    def manipulable_manipulate(self, context, type='None'):
+        """
+            Override with action to do when a handle is active (pressed and mousemove)
+        """
+        return 
+    
+    
+ 
+   
+    
+    
+    
+    
