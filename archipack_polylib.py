@@ -1529,7 +1529,7 @@ class SelectPolygons(Selectable):
                 scene.objects.active = result
             elif self.action == 'wall':
                 union = ShapelyOps.union(selection)
-                union =     ShapelyOps.optimize(union)
+                union = ShapelyOps.optimize(union)
                 res = []
                 z = context.window_manager.poly_lib.solidify_thickness
                 Io.to_wall(scene, self.coordsys, union, z, 'wall', res)

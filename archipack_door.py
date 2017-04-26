@@ -574,6 +574,7 @@ class DoorProperty(Manipulable, PropertyGroup):
         hole = self.hole
         m = bpy.data.meshes.new("hole")
         o = bpy.data.objects.new("hole", m)
+        o['archipack_robusthole'] = True
         context.scene.objects.link(o)
         v = Vector((0,0,0))
         offset = Vector((0,-0.001,0))
@@ -602,7 +603,7 @@ class ARCHIPACK_PT_door(Panel):
             return
         layout = self.layout
         layout.operator('archipack.door_manipulate', icon='HAND')
-        props = o.data.DoorProperty[0]
+        props = o.data.archipack_door[0]
         row = layout.row(align=True)
         row.operator('archipack.door', text="Refresh", icon='FILE_REFRESH').mode='REFRESH'
         if o.data.users > 1:
@@ -649,13 +650,13 @@ class ARCHIPACK_PT_door(Panel):
     @classmethod
     def params(cls, o):
         if cls.filter(o):
-            return o.data.DoorProperty[0]
+            return o.data.archipack_door[0]
         return None
     
     @classmethod
     def filter(cls, o):
         try:
-            return bool('DoorProperty' in o.data)
+            return bool('archipack_door' in o.data)
         except:
             return False
     
@@ -785,7 +786,7 @@ class ARCHIPACK_OT_door(Operator):
         """
         m = bpy.data.meshes.new("Frame")
         o = bpy.data.objects.new("Frame", m)
-        d = m.DoorProperty.add()
+        d = m.archipack_door.add()
         d.x = self.x
         d.y = self.y
         d.z = self.z
@@ -821,12 +822,12 @@ class ARCHIPACK_OT_door(Operator):
     
     def delete(self, context):
         o = context.active_object
-        if o.data is not None and 'DoorProperty' in o.data:
+        if o.data is not None and 'archipack_door' in o.data:
             for child in o.children:
                 if 'archipack_hole' in child:
                     context.scene.objects.unlink(child)
                     bpy.data.objects.remove(child, do_unlink=True)
-                elif child.data is not None and 'DoorPanelProperty' in child.data:
+                elif child.data is not None and 'archipack_doorpanel' in child.data:
                     for handle in child.children:
                         if 'archipack_handle' in handle:
                             context.scene.objects.unlink(handle)
@@ -838,14 +839,14 @@ class ARCHIPACK_OT_door(Operator):
     
     def update(self, context):
         o = context.active_object
-        if  o.data is not None and 'DoorProperty' in o.data:
-            o.data.DoorProperty[0].update(context)
+        if  o.data is not None and 'archipack_door' in o.data:
+            o.data.archipack_door[0].update(context)
     
     def unique(self, context):
         sel = [o for o in context.selected_objects]
         bpy.ops.object.select_all(action="DESELECT")
         for o in sel:
-            if o.data is not None and 'DoorProperty' in o.data:
+            if o.data is not None and 'archipack_door' in o.data:
                 o.select = True
                 for child in o.children:
                     if 'archipack_hole' in child or (child.data is not None and 'PanelPanelProperty' in child.data):
@@ -894,7 +895,7 @@ class ARCHIPACK_OT_door_manipulate(Operator):
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
-            self.d = o.data.DoorProperty[0]
+            self.d = o.data.archipack_door[0]
             self.d.manipulable_invoke(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
@@ -906,7 +907,7 @@ class ARCHIPACK_OT_door_manipulate(Operator):
     
     
 bpy.utils.register_class(DoorProperty)
-Mesh.DoorProperty = CollectionProperty(type=DoorProperty)
+Mesh.archipack_door = CollectionProperty(type=DoorProperty)
 bpy.utils.register_class(ARCHIPACK_PT_door)
 bpy.utils.register_class(ARCHIPACK_OT_door)
 bpy.utils.register_class(ARCHIPACK_OT_door_manipulate)

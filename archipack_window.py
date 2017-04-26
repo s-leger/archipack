@@ -1322,6 +1322,7 @@ class WindowProperty(Manipulable, PropertyGroup):
         
         m = bpy.data.meshes.new("hole")
         o = bpy.data.objects.new("hole", m)
+        o['archipack_robusthole'] = True
         context.scene.objects.link(o)
         verts = hole.vertices(self.curve_steps, Vector((0, self.altitude, 0)), center, origin, size, radius, self.angle_y, 0, shape_z=shape_z, path_type=self.shape)
         verts = [tM * Vector(v) for v in verts]
@@ -1449,16 +1450,16 @@ class ARCHIPACK_PT_window(Panel):
     @classmethod
     def params(cls, o):
         try:
-            if 'WindowProperty' not in o.data:
+            if 'archipack_window' not in o.data:
                 return False
             else:
-                return o.data.WindowProperty[0]
+                return o.data.archipack_window[0]
         except:
             return False
     @classmethod
     def filter(cls, o):
         try:
-            if 'WindowProperty' not in o.data:
+            if 'archipack_window' not in o.data:
                 return False
             else:
                 return True
@@ -1499,8 +1500,8 @@ class ARCHIPACK_PT_window_panel(Panel):
     @classmethod
     def params(cls, o):
         if cls.filter(o):
-            if 'WindowPanelProperty' in o.data:
-                return o, o.data.WindowPanelProperty[0]
+            if 'archipack_windowpanel' in o.data:
+                return o, o.data.archipack_windowpanel[0]
             else:
                 for child in o.children:
                     o, props = cls.params(child)
@@ -1511,7 +1512,7 @@ class ARCHIPACK_PT_window_panel(Panel):
     @classmethod
     def filter(cls, o):
         try:
-            return bool('WindowPanelProperty' in o.data)
+            return bool('archipack_windowpanel' in o.data)
         except:
             return False
     
@@ -1576,7 +1577,7 @@ class ARCHIPACK_OT_window(Operator):
     def create(self, context):
         m = bpy.data.meshes.new("Window")
         o = bpy.data.objects.new("Window", m)
-        d = m.WindowProperty.add()
+        d = m.archipack_window.add()
         d.x = self.x
         d.y = self.y
         d.z = self.z
@@ -1608,12 +1609,12 @@ class ARCHIPACK_OT_window(Operator):
         
     def delete(self, context):
         o = context.active_object
-        if o.data is not None and 'WindowProperty' in o.data:
+        if o.data is not None and 'archipack_window' in o.data:
             for child in o.children:
                 if 'archipack_hole' in child:
                     context.scene.objects.unlink(child)
                     bpy.data.objects.remove(child, do_unlink=True)
-                elif child.data is not None and 'WindowPanelProperty' in child.data:
+                elif child.data is not None and 'archipack_windowpanel' in child.data:
                     for handle in child.children:
                         if 'archipack_handle' in handle:
                             context.scene.objects.unlink(handle)
@@ -1625,12 +1626,12 @@ class ARCHIPACK_OT_window(Operator):
     
     def update(self, context):
         o = context.active_object
-        if o.data is not None and 'WindowProperty' in o.data:
-            o.data.WindowProperty[0].update(context)
+        if o.data is not None and 'archipack_window' in o.data:
+            o.data.archipack_window[0].update(context)
             bpy.ops.object.select_linked(type='OBDATA')
             for linked in context.selected_objects:
                 if linked != o: 
-                    linked.data.WindowProperty[0].update(context)
+                    linked.data.archipack_window[0].update(context)
         o.select = True
         context.scene.objects.active = o
         
@@ -1638,10 +1639,10 @@ class ARCHIPACK_OT_window(Operator):
         sel = [o for o in context.selected_objects]
         bpy.ops.object.select_all(action="DESELECT")
         for o in sel:
-            if o.data is not None and 'WindowProperty' in o.data:
+            if o.data is not None and 'archipack_window' in o.data:
                 o.select = True
                 for child in o.children:
-                    if 'archipack_hole' in child or (child.data is not None and 'WindowPanelProperty' in child.data):
+                    if 'archipack_hole' in child or (child.data is not None and 'archipack_windowpanel' in child.data):
                         child.select = True
         if len(context.selected_objects) > 0:                
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True, obdata=True, material=False, texture=False, animation=False)
@@ -1774,7 +1775,7 @@ class ARCHIPACK_OT_window_panel(Operator):
     def create(self, context):
         m = bpy.data.meshes.new("Window Panel")
         o = bpy.data.objects.new("Window Panel", m)
-        d = m.WindowPanelProperty.add()
+        d = m.archipack_windowpanel.add()
         d.center = self.center
         d.origin = self.origin
         d.size = self.size
@@ -1835,7 +1836,7 @@ class ARCHIPACK_OT_window_manipulate(Operator):
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
-            self.d = o.data.WindowProperty[0]
+            self.d = o.data.archipack_window[0]
             self.d.manipulable_invoke(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
@@ -1846,11 +1847,11 @@ class ARCHIPACK_OT_window_manipulate(Operator):
            
 bpy.utils.register_class(WindowPanelRowProperty)
 bpy.utils.register_class(WindowPanelProperty)
-Mesh.WindowPanelProperty = CollectionProperty(type=WindowPanelProperty)
+Mesh.archipack_windowpanel = CollectionProperty(type=WindowPanelProperty)
 bpy.utils.register_class(ARCHIPACK_PT_window_panel)
 bpy.utils.register_class(ARCHIPACK_OT_window_panel)
 bpy.utils.register_class(WindowProperty)
-Mesh.WindowProperty = CollectionProperty(type=WindowProperty)
+Mesh.archipack_window = CollectionProperty(type=WindowProperty)
 bpy.utils.register_class(ARCHIPACK_PT_window)
 bpy.utils.register_class(ARCHIPACK_OT_window)
 bpy.utils.register_class(ARCHIPACK_OT_window_manipulate)

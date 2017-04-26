@@ -33,8 +33,6 @@ from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt
 from .archipack_manipulator import Manipulable, ManipulatorProperty
 
-generator = None
-
 class Line():
     def __init__(self, p, v):
         self.p = p
@@ -292,6 +290,8 @@ class WallGenerator():
         self.faces_type = 'NONE'
     def add_part(self, type, center, radius, a0, da, length, part_z, part_t, n_splits, flip):
         
+        # TODO:
+        # refactor this part (height manipulators)
         manip_index = []
         if len(self.walls) < 1:
             s = None
@@ -546,10 +546,10 @@ class Wall2ChildProperty(PropertyGroup):
         d = None
         child = context.scene.objects.get(self.name)
         if child.data is not None:
-            if 'WindowProperty' in child.data:
-                d = child.data.WindowProperty[0]
-            elif 'DoorProperty' in child.data:
-                d = child.data.DoorProperty[0]
+            if 'archipack_window' in child.data:
+                d = child.data.archipack_window[0]
+            elif 'archipack_door' in child.data:
+                d = child.data.archipack_door[0]
         return child, d
        
 class Wall2Property(Manipulable, PropertyGroup):
@@ -810,15 +810,15 @@ class Wall2Property(Manipulable, PropertyGroup):
         self.childs_manipulators.clear()
         if o.parent is None:
             return
-        for i in range(self.n_parts):
-            m = self.childs_manipulators.add()
-            m.type = 'DUMB_SIZE'
+        wall_with_childs = [0 for i in range(self.n_parts)]    
         relocate = []
         dmax = 2*self.width   
         itM = o.matrix_world.inverted() * o.parent.matrix_world
         rM = itM.to_3x3()
         for child in o.parent.children:
-            if child != o:
+            if (child != o and 
+                'archipack_robusthole' not in child and 
+                'archipack_hole' not in child):
                 tM = child.matrix_world.to_3x3()
                 pt = (itM * child.location).to_2d()
                 dir_y = (rM * tM * Vector((0,1,0))).to_2d()
@@ -826,6 +826,7 @@ class Wall2Property(Manipulable, PropertyGroup):
                     res, d, t = wall.point_sur_segment(pt)
                     dir = -wall.normal(t).v.normalized()
                     if res and t > 0 and t < 1 and abs(d) < dmax:
+                        wall_with_childs[wall_idx] = 1
                         m = self.childs_manipulators.add()
                         m.type = 'DUMB_SIZE'
                         relocate.append((child.name, wall_idx, (t*wall.length, d, child.location.z), (dir-dir_y).length > 0.5))
@@ -833,7 +834,11 @@ class Wall2Property(Manipulable, PropertyGroup):
         for child in relocate:
             name, wall_idx, pos, flip = child
             self.add_child(name, wall_idx, pos, flip)
-
+            
+        for i in range(sum(wall_with_childs)):
+            m = self.childs_manipulators.add()
+            m.type = 'DUMB_SIZE'
+        
     def relocate_childs(self, context, o, g):
         """
             Move and resize childs after wall edition
@@ -885,11 +890,13 @@ class Wall2Property(Manipulable, PropertyGroup):
         itM = o.matrix_world.inverted() * o.parent.matrix_world
         m_idx = 0
         for wall_idx, wall in enumerate(g.walls):
-            p0 = wall.lerp(0)    
+            p0 = wall.lerp(0)
+            wall_has_childs = False
             for child in self.childs:
                 if child.wall_idx == wall_idx:
                     c, d = child.get_child(context)
                     if d is not None:
+                        wall_has_childs = True
                         dt = 0.5*d.x/wall.length
                         pt = (itM * c.location).to_2d()
                         res, y, t = wall.point_sur_segment(pt)
@@ -909,8 +916,9 @@ class Wall2Property(Manipulable, PropertyGroup):
                         child.manipulators[1].set_pts([(-x,side*-y,0),(x,side*-y,0),(0.5*side,0,0)])
                         p0 = wall.lerp(t+dt)
             p1 = wall.lerp(1)  
-            self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5,0,0)])
-            m_idx += 1
+            if wall_has_childs:
+                self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5,0,0)])
+                m_idx += 1
                   
     def manipulate_childs(self, context):
         """
@@ -1010,7 +1018,7 @@ class ARCHIPACK_OT_wall2_delay_update(Operator):
             if o is not None:
                 o.select = True
                 context.scene.objects.active = o
-                d = o.data.Wall2Property[0]
+                d = o.data.archipack_wall2[0]
                 g = d.get_generator()
                 # update child location and size
                 d.relocate_childs(context, o, g)
@@ -1071,16 +1079,16 @@ class ARCHIPACK_PT_wall2(Panel):
     @classmethod
     def params(cls, o):
         try:
-            if 'Wall2Property' not in o.data:
+            if 'archipack_wall2' not in o.data:
                 return False
             else:
-                return o.data.Wall2Property[0]
+                return o.data.archipack_wall2[0]
         except:
             return False
     @classmethod
     def filter(cls, o):
         try:
-            if 'Wall2Property' not in o.data:
+            if 'archipack_wall2' not in o.data:
                 return False
             else:
                 return True
@@ -1115,7 +1123,7 @@ class ARCHIPACK_OT_wall2(Operator):
     def create(self, context):
         m = bpy.data.meshes.new("Wall")
         o = bpy.data.objects.new("Wall", m)
-        d = m.Wall2Property.add()
+        d = m.archipack_wall2.add()
         s = d.manipulators.add()
         s.prop1_name = "width"
         s = d.manipulators.add()
@@ -1229,7 +1237,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
-            self.d = o.data.Wall2Property[0]
+            self.d = o.data.archipack_wall2[0]
             self.d.manipulable_invoke(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
@@ -1243,7 +1251,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         """
         if ARCHIPACK_PT_wall2.filter(context.active_object):
             o = context.active_object
-            d = o.data.Wall2Property[0]
+            d = o.data.archipack_wall2[0]
             g = d.get_generator()
             d.setup_childs(o, g)
             d.update_childs(context, o, g)
@@ -1256,7 +1264,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
 bpy.utils.register_class(Wall2PartProperty)
 bpy.utils.register_class(Wall2ChildProperty)
 bpy.utils.register_class(Wall2Property)
-Mesh.Wall2Property = CollectionProperty(type=Wall2Property)
+Mesh.archipack_wall2 = CollectionProperty(type=Wall2Property)
 bpy.utils.register_class(ARCHIPACK_PT_wall2)
 bpy.utils.register_class(ARCHIPACK_OT_wall2)
 bpy.utils.register_class(ARCHIPACK_OT_wall2_insert)

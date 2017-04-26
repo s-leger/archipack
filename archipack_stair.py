@@ -1710,8 +1710,7 @@ class StairPartProperty(PropertyGroup):
                 box = layout.box()
                 row = box.row()
                 row.prop(self, "length")
-
-                      
+                     
 class StairProperty(Manipulable, PropertyGroup):
     
     parts = CollectionProperty(type=StairPartProperty)
@@ -2550,7 +2549,6 @@ class StairProperty(Manipulable, PropertyGroup):
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
      
- 
 class ARCHIPACK_PT_stair(Panel):
     bl_idname = "ARCHIPACK_PT_stair"
     bl_label = "Stair"
@@ -2740,16 +2738,16 @@ class ARCHIPACK_PT_stair(Panel):
     @classmethod
     def params(cls, o):
         try:
-            if 'StairProperty' not in o.data:
+            if 'archipack_stair' not in o.data:
                 return False
             else:
-                return o.data.StairProperty[0]
+                return o.data.archipack_stair[0]
         except:
             return False
     @classmethod
     def filter(cls, o):
         try:
-            if 'StairProperty' not in o.data:
+            if 'archipack_stair' not in o.data:
                 return False
             else:
                 return True
@@ -2784,7 +2782,7 @@ class ARCHIPACK_OT_stair(Operator):
     def create(self, context):
         m = bpy.data.meshes.new("Stair")
         o = bpy.data.objects.new("Stair", m)
-        d = m.StairProperty.add()
+        d = m.archipack_stair.add()
         s = d.manipulators.add()
         s.prop1_name = "width"
         s = d.manipulators.add()
@@ -2833,7 +2831,7 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
-            self.d = o.data.StairProperty[0]
+            self.d = o.data.archipack_stair[0]
             self.d.manipulable_invoke(context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
@@ -2842,13 +2840,10 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
             return {'CANCELLED'} 
 
 
-      
-        
-  
 bpy.utils.register_class(StairMaterialProperty)
 bpy.utils.register_class(StairPartProperty)
 bpy.utils.register_class(StairProperty)
-Mesh.StairProperty = CollectionProperty(type=StairProperty)
+Mesh.archipack_stair = CollectionProperty(type=StairProperty)
 bpy.utils.register_class(ARCHIPACK_PT_stair)
 bpy.utils.register_class(ARCHIPACK_OT_stair)
 

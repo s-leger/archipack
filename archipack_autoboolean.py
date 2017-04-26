@@ -123,22 +123,22 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         # generate holes from archipack primitives
         for o in context.scene.objects:
             if o.data is not None:
-                if ('WindowProperty' in o.data and 
+                if ('archipack_window' in o.data and 
                     (self._contains(o.location) or 
-                     self._contains(o.matrix_world * Vector((0,0,0.5*o.data.WindowProperty[0].z))))):
+                     self._contains(o.matrix_world * Vector((0,0,0.5*o.data.archipack_window[0].z))))):
                     if self.interactive:
-                        hole = o.data.WindowProperty[0].interactive_hole(context, o)
+                        hole = o.data.archipack_window[0].interactive_hole(context, o)
                     else:
-                        hole = o.data.WindowProperty[0].robust_hole(context, o.matrix_world)
+                        hole = o.data.archipack_window[0].robust_hole(context, o.matrix_world)
                     self._prepare_hole(hole)
                     childs.append(o)
-                elif ('DoorProperty' in o.data and 
+                elif ('archipack_door' in o.data and 
                     (self._contains(o.location) or 
-                     self._contains(o.matrix_world * Vector((0,0,0.5*o.data.DoorProperty[0].z))))):
+                     self._contains(o.matrix_world * Vector((0,0,0.5*o.data.archipack_door[0].z))))):
                     if self.interactive:
-                        hole = o.data.DoorProperty[0].interactive_hole(context, o)
+                        hole = o.data.archipack_door[0].interactive_hole(context, o)
                     else:
-                        hole = o.data.DoorProperty[0].robust_hole(context, o.matrix_world)
+                        hole = o.data.archipack_door[0].robust_hole(context, o.matrix_world)
                     self._prepare_hole(hole)
                     childs.append(o)
     
@@ -201,6 +201,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             # more than one hole : join, result becomes context.object
             if len(context.selected_objects) > 1:
                 bpy.ops.object.join()
+                context.object['archipack_robusthole'] = True
             hole = context.object
             childs.append(hole)
             old = None
@@ -217,11 +218,12 @@ class ARCHIPACK_OT_auto_boolean(Operator):
     def filter_wall(self, wall):
         d = wall.data
         return (d is None or
-               'WindowProperty' in d or 
-               'WindowPanelProperty' in d or 
-               'DoorProperty' in d or
-               'DoorPanelProperty' in d  or 
+               'archipack_window' in d or 
+               'archipack_windowpanel' in d or 
+               'archipack_door' in d or
+               'archipack_doorpanel' in d  or 
                'archipack_hole' in wall or 
+               'archipack_robusthole' in wall or
                'archipack_handle' in wall)
                 
     # -----------------------------------------------------
@@ -236,7 +238,8 @@ class ARCHIPACK_OT_auto_boolean(Operator):
                 self.autoboolean(context, wall)
                 wall.select = True
                 context.scene.objects.active = wall
-                bpy.ops.archipack.wall2_manipulate('EXEC_DEFAULT')
+                if wall.data is not None and 'archipack_wall2' in wall.data:
+                    bpy.ops.archipack.wall2_manipulate('EXEC_DEFAULT')
             # reselect walls
             bpy.ops.object.select_all(action='DESELECT')
             for wall in walls:

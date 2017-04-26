@@ -72,23 +72,23 @@ class ARCHIPACK_PT_wall(Panel):
         if not ARCHIPACK_PT_wall.filter(o):
             return 
         layout = self.layout
-        prop = o.data.WallProperty[0]
+        prop = o.data.archipack_wall[0]
         layout.prop(prop, 'z')
      
     @classmethod
     def params(cls, o):
         try:
-            if 'WallProperty' not in o.data:
+            if 'archipack_wall' not in o.data:
                 return False
             else:
-                return o.data.WallProperty[0]
+                return o.data.archipack_wall[0]
         except:
             return False
     
     @classmethod
     def filter(cls, o):
         try:
-            if 'WallProperty' not in o.data:
+            if 'archipack_wall' not in o.data:
                 return False
             else:
                 return True
@@ -136,7 +136,7 @@ class ARCHIPACK_OT_wall(Operator):
             o = context.active_object
             if ARCHIPACK_PT_wall.filter(o):
                 return {'CANCELLED'}
-            params = o.data.WallProperty.add()
+            params = o.data.archipack_wall.add()
             params.z = self.z
             return {'FINISHED'}
         else:
@@ -144,7 +144,7 @@ class ARCHIPACK_OT_wall(Operator):
             return {'CANCELLED'}
 
 bpy.utils.register_class(WallProperty)
-Mesh.WallProperty = CollectionProperty(type=WallProperty)
+Mesh.archipack_wall = CollectionProperty(type=WallProperty)
 bpy.utils.register_class(ARCHIPACK_PT_wall)
 bpy.utils.register_class(ARCHIPACK_OT_wall)
 

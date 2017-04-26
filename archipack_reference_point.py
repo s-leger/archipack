@@ -271,7 +271,9 @@ class ARCHIPACK_OT_parent_to_reference(Operator):
                 #matrix_basis = child.matrix_world.copy()
                 child.parent = None
                 child.matrix_parent_inverse.identity()
-                #child.matrix_basis = matrix_basis
+                # test
+                #child.matrix_basis.identity()
+                
                 child.location = Vector((0,0,0))
                 child.parent = o
                 child.matrix_world = rs

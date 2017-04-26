@@ -584,8 +584,8 @@ class ARCHIPACK_PT_door_panel(Panel):
     @classmethod
     def params(cls, o):
         if cls.filter(o):
-            if 'DoorPanelProperty' in o.data:
-                return o, o.data.DoorPanelProperty[0]
+            if 'archipack_doorpanel' in o.data:
+                return o, o.data.archipack_doorpanel[0]
             else:
                 for child in o.children:
                     o, props = cls.params(child)
@@ -595,7 +595,7 @@ class ARCHIPACK_PT_door_panel(Panel):
     @classmethod
     def filter(cls, o):
         try:
-            return bool('DoorPanelProperty' in o.data)
+            return bool('archipack_doorpanel' in o.data)
         except:
             return False
     @classmethod
@@ -714,7 +714,7 @@ class ARCHIPACK_OT_door_panel(Operator):
         """
         m = bpy.data.meshes.new("Door")
         o = bpy.data.objects.new("Door", m)
-        d = m.DoorPanelProperty.add()
+        d = m.archipack_doorpanel.add()
         d.x = self.x
         d.y = self.y
         d.z = self.z
@@ -790,7 +790,7 @@ class ARCHIPACK_OT_select_parent(Operator):
             
             
 bpy.utils.register_class(DoorPanelProperty)
-Mesh.DoorPanelProperty = CollectionProperty(type=DoorPanelProperty)
+Mesh.archipack_doorpanel = CollectionProperty(type=DoorPanelProperty)
 bpy.utils.register_class(ARCHIPACK_PT_door_panel)
 bpy.utils.register_class(ARCHIPACK_OT_door_panel)            
 bpy.utils.register_class(ARCHIPACK_OT_select_parent) 
