@@ -1,5 +1,4 @@
-from math import cos, sin, tan, sqrt, atan, atan2, pi
-from mathutils import Vector
+
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
 #  This program is free software; you can redistribute it and/or
@@ -22,6 +21,11 @@ from mathutils import Vector
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
+
+from math import cos, sin, tan, sqrt, atan, atan2, pi
+from mathutils import Vector
+
+
 class Panel():
     """
         Define a bevel profil 
@@ -101,7 +105,7 @@ class Panel():
         if self.closed_shape:
             return len(self.y)
         else:
-            return len(self.y)-1
+            return len(self.y) - 1
             
     @property
     def uv_u(self):
@@ -144,7 +148,7 @@ class Panel():
         if self.closed_path:
             n_path_faces = n_path_verts
         else:
-            n_path_faces = n_path_verts-1
+            n_path_faces = n_path_verts - 1
         return n_path_verts, n_path_faces
                
     def n_verts(self, steps, path_type):
@@ -254,8 +258,8 @@ class Panel():
         """
             Rectangle with single arc on top
         """
-        x_left = size.x / 2 * (pivot-1)  + x
-        x_right = size.x / 2 * (pivot+1) - x
+        x_left = size.x / 2 * (pivot - 1)  + x
+        x_right = size.x / 2 * (pivot + 1) - x
         cx = center.x - origin.x
         cy = offset.y + center.y - origin.y 
         y0, y1, a0, da = self._intersect_arc_elliptic(center, radius, origin.x + x_left, origin.x + x_right)
@@ -284,8 +288,8 @@ class Panel():
         """
             Rectangle with single arc on top
         """
-        x_left = size.x / 2 * (pivot-1)  + x
-        x_right = size.x / 2 * (pivot+1) - x
+        x_left = size.x / 2 * (pivot - 1)  + x
+        x_right = size.x / 2 * (pivot + 1) - x
         cx = offset.x + center.x - origin.x
         cy = offset.y + center.y - origin.y 
         y0, y1, a0, da = self._intersect_arc(center, radius, origin.x + x_left, origin.x + x_right)
@@ -620,7 +624,7 @@ class Panel():
     ############################
     def _faces_cap(self, faces, n_path_verts, offset):
         if self.closed_shape and not self.closed_path :
-            last_point = offset+self.n_pts*(n_path_verts)-1
+            last_point = offset+self.n_pts*(n_path_verts) - 1
             faces.append(tuple([offset+i for i in range(self.n_pts)]))
             faces.append(tuple([last_point-i for i in range(self.n_pts)]))
     def _faces_closed(self, n_path_faces, offset):
@@ -628,25 +632,25 @@ class Panel():
         n_pts = self.n_pts
         for i in range(n_path_faces):
             k0 = offset+i*n_pts
-            if self.closed_path and i == n_path_faces-1:
+            if self.closed_path and i == n_path_faces - 1:
                 k1 = offset
             else:
                 k1 = k0+n_pts
-            for j in range(n_pts-1):
+            for j in range(n_pts - 1):
                 faces.append((k1+j, k1+j+1, k0+j+1, k0+j))
             # close profile
-            faces.append((k1+n_pts-1, k1, k0, k0+n_pts-1))
+            faces.append((k1+n_pts - 1, k1, k0, k0+n_pts - 1))
         return faces
     def _faces_open(self, n_path_faces, offset):
         faces = []
         n_pts = self.n_pts
         for i in range(n_path_faces):
             k0 = offset+i*n_pts
-            if self.closed_path and i == n_path_faces-1:
+            if self.closed_path and i == n_path_faces - 1:
                 k1 = offset
             else:
                 k1 = k0+n_pts
-            for j in range(n_pts-1):
+            for j in range(n_pts - 1):
                 faces.append((k1+j, k1+j+1, k0+j+1, k0+j))
         return faces
     def _faces_side(self, faces, n_path_verts, start, reverse, offset):

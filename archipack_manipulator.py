@@ -18,16 +18,20 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
 # ----------------------------------------------------------
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
-import bpy, bgl, blf
-from math import sin, cos, acos, atan2, pi
+import bpy
+import bgl
+import blf
+from math import sin, cos, atan2, pi
 from mathutils import Vector, Matrix
 from mathutils.geometry import intersect_line_plane, intersect_point_line, intersect_line_sphere
-from bpy_extras import view3d_utils 
-from bpy.types import Operator, PropertyGroup
+from bpy_extras import view3d_utils
+from bpy.types import PropertyGroup
 from bpy.props import EnumProperty, FloatVectorProperty, StringProperty, CollectionProperty, BoolProperty
 
 # Arrow sizes (world units)
@@ -35,39 +39,48 @@ arrow_size = 0.1
 # Handle area size (pixels)
 handle_size = 10
 
+# ------------------------------------------------------------------
+# Define Gl Handle types
+# ------------------------------------------------------------------
+
+
 class Gl():
     """
         handle 3d -> 2d gl drawing
     """
     def __init__(self):
         self.width = 1
-        self.pos_2d = Vector((0,0))
+        self.pos_2d = Vector((0, 0))
         self.colour_active = (1.0, 0.0, 0.0, 1.0)
-        self.colour_hover  = (1.0, 1.0, 0.0, 1.0)
+        self.colour_hover = (1.0, 1.0, 0.0, 1.0)
         self.colour_normal = (1.0, 1.0, 1.0, 1.0)
         self.colour_inactive = (0.0, 0.0, 0.0, 1.0)
+
     @property
     def colour(self):
         return self.colour_inactive
+
     def position_2d_from_coord(self, context, coord):
         """ coord given in local input coordsys
         """
-        scene = context.scene
         region = context.region
         rv3d = context.region_data
         loc = view3d_utils.location_3d_to_region_2d(region, rv3d, coord, self.pos_2d)
         return loc
+
     def _end(self):
         bgl.glEnd()
         bgl.glPopAttrib()
         bgl.glLineWidth(1)
         bgl.glDisable(bgl.GL_BLEND)
         bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
+
     def _start_poly(self, colour):
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         bgl.glEnable(bgl.GL_BLEND)
-        bgl.glColor4f(*colour)    
+        bgl.glColor4f(*colour)
         bgl.glBegin(bgl.GL_POLYGON)
+
     def _start_line(self, colour, width=1):
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         bgl.glEnable(bgl.GL_BLEND)
@@ -75,13 +88,16 @@ class Gl():
         bgl.glColor4f(*colour)
         bgl.glLineWidth(width)
         bgl.glBegin(bgl.GL_LINE_STRIP)
+
     def draw_text(self, text, x, y, angle, font_height, colour):
-        dpi, font_id = 72, 0 # dirty fast assignment
+        # dirty fast assignment
+        dpi, font_id = 72, 0
         bgl.glColor4f(*colour)
         blf.position(font_id, x, y, 0)
         blf.rotation(font_id, angle)
         blf.size(font_id, font_height, dpi)
         blf.draw(font_id, text)
+
     def draw(self, context):
         gl_type = type(self).__name__
         if 'Handle' in gl_type:
@@ -90,98 +106,118 @@ class Gl():
             self._start_line(self.colour, self.width)
         if gl_type == 'GlText':
             x, y = self.position_2d_from_coord(context, self.pts[0])
-            self.draw_text(self.txt, x, y, self.angle, self.font_height, self.colour)    
-        else:    
+            self.draw_text(self.txt, x, y, self.angle, self.font_height, self.colour)
+        else:
             for pt in self.pts:
                 x, y = self.position_2d_from_coord(context, pt)
-                bgl.glVertex2f(x, y) 
-            self._end()     
+                bgl.glVertex2f(x, y)
+            self._end()
+
 
 class GlText(Gl):
-    def __init__(self, round=2, label='', z_axis=Vector((0,0,1))):
+
+    def __init__(self, round=2, label='', z_axis=Vector((0, 0, 1))):
         self.z_axis = z_axis
         self.value = 0
         self.round = round
         self.label = label
         self.font_height = 16
         Gl.__init__(self)
+
     @property
     def angle(self):
         return 0
+
     @property
     def pts(self):
         return [self.pos_3d]
+
     @property
     def txt(self):
-        return self.label+str(round(self.value,self.round))
-    def set_pos(self, context, value, pos_3d, direction, normal=Vector((0,0,1))):
+        return self.label + str(round(self.value, self.round))
+
+    def set_pos(self, context, value, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
-        self.c_axis  = self.up_axis.cross(normal)
+        self.c_axis = self.up_axis.cross(normal)
         self.pos_3d = pos_3d
         self.value = value
-        
+
+
 class GlLine(Gl):
-    def __init__(self, z_axis=Vector((0,0,1))):
+
+    def __init__(self, z_axis=Vector((0, 0, 1))):
         self.z_axis = z_axis
-        self.p = Vector((0,0,0))
-        self.v = Vector((0,0,0))
+        self.p = Vector((0, 0, 0))
+        self.v = Vector((0, 0, 0))
         Gl.__init__(self)
-    @property    
+
+    @property
     def length(self):
         return self.v.length
+
     @property
     def angle(self):
         return atan2(self.v.y, self.v.x)
+
     @property
     def cross(self):
         return self.v.cross(self.z_axis)
+
     def normal(self, t=0):
         # perpendiculaire a droite du segment
         n = GlLine()
         n.p = self.lerp(t)
         n.v = self.cross
         return n
+
     def sized_normal(self, t, size):
         n = GlLine()
         n.p = self.lerp(t)
         n.v = size * self.cross.normalized()
         return n
+
     def lerp(self, t):
         return self.p + self.v * t
+
     def offset(self, offset):
         """
             offset > 0 on the right part
         """
         self.p += offset * self.cross.normalized()
+
     @property
     def pts(self):
         p0 = self.p
-        p1 = self.p+self.v
+        p1 = self.p + self.v
         return [p0, p1]
-        
+
+
 class GlCircle(Gl):
+
     def __init__(self):
         self.r = 0
-        self.c = Vector((0,0,0))
+        self.c = Vector((0, 0, 0))
         Gl.__init__(self)
-        
+
+
 class GlArc(GlCircle):
-    def __init__(self, z_axis=Vector((0,0,1))):
+
+    def __init__(self, z_axis=Vector((0, 0, 1))):
         """
             a0 and da arguments are in radians
             a0 = 0   on the right side
             a0 = pi on the left side
             da > 0 CCW contrary-clockwise
-            da < 0 CW  clockwise 
+            da < 0 CW  clockwise
             stored internally as radians
         """
         GlCircle.__init__(self)
         if z_axis.z < 1:
-            x_axis = z_axis.cross(Vector((0,0,1)))
+            x_axis = z_axis.cross(Vector((0, 0, 1)))
             y_axis = x_axis.cross(z_axis)
         else:
-            x_axis = Vector((1,0,0))
-            y_axis = Vector((0,1,0))
+            x_axis = Vector((1, 0, 0))
+            y_axis = Vector((0, 1, 0))
         self.rM = Matrix([
             x_axis,
             y_axis,
@@ -190,9 +226,11 @@ class GlArc(GlCircle):
         self.z_axis = z_axis
         self.a0 = 0
         self.da = 0
+
     @property
     def length(self):
-        return self.r*abs(self.da)
+        return self.r * abs(self.da)
+
     def normal(self, t=0):
         """
             always on the right side
@@ -200,73 +238,84 @@ class GlArc(GlCircle):
         n = GlLine(z_axis=self.z_axis)
         n.p = self.lerp(t)
         if self.da < 0:
-            n.v = self.c-n.p
+            n.v = self.c - n.p
         else:
-            n.v = n.p-self.c
+            n.v = n.p - self.c
         return n
+
     def sized_normal(self, t, size):
         n = GlLine(z_axis=self.z_axis)
         n.p = self.lerp(t)
         if self.da < 0:
-            n.v = size*(self.c-n.p).normalized()
+            n.v = size * (self.c - n.p).normalized()
         else:
-            n.v = size*(n.p-self.c).normalized()
+            n.v = size * (n.p - self.c).normalized()
         return n
+
     def lerp(self, t):
-        a = self.a0+t*self.da
-        return self.c+self.rM*Vector((self.r*cos(a),self.r*sin(a),0))
+        a = self.a0 + t * self.da
+        return self.c + self.rM * Vector((self.r * cos(a), self.r * sin(a), 0))
+
     def tangeant(self, t, length):
-        a = self.a0+t*self.da
+        a = self.a0 + t * self.da
         ca = cos(a)
         sa = sin(a)
         n = GlLine()
-        n.p = self.c+self.rM*Vector((self.r*ca, self.r*sa, 0))
-        n.v = self.rM*Vector((length*sa, -length*ca, 0)) 
+        n.p = self.c + self.rM * Vector((self.r * ca, self.r * sa, 0))
+        n.v = self.rM * Vector((length * sa, -length * ca, 0))
         if self.da > 0:
             n.v = -n.v
         return n
+
     def offset(self, offset):
         """
             offset > 0 on the right part
         """
         if self.da > 0:
-            radius = self.r+offset
+            radius = self.r + offset
         else:
-            radius = self.r-offset
+            radius = self.r - offset
         return GlArc(self.c, radius, self.a0, self.da, z_axis=self.z_axis)
+
     @property
     def pts(self):
-        n_pts = max(1, int(round(abs(self.da)/pi*30,0)))
-        t_step = 1/n_pts
-        return [self.lerp(i*t_step) for i in range(n_pts+1)]
+        n_pts = max(1, int(round(abs(self.da) / pi * 30, 0)))
+        t_step = 1 / n_pts
+        return [self.lerp(i * t_step) for i in range(n_pts + 1)]
+
 
 class GlHandle(Gl):
+
     def __init__(self, sensor_size, size, selectable=False):
         """
             sensor_size : 2d size in pixels of sensor area
-            size : 3d size of handle 
+            size : 3d size of handle
         """
         self.size = size
         self.sensor_size = sensor_size
-        self.pos_3d = Vector((0,0,0))
-        self.up_axis = Vector((0,0,0))
-        self.c_axis = Vector((0,0,0))
+        self.pos_3d = Vector((0, 0, 0))
+        self.up_axis = Vector((0, 0, 0))
+        self.c_axis = Vector((0, 0, 0))
         self.hover = False
         self.active = False
         self.selectable = selectable
         Gl.__init__(self)
-    def set_pos(self, context, pos_3d, direction, normal=Vector((0,0,1))):
+
+    def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
-        self.c_axis  = self.up_axis.cross(normal)
+        self.c_axis = self.up_axis.cross(normal)
         self.pos_3d = pos_3d
         self.pos_2d = self.position_2d_from_coord(context, pos_3d)
+
     def check_hover(self, pos_2d):
-        dp = pos_2d-self.pos_2d
+        dp = pos_2d - self.pos_2d
         self.hover = abs(dp.x) < self.sensor_size and abs(dp.y) < self.sensor_size
+
     @property
     def pts(self):
         raise NotImplementedError
-    @property    
+
+    @property
     def colour(self):
         if self.selectable:
             if self.active:
@@ -276,59 +325,75 @@ class GlHandle(Gl):
             return self.colour_normal
         else:
             return self.colour_inactive
-              
+
+
 class SquareHandle(GlHandle):
+
     def __init__(self, sensor_size, size, selectable=False):
         GlHandle.__init__(self, sensor_size, size, selectable)
+
     @property
     def pts(self):
         n = self.up_axis
         c = self.c_axis
-        x = n*self.size/2
-        y = c*self.size/2
-        return [self.pos_3d-x-y, self.pos_3d+x-y, self.pos_3d+x+y, self.pos_3d-x+y]
-        
-class TriHandle(GlHandle):   
+        x = n * self.size / 2
+        y = c * self.size / 2
+        return [self.pos_3d - x - y, self.pos_3d + x - y, self.pos_3d + x + y, self.pos_3d - x + y]
+
+
+class TriHandle(GlHandle):
+
     def __init__(self, sensor_size, size, selectable=False):
         GlHandle.__init__(self, sensor_size, size, selectable)
+
     @property
     def pts(self):
         n = self.up_axis
         c = self.c_axis
-        x = n*self.size
-        y = c*self.size/2
-        return [self.pos_3d-x+y, self.pos_3d-x-y, self.pos_3d]
-               
+        x = n * self.size
+        y = c * self.size / 2
+        return [self.pos_3d - x + y, self.pos_3d - x - y, self.pos_3d]
+
+
+# ------------------------------------------------------------------
+# Define Manipulators
+# ------------------------------------------------------------------
+
+
 class Manipulator():
+
     def __init__(self, context, o, datablock, glprovider):
         """
             o : object to manipulate
             datablock : object data to manipulate
-            glprovider: object ManipulatorProperty datablock (tM)
+            glprovider: object archipack_manipulator datablock (tM)
         """
         self.o = o
         self.datablock = datablock
         self.glprovider = glprovider
-        self.hover  = False
-        self.active = False
-        self.origin = Vector((0,0,1))
-        self.mouse_pos = Vector((0,0))
+        self.origin = Vector((0, 0, 1))
+        self.mouse_pos = Vector((0, 0))
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
+
     def exit(self):
-        #print("Manipulator.exit() %s" % (type(self).__name__))
+        # print("Manipulator.exit() %s" % (type(self).__name__))
         if self._handle is not None:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
         self.o = None
         self.datablock = None
         self.glprovider = None
         self._handle = None
+
     def press(self):
         raise NotImplementedError
+
     def release(self):
         raise NotImplementedError
+
     def mouse_move(self):
         raise NotImplementedError
+
     def modal(self, context, event):
         if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             return self.press(context, event)
@@ -337,19 +402,27 @@ class Manipulator():
         elif event.type == 'MOUSEMOVE':
             return self.mouse_move(context, event)
         return False
+
     def mouse_position(self, event):
         self.mouse_pos.x, self.mouse_pos.y = event.mouse_region_x, event.mouse_region_y
+
     def get_pos3d(self, context):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
         """
-        scene = context.scene
         region = context.region
         rv3d = context.region_data
         rM = context.active_object.matrix_world.to_3x3()
         view_vector_mouse = view3d_utils.region_2d_to_vector_3d(region, rv3d, self.mouse_pos)
-        ray_origin_mouse  = view3d_utils.region_2d_to_origin_3d(region, rv3d, self.mouse_pos)
-        return intersect_line_plane(ray_origin_mouse, ray_origin_mouse+view_vector_mouse, self.origin, rM*self.glprovider.normal, False)
+        ray_origin_mouse = view3d_utils.region_2d_to_origin_3d(region, rv3d, self.mouse_pos)
+        pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
+            self.origin, rM * self.glprovider.normal, False)
+        # attempt to fix issue with parallel plane
+        if pt is None:
+            pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
+                self.origin, view_vector_mouse, False)
+        return pt
+
     def get_value(self, data, attr, index=-1):
         try:
             if index > -1:
@@ -358,9 +431,10 @@ class Manipulator():
                 return getattr(data, attr)
         except:
             return 0
+
     def set_value(self, context, data, attr, value, index=-1):
         try:
-             if self.get_value(data, attr, index) != value:
+            if self.get_value(data, attr, index) != value:
                 # switch context so unselected object may be manipulable too
                 old = context.active_object
                 state = self.o.select
@@ -375,26 +449,29 @@ class Manipulator():
                 context.scene.objects.active = old
         except:
             pass
+
     def preTranslate(self, tM, vec):
         return tM * Matrix([
-		[1,0,0,vec.x],
-		[0,1,0,vec.y],
-		[0,0,1,vec.z],
-		[0,0,0,1]])
+        [1, 0, 0, vec.x],
+        [0, 1, 0, vec.y],
+        [0, 0, 1, vec.z],
+        [0, 0, 0, 1]])
+
     def move(self, axis, value):
         if axis == 'x':
-            tM = self.preTranslate(self.o.matrix_world, Vector((value,0,0)))
+            tM = self.preTranslate(self.o.matrix_world, Vector((value, 0, 0)))
         elif axis == 'y':
-            tM = self.preTranslate(self.o.matrix_world, Vector((0,value,0)))
+            tM = self.preTranslate(self.o.matrix_world, Vector((0, value, 0)))
         else:
-            tM = self.preTranslate(self.o.matrix_world, Vector((0,0,value)))
-        self.o.matrix_world = tM   
+            tM = self.preTranslate(self.o.matrix_world, Vector((0, 0, value)))
+        self.o.matrix_world = tM
+
 
 """
 class PointManipulator(Manipulator):
     def __init__(self, context, pos_3d, handle_size):
         self.handle = Handle(handle_size)
-        
+
         self.pos_3d = pos_3d
         self.origin = pos_3d
         Manipulator.__init__(self, context)
@@ -422,37 +499,46 @@ class PointManipulator(Manipulator):
         self.pos_3d = self.get_pos3d(context)
         self.delta = self.pos_3d-self.origin
     def draw_callback(self, _self, context):
-        
+
         self.handle.draw(context, self.pos_3d, size, Vector((0,1,0)))
 """
 
+
 class CounterManipulator(Manipulator):
+
+    """
+        increase or decrease an integer step by step on click
+    """
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        self.handle_left  = TriHandle(handle_size, arrow_size, selectable=True)
+        self.handle_left = TriHandle(handle_size, arrow_size, selectable=True)
         self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
         self.line_0 = GlLine()
-        self.label  = GlText()
+        self.label = GlText()
         Manipulator.__init__(self, context, o, datablock, glprovider)
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
         self.handle_left.check_hover(self.mouse_pos)
+
     def press(self, context, event):
         if self.handle_right.hover:
             value = self.get_value(self.datablock, self.glprovider.prop1_name)
-            self.set_value(context, self.datablock, self.glprovider.prop1_name, value+1)
+            self.set_value(context, self.datablock, self.glprovider.prop1_name, value + 1)
             self.handle_right.active = True
             return True
         if self.handle_left.hover:
             value = self.get_value(self.datablock, self.glprovider.prop1_name)
-            self.set_value(context, self.datablock, self.glprovider.prop1_name, value-1)
+            self.set_value(context, self.datablock, self.glprovider.prop1_name, value - 1)
             self.handle_left.active = True
             return True
         return False
+
     def release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
         self.handle_left.active = False
         return False
+
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active:
@@ -462,7 +548,7 @@ class CounterManipulator(Manipulator):
         else:
             self.check_hover()
         return False
-    
+
     def draw_callback(self, _self, context):
         """
             draw on screen feedback using gl.
@@ -470,39 +556,43 @@ class CounterManipulator(Manipulator):
         left, right, side, normal = self.glprovider.get_pts(self.o.matrix_world)
         self.origin = left
         self.line_0.p = left
-        self.line_0.v = right-left
+        self.line_0.v = right - left
         self.line_0.z_axis = normal
         self.label.z_axis = normal
         value = self.get_value(self.datablock, self.glprovider.prop1_name)
         self.handle_left.set_pos(context, self.line_0.p, -self.line_0.v, normal=normal)
         self.handle_right.set_pos(context, self.line_0.lerp(1), self.line_0.v, normal=normal)
         self.label.set_pos(context, value, self.line_0.lerp(0.5), self.line_0.v, normal=normal)
-        #self.line_0.draw(context)
         self.label.draw(context)
         self.handle_left.draw(context)
         self.handle_right.draw(context)
 
+
 class SizeManipulator(Manipulator):
+
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        
-        self.handle_left  = TriHandle(handle_size, arrow_size)
+        self.handle_left = TriHandle(handle_size, arrow_size)
         self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
         self.line_0 = GlLine()
         self.line_1 = GlLine()
         self.line_2 = GlLine()
-        self.label  = GlText()
+        self.label = GlText()
         Manipulator.__init__(self, context, o, datablock, glprovider)
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
+
     def press(self, context, event):
         if self.handle_right.hover:
             self.handle_right.active = True
             return True
         return False
+
     def release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
         return False
+
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active:
@@ -511,16 +601,18 @@ class SizeManipulator(Manipulator):
         else:
             self.check_hover()
         return False
+
     def update(self, context, event):
         # 0  1  2
         # |_____|
         #
         pt = self.get_pos3d(context)
         pt, t = intersect_point_line(pt, self.line_0.p, self.line_2.p)
-        length = (self.line_0.p-pt).length
+        length = (self.line_0.p - pt).length
         if event.alt:
-            length = round(length,1)
+            length = round(length, 1)
         self.set_value(context, self.datablock, self.glprovider.prop1_name, length)
+
     def draw_callback(self, _self, context):
         """
             draw on screen feedback using gl.
@@ -528,14 +620,14 @@ class SizeManipulator(Manipulator):
         left, right, side, normal = self.glprovider.get_pts(self.o.matrix_world)
         self.origin = left
         self.line_1.p = left
-        self.line_1.v = right-left
+        self.line_1.v = right - left
         self.line_0.z_axis = normal
         self.line_1.z_axis = normal
         self.line_2.z_axis = normal
         self.label.z_axis = normal
-        self.line_0 = self.line_1.sized_normal(0, side.x*1.1)
-        self.line_2 = self.line_1.sized_normal(1, side.x*1.1)
-        self.line_1.offset(side.x*1.0)
+        self.line_0 = self.line_1.sized_normal(0, side.x * 1.1)
+        self.line_2 = self.line_1.sized_normal(1, side.x * 1.1)
+        self.line_1.offset(side.x * 1.0)
         self.handle_left.set_pos(context, self.line_1.p, -self.line_1.v, normal=normal)
         self.handle_right.set_pos(context, self.line_1.lerp(1), self.line_1.v, normal=normal)
         self.label.set_pos(context, self.line_1.length, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
@@ -545,14 +637,17 @@ class SizeManipulator(Manipulator):
         self.line_2.draw(context)
         self.handle_left.draw(context)
         self.handle_right.draw(context)
-  
+
+
 class SizeLocationManipulator(SizeManipulator):
     def __init__(self, context, o, datablock, glprovider, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
-        self.handle_left.selectable=True
+        self.handle_left.selectable = True
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
         self.handle_left.check_hover(self.mouse_pos)
+
     def press(self, context, event):
         if self.handle_right.hover:
             self.handle_right.active = True
@@ -561,11 +656,13 @@ class SizeLocationManipulator(SizeManipulator):
             self.handle_left.active = True
             return True
         return False
+
     def release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
         self.handle_left.active = False
         return False
+
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active or self.handle_left.active:
@@ -574,50 +671,51 @@ class SizeLocationManipulator(SizeManipulator):
         else:
             self.check_hover()
         return False
+
     def update(self, context, event):
         # 0  1  2
         # |_____|
         #
         pt = self.get_pos3d(context)
         pt, t = intersect_point_line(pt, self.line_0.p, self.line_2.p)
-        
-        len_0 = (pt-self.line_0.p).length
-        len_1 = (pt-self.line_2.p).length
-        
+
+        len_0 = (pt - self.line_0.p).length
+        len_1 = (pt - self.line_2.p).length
+
         length = max(len_0, len_1)
-        
+
         if event.alt:
-            length = round(length,1)
-            
-        dl = length-self.line_1.length
-            
-        #pos = self.get_value(self.o.location, self.glprovider.prop2_name)
-        
+            length = round(length, 1)
+
+        dl = length - self.line_1.length
+
         if len_0 > len_1:
-            dl = 0.5*dl
+            dl = 0.5 * dl
         else:
-            dl = -0.5*dl
+            dl = -0.5 * dl
         self.move(self.glprovider.prop2_name, dl)
-        #self.set_value(context, self.o.location, self.glprovider.prop2_name, pos)   
         self.set_value(context, self.datablock, self.glprovider.prop1_name, length)
-  
+
+
 class DeltaLocationManipulator(SizeManipulator):
+
     def __init__(self, context, o, datablock, glprovider, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
-        
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
+
     def press(self, context, event):
         if self.handle_right.hover:
             self.handle_right.active = True
             return True
-        
         return False
+
     def release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
-        
         return False
+
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active:
@@ -626,6 +724,7 @@ class DeltaLocationManipulator(SizeManipulator):
         else:
             self.check_hover()
         return False
+
     def update(self, context, event):
         # 0  1  2
         # |_____|
@@ -634,20 +733,17 @@ class DeltaLocationManipulator(SizeManipulator):
         c = self.line_1.lerp(0.5)
         pt = self.get_pos3d(context)
         pt, t = intersect_point_line(pt, p0, c)
-        
-        len_0 = 0.5*self.line_1.length
-        len_1 = (pt-p0).length
-        
-        dl = (pt-c).length
-        
+        len_0 = 0.5 * self.line_1.length
+        len_1 = (pt - p0).length
+        dl = (pt - c).length
         if event.alt:
-            dl = round(dl,1)
-        
+            dl = round(dl, 1)
         if len_0 < len_1:
             dl = dl
         else:
-            dl = -dl   
+            dl = -dl
         self.move(self.glprovider.prop1_name, dl)
+
     def draw_callback(self, _self, context):
         """
             draw on screen feedback using gl.
@@ -655,29 +751,28 @@ class DeltaLocationManipulator(SizeManipulator):
         left, right, side, normal = self.glprovider.get_pts(self.o.matrix_world)
         self.origin = left
         self.line_1.p = left
-        self.line_1.v = right-left
+        self.line_1.v = right - left
         self.line_1.z_axis = normal
-        #self.label.z_axis = normal
         self.handle_left.set_pos(context, self.line_1.lerp(0.5), -self.line_1.v, normal=normal)
         self.handle_right.set_pos(context, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
-        #self.label.set_pos(context, self.line_1.length, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
-        #self.label.draw(context)
-        #self.line_0.draw(context)
-        #self.line_1.draw(context)
-        #self.line_2.draw(context)
         self.handle_left.draw(context)
         self.handle_right.draw(context)
-           
+
+
 class DumbSizeManipulator(SizeManipulator):
     """
         Show size while not being editable
     """
+
     def __init__(self, context, o, datablock, glprovider, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
-        self.handle_right.selectable=False
+        self.handle_right.selectable = False
+
     def mouse_move(self, context, event):
         return False
-"""  
+
+
+"""
 class LengthOrientationManipulator(SizeManipulator):
     def __init__(self, context, o, datablock, glprovider, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
@@ -686,33 +781,39 @@ class LengthOrientationManipulator(SizeManipulator):
         self.delta = self.p3d_right-self.origin
 """
 
+
 class AngleManipulator(Manipulator):
     """
         Manipulate angle between segments
         bound to [-pi, pi]
     """
+
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        
+
         # Angle
         self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
         self.handle_center = SquareHandle(handle_size, arrow_size)
-        self.arc    = GlArc()
+        self.arc = GlArc()
         self.line_0 = GlLine()
         self.line_1 = GlLine()
-        self.label_a  = GlText()
+        self.label_a = GlText()
         self.active_right = False
         Manipulator.__init__(self, context, o, datablock, glprovider)
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
+
     def press(self, context, event):
         if self.handle_right.hover:
             self.handle_right.active = True
             return True
         return False
+
     def release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
         return False
+
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active:
@@ -721,39 +822,33 @@ class AngleManipulator(Manipulator):
         else:
             self.check_hover()
         return False
+
     def update(self, context, event):
         pt = self.get_pos3d(context)
         c = self.arc.c
-        v = 2*self.arc.r*(pt-c).normalized()
-        v0 = c-v
-        v1 = c+v
+        v = 2 * self.arc.r * (pt - c).normalized()
+        v0 = c - v
+        v1 = c + v
         p0, p1 = intersect_line_sphere(v0, v1, c, self.arc.r)
         if p0 is not None and p1 is not None:
-            if (p1-pt).length < (p0-pt).length:
+            if (p1 - pt).length < (p0 - pt).length:
                 p0, p1 = p1, p0
-                
-            v = p0-self.arc.c
+            v = p0 - self.arc.c
             da = atan2(v.y, v.x) - self.line_0.angle
             if da > pi:
-                da = da-2*pi
+                da = da - 2 * pi
             if da < -pi:
-                da = da+2*pi
-            #print("a:%.4f da:%.4f a0:%.4f" % (atan2(v.y, v.x), da, self.line_0.angle))
+                da = da + 2 * pi
+            # print("a:%.4f da:%.4f a0:%.4f" % (atan2(v.y, v.x), da, self.line_0.angle))
             if da > pi:
                 da = pi
             if da < -pi:
                 da = -pi
-           
             if event.alt:
-                da = round(da/pi*180,0)/180*pi    
-            
+                da = round(da / pi * 180, 0) / 180 * pi
             self.set_value(context, self.datablock, self.glprovider.prop1_name, da)
-            
+
     def draw_callback(self, _self, context):
-        
-        # center : 3d points 
-        # left   : 3d vector pt-c
-        # right  : 3d vector pt-c
         c, left, right, normal = self.glprovider.get_pts(self.o.matrix_world)
         self.line_0.z_axis = normal
         self.line_1.z_axis = normal
@@ -769,22 +864,19 @@ class AngleManipulator(Manipulator):
         self.line_1.v = self.line_1.cross.normalized()
         self.arc.a0 = self.line_0.angle
         self.arc.da = self.get_value(self.datablock, self.glprovider.prop1_name)
-        self.arc.r  = 1.0
-        #self.handle_left.set_pos(context, self.line_0.lerp(1), self.line_0.v)
-        self.handle_right.set_pos(context, self.line_1.lerp(1), self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
+        self.arc.r = 1.0
+        self.handle_right.set_pos(context, self.line_1.lerp(1),
+                                  self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
         self.handle_center.set_pos(context, self.arc.c, -self.line_0.v)
-        self.label_a.set_pos(context, self.arc.da/pi*180, self.arc.lerp(0.5), -self.line_0.v)
-        #self.label_r.set_pos(context, self.arc.r, self.line_0.lerp(0.5), self.line_0.v)
-        
+        self.label_a.set_pos(context, self.arc.da / pi * 180, self.arc.lerp(0.5), -self.line_0.v)
         self.arc.draw(context)
         self.line_0.draw(context)
         self.line_1.draw(context)
-        #self.handle_left.draw(context)
         self.handle_right.draw(context)
         self.handle_center.draw(context)
-        #self.label_r.draw(context)
         self.label_a.draw(context)
-               
+
+
 class ArcAngleManipulator(Manipulator):
     """
         Manipulate angle of an arc
@@ -792,31 +884,36 @@ class ArcAngleManipulator(Manipulator):
         when angle > 0 the arc center is on the right part of the circle
         bound to [-pi, pi]
     """
+
     def __init__(self, context, o, datablock, glprovider, handle_size):
-        
+
         # Fixed
-        self.handle_left  = SquareHandle(handle_size, arrow_size)
+        self.handle_left = SquareHandle(handle_size, arrow_size)
         # Angle
         self.handle_right = TriHandle(handle_size, arrow_size, selectable=True)
         self.handle_center = SquareHandle(handle_size, arrow_size)
-        self.arc    = GlArc()
+        self.arc = GlArc()
         self.line_0 = GlLine()
         self.line_1 = GlLine()
-        self.label_a  = GlText()
-        self.label_r  = GlText()
+        self.label_a = GlText()
+        self.label_r = GlText()
         self.active_right = False
         Manipulator.__init__(self, context, o, datablock, glprovider)
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
+
     def press(self, context, event):
         if self.handle_right.hover:
             self.handle_right.active = True
             return True
         return False
+
     def release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
         return False
+
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active:
@@ -825,33 +922,29 @@ class ArcAngleManipulator(Manipulator):
         else:
             self.check_hover()
         return False
+
     def update(self, context, event):
         pt = self.get_pos3d(context)
         c = self.arc.c
-        v = 2*self.arc.r*(pt-c).normalized()
-        v0 = c-v
-        v1 = c+v
+        v = 2 * self.arc.r * (pt - c).normalized()
+        v0 = c - v
+        v1 = c + v
         p0, p1 = intersect_line_sphere(v0, v1, c, self.arc.r)
         if p0 is not None:
-            if (p1-pt).length < (p0-pt).length:
+            if (p1 - pt).length < (p0 - pt).length:
                 p0, p1 = p1, p0
-                
-            v = p0-self.arc.c
+            v = p0 - self.arc.c
             da = atan2(v.y, v.x) - self.line_0.angle
-            
             if abs(da) > pi:
                 da = pi
-            
             # bottom and top points
             n = self.line_0.sized_normal(0, 1)
-            top     = pt-n.lerp(-1)
-            bottom  = pt-n.lerp(1)
-            
+            top = pt - n.lerp(-1)
+            bottom = pt - n.lerp(1)
             # left and right points
             n = self.arc.sized_normal(0, 1)
-            right = pt-n.lerp(1)
-            left  = pt-n.lerp(-1)
-            
+            right = pt - n.lerp(1)
+            left = pt - n.lerp(-1)
             # we are on the right part
             if right.length < left.length:
                 da = -abs(da)
@@ -861,15 +954,12 @@ class ArcAngleManipulator(Manipulator):
                     da = pi
                 else:
                     da = abs(da)
-                
             if event.alt:
-                da = round(da/pi*180,0)/180*pi    
-            
+                da = round(da / pi * 180, 0) / 180 * pi
             self.set_value(context, self.datablock, self.glprovider.prop1_name, da)
-            
+
     def draw_callback(self, _self, context):
-        
-        # center : 3d points 
+        # center : 3d points
         # left   : 3d vector pt-c
         # right  : 3d vector pt-c
         c, left, right, normal = self.glprovider.get_pts(self.o.matrix_world)
@@ -886,13 +976,13 @@ class ArcAngleManipulator(Manipulator):
         self.line_1.v = right
         self.arc.a0 = self.line_0.angle
         self.arc.da = self.get_value(self.datablock, self.glprovider.prop1_name)
-        self.arc.r  = left.length
+        self.arc.r = left.length
         self.handle_left.set_pos(context, self.line_0.lerp(1), self.line_0.v)
-        self.handle_right.set_pos(context, self.line_1.lerp(1), self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
+        self.handle_right.set_pos(context, self.line_1.lerp(1),
+                                  self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
         self.handle_center.set_pos(context, self.arc.c, -self.line_0.v)
-        self.label_a.set_pos(context, self.arc.da/pi*180, self.arc.lerp(0.5), -self.line_0.v)
+        self.label_a.set_pos(context, self.arc.da / pi * 180, self.arc.lerp(0.5), -self.line_0.v)
         self.label_r.set_pos(context, self.arc.r, self.line_0.lerp(0.5), self.line_0.v)
-        
         self.arc.draw(context)
         self.line_0.draw(context)
         self.line_1.draw(context)
@@ -901,16 +991,19 @@ class ArcAngleManipulator(Manipulator):
         self.handle_center.draw(context)
         self.label_r.draw(context)
         self.label_a.draw(context)
-          
+
+
 class ArcAngleRadiusManipulator(ArcAngleManipulator):
+
     def __init__(self, context, o, datablock, glprovider, handle_size):
         ArcAngleManipulator.__init__(self, context, o, datablock, glprovider, handle_size)
-        
         self.handle_center = TriHandle(handle_size, arrow_size, selectable=True)
-        self.active_center =  False       
+        self.active_center = False
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
         self.handle_center.check_hover(self.mouse_pos)
+
     def press(self, context, event):
         if self.handle_right.hover:
             self.handle_right.active = True
@@ -919,11 +1012,13 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
             self.handle_center.active = True
             return True
         return False
+
     def release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
         self.handle_center.active = False
         return False
+
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active:
@@ -935,17 +1030,24 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
         else:
             self.check_hover()
         return False
+
     def update_radius(self, context, event):
         pt = self.get_pos3d(context)
         c = self.arc.c
-        left  = self.line_0.lerp(1)
+        left = self.line_0.lerp(1)
         p, t = intersect_point_line(pt, c, left)
-        radius = (left-p).length
+        radius = (left - p).length
         if event.alt:
-            radius = round(radius,1)
+            radius = round(radius, 1)
         self.set_value(context, self.datablock, self.glprovider.prop2_name, radius)
-        
-class ManipulatorProperty(PropertyGroup):
+
+
+# ------------------------------------------------------------------
+# Define a single Manipulator Properties to store on object
+# ------------------------------------------------------------------
+
+
+class archipack_manipulator(PropertyGroup):
     """
         A property group to add to manipulable objects
         type: type of manipulator
@@ -956,33 +1058,33 @@ class ManipulatorProperty(PropertyGroup):
     """
     type = EnumProperty(
         items=(
-            ('SIZE','Size','Generic size manipulator',0),
-            ('SIZE_LOC','Size Location','Generic size from border manipulator',1),
-            ('ANGLE','Angle','Angle between two vectors',2),
-            ('ARC_ANGLE_RADIUS','Arc based angle','',3),
-            ('COUNTER','Counter increase and decrease','',4),
-            ('DUMB_SIZE','Dumb Size','Generic size not editable',5),
-            ('DELTA_LOC', 'Delta location', 'Move object on an axis',6)
+            ('SIZE', 'Size', 'Generic size manipulator', 0),
+            ('SIZE_LOC', 'Size Location', 'Generic size from border manipulator', 1),
+            ('ANGLE', 'Angle', 'Angle between two vectors', 2),
+            ('ARC_ANGLE_RADIUS', 'Arc based angle', '', 3),
+            ('COUNTER', 'Counter increase and decrease', '', 4),
+            ('DUMB_SIZE', 'Dumb Size', 'Generic size not editable', 5),
+            ('DELTA_LOC', 'Delta location', 'Move object on an axis', 6)
         ),
         default='SIZE'
     )
     prop1_name = StringProperty()
     prop2_name = StringProperty()
-    p0=FloatVectorProperty(subtype='XYZ')
-    p1=FloatVectorProperty(subtype='XYZ')
-    p2=FloatVectorProperty(subtype='XYZ')
-    normal = FloatVectorProperty(subtype='XYZ', default=(0,0,1)) 
-    
+    p0 = FloatVectorProperty(subtype='XYZ')
+    p1 = FloatVectorProperty(subtype='XYZ')
+    p2 = FloatVectorProperty(subtype='XYZ')
+    normal = FloatVectorProperty(subtype='XYZ', default=(0, 0, 1))
+
     def set_pts(self, pts):
         self.p0, self.p1, self.p2 = pts
-    
+
     def get_pts(self, tM):
         rM = tM.to_3x3()
         if self.type in ['SIZE', 'COUNTER', 'SIZE_LOC', 'DUMB_SIZE', 'DELTA_LOC']:
-            return tM*self.p0, tM*self.p1, self.p2, rM*self.normal
+            return tM * self.p0, tM * self.p1, self.p2, rM * self.normal
         else:
-            return tM*self.p0, rM*self.p1, rM*self.p2, rM*self.normal
-            
+            return tM * self.p0, rM * self.p1, rM * self.p2, rM * self.normal
+
     def setup(self, context, o, datablock):
         """
             Factory return a manipulator object
@@ -1003,59 +1105,71 @@ class ManipulatorProperty(PropertyGroup):
         elif self.type == 'DUMB_SIZE':
             return DumbSizeManipulator(context, o, datablock, self, handle_size)
         elif self.type == 'DELTA_LOC':
-            return  DeltaLocationManipulator(context, o, datablock, self, handle_size)   
-                        
-bpy.utils.register_class(ManipulatorProperty)
+            return DeltaLocationManipulator(context, o, datablock, self, handle_size)
 
-# a global manipulator stack reference for use 
-# as fallback when internal loose reference.
+
+bpy.utils.register_class(archipack_manipulator)
+
+# a global manipulator stack reference for use
+# as fallback when internal one loose reference.
 # prevent Blender "ACCESS_VIOLATION" crashes
 # NOTE: use a dict here to prevent potential
 # collisions between many objects being in
 # manipulate mode (at create time)
 manip_stack = []
 
+# ------------------------------------------------------------------
+# Define Manipulable to make a PropertyGroup manipulable
+# ------------------------------------------------------------------
+
+
 class Manipulable():
     """
         A class extending PropertyGroup to setup gl manipulators
-        Beware : prevent crash calling manipulable_disable() 
+        Beware : prevent crash calling manipulable_disable()
                  before changing manipulated data
     """
-    manipulators = CollectionProperty(type=ManipulatorProperty, description="store 3d points to draw gl manipulators")
-    manipulable_refresh=BoolProperty(default=False, description="Flag enable to rebuild manipulators when data model change")
-    
+    manipulators = CollectionProperty(
+            type=archipack_manipulator,
+            description="store 3d points to draw gl manipulators"
+            )
+    manipulable_refresh = BoolProperty(
+            default=False,
+            description="Flag enable to rebuild manipulators when data model change"
+            )
+
     def manipulable_disable(self, context):
         """
             disable gl draw handlers
         """
         global manip_stack
-            
+
         if not hasattr(self, "manip_stack"):
             # prevent blender crash by loosing reference on this one
             self.manip_stack = manip_stack
-        
+
         for m in self.manip_stack:
             m.exit()
-            
+
         self.manip_stack = []
         manip_stack = self.manip_stack
-        
+
     def manipulable_setup(self, context):
         """
             TODO: Implement the setup part as per parent object basis
-        """ 
+        """
         self.manipulable_disable(context)
         o = context.active_object
         for m in self.manipulators:
-            self.manip_stack.append(m.setup(context, o, self))            
-    
+            self.manip_stack.append(m.setup(context, o, self))
+
     def manipulable_invoke(self, context):
         """
-            call this in operator invoke() 
+            call this in operator invoke()
         """
         self.manip_stack = []
         self.manipulable_setup(context)
-    
+
     def manipulable_modal(self, context, event):
         """
             call in operator modal()
@@ -1064,25 +1178,25 @@ class Manipulable():
         if self.manipulable_refresh:
             self.manipulable_refresh = False
             self.manipulable_setup(context)
-        
+
         context.area.tag_redraw()
-        
-        if event.type in {'RIGHTMOUSE','ESC'}:
+
+        if event.type in {'RIGHTMOUSE', 'ESC'}:
             self.manipulable_disable(context)
             self.manipulable_exit(context)
             return {'FINISHED'}
-        
-        for m in self.manip_stack:    
+
+        for m in self.manip_stack:
             if m.modal(context, event):
                 self.manipulable_manipulate(context, type=type(m).__name__)
                 return {'RUNNING_MODAL'}
-                
-        # allow any action on release        
+
+        # allow any action on release
         if event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
             self.manipulable_release(context)
-        
+
         return {'PASS_THROUGH'}
-        
+
     # Callbacks
     def manipulable_release(self, context):
         """
@@ -1090,23 +1204,15 @@ class Manipulable():
             eg: big update
         """
         return
-    
+
     def manipulable_exit(self, context):
         """
             Override with action to do when modal exit
         """
         return
-    
+
     def manipulable_manipulate(self, context, type='None'):
         """
             Override with action to do when a handle is active (pressed and mousemove)
         """
-        return 
-    
-    
- 
-   
-    
-    
-    
-    
+        return

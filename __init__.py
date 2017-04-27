@@ -18,6 +18,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# <pep8 compliant>
+
 # ----------------------------------------------------------
 # Author: Stephen Leger (s-leger)
 #
@@ -41,7 +43,6 @@ bl_info = {
     }
 
 import os
-import sys
 
 if "bpy" in locals():
     import importlib as imp
@@ -67,7 +68,7 @@ else:
     from . import archipack_wall2
     try:
         """
-            polylib depends on shapely 
+            polylib depends on shapely
             raise ImportError when not meet
         """
         from . import archipack_polylib
@@ -76,8 +77,8 @@ else:
         print("archipack: Polylib failed to load, missing shapely ?")
         HAS_POLYLIB = False
         pass
-    print("archipack: ready") 
-  
+    print("archipack: ready")
+
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
@@ -85,56 +86,87 @@ from bpy.types import Panel
 from bpy.utils import previews as iconsLib
 icons_dict = {}
 
+
 class TOOLS_PT_PolyLib(Panel):
     bl_label = "Archipack 2d"
     bl_idname = "TOOLS_PT_PolyLib"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Tools"
-    
+
     @classmethod
     def poll(self, context):
-        
+
         global archipack_polylib
         return HAS_POLYLIB and ((archipack_polylib.vars_dict['select_polygons'] is not None) or
-                (context.object is not None and context.object.type == 'CURVE')) 
-    
+                (context.object is not None and context.object.type == 'CURVE'))
+
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
-        row.operator("tools.poly_lib_detect", icon_value=icons_dict["detect"].icon_id, text ='Detect').extend = context.window_manager.poly_lib.extend
+        row.operator(
+            "tools.poly_lib_detect",
+            icon_value=icons_dict["detect"].icon_id,
+            text='Detect'
+            ).extend = context.window_manager.poly_lib.extend
         row.prop(context.window_manager.poly_lib, "extend")
         row = box.row(align=True)
         row.prop(context.window_manager.poly_lib, "resolution")
         row = box.row(align=True)
         row.label(text="Polygons")
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_polygons", icon_value=icons_dict["selection"].icon_id, text ='Select').action = 'select'
-        row.operator("tools.poly_lib_pick_2d_polygons", icon_value=icons_dict["union"].icon_id, text ='Union').action = 'union'
-        row.operator("tools.poly_lib_output_polygons", icon_value=icons_dict["polygons"].icon_id, text ='All')
+        row.operator(
+            "tools.poly_lib_pick_2d_polygons",
+            icon_value=icons_dict["selection"].icon_id,
+            text='Select'
+            ).action = 'select'
+        row.operator(
+            "tools.poly_lib_pick_2d_polygons",
+            icon_value=icons_dict["union"].icon_id,
+            text='Union'
+            ).action = 'union'
+        row.operator(
+            "tools.poly_lib_output_polygons",
+            icon_value=icons_dict["polygons"].icon_id,
+            text='All')
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_polygons", icon_value=icons_dict["union"].icon_id, text ='Wall').action='wall'
+        row.operator(
+            "tools.poly_lib_pick_2d_polygons",
+            icon_value=icons_dict["union"].icon_id,
+            text='Wall').action = 'wall'
         row.prop(context.window_manager.poly_lib, "solidify_thickness")
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_polygons", text ='Window').action = 'window'
-        row.operator("tools.poly_lib_pick_2d_polygons", text ='Door').action = 'door'
-        row.operator("tools.poly_lib_pick_2d_polygons", text ='Rectangle').action = 'rectangle'
+        row.operator("tools.poly_lib_pick_2d_polygons", text='Window').action = 'window'
+        row.operator("tools.poly_lib_pick_2d_polygons", text='Door').action = 'door'
+        row.operator("tools.poly_lib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
         row = box.row(align=True)
         row.label(text="Lines")
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_lines", icon_value=icons_dict["selection"].icon_id, text ='Lines').action = 'select'
-        row.operator("tools.poly_lib_pick_2d_lines", icon_value=icons_dict["union"].icon_id, text ='Union').action = 'union'
-        row.operator("tools.poly_lib_output_lines", icon_value=icons_dict["polygons"].icon_id, text ='All')
-        #row = layout.row(align=True)
-        #box = row.box()
-        #row = box.row(align=True)
-        #row.operator("tools.poly_lib_solidify")
+        row.operator(
+            "tools.poly_lib_pick_2d_lines",
+            icon_value=icons_dict["selection"].icon_id,
+            text='Lines').action = 'select'
+        row.operator(
+            "tools.poly_lib_pick_2d_lines",
+            icon_value=icons_dict["union"].icon_id,
+            text='Union').action = 'union'
+        row.operator(
+            "tools.poly_lib_output_lines",
+            icon_value=icons_dict["polygons"].icon_id,
+            text='All')
+        # row = layout.row(align=True)
+        # box = row.box()
+        # row = box.row(align=True)
+        # row.operator("tools.poly_lib_solidify")
         row = box.row(align=True)
         row.label(text="Points")
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_points", icon_value=icons_dict["selection"].icon_id, text ='Points').action = 'select'
+        row.operator(
+            "tools.poly_lib_pick_2d_points",
+            icon_value=icons_dict["selection"].icon_id,
+            text='Points').action = 'select'
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
@@ -156,18 +188,19 @@ class TOOLS_PT_PolyLib(Panel):
         row.prop(context.window_manager.poly_lib, "offset_join_style")
         row = box.row(align=True)
         row.prop(context.window_manager.poly_lib, "offset_mitre_limit")
-        
+
+
 class TOOLS_PT_Archipack_Tools(Panel):
     bl_label = "Archipack"
     bl_idname = "TOOLS_PT_Archipack_Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Tools"
-    
+
     @classmethod
     def poll(self, context):
         return True
-    
+
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
@@ -176,32 +209,33 @@ class TOOLS_PT_Archipack_Tools(Panel):
         row = box.row(align=True)
         row.operator("archipack.auto_boolean", text="Robust", icon='HAND').interactive = False
         row.operator("archipack.auto_boolean", text="Interactive", icon='AUTO').interactive = True
-        #row.operator("archipack.manipulate", text="Test manipulator", icon='AUTO')
-        
+
+
 class TOOLS_PT_Archipack_Create(Panel):
     bl_label = "Archipack"
     bl_idname = "TOOLS_PT_Archipack_Create"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Create"
-    
+
     @classmethod
     def poll(self, context):
         return True
-    
+
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
-        row.operator("archipack.window").mode='CREATE'
-        row.operator("archipack.door").mode='CREATE'
+        row.operator("archipack.window").mode = 'CREATE'
+        row.operator("archipack.door").mode = 'CREATE'
         row = box.row(align=True)
         row.operator("archipack.stair")
         row = box.row(align=True)
         row.operator("archipack.wall2")
-        
+
+
 def register():
     global icons_dict
     icons_dict = iconsLib.new()
@@ -210,11 +244,13 @@ def register():
         name, ext = os.path.splitext(icon)
         icons_dict.load(name, os.path.join(icons_dir, icon), 'IMAGE')
     bpy.utils.register_module(__name__)
-    
+
+
 def unregister():
     global icons_dict
     iconsLib.remove(icons_dict)
     bpy.utils.unregister_module(__name__)
- 
+
+
 if __name__ == "__main__":
     register()
