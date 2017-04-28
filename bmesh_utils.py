@@ -14,9 +14,11 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110- 1301, USA.
 #
 # ##### END GPL LICENSE BLOCK #####
+
+# <pep8 compliant>
 
 # ----------------------------------------------------------
 # Author: Stephen Leger (s-leger)
@@ -25,29 +27,30 @@
 import bpy
 import bmesh
 
-class BmeshEdit():  
+
+class BmeshEdit():
     @staticmethod
     def _start(context, o):
         """
             private, start bmesh editing of active object
         """
         o.select = True
-        context.scene.objects.active = o 
-        bpy.ops.object.mode_set(mode='EDIT')    
+        context.scene.objects.active = o
+        bpy.ops.object.mode_set(mode='EDIT')
         bm = bmesh.from_edit_mesh(o.data)
         bm.verts.ensure_lookup_table()
         bm.faces.ensure_lookup_table()
         return bm
-        
+
     @staticmethod
-    def _end(bm, o):   
+    def _end(bm, o):
         """
             private, end bmesh editing of active object
         """
         bmesh.update_edit_mesh(o.data, True)
         bpy.ops.object.mode_set(mode='OBJECT')
         bm.free()
-        
+
     @staticmethod
     def _matids(bm, matids):
         for i, matid in enumerate(matids):
@@ -65,12 +68,12 @@ class BmeshEdit():
                 if j > l_j:
                     raise RuntimeError("Missing uv {} for face {}".format(j, i))
                 loop[layer].uv = uvs[i][j]
-    
+
     @staticmethod
     def _verts(bm, verts):
         for i, v in enumerate(verts):
             bm.verts[i].co = v
-    
+
     @staticmethod
     def buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=False, clean=False):
         bm = BmeshEdit._start(context, o)
@@ -92,8 +95,8 @@ class BmeshEdit():
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.delete_loose()
-            bpy.ops.object.mode_set(mode='OBJECT')   
-            
+            bpy.ops.object.mode_set(mode='OBJECT')
+
     @staticmethod
     def verts(context, o, verts):
         """
@@ -102,7 +105,7 @@ class BmeshEdit():
         bm = BmeshEdit._start(context, o)
         BmeshEdit._verts(bm, verts)
         BmeshEdit._end(bm, o)
-    
+
     @staticmethod
     def aspect(context, o, matids, uvs):
         """
@@ -112,4 +115,3 @@ class BmeshEdit():
         BmeshEdit._matids(bm, matids)
         BmeshEdit._uvs(bm, uvs)
         BmeshEdit._end(bm, o)
-    

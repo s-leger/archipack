@@ -1,9 +1,13 @@
+# -*- coding:utf-8 -*-
+
+# <pep8 compliant>
+
 """
 # Pyqtree
 
 Pyqtree is a pure Python spatial index for GIS or rendering usage.
 It stores and quickly retrieves items from a 2x2 rectangular grid area,
-and grows in depth and detail as more items are added. 
+and grows in depth and detail as more items are added.
 The actual quad tree implementation is adapted from
 [Matt Rasmussen's compbio library](https://github.com/mdrasmus/compbio/blob/master/rasmus/quadtree.py)
 and extended for geospatial use.
@@ -11,7 +15,7 @@ and extended for geospatial use.
 
 ## Platforms
 
-Python 2 and 3. 
+Python 2 and 3.
 
 
 ## Dependencies
@@ -49,7 +53,7 @@ along with each item's geographic bbox.
 
 Then when you have a region of interest and you wish to retrieve items from that region,
 just use the index's intersect method. This quickly gives you a list of the stored items
-whose bboxes intersects your region of interests. 
+whose bboxes intersects your region of interests.
 
     overlapbbox = (51, 51, 86, 86)
     matches = spindex.intersect(overlapbbox)
@@ -75,23 +79,23 @@ This code is free to share, use, reuse, and modify according to the MIT license,
 
 """
 
+
 __version__ = "0.25.0"
 
-#PYTHON VERSION CHECK
+# PYTHON VERSION CHECK
 import sys
-from math import ceil
-from mathutils import Vector
 
-import random, time
 
 PYTHON3 = int(sys.version[0]) == 3
 if PYTHON3:
     xrange = range
 
-class _QuadNode(object):    
+
+class _QuadNode(object):
     def __init__(self, item, rect):
         self.item = item
         self.rect = rect
+
 
 class _QuadTree(object):
     """
@@ -108,6 +112,7 @@ class _QuadTree(object):
         self.max_items = max_items
         self.max_depth = max_depth
         self._depth = _depth
+
     def _insert(self, item, bbox):
         if len(self.children) == 0:
             node = _QuadNode(item, bbox)
@@ -116,6 +121,7 @@ class _QuadTree(object):
                 self._split()
         else:
             self._insert_into_children(item, bbox)
+
     def _intersect(self, rect, results=None):
         if results is None:
             results = set()
@@ -133,14 +139,15 @@ class _QuadTree(object):
                     self.children[3]._intersect(rect, results)
         # search node at this level
         for node in self.nodes:
-            if (node.rect[2] >= rect[0] and node.rect[0] <= rect[2] and 
-                node.rect[3] >= rect[1] and node.rect[1] <= rect[3]):
+            if (node.rect[2] >= rect[0] and node.rect[0] <= rect[2] and
+                    node.rect[3] >= rect[1] and node.rect[1] <= rect[3]):
                 results.add(node.item)
         return results
+
     def _insert_into_children(self, item, rect):
         # if rect spans center then insert here
         if (rect[0] <= self.center[0] and rect[2] >= self.center[0] and
-            rect[1] <= self.center[1] and rect[3] >= self.center[1]):
+                rect[1] <= self.center[1] and rect[3] >= self.center[1]):
             node = _QuadNode(item, rect)
             self.nodes.append(node)
         else:
@@ -155,6 +162,7 @@ class _QuadTree(object):
                     self.children[2]._insert(item, rect)
                 if rect[3] >= self.center[1]:
                     self.children[3]._insert(item, rect)
+
     def _split(self):
         quartwidth = self.width / 4.0
         quartheight = self.height / 4.0
@@ -177,4 +185,3 @@ class _QuadTree(object):
         self.nodes = []
         for node in nodes:
             self._insert_into_children(node.item, node.rect)
-    

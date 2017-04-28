@@ -28,9 +28,7 @@ import bpy
 from bpy.types import Operator
 from bpy.props import BoolProperty
 from mathutils import Vector
-# noinspection PyUnresolvedReferences
 from . import archipack_reference_point
-# noinspection PyUnresolvedReferences
 
 
 class ARCHIPACK_OT_auto_boolean(Operator):

@@ -31,9 +31,9 @@ from math import sin, cos, pi, atan2, sqrt, acos
 class Projection():
     def proj_xy(self, t, next=None):
         """
-            length of projection along crossing line / circle
-            deformation unit vector for profil in xy axis at line / line intersection
-            so f(x) = position of point in xy plane
+            length of projection of sections at crossing line / circle intersections
+            deformation unit vector for profil in xy axis
+            so f(x_profile) = position of point in xy plane
         """
         if next is None:
             return self.normal(t).v.normalized(), 1
@@ -53,6 +53,12 @@ class Projection():
             so f(y) = position of point in yz plane
         """
         return Vector((0, 1)), 1
+        """
+            NOTE (to myself):
+              In theory this is how it has to be done so sections follow path,
+              but in real world results are better when sections are z-up.
+              So return a dumb 1 so f(y) = y
+        """
         if next is None:
             dz = dz0 / self.length
         else:

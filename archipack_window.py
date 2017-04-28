@@ -38,7 +38,9 @@ from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as WindowPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
+
 from .archipack_door_panel import ARCHIPACK_OT_select_parent
+
 from .archipack_manipulator import Manipulable
 
 
