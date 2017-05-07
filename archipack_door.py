@@ -28,8 +28,11 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Operator, PropertyGroup, Mesh, Panel
-from bpy.props import FloatProperty, IntProperty, CollectionProperty, EnumProperty, BoolProperty
+from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
+from bpy.props import (
+    FloatProperty, IntProperty, CollectionProperty, 
+    EnumProperty, BoolProperty, StringProperty
+    )
 from mathutils import Vector
 
 # door component objects (panels, handles ..)
@@ -39,6 +42,7 @@ from .materialutils import MaterialUtils
 from .archipack_handle import create_handle
 from .archipack_door_panel import ARCHIPACK_PT_door_panel, ARCHIPACK_OT_door_panel
 from .archipack_manipulator import Manipulable
+from .archipack_preset import ArchipackPreset
 
 SPACING = 0.005
 BATTUE = 0.01
@@ -194,7 +198,12 @@ class archipack_door(Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
             )
-
+    auto_update = BoolProperty(
+            options={'SKIP_SAVE'},
+            default=True,
+            update=update
+            )
+            
     @property
     def frame(self):
 
@@ -522,7 +531,7 @@ class archipack_door(Manipulable, PropertyGroup):
         # support for "copy to selected"
         active, selected, o = self.find_in_selection(context)
 
-        if o is None:
+        if o is None or not self.auto_update:
             return
 
         if childs_only is False:
@@ -621,6 +630,12 @@ class ARCHIPACK_PT_door(Panel):
         if o.data.users > 1:
             row.operator('archipack.door', text="Make unique", icon='UNLINKED').mode = 'UNIQUE'
         row.operator('archipack.door', text="Delete", icon='ERROR').mode = 'DELETE'
+        box = layout.box()
+        # box.label(text="Styles")
+        row = box.row(align=True)
+        row.menu("ARCHIPACK_MT_door_preset", text=bpy.types.ARCHIPACK_MT_door_preset.bl_label)
+        row.operator("archipack.door_preset", text="", icon='ZOOMIN')
+        row.operator("archipack.door_preset", text="", icon='ZOOMOUT').remove_active = True
         row = layout.row()
         box = row.box()
         box.label(text="Size")
@@ -784,7 +799,9 @@ class ARCHIPACK_OT_door(Operator):
             ),
             default='CREATE'
             )
-    auto_manipulate = BoolProperty(default=True)
+    auto_manipulate = BoolProperty(
+            default=True
+            )
 
     # -----------------------------------------------------
     # Draw (create UI interface)
@@ -915,16 +932,50 @@ class ARCHIPACK_OT_door_manipulate(Operator):
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
             self.d = o.data.archipack_door[0]
-            self.d.manipulable_invoke(context)
-            context.window_manager.modal_handler_add(self)
-            return {'RUNNING_MODAL'}
+            if self.d.manipulable_invoke(context):
+                context.window_manager.modal_handler_add(self)
+                return {'RUNNING_MODAL'}
+            else:
+                return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
 
 
+# ------------------------------------------------------------------
+# Define operator class to load / save presets
+# ------------------------------------------------------------------
+
+
+class ARCHIPACK_MT_door_preset(Menu):
+    bl_label = "Door Styles"
+    preset_subdir = "archipack_door" # you might wanna change this
+    preset_operator = "script.execute_preset" # but not this
+    draw = Menu.draw_preset # or that
+
+
+class ARCHIPACK_OT_door_preset(ArchipackPreset, Operator):
+    """Add a Door Styles"""
+    bl_idname = "archipack.door_preset"
+    bl_label = "Add Door Style"
+    preset_menu = "ARCHIPACK_MT_door_preset"
+
+    datablock_name = StringProperty(
+        name="Datablock",
+        default='archipack_door',
+        maxlen=64,
+        options={'HIDDEN', 'SKIP_SAVE'},
+        )
+
+    @property
+    def blacklist(self):
+        return ['x', 'y', 'z', 'direction', 'manipulators']
+
+
 bpy.utils.register_class(archipack_door)
 Mesh.archipack_door = CollectionProperty(type=archipack_door)
+bpy.utils.register_class(ARCHIPACK_MT_door_preset)
 bpy.utils.register_class(ARCHIPACK_PT_door)
 bpy.utils.register_class(ARCHIPACK_OT_door)
+bpy.utils.register_class(ARCHIPACK_OT_door_preset)
 bpy.utils.register_class(ARCHIPACK_OT_door_manipulate)

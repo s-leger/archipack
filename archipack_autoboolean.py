@@ -78,6 +78,8 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         if wall.parent is None:
             x, y, z = wall.bound_box[0]
             context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
+            # fix issue #9
+            context.scene.objects.active = wall
             bpy.ops.archipack.reference_point()
         else:
             context.scene.objects.active = wall.parent
@@ -119,7 +121,9 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         hole.lock_scale = (True, True, True)
         hole.draw_type = 'WIRE'
         hole.hide_render = True
+        hole.hide_select = True
         hole.select = True
+        
 
     def _generate_holes(self, context, childs):
         # generate holes from archipack primitives

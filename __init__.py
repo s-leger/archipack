@@ -30,8 +30,8 @@ bl_info = {
     'description': 'Architectural objects and 2d polygons detection from unordered splines',
     'author': 's-leger',
     'license': 'GPL',
-    'deps': 'shapely',
-    'version': (1, 1, 2),
+    'deps': 'shapely, np_station',
+    'version': (1, 2, 0),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -51,6 +51,7 @@ if "bpy" in locals():
     imp.reload(archipack_window)
     imp.reload(archipack_stair)
     imp.reload(archipack_wall2)
+    imp.reload(archipack_fence)
     imp.reload(archipack_wall)
     try:
         imp.reload(archipack_polylib)
@@ -58,6 +59,7 @@ if "bpy" in locals():
     except:
         HAS_POLYLIB = False
         pass
+    
     print("archipack: reload ready")
 else:
     from . import archipack_autoboolean
@@ -66,6 +68,7 @@ else:
     from . import archipack_stair
     from . import archipack_wall
     from . import archipack_wall2
+    from . import archipack_fence
     try:
         """
             polylib depends on shapely
@@ -77,6 +80,7 @@ else:
         print("archipack: Polylib failed to load, missing shapely ?")
         HAS_POLYLIB = False
         pass
+    
     print("archipack: ready")
 
 # noinspection PyUnresolvedReferences
@@ -134,12 +138,16 @@ class TOOLS_PT_PolyLib(Panel):
         row = box.row(align=True)
         row.operator(
             "tools.poly_lib_pick_2d_polygons",
-            icon_value=icons_dict["union"].icon_id,
-            text='Wall').action = 'wall'
+            text='Wall',
+            icon_value=icons_dict["wall"].icon_id).action = 'wall'
         row.prop(context.window_manager.poly_lib, "solidify_thickness")
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_polygons", text='Window').action = 'window'
-        row.operator("tools.poly_lib_pick_2d_polygons", text='Door').action = 'door'
+        row.operator("tools.poly_lib_pick_2d_polygons",
+            text='Window',
+            icon_value=icons_dict["window"].icon_id).action = 'window'
+        row.operator("tools.poly_lib_pick_2d_polygons",
+            text='Door',
+            icon_value=icons_dict["door"].icon_id).action = 'door'
         row.operator("tools.poly_lib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
         row = box.row(align=True)
         row.label(text="Lines")
@@ -228,13 +236,17 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
-        row.operator("archipack.window").mode = 'CREATE'
-        row.operator("archipack.door").mode = 'CREATE'
+        row.operator("archipack.window", icon_value=icons_dict["window"].icon_id).mode = 'CREATE'
+        row.operator("archipack.door", icon_value=icons_dict["door"].icon_id).mode = 'CREATE'
         row = box.row(align=True)
-        row.operator("archipack.stair")
+        row.operator("archipack.stair", icon_value=icons_dict["stair"].icon_id)
         row = box.row(align=True)
-        row.operator("archipack.wall2")
-
+        row.operator("archipack.wall2", icon_value=icons_dict["wall"].icon_id)
+        row.operator("archipack.wall2_draw", icon='GREASEPENCIL')
+        row = box.row(align=True)
+        row.operator("archipack.fence")
+        row.operator("archipack.fence_from_curve", icon='CURVE_DATA')
+        
 
 def register():
     global icons_dict
@@ -244,13 +256,13 @@ def register():
         name, ext = os.path.splitext(icon)
         icons_dict.load(name, os.path.join(icons_dir, icon), 'IMAGE')
     bpy.utils.register_module(__name__)
-
+    
 
 def unregister():
     global icons_dict
     iconsLib.remove(icons_dict)
     bpy.utils.unregister_module(__name__)
-
+    
 
 if __name__ == "__main__":
     register()

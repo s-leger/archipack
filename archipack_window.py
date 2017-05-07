@@ -27,10 +27,10 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Operator, PropertyGroup, Mesh, Panel
+from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
 from bpy.props import (
     FloatProperty, IntProperty, BoolProperty, BoolVectorProperty,
-    CollectionProperty, FloatVectorProperty, EnumProperty
+    CollectionProperty, FloatVectorProperty, EnumProperty, StringProperty
 )
 from mathutils import Vector
 from math import tan, sqrt
@@ -38,11 +38,9 @@ from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as WindowPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
-
 from .archipack_door_panel import ARCHIPACK_OT_select_parent
-
 from .archipack_manipulator import Manipulable
-
+from .archipack_preset import ArchipackPreset
 
 BATTUE = 0.01
 
@@ -117,6 +115,7 @@ class archipack_window_panelrow(PropertyGroup):
             update=update
             )
     auto_update = BoolProperty(
+            options={'SKIP_SAVE'},
             name="auto_update",
             description="disable auto update to avoid infinite recursion",
             default=True
@@ -637,13 +636,20 @@ class archipack_window(Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
             )
+    auto_update = BoolProperty(
+            options={'SKIP_SAVE'},
+            default=True,
+            update=update
+            )
     # layout related
     display_detail = BoolProperty(
-        default=False
-    )
+            options={'SKIP_SAVE'},
+            default=False
+            )
     display_panels = BoolProperty(
-        default=True
-    )
+            options={'SKIP_SAVE'},
+            default=True
+            )
 
     @property
     def shape(self):
@@ -1282,7 +1288,8 @@ class archipack_window(Manipulable, PropertyGroup):
     def update(self, context, childs_only=False):
         # support for "copy to selected"
         active, selected, o = self.find_in_selection(context)
-        if o is None:
+
+        if o is None or not self.auto_update:
             return
 
         if childs_only is False:
@@ -1421,6 +1428,12 @@ class ARCHIPACK_PT_window(Panel):
         if o.data.users > 1:
             row.operator('archipack.window', text="Make unique", icon='UNLINKED').mode = 'UNIQUE'
         row.operator('archipack.window', text="Delete", icon='ERROR').mode = 'DELETE'
+        box = layout.box()
+        # box.label(text="Styles")
+        row = box.row(align=True)
+        row.menu("ARCHIPACK_MT_window_preset", text=bpy.types.ARCHIPACK_MT_window_preset.bl_label)
+        row.operator("archipack.window_preset", text="", icon='ZOOMIN')
+        row.operator("archipack.window_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
         box.prop(prop, 'window_type')
         box.prop(prop, 'x')
@@ -1900,12 +1913,44 @@ class ARCHIPACK_OT_window_manipulate(Operator):
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
             self.d = o.data.archipack_window[0]
-            self.d.manipulable_invoke(context)
-            context.window_manager.modal_handler_add(self)
-            return {'RUNNING_MODAL'}
+            if self.d.manipulable_invoke(context):
+                context.window_manager.modal_handler_add(self)
+                return {'RUNNING_MODAL'}
+            else:
+                return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
+
+
+# ------------------------------------------------------------------
+# Define operator class to load / save presets
+# ------------------------------------------------------------------
+
+
+class ARCHIPACK_MT_window_preset(Menu):
+    bl_label = "Window Styles"
+    preset_subdir = "archipack_window"
+    preset_operator = "script.execute_preset"
+    draw = Menu.draw_preset
+
+
+class ARCHIPACK_OT_window_preset(ArchipackPreset, Operator):
+    """Add a Window Styles"""
+    bl_idname = "archipack.window_preset"
+    bl_label = "Add Window Style"
+    preset_menu = "ARCHIPACK_MT_window_preset"
+
+    datablock_name = StringProperty(
+        name="Datablock",
+        default='archipack_window',
+        maxlen=64,
+        options={'HIDDEN', 'SKIP_SAVE'},
+        )
+
+    @property
+    def blacklist(self):
+        return ['x', 'y', 'z', 'altitude', 'manipulators']
 
 
 bpy.utils.register_class(archipack_window_panelrow)
@@ -1915,6 +1960,8 @@ bpy.utils.register_class(ARCHIPACK_PT_window_panel)
 bpy.utils.register_class(ARCHIPACK_OT_window_panel)
 bpy.utils.register_class(archipack_window)
 Mesh.archipack_window = CollectionProperty(type=archipack_window)
+bpy.utils.register_class(ARCHIPACK_MT_window_preset)
 bpy.utils.register_class(ARCHIPACK_PT_window)
 bpy.utils.register_class(ARCHIPACK_OT_window)
+bpy.utils.register_class(ARCHIPACK_OT_window_preset)
 bpy.utils.register_class(ARCHIPACK_OT_window_manipulate)

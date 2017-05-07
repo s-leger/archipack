@@ -29,7 +29,7 @@ import bmesh
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import FloatProperty, CollectionProperty
 
-
+    
 def update_wall(self, context):
     self.update(context)
 

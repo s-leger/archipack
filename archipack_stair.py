@@ -27,7 +27,7 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Operator, PropertyGroup, Mesh, Panel
+from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
 from bpy.props import (
     FloatProperty, BoolProperty, IntProperty, CollectionProperty,
     StringProperty, EnumProperty, FloatVectorProperty
@@ -39,6 +39,7 @@ from mathutils import Vector, Matrix
 from math import sin, cos, pi, floor, acos
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
+from .archipack_preset import ArchipackPreset
 
 
 class Stair():
@@ -1528,7 +1529,6 @@ def update_preset(self, context):
         self.parts[1].type = 'D_STAIR'
         self.da = pi
     self.auto_update = True
-    self.update(context, manipulable_refresh=True)
 
 
 materials_enum = (
@@ -2269,8 +2269,11 @@ class archipack_stair(Manipulable, PropertyGroup):
     # .auto_update = False
     # bulk changes
     # .auto_update = True
-    # .update(context, manipulable_refresh=True)
-    auto_update = BoolProperty(default=True)
+    auto_update = BoolProperty(
+            options={'SKIP_SAVE'},
+            default=True,
+            update=update_manipulators
+            )
 
     def find_in_selection(self, context):
         """
@@ -2307,11 +2310,9 @@ class archipack_stair(Manipulable, PropertyGroup):
 
     def update(self, context, manipulable_refresh=False):
 
-        if not self.auto_update:
-            return
         active, selected, o = self.find_in_selection(context)
 
-        if o is None:
+        if o is None or not self.auto_update:
             return
 
         # clean up manipulators before any data model change
@@ -2503,6 +2504,7 @@ class archipack_stair(Manipulable, PropertyGroup):
                 self.string_alt, 0, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
+        bpy.ops.object.shade_smooth()
 
         # enable manipulators rebuild
         if manipulable_refresh:
@@ -2568,6 +2570,12 @@ class ARCHIPACK_PT_stair(Panel):
         row.operator('archipack.stair_manipulate')
         row = layout.row(align=True)
         row.prop(prop, 'presets')
+        box = layout.box()
+        # box.label(text="Styles")
+        row = box.row(align=True)
+        row.menu("ARCHIPACK_MT_stair_preset", text=bpy.types.ARCHIPACK_MT_stair_preset.bl_label)
+        row.operator("archipack.stair_preset", text="", icon='ZOOMIN')
+        row.operator("archipack.stair_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
         box.prop(prop, 'width')
         box.prop(prop, 'height')
@@ -2776,8 +2784,8 @@ class ARCHIPACK_PT_stair(Panel):
 
 class ARCHIPACK_OT_stair(Operator):
     bl_idname = "archipack.stair"
-    bl_label = "Stair (alpha)"
-    bl_description = "Stair (alpha)"
+    bl_label = "Stair"
+    bl_description = "Create a Stair"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2809,6 +2817,9 @@ class ARCHIPACK_OT_stair(Operator):
         o.location = bpy.context.scene.cursor_location
         o.select = True
         context.scene.objects.active = o
+        # auto smooth arround 12 deg fix Tynkatopi smoothing issue ;)
+        m.auto_smooth_angle = 0.20944
+        m.use_auto_smooth = True
         return o
 
     # -----------------------------------------------------
@@ -2848,17 +2859,52 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
             self.d = o.data.archipack_stair[0]
-            self.d.manipulable_invoke(context)
-            context.window_manager.modal_handler_add(self)
-            return {'RUNNING_MODAL'}
+            if self.d.manipulable_invoke(context):
+                context.window_manager.modal_handler_add(self)
+                return {'RUNNING_MODAL'}
+            else:
+                return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
+
+
+# ------------------------------------------------------------------
+# Define operator class to load / save presets
+# ------------------------------------------------------------------
+
+
+class ARCHIPACK_MT_stair_preset(Menu):
+    bl_label = "Stair Styles"
+    preset_subdir = "archipack_stair" # you might wanna change this
+    preset_operator = "script.execute_preset" # but not this
+    draw = Menu.draw_preset # or that
+
+
+class ARCHIPACK_OT_stair_preset(ArchipackPreset, Operator):
+    """Add a Fence Preset"""
+    bl_idname = "archipack.stair_preset"
+    bl_label = "Add Stair Style"
+    preset_menu = "ARCHIPACK_MT_stair_preset"
+
+    datablock_name = StringProperty(
+        name="Datablock",
+        default='archipack_stair',
+        maxlen=64,
+        options={'HIDDEN', 'SKIP_SAVE'},
+        )
+
+    @property
+    def blacklist(self):
+        return ['n_parts', 'parts', 'width', 'height', 'radius',
+            'total_angle', 'da', 'presets', 'manipulators']
 
 
 bpy.utils.register_class(archipack_stair_material)
 bpy.utils.register_class(archipack_stair_part)
 bpy.utils.register_class(archipack_stair)
 Mesh.archipack_stair = CollectionProperty(type=archipack_stair)
+bpy.utils.register_class(ARCHIPACK_MT_stair_preset)
 bpy.utils.register_class(ARCHIPACK_PT_stair)
 bpy.utils.register_class(ARCHIPACK_OT_stair)
+bpy.utils.register_class(ARCHIPACK_OT_stair_preset)
