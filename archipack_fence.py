@@ -1324,7 +1324,6 @@ class archipack_fence(Manipulable, PropertyGroup):
     # .auto_update = False
     # bulk changes
     # .auto_update = True
-    # .update(context, manipulable_refresh=True)
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
@@ -1852,16 +1851,26 @@ class ARCHIPACK_OT_fence_from_curve(Operator):
         s = d.manipulators.add()
         s.prop1_name = "height"
         s.normal = Vector((0, 1, 0))
-        # d.auto_update = False
         d.user_defined_path = curve.name
-        # d.from_spline(curve.matrix_world.inverted(), 12, curve.data.splines[0])
-        # d.auto_update = True
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
         d.update_path(context)
         # MaterialUtils.add_fence_materials(o)
-        o.matrix_world = curve.matrix_world.copy()
+        spline = curve.data.splines[0]
+        if spline.type == 'POLY':
+            pt = spline.points[0].co
+        elif spline.type == 'BEZIER':
+            pt = spline.bezier_points[0].co
+        else:
+            pt = Vector((0,0,0))
+        # pretranslate
+        o.matrix_world = curve.matrix_world * Matrix([
+            [1,0,0,pt.x],
+            [0,1,0,pt.y],
+            [0,0,1,pt.z],
+            [0,0,0,1]
+            ])
         o.select = True
         context.scene.objects.active = o
         return o
