@@ -38,13 +38,12 @@ from .archipack_utils import operator_exists
 
 try:
     from np_station.np_point_move import snap_point
+    HAS_NP_STATION = True
 except:
+    HAS_NP_STATION = False
     pass
 
 
-    
-    
-    
 # Arrow sizes (world units)
 arrow_size = 0.1
 # Handle area size (pixels)
@@ -424,11 +423,11 @@ class Manipulator():
         self.mouse_pos = Vector((0, 0))
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
-    
+
     @classmethod
     def poll(cls, context):
         return True
-    
+
     def exit(self):
         # print("Manipulator.exit() %s" % (type(self).__name__))
         if self._handle is not None:
@@ -671,11 +670,11 @@ class WallSnapManipulator(Manipulator):
         # disable own draw handler since np_snap handle it by it own
         # bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
         # self._handle = None
-    
+
     @classmethod
     def poll(cls, context):
-        return operator_exists("OBJECT_OT_np020_point_move")
-        
+        return HAS_NP_STATION and operator_exists("OBJECT_OT_np020_point_move")
+
     def check_hover(self):
         self.handle.check_hover(self.mouse_pos)
 
@@ -878,11 +877,11 @@ class FenceSnapManipulator(Manipulator):
         # disable own draw handler since np_snap handle it by it own
         # bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
         # self._handle = None
-    
+
     @classmethod
     def poll(cls, context):
-        return operator_exists("OBJECT_OT_np020_point_move")
-        
+        return HAS_NP_STATION and operator_exists("OBJECT_OT_np020_point_move")
+
     def check_hover(self):
         self.handle.check_hover(self.mouse_pos)
 
@@ -1660,6 +1659,7 @@ register_manipulator('DELTA_LOC', DeltaLocationManipulator)
 register_manipulator('WALL_SNAP', WallSnapManipulator)
 register_manipulator('FENCE_SNAP', FenceSnapManipulator)
 
+
 class archipack_manipulator(PropertyGroup):
     """
         A property group to add to manipulable objects
@@ -1718,17 +1718,17 @@ class archipack_manipulator(PropertyGroup):
         global manipulators_class_lookup
 
         if self.type not in manipulators_class_lookup.keys() or \
-                not manipulators_class_lookup[self.type].poll(context):            
+                not manipulators_class_lookup[self.type].poll(context):
             # RuntimeError is overkill here
             # silentely ignore allow skipping manipulators when deps as not meet
             # manip stack will simply be filled with None objects
             return None
             # raise RuntimeError("Manipulator of type {} not found".format(self.type))
-        
+
         m = manipulators_class_lookup[self.type](context, o, datablock, self, handle_size)
         self.pts_mode = m.pts_mode
         return m
-    
+
 
 bpy.utils.register_class(archipack_manipulator)
 
@@ -1828,7 +1828,7 @@ class Manipulable():
         if o is not None:
             exit_stack(o.name)
             self.manip_stack = get_stack(o.name)
-            
+
     def manipulable_setup(self, context):
         """
             TODO: Implement the setup part as per parent object basis
@@ -1837,8 +1837,7 @@ class Manipulable():
         o = context.active_object
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
-        
-                
+
     def manipulable_invoke(self, context):
         """
             call this in operator invoke()
@@ -1862,15 +1861,15 @@ class Manipulable():
             self.manipulable_refresh = False
             self.manipulable_setup(context)
             self.manipulate_mode = True
-            
+
         context.area.tag_redraw()
-        
+
         # clean up manipulator on delete
         if event.type in {'X'}:
             self.manipulable_disable(context)
             bpy.ops.object.delete('INVOKE_DEFAULT', use_global=False)
             return {'FINISHED'}
-            
+
         for m in self.manip_stack:
             # m should return false on left mouse release
             if m is not None and m.modal(context, event):
