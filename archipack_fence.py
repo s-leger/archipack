@@ -52,6 +52,7 @@ class Fence():
         self.t_start = 0
         self.t_end = 0
         self.dz = 0
+        self.z0 = 0
         self.a0 = 0
         
     def set_offset(self, offset):
@@ -156,62 +157,61 @@ class FenceGenerator():
         """
         self.segments = []
         i_start = 0
-        fence0 = self.segs[0]
+        f0 = self.segs[0]
         z = 0
         side = 1
-        for i, fence in enumerate(self.segs):
-            if fence.dist > 0:
-                fence.t_start = fence.dist / self.length
+        for i, f in enumerate(self.segs):
+            if f.dist > 0:
+                f.t_start = f.dist / self.length
             else:
-                fence.t_start = 0
-            fence.t_end = (fence.dist + fence.length) / self.length
+                f.t_start = 0
+            f.t_end = (f.dist + f.length) / self.length
             dz = self.parts[i].dz
-            fence.z0 = z
-            fence.dz = dz
+            f.z0 = z
+            f.dz = dz
             z += dz
             if i > 0 and abs(self.parts[i].a0) >= angle_limit:
-                l_seg = fence.dist - fence0.dist
-                t_seg = fence.t_start - fence0.t_start
+                l_seg = f.dist - f0.dist
+                t_seg = f.t_start - f0.t_start
                 n_fences = max(1, int(l_seg / post_spacing))
                 t_fence = t_seg / n_fences
-                segment = FenceSegment(fence0.t_start, fence.t_start, n_fences, t_fence, i_start, i - 1)
+                segment = FenceSegment(f0.t_start, f.t_start, n_fences, t_fence, i_start, i - 1)
                 i_start = i
-                fence0 = self.segs[i_start]
+                f0 = self.segs[i_start]
                 self.segments.append(segment)
 
             manipulators = self.parts[i].manipulators
-            p0 = fence.lerp(0).to_3d()
-            p1 = fence.lerp(1).to_3d()
+            p0 = f.lerp(0).to_3d()
+            p1 = f.lerp(1).to_3d()
             # angle from last to current segment
             if i > 0:
                 v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
-                v1 = fence.straight(1, 0).v.to_3d()
+                v1 = f.straight(1, 0).v.to_3d()
                 manipulators[0].set_pts([p0, v0, v1])
 
-            if type(fence).__name__ == "StraightFence":
+            if type(f).__name__ == "StraightFence":
                 # segment length
                 manipulators[1].type = 'SIZE'
                 manipulators[1].prop1_name = "length"
                 manipulators[1].set_pts([p0, p1, (1, 0, 0)])
             else:
                 # segment radius + angle
-                v0 = (fence.lerp(0) - fence.c).to_3d()
-                v1 = (fence.lerp(1) - fence.c).to_3d()
+                v0 = (f.lerp(0) - f.c).to_3d()
+                v1 = (f.lerp(1) - f.c).to_3d()
                 manipulators[1].type = 'ARC_ANGLE_RADIUS'
                 manipulators[1].prop1_name = "da"
                 manipulators[1].prop2_name = "radius"
-                manipulators[1].set_pts([fence.c.to_3d(), v0, v1])
+                manipulators[1].set_pts([f.c.to_3d(), v0, v1])
 
             # snap manipulator, dont change index !
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
 
-
-        fence = self.segs[-1]
-        l_seg = fence.dist + fence.length - fence0.dist
-        t_seg = fence.t_end - fence0.t_start
+        f = self.segs[-1]
+        l_seg = f.dist + f.length - f0.dist
+        t_seg = f.t_end - f0.t_start
         n_fences = max(1, int(l_seg / post_spacing))
         t_fence = t_seg / n_fences
-        segment = FenceSegment(fence0.t_start, fence.t_end, n_fences, t_fence, i_start, len(self.segs) - 1)
+        segment = FenceSegment(f0.t_start, f.t_end, n_fences, t_fence, i_start, len(self.segs) - 1)
         self.segments.append(segment)
 
     def setup_user_defined_post(self, o, post_x, post_y, post_z):
@@ -356,9 +356,8 @@ class FenceGenerator():
         self.set_offset(sub_offset_x)
         
         t_post = (0.5 * post_y - y) / self.length
-        
         t_spacing = sub_spacing / self.length
-        z0 = 0
+        
         for segment in self.segments:
             t_step = segment.t_step
             t_start = segment.t_start + t_post
@@ -368,19 +367,18 @@ class FenceGenerator():
             if n_sub > 0:
                 t_sub = (s_sub / (n_sub))  # / self.length
             else:
-                t_sub = 1 / self.length
+                t_sub = 1 / self.line.length
             i = segment.i_start
             while s < segment.n_step:
                 t_cur = t_start + s * t_step
                 for j in range(1, n_sub):
                     t_s = t_cur + t_sub * j
                     while self.segs[i].t_end < t_s:
-                        z0 += self.segs[i].dz
                         i += 1
                     f = self.segs[i]
                     t = (t_s - f.t_start) / f.t_diff
                     n = f.line.normal(t)
-                    post = (n, f.dz / f.length, z0 +  f.dz * t)
+                    post = (n, f.dz / f.length, f.z0 +  f.dz * t)
                     self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
                 s += 1
 
@@ -388,7 +386,6 @@ class FenceGenerator():
         
         self.set_offset(x_offset)
         
-        z0 = 0
         for segment in self.segments:
             t_step = segment.t_step
             t_start = segment.t_start
@@ -397,21 +394,17 @@ class FenceGenerator():
             while s < segment.n_step:
                 t_cur = t_start + s * t_step
                 while self.segs[i].t_end < t_cur:
-                    z0 += self.segs[i].dz
                     i += 1
                 f = self.segs[i]
                 t = (t_cur - f.t_start) / f.t_diff
-                z1 = f.dz * t
                 n = f.line.normal(t)
-                post = (n, f.dz / f.length, z0+z1)
+                post = (n, f.dz / f.length, f.z0+ f.dz * t)
                 self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
                 s += 1
-            for j in range(i, segment.i_end):
-                z0 += self.segs[j].dz
             if segment.i_end + 1 == len(self.segs):
                 f = self.segs[segment.i_end]
                 n = f.line.normal(1)
-                post = (n, f.dz / f.length, z0 + f.dz)
+                post = (n, f.dz / f.length, f.z0 + f.dz)
                 self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
 
     def make_panels(self, x, z, post_y, altitude, panel_dist,
@@ -420,7 +413,6 @@ class FenceGenerator():
         self.set_offset(sub_offset_x)
             
         t_post = (0.5 * post_y + panel_dist) / self.length
-        z0 = 0
         for segment in self.segments:
             t_step = segment.t_step
             t_start = segment.t_start
@@ -432,18 +424,17 @@ class FenceGenerator():
                 t_end = t_start + (s + 1) * t_step - t_post
                 # find first section
                 while self.segs[i].t_end < t_cur:
-                    z0 += self.segs[i].dz
                     i += 1
                 f = self.segs[i]
                 t = (t_cur - f.t_start) / f.t_diff
                 n = f.line.normal(t)
-                subs.append((n, f.dz / f.length, z0 + f.dz * t))
+                subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
                 # crossing sections
                 while i < segment.i_end:
                     f = self.segs[i]
                     if f.t_end < t_end:
                         n = f.line.normal(1)
-                        subs.append((n, f.dz / f.length, z0 + f.dz))
+                        subs.append((n, f.dz / f.length, f.z0 + f.dz))
                         z0 += f.dz
                     if f.t_start + f.t_diff >= t_end:
                         break
@@ -454,7 +445,7 @@ class FenceGenerator():
                 # last section
                 t = (t_end - f.t_start) / f.t_diff
                 n = f.line.normal(t)
-                subs.append((n, f.dz / f.length, z0 + f.dz * t))
+                subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
                 self.get_panel(subs, altitude, x, z, 0, idmat, verts, faces, matids, uvs)
                 s += 1
 
@@ -471,27 +462,25 @@ class FenceGenerator():
         sections = []
 
         f = self.segs[0]
-        z0 = 0
-
+        
         # first step
         if extend != 0:
-            t = -extend / self.segs[0].length
+            t = -extend / self.segs[0].line.length
             n = f.line.normal(t)
-            sections.append((n, f.dz / f.length, z0 + f.dz * t))
+            sections.append((n, f.dz / f.length, f.z0 + f.dz * t))
 
         # add first section
         n = f.line.normal(0)
-        sections.append((n, f.dz / f.length, z0))
+        sections.append((n, f.dz / f.length, f.z0))
 
         for s, f in enumerate(self.segs):
             n = f.line.normal(1)
-            z0 += f.dz
-            sections.append((n, f.dz / f.length, z0))
+            sections.append((n, f.dz / f.length, f.z0 + f.dz))
 
         if extend != 0:
-            t = 1 + extend / self.segs[-1].length
+            t = 1 + extend / self.segs[-1].line.length
             n = f.line.normal(t)
-            sections.append((n, f.dz / f.length, z0 + f.dz * t))
+            sections.append((n, f.dz / f.length, f.z0 + f.dz * t))
 
         user_path_verts = len(sections)
         f = len(verts)
@@ -1692,7 +1681,7 @@ class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
         
     @property
     def blacklist(self):
-        return ['n_parts', 'parts', 'manipulators']
+        return ['n_parts', 'parts', 'manipulators', 'user_defined_path']
         
 
 bpy.utils.register_class(archipack_fence_material)
