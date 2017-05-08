@@ -2876,9 +2876,9 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
 
 class ARCHIPACK_MT_stair_preset(Menu):
     bl_label = "Stair Styles"
-    preset_subdir = "archipack_stair" # you might wanna change this
-    preset_operator = "script.execute_preset" # but not this
-    draw = Menu.draw_preset # or that
+    preset_subdir = "archipack_stair"
+    preset_operator = "script.execute_preset"
+    draw = Menu.draw_preset
 
 
 class ARCHIPACK_OT_stair_preset(ArchipackPreset, Operator):

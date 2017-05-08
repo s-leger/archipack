@@ -672,7 +672,7 @@ class WallSnapManipulator(Manipulator):
         self.placeholder_line2 = GlPolyline((0.5, 0, 0, 0.8))
         self.handle = SquareHandle(handle_size, 1.2 * arrow_size, selectable=True)
         Manipulator.__init__(self, context, o, datablock, manipulator)
-       
+
     @classmethod
     def poll(cls, context):
         return HAS_NP_STATION and operator_exists("OBJECT_OT_np_020_point_move")
@@ -805,7 +805,6 @@ class WallSnapManipulator(Manipulator):
                         a0 += 2 * pi
                     part.a0 = a0
                 d.auto_update = True
-                
 
         return
 

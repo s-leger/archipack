@@ -470,8 +470,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
             )
     realtime = BoolProperty(
             options={'SKIP_SAVE'},
-            default=True, 
-            name="RealTime", 
+            default=True,
+            name="RealTime",
             description="Relocate childs in realtime"
             )
     # dumb manipulators to show sizes between childs
@@ -604,7 +604,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         if not self.auto_update:
             return
-            
+
         active, selected, o = self.find_in_selection(context)
 
         if o is None:
@@ -900,10 +900,10 @@ class archipack_wall2(Manipulable, PropertyGroup):
             if i > 0:
                 # start angle
                 self.manip_stack.append(part.manipulators[0].setup(context, o, part))
-            
+
             # length / radius + angle
             self.manip_stack.append(part.manipulators[1].setup(context, o, part))
-            
+
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
 
@@ -940,7 +940,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.manipulable_release(context)
         self.manipulable_setup(context)
         self.manipulate_mode = True
-        return True        
+        return True
+
 
 # use 2 globals to store a timer and state of update_action
 update_timer = None
@@ -1127,7 +1128,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
     @classmethod
     def poll(cls, context):
         return HAS_NP_STATION and operator_exists("OBJECT_OT_np_020_point_move")
-        
+
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -1194,8 +1195,8 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 context.scene.objects.active = self.o
                 bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
-        elif ((event.type in ('LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE') and \
-                event.value == 'RELEASE') ) and self.flag_next:  # or event.type == 'MOUSEMOVE'
+        elif ((event.type in ('LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE') and
+                event.value == 'RELEASE')) and self.flag_next:  # or event.type == 'MOUSEMOVE'
             self.flag_next = False
             sp = snap_point()
             o = self.o

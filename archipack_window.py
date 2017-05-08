@@ -1950,7 +1950,7 @@ class ARCHIPACK_OT_window_preset(ArchipackPreset, Operator):
 
     @property
     def blacklist(self):
-        return ['x', 'y', 'z', 'altitude', 'manipulators']
+        return ['x', 'y', 'z', 'altitude', 'manipulators', 'window_shape']
 
 
 bpy.utils.register_class(archipack_window_panelrow)
