@@ -36,7 +36,7 @@ from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator, GlPolygon, GlPolyline
 from .archipack_2d import Line, Arc
-
+from .archipack_utils import operator_exists
 try:
     from np_station.np_point_move import snap_point
     HAS_NP_STATION = True
@@ -1123,8 +1123,8 @@ class ARCHIPACK_OT_wall2_draw(Operator):
 
     @classmethod
     def poll(cls, context):
-        return HAS_NP_STATION
-
+        return operator_exists("OBJECT_OT_np_020_point_move")
+        
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -1208,7 +1208,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
         return {'PASS_THROUGH'}
 
     def invoke(self, context, event):
-        if context.mode == "OBJECT":
+        if context.mode == "OBJECT" and HAS_NP_STATION:
             bpy.ops.object.select_all(action="DESELECT")
             self.wall_part1 = GlPolygon((0.5, 0, 0, 0.2))
             self.wall_line1 = GlPolyline((0.5, 0, 0, 0.8))

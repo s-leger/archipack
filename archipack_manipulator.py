@@ -34,15 +34,17 @@ from bpy_extras import view3d_utils
 from bpy.types import PropertyGroup
 from bpy.props import FloatVectorProperty, StringProperty, CollectionProperty, BoolProperty
 from bpy.app.handlers import persistent
+from .archipack_utils import operator_exists
 
 try:
     from np_station.np_point_move import snap_point
-    HAS_NP_STATION = True
 except:
-    HAS_NP_STATION = False
     pass
 
 
+    
+    
+    
 # Arrow sizes (world units)
 arrow_size = 0.1
 # Handle area size (pixels)
@@ -422,7 +424,11 @@ class Manipulator():
         self.mouse_pos = Vector((0, 0))
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
-
+    
+    @classmethod
+    def poll(cls, context):
+        return True
+    
     def exit(self):
         # print("Manipulator.exit() %s" % (type(self).__name__))
         if self._handle is not None:
@@ -665,7 +671,11 @@ class WallSnapManipulator(Manipulator):
         # disable own draw handler since np_snap handle it by it own
         # bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
         # self._handle = None
-
+    
+    @classmethod
+    def poll(cls, context):
+        return operator_exists("OBJECT_OT_np020_point_move")
+        
     def check_hover(self):
         self.handle.check_hover(self.mouse_pos)
 
@@ -868,7 +878,11 @@ class FenceSnapManipulator(Manipulator):
         # disable own draw handler since np_snap handle it by it own
         # bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
         # self._handle = None
-
+    
+    @classmethod
+    def poll(cls, context):
+        return operator_exists("OBJECT_OT_np020_point_move")
+        
     def check_hover(self):
         self.handle.check_hover(self.mouse_pos)
 
@@ -1642,11 +1656,9 @@ register_manipulator('COUNTER', CounterManipulator)
 register_manipulator('DUMB_SIZE', DumbSizeManipulator)
 register_manipulator('DELTA_LOC', DeltaLocationManipulator)
 # wall's np_station based snap
-if HAS_NP_STATION:
-    # register_manipulator('SNAP_POINT', SnapPointManipulator)
-    register_manipulator('WALL_SNAP', WallSnapManipulator)
-    register_manipulator('FENCE_SNAP', FenceSnapManipulator)
-
+# register_manipulator('SNAP_POINT', SnapPointManipulator)
+register_manipulator('WALL_SNAP', WallSnapManipulator)
+register_manipulator('FENCE_SNAP', FenceSnapManipulator)
 
 class archipack_manipulator(PropertyGroup):
     """
@@ -1698,24 +1710,25 @@ class archipack_manipulator(PropertyGroup):
 
     def setup(self, context, o, datablock):
         """
-            Factory return a manipulator object
+            Factory return a manipulator object or None
             o:         object
             datablock: datablock to modify
         """
         global handle_size
         global manipulators_class_lookup
 
-        if self.type not in manipulators_class_lookup.keys():
+        if self.type not in manipulators_class_lookup.keys() or \
+                not manipulators_class_lookup[self.type].poll(context):            
             # RuntimeError is overkill here
             # silentely ignore allow skipping manipulators when deps as not meet
             # manip stack will simply be filled with None objects
             return None
             # raise RuntimeError("Manipulator of type {} not found".format(self.type))
-
+        
         m = manipulators_class_lookup[self.type](context, o, datablock, self, handle_size)
         self.pts_mode = m.pts_mode
         return m
-
+    
 
 bpy.utils.register_class(archipack_manipulator)
 
@@ -1860,7 +1873,7 @@ class Manipulable():
             
         for m in self.manip_stack:
             # m should return false on left mouse release
-            if m.modal(context, event):
+            if m is not None and m.modal(context, event):
                 self.manipulable_manipulate(context, event=event, manipulator=m)
                 return {'RUNNING_MODAL'}
 
