@@ -46,102 +46,24 @@ from .archipack_preset import ArchipackPreset
 class Fence():
 
 
-    def __init__(self, offset):
+    def __init__(self):
         # total distance from start
         self.dist = 0
         self.t_start = 0
         self.t_end = 0
         self.dz = 0
         self.a0 = 0
-
+        
+    def set_offset(self, offset):
+        self.line = self.offset(offset)
+   
     @property
     def t_diff(self):
         return self.t_end-self.t_start
 
-    def set_matids(self, matids):
-        self.idmat_top, self.idmat_step_front, self.idmat_raise, \
-        self.idmat_side, self.idmat_bottom, self.idmat_step_side = matids
-
-    def set_height(self, step_height, z0):
-        self.step_height = step_height
-        self.z0 = z0
-
-    def step_size(self, step_depth):
-        t_step, n_step = self.steps(step_depth)
-        self.n_step = n_step
-        self.t_step = t_step
-        self.step_depth = step_depth
-        return n_step
-
-    def p3d(self, verts, p2d, i, t, landing=False):
-        x, y = p2d
-        nose_z = min(self.step_height, self.nose_z)
-        zl = self.z0 + t * self.height
-        zs = self.z0 + i * self.step_height
-        if self.z_mode == 'LINEAR':
-            z0 = max(0, zl)
-            z1 = z0 - self.bottom_z
-            verts.extend([(x, y, z0), (x, y, z1)])
-        else:
-            if "FULL" in self.steps_type:
-                z0 = 0
-            else:
-                z0 = max(0, zl - nose_z - self.bottom_z)
-            z3 = zs + max(0, self.step_height - nose_z)
-            z4 = zs + self.step_height
-            if landing:
-                if "FULL" in self.steps_type:
-                    z2 = 0
-                    z1 = 0
-                else:
-                    z2 = max(0, min(z3, z3 - self.bottom_z))
-                    z1 = z2
-            else:
-                z1 = min(z3, max(z0, zl - nose_z))
-                z2 = min(z3, max(z1, zl))
-            verts.extend([(x, y, z0),
-                        (x, y, z1),
-                        (x, y, z2),
-                        (x, y, z3),
-                        (x, y, z4)])
-
-    def p3d_right(self, verts, p2d, i, t, landing=False):
-        x, y = p2d
-        nose_z = min(self.step_height, self.nose_z)
-        zl = self.z0 + t * self.height
-        zs = self.z0 + i * self.step_height
-        if self.z_mode == 'LINEAR':
-            z0 = max(0, zl)
-            z1 = z0 - self.bottom_z
-            verts.extend([(x, y, z1), (x, y, z0)])
-        else:
-            if "FULL" in self.steps_type:
-                z0 = 0
-            else:
-                z0 = max(0, zl - nose_z - self.bottom_z)
-            z3 = zs + max(0, self.step_height - nose_z)
-            z4 = zs + self.step_height
-            if landing:
-                if "FULL" in self.steps_type:
-                    z2 = 0
-                    z1 = 0
-                else:
-                    z2 = max(0, min(z3, z3 - self.bottom_z))
-                    z1 = z2
-            else:
-                z1 = min(z3, max(z0, zl - nose_z))
-                z2 = min(z3, max(z1, zl))
-            verts.extend([(x, y, z4),
-                          (x, y, z3),
-                          (x, y, z2),
-                          (x, y, z1),
-                          (x, y, z0)])
-
-
     def straight_fence(self, a0, length):
         s = self.straight(length).rotate(a0)
-        return StraightFence(s.p, s.v, self.offset)
-
+        return StraightFence(s.p, s.v)
 
     def curved_fence(self, a0, da, radius):
         n = self.normal(1)
@@ -150,202 +72,26 @@ class Fence():
             n.v = -n.v
         a0 = n.angle
         c = n.p - n.v
-        return CurvedFence(c, radius, a0, da, self.offset)
+        return CurvedFence(c, radius, a0, da)
 
-
-    def get_z(self, t, mode):
-        if mode == 'LINEAR':
-            return self.z0 + t * self.height
-        else:
-            step = 1 + floor(t / self.t_step)
-            return self.z0 + step * self.step_height
-
-    def make_profile(self, t, side, profile, verts, faces, matids, next=None, tnext=0):
-        z0 = self.get_z(t, 'LINEAR')
-        dz1 = 0
-        t, part, dz0, shape = self.get_part(t, side)
-        if next is not None:
-            tnext, next, dz1, shape1 = next.get_part(tnext, side)
-        xy, s = part.proj_xy(t, next)
-        v_xy = s * xy.to_3d()
-        z, s = part.proj_z(t, dz0, next, dz1)
-        v_z = s * Vector((-xy.y * z.x, xy.x * z.x, z.y))
-        x, y = part.lerp(t)
-        verts += [Vector((x, y, z0)) + v.x * v_xy + v.y * v_z for v in profile]
-
-
-
-    def make_faces(self, f, rM, verts, faces, matids, uvs):
-
-        start = 0
-        end = 3
-        offset = 4
-        matids.extend([self.idmat_side,
-             self.idmat_top,
-             self.idmat_side,
-             self.idmat_bottom])
-
-        u_l0 = 0
-        u_l1 = self.t_step * self.length
-        u_r0 = 0
-        u_r1 = self.t_step * self.right_length
-
-        s = int((end - start) / 2)
-        uvs += [[(u_l0, verts[f + j][2]), (u_l0, verts[f + j + 1][2]),
-            (u_l1, verts[f + j + offset + 1][2]), (u_l1, verts[f + j + offset][2])] for j in range(start, start + s)]
-
-        self.project_uv(rM, uvs, verts, [f + start + s, f + start + s + 1,
-            f + start + s + offset + 1, f + start + s + offset])
-
-        uvs += [[(u_r0, verts[f + j][2]), (u_r0, verts[f + j + 1][2]),
-            (u_r1, verts[f + j + offset + 1][2]), (u_r1, verts[f + j + offset][2])] for j in range(start + s + 1, end)]
-
-        self.project_uv(rM, uvs, verts, [f + end, f + start, f + offset + start, f + offset + end])
-
-        faces += [(f + j, f + j + 1, f + j + offset + 1, f + j + offset) for j in range(start, end)]
-        faces.append((f + end, f + start, f + offset + start, f + offset + end))
-
-
+   
 class StraightFence(Fence, Line):
     def __str__(self):
         return "t_start:{} t_end:{} dist:{}".format(self.t_start, self.t_end, self.dist)
 
-    def __init__(self, p, v, offset):
-        Fence.__init__(self, offset)
+    def __init__(self, p, v):
+        Fence.__init__(self)
         Line.__init__(self, p, v)
-
-    def make_step(self, i, verts, faces, matids, uvs, nose_y=0):
-
-        rM = self._make_nose(i, i, verts, faces, matids, uvs, nose_y)
-
-        t0 = self.t_step * i
-
-        f = len(verts)
-
-        p = self.l_line.lerp(t0)
-        self.p3d(verts, p, i, t0)
-        p = self.r_line.lerp(t0)
-        self.p3d_right(verts, p, i, t0)
-
-        t1 = t0 + self.t_step
-
-        p = self.l_line.lerp(t1)
-        self.p3d(verts, p, i, t1)
-        p = self.r_line.lerp(t1)
-        self.p3d_right(verts, p, i, t1)
-
-        self.make_faces(f, rM, verts, faces, matids, uvs)
-
-        if "OPEN" in self.steps_type:
-            faces.append((f + 13, f + 14, f + 15, f + 16))
-            matids.append(self.idmat_step_front)
-            uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
-
-
+        
+        
 class CurvedFence(Fence, Arc):
     def __str__(self):
         return "t_start:{} t_end:{} dist:{}".format(self.t_start, self.t_end, self.dist)
 
-    def __init__(self, c, radius, a0, da, offset):
-
-        Fence.__init__(self, offset)
+    def __init__(self, c, radius, a0, da):
+        Fence.__init__(self)
         Arc.__init__(self, c, radius, a0, da)
-
-    def set_offset(self, offset, shape):
-        return self.offset(offset)
-
-    def _make_step(self, t_step, i, s, verts, landing=False):
-
-        tb = t_step * i
-
-        f = len(verts)
-
-        t, part, dz, shape = self.get_part(tb, "LEFT")
-        p = part.lerp(t)
-        self.p3d(verts, p, s, tb, landing)
-
-        t, part, dz, shape = self.get_part(tb, "RIGHT")
-        p = part.lerp(t)
-        self.p3d_right(verts, p, s, tb, landing)
-        return f
-
-    def _make_edge(self, t_step, i, j, f, rM, verts, faces, matids, uvs):
-        tb = t_step * i
-        # make edges verts after regular ones
-        if self.l_shape != 'CIRCLE' or self.r_shape != 'CIRCLE':
-            if self.edges_multiples:
-                # edge 1
-                if tb < 0.25 and tb + t_step > 0.25:
-                    f0 = f
-                    f = len(verts)
-                    if self.l_shape == 'CIRCLE':
-                        self.p3d(verts, self.l_arc.lerp(0.25), j, 0.25)
-                    else:
-                        self.p3d(verts, self.l_tc.p, j, 0.25)
-                    if self.r_shape == 'CIRCLE':
-                        self.p3d_right(verts, self.r_arc.lerp(0.25), j, 0.25)
-                    else:
-                        self.p3d_right(verts, self.r_tc.p, j, 0.25)
-                    self.make_faces(f0, rM, verts, faces, matids, uvs)
-                # edge 2
-                if tb < 0.75 and tb + t_step > 0.75:
-                    f0 = f
-                    f = len(verts)
-                    if self.l_shape == 'CIRCLE':
-                        self.p3d(verts, self.l_arc.lerp(0.75), j, 0.75)
-                    else:
-                        self.p3d(verts, self.l_t1.p, j, 0.75)
-                    if self.r_shape == 'CIRCLE':
-                        self.p3d_right(verts, self.r_arc.lerp(0.75), j, 0.75)
-                    else:
-                        self.p3d_right(verts, self.r_t1.p, j, 0.75)
-                    self.make_faces(f0, rM, verts, faces, matids, uvs)
-            else:
-                if tb < 0.5 and tb + t_step > 0.5:
-                    f0 = f
-                    f = len(verts)
-                    # the step goes through the edge
-                    if self.l_shape == 'CIRCLE':
-                        self.p3d(verts, self.l_arc.lerp(0.5), j, 0.5)
-                    else:
-                        self.p3d(verts, self.l_t1.p, j, 0.5)
-                    if self.r_shape == 'CIRCLE':
-                        self.p3d_right(verts, self.r_arc.lerp(0.5), j, 0.5)
-                    else:
-                        self.p3d_right(verts, self.r_t1.p, j, 0.5)
-                    self.make_faces(f0, rM, verts, faces, matids, uvs)
-        return f
-
-    def make_step(self, i, verts, faces, matids, uvs, nose_y=0):
-
-        # open fence with closed face
-
-        # step nose
-        rM = self._make_nose(i, i, verts, faces, matids, uvs, nose_y)
-        f = 0
-        if self.l_shape == 'CIRCLE' or self.r_shape == 'CIRCLE':
-            # every 6 degree
-            n_subs = max(1, int(abs(self.da) / pi * 30 / self.n_step))
-            t_step = self.t_step / n_subs
-            for j in range(n_subs):
-                f0 = f
-                f = self._make_step(t_step, n_subs * i + j, i, verts)
-                if j > 0:
-                    self.make_faces(f0, rM, verts, faces, matids, uvs)
-                f = self._make_edge(t_step, n_subs * i + j, i, f, rM, verts, faces, matids, uvs)
-        else:
-            f = self._make_step(self.t_step, i, i, verts)
-            f = self._make_edge(self.t_step, i, i, f, rM, verts, faces, matids, uvs)
-
-        self._make_step(self.t_step, i + 1, i, verts)
-        self.make_faces(f, rM, verts, faces, matids, uvs)
-
-        if "OPEN" in self.steps_type and self.z_mode != 'LINEAR':
-            # back face top
-            faces.append((f + 13, f + 14, f + 15, f + 16))
-            matids.append(self.idmat_step_front)
-            uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
-
+        
 
 class FenceSegment():
     def __str__(self):
@@ -362,7 +108,7 @@ class FenceSegment():
 class FenceGenerator():
     def __init__(self, parts):
         self.parts = parts
-        self.fences = []
+        self.segs = []
         self.length = 0
         self.user_defined_post = None
         self.user_defined_uvs = None
@@ -370,23 +116,23 @@ class FenceGenerator():
 
     def add_part(self, type, radius, a0, da, length):
 
-        if len(self.fences) < 1:
+        if len(self.segs) < 1:
             s = None
         else:
-            s = self.fences[-1]
+            s = self.segs[-1]
 
         # start a new fence
         if s is None:
             if type == 'S_FENCE':
                 p = Vector((0, 0))
                 v = length * Vector((cos(a0), sin(a0)))
-                s = StraightFence(p, v, 0)
+                s = StraightFence(p, v)
             elif type == 'C_FENCE':
                 if da < 0:
                     c = Vector((radius, 0))
                 else:
                     c = Vector((-radius, 0))
-                s = CurvedFence(c, radius, 0, da, 0)
+                s = CurvedFence(c, radius, 0, da)
         else:
             if type == 'S_FENCE':
                 s = s.straight_fence(a0, length)
@@ -395,9 +141,13 @@ class FenceGenerator():
 
         s.dist = self.length
         self.length += s.length
-        self.fences.append(s)
+        self.segs.append(s)
         self.last_type = type
-
+    
+    def set_offset(self, offset):
+        for seg in self.segs:
+            seg.set_offset(offset)
+    
     def param_t(self, angle_limit, post_spacing):
         """
             setup corners and fences dz
@@ -406,10 +156,10 @@ class FenceGenerator():
         """
         self.segments = []
         i_start = 0
-        fence0 = self.fences[0]
+        fence0 = self.segs[0]
         z = 0
         side = 1
-        for i, fence in enumerate(self.fences):
+        for i, fence in enumerate(self.segs):
             if fence.dist > 0:
                 fence.t_start = fence.dist / self.length
             else:
@@ -426,7 +176,7 @@ class FenceGenerator():
                 t_fence = t_seg / n_fences
                 segment = FenceSegment(fence0.t_start, fence.t_start, n_fences, t_fence, i_start, i - 1)
                 i_start = i
-                fence0 = self.fences[i_start]
+                fence0 = self.segs[i_start]
                 self.segments.append(segment)
 
             manipulators = self.parts[i].manipulators
@@ -434,7 +184,7 @@ class FenceGenerator():
             p1 = fence.lerp(1).to_3d()
             # angle from last to current segment
             if i > 0:
-                v0 = self.fences[i - 1].straight(-1, 1).v.to_3d()
+                v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
                 v1 = fence.straight(1, 0).v.to_3d()
                 manipulators[0].set_pts([p0, v0, v1])
 
@@ -456,12 +206,12 @@ class FenceGenerator():
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
 
 
-        fence = self.fences[-1]
+        fence = self.segs[-1]
         l_seg = fence.dist + fence.length - fence0.dist
         t_seg = fence.t_end - fence0.t_start
         n_fences = max(1, int(l_seg / post_spacing))
         t_fence = t_seg / n_fences
-        segment = FenceSegment(fence0.t_start, fence.t_end, n_fences, t_fence, i_start, len(self.fences) - 1)
+        segment = FenceSegment(fence0.t_start, fence.t_end, n_fences, t_fence, i_start, len(self.segs) - 1)
         self.segments.append(segment)
 
     def setup_user_defined_post(self, o, post_x, post_y, post_z):
@@ -602,8 +352,11 @@ class FenceGenerator():
 
     def make_subs(self, x, y, z, post_y, altitude,
             sub_spacing, sub_offset_x, mat, verts, faces, matids, uvs):
+        
+        self.set_offset(sub_offset_x)
+        
         t_post = (0.5 * post_y - y) / self.length
-
+        
         t_spacing = sub_spacing / self.length
         z0 = 0
         for segment in self.segments:
@@ -621,18 +374,20 @@ class FenceGenerator():
                 t_cur = t_start + s * t_step
                 for j in range(1, n_sub):
                     t_s = t_cur + t_sub * j
-                    while self.fences[i].t_end < t_s:
-                        z0 += self.fences[i].dz
+                    while self.segs[i].t_end < t_s:
+                        z0 += self.segs[i].dz
                         i += 1
-                    f = self.fences[i]
+                    f = self.segs[i]
                     t = (t_s - f.t_start) / f.t_diff
-                    n = f.normal(t)
+                    n = f.line.normal(t)
                     post = (n, f.dz / f.length, z0 +  f.dz * t)
-                    self.get_post(post, x, y, z, altitude, sub_offset_x, mat, verts, faces, matids, uvs)
+                    self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
                 s += 1
 
     def make_post(self, x, y, z, altitude, x_offset, mat, verts, faces, matids, uvs):
-
+        
+        self.set_offset(x_offset)
+        
         z0 = 0
         for segment in self.segments:
             t_step = segment.t_step
@@ -641,27 +396,29 @@ class FenceGenerator():
             i = segment.i_start
             while s < segment.n_step:
                 t_cur = t_start + s * t_step
-                while self.fences[i].t_end < t_cur:
-                    z0 += self.fences[i].dz
+                while self.segs[i].t_end < t_cur:
+                    z0 += self.segs[i].dz
                     i += 1
-                f = self.fences[i]
+                f = self.segs[i]
                 t = (t_cur - f.t_start) / f.t_diff
                 z1 = f.dz * t
-                n = f.normal(t)
+                n = f.line.normal(t)
                 post = (n, f.dz / f.length, z0+z1)
                 self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
                 s += 1
             for j in range(i, segment.i_end):
-                z0 += self.fences[j].dz
-            if segment.i_end + 1 == len(self.fences):
-                f = self.fences[segment.i_end]
-                n = f.normal(1)
+                z0 += self.segs[j].dz
+            if segment.i_end + 1 == len(self.segs):
+                f = self.segs[segment.i_end]
+                n = f.line.normal(1)
                 post = (n, f.dz / f.length, z0 + f.dz)
                 self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
 
     def make_panels(self, x, z, post_y, altitude, panel_dist,
             sub_offset_x, idmat, verts, faces, matids, uvs):
-
+        
+        self.set_offset(sub_offset_x)
+            
         t_post = (0.5 * post_y + panel_dist) / self.length
         z0 = 0
         for segment in self.segments:
@@ -674,18 +431,18 @@ class FenceGenerator():
                 t_cur = t_start + s * t_step + t_post
                 t_end = t_start + (s + 1) * t_step - t_post
                 # find first section
-                while self.fences[i].t_end < t_cur:
-                    z0 += self.fences[i].dz
+                while self.segs[i].t_end < t_cur:
+                    z0 += self.segs[i].dz
                     i += 1
-                f = self.fences[i]
+                f = self.segs[i]
                 t = (t_cur - f.t_start) / f.t_diff
-                n = f.normal(t)
+                n = f.line.normal(t)
                 subs.append((n, f.dz / f.length, z0 + f.dz * t))
                 # crossing sections
                 while i < segment.i_end:
-                    f = self.fences[i]
+                    f = self.segs[i]
                     if f.t_end < t_end:
-                        n = f.normal(1)
+                        n = f.line.normal(1)
                         subs.append((n, f.dz / f.length, z0 + f.dz))
                         z0 += f.dz
                     if f.t_start + f.t_diff >= t_end:
@@ -693,47 +450,48 @@ class FenceGenerator():
                     elif f.t_start < t_end:
                         i += 1
 
-                f = self.fences[i]
+                f = self.segs[i]
                 # last section
                 t = (t_end - f.t_start) / f.t_diff
-                n = f.normal(t)
+                n = f.line.normal(t)
                 subs.append((n, f.dz / f.length, z0 + f.dz * t))
-                self.get_panel(subs, altitude, x, z, sub_offset_x, idmat, verts, faces, matids, uvs)
+                self.get_panel(subs, altitude, x, z, 0, idmat, verts, faces, matids, uvs)
                 s += 1
 
     def make_profile(self, profile, idmat,
             x_offset, z_offset, extend, verts, faces, matids, uvs):
-
-        n_fences = len(self.fences) - 1
+        
+        self.set_offset(x_offset)
+        
+        n_fences = len(self.segs) - 1
 
         if n_fences < 0:
             return
 
         sections = []
 
-        f = self.fences[0]
+        f = self.segs[0]
         z0 = 0
 
         # first step
         if extend != 0:
-            t = -extend / self.fences[0].length
-            n = f.normal(t)
+            t = -extend / self.segs[0].length
+            n = f.line.normal(t)
             sections.append((n, f.dz / f.length, z0 + f.dz * t))
 
         # add first section
-        n = f.normal(0)
+        n = f.line.normal(0)
         sections.append((n, f.dz / f.length, z0))
 
-        for s, f in enumerate(self.fences):
-            n = f.normal(1)
+        for s, f in enumerate(self.segs):
+            n = f.line.normal(1)
             z0 += f.dz
             sections.append((n, f.dz / f.length, z0))
 
         if extend != 0:
-            t = 1 + extend / self.fences[-1].length
-            n = f.normal(t)
+            t = 1 + extend / self.segs[-1].length
+            n = f.line.normal(t)
             sections.append((n, f.dz / f.length, z0 + f.dz * t))
-
 
         user_path_verts = len(sections)
         f = len(verts)
@@ -1005,18 +763,6 @@ class archipack_fence(Manipulable, PropertyGroup):
             default=0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
-            )
-    post_offset_x = FloatProperty(
-            name="offset",
-            min=-100.0, max=100,
-            default=0.0, precision=2, step=1,
-            unit='LENGTH', subtype='DISTANCE',
-            update=update
-            )
-    post_corners = BoolProperty(
-            name="only on edges",
-            update=update,
-            default=False
             )
     user_defined_post_enable = BoolProperty(
             name="User",
@@ -1367,8 +1113,9 @@ class archipack_fence(Manipulable, PropertyGroup):
             s.prop1_name = "length"
             s = p.manipulators.add()
             # s.type = 'SNAP_POINT'
-            s.type = 'FENCE_SNAP'
+            s.type = 'WALL_SNAP'
             s.prop1_name = str(i)
+            s.prop2_name = 'post_z'
 
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
@@ -1500,7 +1247,7 @@ class archipack_fence(Manipulable, PropertyGroup):
 
         if self.panel:
             g.make_panels(0.5 * self.panel_x, self.panel_z, self.post_y,
-                    self.panel_alt, self.panel_dist, self.x_offset-self.panel_offset_x,
+                    self.panel_alt, self.panel_dist, self.x_offset - self.panel_offset_x,
                     int(self.idmat_panel), verts, faces, matids, uvs)
 
 
@@ -1509,7 +1256,7 @@ class archipack_fence(Manipulable, PropertyGroup):
                 x = 0.5 * self.rail_x[i]
                 y = self.rail_z[i]
                 rail = [Vector((-x, 0)), Vector((-x, y)), Vector((x, y)), Vector((x, 0))]
-                g.make_profile(rail, int(self.rail_mat[i].index), self.rail_offset[i] - self.x_offset,
+                g.make_profile(rail, int(self.rail_mat[i].index), self.x_offset - self.rail_offset[i],
                         self.rail_alt[i], 0, verts, faces, matids, uvs)
 
         if self.handrail_profil == 'COMPLEX':
@@ -1533,7 +1280,7 @@ class archipack_fence(Manipulable, PropertyGroup):
 
 
         if self.handrail:
-            g.make_profile(handrail, int(self.idmat_handrail), self.handrail_offset - self.x_offset,
+            g.make_profile(handrail, int(self.idmat_handrail), self.x_offset - self.handrail_offset,
                 self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
 
 
@@ -1579,7 +1326,7 @@ class archipack_fence(Manipulable, PropertyGroup):
             self.manip_stack.append(part.manipulators[1].setup(context, o, part))
 
             # snap point
-            self.manip_stack.append(part.manipulators[2].setup(context, o, part))
+            self.manip_stack.append(part.manipulators[2].setup(context, o, self))
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
@@ -1654,14 +1401,11 @@ class ARCHIPACK_PT_fence(Panel):
             row.prop(prop, 'post_expand', icon="TRIA_RIGHT", icon_only=True, text="Post", emboss=False)
         row.prop(prop, 'post')
         if prop.post_expand:
-            box.prop(prop, 'post_corners')
-            if not prop.post_corners:
-                box.prop(prop, 'post_spacing')
+            box.prop(prop, 'post_spacing')
             box.prop(prop, 'post_x')
             box.prop(prop, 'post_y')
             box.prop(prop, 'post_z')
             box.prop(prop, 'post_alt')
-            box.prop(prop, 'post_offset_x')
             row = box.row(align=True)
             row.prop(prop, 'user_defined_post_enable', text="")
             row.prop_search(prop, "user_defined_post", scene, "objects", text="")

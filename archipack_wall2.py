@@ -123,7 +123,7 @@ class CurvedWall(Wall, Arc):
 class WallGenerator():
     def __init__(self, parts):
         self.last_type = 'NONE'
-        self.walls = []
+        self.segs = []
         self.parts = parts
         self.faces_type = 'NONE'
 
@@ -132,12 +132,12 @@ class WallGenerator():
         # TODO:
         # refactor this part (height manipulators)
         manip_index = []
-        if len(self.walls) < 1:
+        if len(self.segs) < 1:
             s = None
             z = [part_z[0]]
             manip_index.append(0)
         else:
-            s = self.walls[-1]
+            s = self.segs[-1]
             z = [s.z[-1]]
 
         t_cur = 0
@@ -181,18 +181,18 @@ class WallGenerator():
             elif type == 'C_WALL':
                 s = s.curved_wall(s, a0, da, radius, wall_z, z, t)
 
-        self.walls.append(s)
+        self.segs.append(s)
         self.last_type = type
         return manip_index
 
     def make_wall(self, step_angle, verts, faces):
-        for i, wall in enumerate(self.walls):
+        for i, wall in enumerate(self.segs):
             manipulators = self.parts[i].manipulators
             p0 = wall.lerp(0).to_3d()
             p1 = wall.lerp(1).to_3d()
             # angle from last to current segment
             if i > 0:
-                v0 = self.walls[i - 1].straight(-1, 1).v.to_3d()
+                v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
                 v1 = wall.straight(1, 0).v.to_3d()
                 manipulators[0].set_pts([p0, v0, v1])
 
@@ -218,7 +218,7 @@ class WallGenerator():
                 wall.make_wall(j, verts, faces)
 
     def debug(self, verts):
-        for wall in self.walls:
+        for wall in self.segs:
             for i in range(33):
                 x, y = wall.lerp(i / 32)
                 verts.append((x, y, 0))
@@ -494,6 +494,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # s.type = 'SNAP_POINT'
         s.type = 'WALL_SNAP'
         s.prop1_name = str(where + 1)
+        s.prop2_name = 'z'
         part_1 = self.parts[len(self.parts) - 1]
         part_1.type = part_0.type
         # part_1.z_left = part_0.z_left
@@ -589,6 +590,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             # s.type = 'SNAP_POINT'
             s.type = 'WALL_SNAP'
             s.prop1_name = str(i)
+            s.prop2_name = 'z'
 
         g = self.get_generator()
 
@@ -627,11 +629,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=True)
 
         # Width
-        self.manipulators[0].set_pts([(0, 0, 0), g.walls[0].sized_normal(0, -self.width).v.to_3d(), (-1, 0, 0)])
+        self.manipulators[0].set_pts([(0, 0, 0), g.segs[0].sized_normal(0, -self.width).v.to_3d(), (-1, 0, 0)])
 
         # Parts COUNTER
-        self.manipulators[1].set_pts([g.walls[-1].lerp(1.1).to_3d(),
-            g.walls[-1].lerp(1.1 + 0.5 / g.walls[-1].length).to_3d(), (-1, 0, 0)])
+        self.manipulators[1].set_pts([g.segs[-1].lerp(1.1).to_3d(),
+            g.segs[-1].lerp(1.1 + 0.5 / g.segs[-1].length).to_3d(), (-1, 0, 0)])
 
         # Height
         self.manipulators[2].set_pts([(0, 0, 0), (0, 0, self.z), (-1, 0, 0)])
@@ -737,7 +739,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 tM = child.matrix_world.to_3x3()
                 pt = (itM * child.location).to_2d()
                 dir_y = (rM * tM * Vector((0, 1, 0))).to_2d()
-                for wall_idx, wall in enumerate(g.walls):
+                for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
                     res, d, t = wall.point_sur_segment(pt)
                     dir = -wall.normal(t).v.normalized()
@@ -772,8 +774,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
             c, d = child.get_child(context)
             if c is None:
                 continue
-            t = child.pos.x / g.walls[child.wall_idx].length
-            n = g.walls[child.wall_idx].normal(t)
+            t = child.pos.x / g.segs[child.wall_idx].length
+            n = g.segs[child.wall_idx].normal(t)
             rx, ry = -n.v.normalized()
             rx, ry = ry, -rx
             if child.flip:
@@ -808,7 +810,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         itM = o.matrix_world.inverted() * o.parent.matrix_world
         m_idx = 0
-        for wall_idx, wall in enumerate(g.walls):
+        for wall_idx, wall in enumerate(g.segs):
             p0 = wall.lerp(0)
             wall_has_childs = False
             for child in self.childs:
@@ -866,7 +868,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             for child in self.childs:
                 c, d = child.get_child(context)
                 if d is not None:
-                    wall = g.walls[child.wall_idx]
+                    wall = g.segs[child.wall_idx]
                     pt = (itM * c.location).to_2d()
                     res, d, t = wall.point_sur_segment(pt)
                     child.pos = (t * wall.length, d, child.pos.z)
@@ -903,7 +905,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             self.manip_stack.append(part.manipulators[1].setup(context, o, part))
             
             # snap point
-            self.manip_stack.append(part.manipulators[2].setup(context, o, part))
+            self.manip_stack.append(part.manipulators[2].setup(context, o, self))
 
         # width + counter
         for m in self.manipulators:
@@ -1165,7 +1167,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             print("self.o :%s" % o.name)
             rM = o.matrix_world.inverted().to_3x3()
             g = d.get_generator()
-            w = g.walls[-1]
+            w = g.segs[-1]
             dp = rM * sp.delta
             da = atan2(dp.y, dp.x) - w.straight(1).angle
             a0 = part.a0 + da
@@ -1176,7 +1178,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             part.a0 = a0
             """
             g = d.get_generator()
-            takeloc = o.matrix_world * g.walls[-1].lerp(1).to_3d()
+            takeloc = o.matrix_world * g.segs[-1].lerp(1).to_3d()
             o.select = False
             sp.invoke(takeloc=takeloc, constrain=True, callback=self.np_callback)
             """
@@ -1201,7 +1203,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             context.scene.objects.active = o
             d = o.data.archipack_wall2[0]
             g = d.get_generator()
-            takeloc = o.matrix_world * g.walls[-1].lerp(1).to_3d()
+            takeloc = o.matrix_world * g.segs[-1].lerp(1).to_3d()
             o.select = False
             sp.invoke(takeloc=takeloc, constrain=True, origin=Vector((0, 0, 0)),
                 callback=self.np_callback, draw_callback=self.np_draw)

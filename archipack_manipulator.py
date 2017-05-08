@@ -426,6 +426,10 @@ class Manipulator():
 
     @classmethod
     def poll(cls, context):
+        """
+            Allow manipulator disable
+            handle will not show
+        """
         return True
 
     def exit(self):
@@ -645,8 +649,12 @@ class SnapPointManipulator(Manipulator):
         self.handle.draw(context)
 
 
-#
-wall_pts = []
+# @TODO:
+# Make this one generic for line based archipack objects (fence, wall, maybe stair too)
+# Require unified generators naming convention, a z property for placeholder height
+# and proper datablock access
+
+gl_pts3d = []
 
 
 class WallSnapManipulator(Manipulator):
@@ -658,46 +666,40 @@ class WallSnapManipulator(Manipulator):
 
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
-        self.np_snap = None
-        self.wall_part1 = GlPolygon((0.5, 0, 0, 0.2))
-        self.wall_line1 = GlPolyline((0.5, 0, 0, 0.8))
-        self.wall_part2 = GlPolygon((0.5, 0, 0, 0.2))
-        self.wall_line2 = GlPolyline((0.5, 0, 0, 0.8))
-        # self.draw_placeholders = False
-        # self._timer = None
+        self.placeholder_part1 = GlPolygon((0.5, 0, 0, 0.2))
+        self.placeholder_line1 = GlPolyline((0.5, 0, 0, 0.8))
+        self.placeholder_part2 = GlPolygon((0.5, 0, 0, 0.2))
+        self.placeholder_line2 = GlPolyline((0.5, 0, 0, 0.8))
         self.handle = SquareHandle(handle_size, 1.2 * arrow_size, selectable=True)
         Manipulator.__init__(self, context, o, datablock, manipulator)
-        # disable own draw handler since np_snap handle it by it own
-        # bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-        # self._handle = None
-
+       
     @classmethod
     def poll(cls, context):
-        return HAS_NP_STATION and operator_exists("OBJECT_OT_np020_point_move")
+        return HAS_NP_STATION and operator_exists("OBJECT_OT_np_020_point_move")
 
     def check_hover(self):
         self.handle.check_hover(self.mouse_pos)
 
     def press(self, context, event):
-        global wall_pts
+        global gl_pts3d
         if self.handle.hover:
             # Start a np_station np_point_move snap tool
             self.handle.hover = False
             self.handle.active = True
             if HAS_NP_STATION:
                 self.o.select = True
-                wall = self.o.data.archipack_wall2[0]
-                wall_idx = int(self.manipulator.prop1_name)
+                d = self.datablock
+                idx = int(self.manipulator.prop1_name)
                 # init placeholders 3d absolute world positionned points
                 # between 2 and 3 points, the 2nd being moved by np_snap.delta
                 takeloc, p1, side, normal = self.manipulator.get_pts(self.o.matrix_world)
-                wall_pts = [None, takeloc, p1]
-                if wall_idx > 0:
-                    p0, right, side, normal = wall.parts[wall_idx - 1].manipulators[2].get_pts(self.o.matrix_world)
-                    wall_pts[0] = p0
+                gl_pts3d = [None, takeloc, p1]
+                if idx > 0:
+                    p0, right, side, normal = d.parts[idx - 1].manipulators[2].get_pts(self.o.matrix_world)
+                    gl_pts3d[0] = p0
                 # enable placeholders drawing
                 self.draw_placeholders = True
-                print("wall_pts : %s" % wall_pts)
+                print("gl_pts3d : %s" % gl_pts3d)
                 # Invoke snap tool
                 print("Invoke np_point_move %s" % (takeloc))
                 self.np_snap = snap_point()
@@ -723,7 +725,7 @@ class WallSnapManipulator(Manipulator):
         """
             np station callback on moving, place, or cancel
         """
-        global wall_pts
+        global gl_pts3d
 
         np_snap = snap_point()
 
@@ -732,7 +734,7 @@ class WallSnapManipulator(Manipulator):
             print("event.type: %s" % (event.type))
             # event here is mouse move
             # update gl placeholders location
-            print("np_callback wall_pts : %s" % wall_pts)
+            print("np_callback gl_pts3d : %s" % gl_pts3d)
             print("np_callback self: %s" % (type(self).__name__))
 
         else:
@@ -743,23 +745,23 @@ class WallSnapManipulator(Manipulator):
 
                 self.o.select = True
                 # apply changes to wall
-                wall = self.o.data.archipack_wall2[0]
-                wall.auto_update = False
+                d = self.datablock
+                d.auto_update = False
 
-                g = wall.get_generator()
+                g = d.get_generator()
 
                 # rotation relative to object
                 rM = self.o.matrix_world.inverted().to_3x3()
-                wall_idx = int(self.manipulator.prop1_name)
+                idx = int(self.manipulator.prop1_name)
 
                 # new point in object space
-                pt = g.walls[wall_idx].lerp(0) + (rM * np_snap.delta).to_2d()
+                pt = g.segs[idx].lerp(0) + (rM * np_snap.delta).to_2d()
                 da = 0
 
                 # adjust size and rotation of segment before current
-                if wall_idx > 0:
-                    w = g.walls[wall_idx - 1]
-                    part = wall.parts[wall_idx - 1]
+                if idx > 0:
+                    w = g.segs[idx - 1]
+                    part = d.parts[idx - 1]
                     dp = (pt - w.lerp(0))
                     part.length = dp.length
                     da = atan2(dp.y, dp.x) - w.straight(1).angle
@@ -772,11 +774,11 @@ class WallSnapManipulator(Manipulator):
                     part.a0 = a0
 
                 # adjust length of current segment
-                w = g.walls[wall_idx]
-                part = wall.parts[wall_idx]
+                w = g.segs[idx]
+                part = d.parts[idx]
                 p0 = w.lerp(1)
                 dp = (p0 - pt)
-                print("pt:%s delta:%s dp:%s idx:%s" % (pt, np_snap.delta, dp, wall_idx))
+                print("pt:%s delta:%s dp:%s idx:%s" % (pt, np_snap.delta, dp, idx))
                 part.length = dp.length
 
                 da1 = atan2(dp.y, dp.x) - w.straight(1).angle
@@ -789,43 +791,43 @@ class WallSnapManipulator(Manipulator):
                 part.a0 = a0
 
                 # move object when point 0
-                if wall_idx == 0:
+                if idx == 0:
                     self.o.location += np_snap.delta
 
                 # adjust rotation on both sides of next segment
-                if wall_idx + 1 < wall.n_parts:
+                if idx + 1 < d.n_parts:
 
-                    part = wall.parts[wall_idx + 1]
+                    part = d.parts[idx + 1]
                     a0 = part.a0 - da1
                     if a0 > pi:
                         a0 -= 2 * pi
                     if a0 < -pi:
                         a0 += 2 * pi
                     part.a0 = a0
-                wall.auto_update = True
-                wall.update(context)
+                d.auto_update = True
+                
 
         return
 
     def np_draw(self, context):
         # draw wall placeholders
-        global wall_pts
+        global gl_pts3d
         np_snap = snap_point()
         if self.o is None:
             return
-        z = self.o.data.archipack_wall2[0].z
-        p0 = wall_pts[1] + np_snap.delta
-        p1 = wall_pts[2]
-        self.wall_part1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
-        self.wall_line1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
-        self.wall_part1.draw(context)
-        self.wall_line1.draw(context)
-        if wall_pts[0] is not None:
-            p0, p1 = wall_pts[0], p0
-            self.wall_part2.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
-            self.wall_line2.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
-            self.wall_part2.draw(context)
-            self.wall_line2.draw(context)
+        z = self.get_value(self.datablock, self.manipulator.prop2_name)
+        p0 = gl_pts3d[1] + np_snap.delta
+        p1 = gl_pts3d[2]
+        self.placeholder_part1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
+        self.placeholder_line1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
+        self.placeholder_part1.draw(context)
+        self.placeholder_line1.draw(context)
+        if gl_pts3d[0] is not None:
+            p0, p1 = gl_pts3d[0], p0
+            self.placeholder_part2.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
+            self.placeholder_line2.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
+            self.placeholder_part2.draw(context)
+            self.placeholder_line2.draw(context)
 
     def mouse_move(self, context, event):
         """
@@ -880,7 +882,7 @@ class FenceSnapManipulator(Manipulator):
 
     @classmethod
     def poll(cls, context):
-        return HAS_NP_STATION and operator_exists("OBJECT_OT_np020_point_move")
+        return HAS_NP_STATION and operator_exists("OBJECT_OT_np_020_point_move")
 
     def check_hover(self):
         self.handle.check_hover(self.mouse_pos)
