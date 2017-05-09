@@ -246,12 +246,6 @@ class FenceGenerator():
             co.x *= self.user_defined_post_scale.x
             co.y *= self.user_defined_post_scale.y
             co.z *= self.user_defined_post_scale.z
-            if 'Top' in g:
-                co.z += z2
-            elif 'Bottom' in g:
-                co.z += 0
-            else:
-                co.z += z1
             if 'Slope' in g:
                 co.z += co.y * slope
             verts.append(tM * co)
@@ -284,10 +278,10 @@ class FenceGenerator():
         dx = post_x * vn
         dy = post_y * Vector((vn.y, -vn.x))
         oy = sub_offset_x * vn
-        x0, y0 = n.p + dx + dy + oy
-        x1, y1 = n.p + dx - dy + oy
-        x2, y2 = n.p - dx - dy + oy
-        x3, y3 = n.p - dx + dy + oy
+        x0, y0 = n.p - dx + dy + oy
+        x1, y1 = n.p - dx - dy + oy
+        x2, y2 = n.p + dx - dy + oy
+        x3, y3 = n.p + dx + dy + oy
         f = len(verts)
         verts.extend([(x0, y0, z0), (x0, y0, z3),
                     (x1, y1, z1), (x1, y1, z4),
@@ -1095,14 +1089,14 @@ class archipack_fence(Manipulable, PropertyGroup):
         for i in range(len(self.parts), self.n_parts):
             p = self.parts.add()
             s = p.manipulators.add()
-            s.type = "ANGLE"
+            s.type_key = "ANGLE"
             s.prop1_name = "a0"
             s = p.manipulators.add()
-            s.type = "SIZE"
+            s.type_key = "SIZE"
             s.prop1_name = "length"
             s = p.manipulators.add()
-            # s.type = 'SNAP_POINT'
-            s.type = 'WALL_SNAP'
+            # s.type_key = 'SNAP_POINT'
+            s.type_key = 'WALL_SNAP'
             s.prop1_name = str(i)
             s.prop2_name = 'post_z'
 
@@ -1222,7 +1216,7 @@ class archipack_fence(Manipulable, PropertyGroup):
         # user defined subs
         if self.user_defined_subs_enable:
             user_def_subs = context.scene.objects.get(self.user_defined_subs)
-            if user_def_subs is not None and user_def_subs.type == 'MESH':
+            if user_def_subs is not None and user_def_subs.type_key == 'MESH':
                 g.setup_user_defined_post(user_def_subs, self.subs_x, self.subs_y, self.subs_z)
 
         if self.subs:
@@ -1241,7 +1235,7 @@ class archipack_fence(Manipulable, PropertyGroup):
             for i in range(self.rail_n):
                 x = 0.5 * self.rail_x[i]
                 y = self.rail_z[i]
-                rail = [Vector((-x, 0)), Vector((-x, y)), Vector((x, y)), Vector((x, 0))]
+                rail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
                 g.make_profile(rail, int(self.rail_mat[i].index), self.x_offset - self.rail_offset[i],
                         self.rail_alt[i], 0, verts, faces, matids, uvs)
 
@@ -1259,10 +1253,10 @@ class archipack_fence(Manipulable, PropertyGroup):
         elif self.handrail_profil == 'SQUARE':
             x = 0.5 * self.handrail_x
             y = self.handrail_y
-            handrail = [Vector((-x, 0)), Vector((-x, y)), Vector((x, y)), Vector((x, 0))]
+            handrail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
         elif self.handrail_profil == 'CIRCLE':
             r = self.handrail_radius
-            handrail = [Vector((r * sin(0.1 * a * pi), r * (0.5 + cos(0.1 * a * pi)))) for a in range(0, 20)]
+            handrail = [Vector((r * sin(0.1 * -a * pi), r * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
 
         if self.handrail:
             g.make_profile(handrail, int(self.idmat_handrail), self.x_offset - self.handrail_offset,
