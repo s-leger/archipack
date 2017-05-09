@@ -263,7 +263,7 @@ class FenceGenerator():
             x, y = -n.v.normalized()
             tM = Matrix([
                 [x, y, 0, n.p.x],
-                [y, -x, 0, n.p.y],
+                [-y, x, 0, n.p.y],
                 [0, 0, 1, zl + post_alt],
                 [0, 0, 0, 1]
             ])
