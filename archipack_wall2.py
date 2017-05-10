@@ -523,6 +523,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         s = p.manipulators.add()
         s.type_key = 'WALL_SNAP'
         s.prop1_name = str(self.n_parts)
+        s.prop2_name = 'z'
         p.length = length
         self.n_parts += 1
         self.auto_update = True
