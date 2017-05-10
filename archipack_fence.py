@@ -223,7 +223,7 @@ class FenceGenerator():
         x = o.bound_box[6][0] - o.bound_box[0][0]
         y = o.bound_box[6][1] - o.bound_box[0][1]
         z = o.bound_box[6][2] - o.bound_box[0][2]
-        self.user_defined_post_scale = Vector((post_x / x, post_y / y, post_z / z))
+        self.user_defined_post_scale = Vector((post_x / x, post_y / -y, post_z / z))
         m = o.data
         # create vertex group lookup dictionary for names
         vgroup_names = {vgroup.index: vgroup.name for vgroup in o.vertex_groups}
