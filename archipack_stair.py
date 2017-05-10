@@ -2567,7 +2567,7 @@ class ARCHIPACK_PT_stair(Panel):
             return
         layout = self.layout
         row = layout.row(align=True)
-        row.operator('archipack.stair_manipulate')
+        row.operator('archipack.stair_manipulate', icon='HAND')
         row = layout.row(align=True)
         row.prop(prop, 'presets')
         box = layout.box()

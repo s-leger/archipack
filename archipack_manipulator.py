@@ -37,20 +37,49 @@ from bpy.app.handlers import persistent
 from .archipack_snap import snap_point
 
 
+# ------------------------------------------------------------------
+# Define Gl Handle types
+# ------------------------------------------------------------------
+
 # Arrow sizes (world units)
 arrow_size = 0.1
 # Handle area size (pixels)
 handle_size = 10
 
-# ------------------------------------------------------------------
-# Define Gl Handle types
-# ------------------------------------------------------------------
+# Font sizes and basic colour scheme
+# kept outside of addon prefs until now
+# as for a generic toolkit it is not appropriate
+# we could provide a template for addon prefs
+# matching those one
 feedback_size_main = 16
 feedback_size_title = 14
 feedback_size_shortcut = 11
 feedback_colour_main = (0.95, 0.95, 0.95, 1.0)
 feedback_colour_key = (0.67, 0.67, 0.67, 1.0)
 feedback_colour_shortcut = (0.51, 0.51, 0.51, 1.0)
+
+
+# @TODO:
+# 1 Make a clear separation of 2d (pixel position) and 3d (world position)
+#   modes way to set gl coords
+# 2 Unify methods to set points - currently set_pts, set_pos ...
+# 3 Put all Gl part in a sub module as it may be used by other devs
+#   as gl toolkit abstraction for screen feedback
+# 4 Implement cursor badges (np_station sample)
+# 5 Define a clear color scheme so it is easy to customize
+# 6 Allow different arguments for each classes like
+#   eg: for line p0 p1, p0 and vector (p1-p0)
+#       raising exceptions when incomplete
+# 7 Use correct words, normal is not realy a normal
+#   but a perpendicular
+# May be hard code more shapes ?
+# Fine tuned text styles with shadows and surronding boxes / backgrounds
+# Extending tests to hdr screens, ultra wide ones and so on
+# Circular handle, handle styling (only border, filling ...)
+
+# Keep point 3 in mind while doing this, to keep it simple and easy to use
+# Take inspiration from other's feed back systems, talk to other devs
+# and find who actually work on bgl future for 2.8 release
 
 
 class Gl():
@@ -558,7 +587,12 @@ class FeedbackPanel():
 
 
 class Manipulator():
-
+    """
+        Manipulator base class to derive other
+        handle keyboard and modal events
+        provide convenient funcs including getter and setter for datablock values
+        store reference of base object, datablock and manipulator
+    """
     keyboard_ascii = {
             ".", ",", "-", "+", "1", "2", "3",
             "4", "5", "6", "7", "8", "9", "0",
@@ -592,23 +626,27 @@ class Manipulator():
         self.length_entered = ""
         self.line_pos = 0
         args = (self, context)
-        self.force_modal_exit = False
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
 
     @classmethod
     def poll(cls, context):
         """
-            Allow manipulator disable
-            handle will not show
+            Allow manipulator enable/disable
+            in given context
+            handles will not show
         """
         return True
 
     def exit(self):
+        """
+            Modal exit, DONT EVEN TRY TO OVERRIDE
+        """
         # print("Manipulator.exit() %s" % (type(self).__name__))
         if self._handle is not None:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
         self._handle = None
 
+    # Mouse event handlers, MUST be overriden
     def mouse_press(self, context, event):
         """
             Manipulators must implement
@@ -633,6 +671,7 @@ class Manipulator():
         """
         raise NotImplementedError
 
+    # Keyboard event handlers, MAY be overriden
     def keyboard_done(self, context, event, value):
         """
             Manipulators may implement
@@ -665,11 +704,18 @@ class Manipulator():
         return
 
     def undo(self, context, event):
+        """
+            Manipulators may implement
+            undo event (CTRL+Z)
+        """
         return False
 
+    # Internal, do not override unless you realy
+    # realy realy deeply know what you are doing
     def keyboard_eval(self, context, event):
         """
             evaluate keyboard entry while typing
+            do not override this one
         """
         c = event.ascii
         if c:
@@ -710,15 +756,12 @@ class Manipulator():
         return True
 
     def modal(self, context, event):
-
+        """
+            Modal handler
+            handle mouse, and keyboard events
+            enable and disable feedback
+        """
         # print("Manipulator modal:%s %s" % (event.value, event.type))
-        if self.force_modal_exit:
-            self.force_modal_exit = False
-            if self.keyboard_input_active:
-                self.keyboard_input_active = False
-                self.keyboard_cancel(context, event)
-            self.feedback.disable()
-            return True
 
         if event.type == 'MOUSEMOVE':
             return self.mouse_move(context, event)
@@ -783,6 +826,9 @@ class Manipulator():
         return False
 
     def mouse_position(self, event):
+        """
+            store mouse position in a 2d Vector
+        """
         self.mouse_pos.x, self.mouse_pos.y = event.mouse_region_x, event.mouse_region_y
 
     def get_pos3d(self, context):
@@ -803,6 +849,9 @@ class Manipulator():
         return pt
 
     def get_value(self, data, attr, index=-1):
+        """
+            Datablock value getter with index support
+        """
         try:
             if index > -1:
                 return getattr(data, attr)[index]
@@ -812,6 +861,9 @@ class Manipulator():
             return 0
 
     def set_value(self, context, data, attr, value, index=-1):
+        """
+            Datablock value setter with index support
+        """
         try:
             if self.get_value(data, attr, index) != value:
                 # switch context so unselected object may be manipulable too
@@ -874,13 +926,18 @@ class Manipulator():
         self._move(self.o, axis, value)
 
 
+# OUT OF ORDER
 class SnapPointManipulator(Manipulator):
     """
         np_station based snap manipulator
         dosent update anything by itself.
         NOTE : currently out of order
+        and disabled in __init__
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
+
+        raise NotImplementedError
+
         self.handle = SquareHandle(handle_size, 1.2 * arrow_size, selectable=True)
         Manipulator.__init__(self, context, o, datablock, manipulator)
 
@@ -937,11 +994,16 @@ gl_pts3d = []
 
 class WallSnapManipulator(Manipulator):
     """
-        np_station based snap manipulator
+        np_station snap inspired manipulator
+        Use prop1_name as string part index
+        Use prop2_name as string identifier height property for placeholders
 
-        Use prop2_name as string identifier
-        Use p1 and p2 as number identifiers
+        Misnamed as it work for all line based archipack's
+        primitives, currently wall and fences,
+        but may also work with stairs (sharing same data structure)
 
+        @TODO:
+            handle reorientation of curved segments
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         self.placeholder_part1 = GlPolygon((0.5, 0, 0, 0.2))
@@ -983,10 +1045,10 @@ class WallSnapManipulator(Manipulator):
                 p0, right, side, normal = d.parts[idx - 1].manipulators[2].get_pts(self.o.matrix_world)
                 gl_pts3d[0] = p0
             # enable placeholders drawing
-            self.draw_placeholders = True
             snap_point(takeloc, self.sp_draw, self.sp_callback,
                 constraint_axis=(True, True, False))
             return True
+
         return False
 
     def mouse_release(self, context, event):
@@ -1008,8 +1070,6 @@ class WallSnapManipulator(Manipulator):
             self.handle.active = False
 
             if state == 'SUCCESS':
-
-                # self.force_modal_exit = True
 
                 self.o.select = True
                 # apply changes to wall
@@ -1082,6 +1142,7 @@ class WallSnapManipulator(Manipulator):
         if self.o is None:
             return
         z = self.get_value(self.datablock, self.manipulator.prop2_name)
+        print("z:%s, type:%s prop:%s" % (z, type(self.datablock).__name__, self.manipulator.prop2_name))
         p0 = gl_pts3d[1] + sp.delta
         p1 = gl_pts3d[2]
         self.placeholder_part1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
@@ -1119,9 +1180,9 @@ class WallSnapManipulator(Manipulator):
 
 
 class CounterManipulator(Manipulator):
-
     """
-        increase or decrease an integer step by step on click
+        increase or decrease an integer step by step
+        right on click to prevent misuse
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         self.handle_left = TriHandle(handle_size, arrow_size, selectable=True)
@@ -1275,10 +1336,20 @@ class SizeManipulator(Manipulator):
 
 
 class SizeLocationManipulator(SizeManipulator):
+    """
+        Handle resizing by any of the boundaries
+        of objects with centered pivots
+        so when size change, object should move of the
+        half of the change in the direction of change.
+
+        Also take care of moving linked objects too
+        Changing size is not necessary as link does
+        allredy handle this and childs panels are
+        updated by base object.
+    """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
         self.handle_left.selectable = True
-        # self.label.label = 'SL '
 
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
@@ -1360,7 +1431,10 @@ class SizeLocationManipulator(SizeManipulator):
 
 
 class DeltaLocationManipulator(SizeManipulator):
-
+    """
+        Move a child window or door in wall segment
+        not limited to this by the way
+    """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
         self.label.label = 'DL '
@@ -1425,9 +1499,8 @@ class DeltaLocationManipulator(SizeManipulator):
 
 class DumbSizeManipulator(SizeManipulator):
     """
-        Show size while not being editable
+        Show a size while not being editable
     """
-
     def __init__(self, context, o, datablock, manipulator, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
         self.handle_right.selectable = False
@@ -1691,9 +1764,9 @@ class ArcAngleManipulator(Manipulator):
         label_r_value = self.arc.r
         if self.keyboard_input_active:
             if self.value_type == 'LENGTH':
-                label_a_value = self.label_value
-            else:
                 label_r_value = self.label_value
+            else:
+                label_a_value = self.label_value
         self.label_a.set_pos(context, label_a_value, self.arc.lerp(0.5), -self.line_0.v)
         self.label_r.set_pos(context, label_r_value, self.line_0.lerp(0.5), self.line_0.v)
         self.arc.draw(context)
@@ -1708,6 +1781,12 @@ class ArcAngleManipulator(Manipulator):
 
 
 class ArcAngleRadiusManipulator(ArcAngleManipulator):
+    """
+        Manipulate angle and radius of an arc
+        when angle < 0 the arc center is on the left part of the circle
+        when angle > 0 the arc center is on the right part of the circle
+        bound to [-pi, pi]
+    """
 
     def __init__(self, context, o, datablock, manipulator, handle_size):
         ArcAngleManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
@@ -1814,9 +1893,9 @@ register_manipulator('WALL_SNAP', WallSnapManipulator)
 class archipack_manipulator(PropertyGroup):
     """
         A property group to add to manipulable objects
-        type: type of manipulator
+        type_key: type of manipulator
         prop1_name = the property name of object to modify
-        prop2_name = another property name of object to modify (angle and radius)
+        prop2_name = another property name of object to modify (eg: angle and radius)
         p0, p1, p2 3d Vectors as base points to represent manipulators on screen
         normal Vector normal of plane on with draw manipulator
     """
@@ -1824,7 +1903,7 @@ class archipack_manipulator(PropertyGroup):
 
     # How 3d points are stored in manipulators ?
     # SIZE = 2 absolute positionned and a scaling vector
-    # RADIUS = 1 absolute positionned and 2 relatives
+    # RADIUS = 1 absolute positionned (center) and 2 relatives (sides)
     # POLYGON = 2 absolute positionned and a relative vector (for rect polygons)
 
     pts_mode = StringProperty(default='SIZE')
@@ -1833,12 +1912,26 @@ class archipack_manipulator(PropertyGroup):
     p0 = FloatVectorProperty(subtype='XYZ')
     p1 = FloatVectorProperty(subtype='XYZ')
     p2 = FloatVectorProperty(subtype='XYZ')
+    # allow orientation of manipulators by default on xy plane,
+    # but may be used to constrain heights on local object space
     normal = FloatVectorProperty(subtype='XYZ', default=(0, 0, 1))
 
-    def set_pts(self, pts):
+    def set_pts(self, pts, normal=None):
+        """
+            set 3d location of gl points (in object space)
+            pts: array of 3 vectors 3d
+            normal: optionnal vector 3d default to Z axis
+        """
         self.p0, self.p1, self.p2 = pts
+        if normal is not None:
+            self.normal = normal
 
     def get_pts(self, tM):
+        """
+            convert points from local to world absolute
+            to draw them at the right place
+            tM : object's world matrix
+        """
         rM = tM.to_3x3()
         if self.pts_mode in ['SIZE', 'POLYGON']:
             return tM * self.p0, tM * self.p1, self.p2, rM * self.normal
@@ -1856,13 +1949,14 @@ class archipack_manipulator(PropertyGroup):
 
         if self.type_key not in manipulators_class_lookup.keys() or \
                 not manipulators_class_lookup[self.type_key].poll(context):
-            # RuntimeError is overkill here
-            # Silentely ignore allow skipping manipulators when deps as not meet
+            # RuntimeError is overkill but may be enabled for debug purposes
+            # Silentely ignore allow skipping manipulators if / when deps as not meet
             # manip stack will simply be filled with None objects
-            return None
             # raise RuntimeError("Manipulator of type {} not found".format(self.type_key))
+            return None
 
         m = manipulators_class_lookup[self.type_key](context, o, datablock, self, handle_size)
+        # points storage model as described upside
         self.pts_mode = m.pts_mode
         return m
 
@@ -1876,7 +1970,7 @@ bpy.utils.register_class(archipack_manipulator)
 # collisions between many objects being in
 # manipulate mode (at create time)
 # use object names as loose keys
-# NOTE : use app.drivers to reset all before file load
+# NOTE : use app.drivers to reset before file load
 manip_stack = {}
 
 
@@ -1950,7 +2044,7 @@ class Manipulable():
     manipulate_mode = BoolProperty(
             default=False,
             options={'SKIP_SAVE'},
-            description="Flag to disable manipulators on click"
+            description="Flag manipulation state so we are able to toggle"
             )
 
     def manipulable_disable(self, context):
@@ -1992,6 +2086,9 @@ class Manipulable():
     def manipulable_modal(self, context, event):
         """
             call in operator modal()
+            should not be overriden
+            as it provide all needed
+            functionnality out of the box
         """
         # setup again when manipulators type change
         if self.manipulable_refresh:
@@ -2003,6 +2100,16 @@ class Manipulable():
 
         # clean up manipulator on delete
         if event.type in {'X'}:
+            # @TODO:
+            # for doors and windows, seek and destroy holes object if any
+            # a dedicated delete method into those objects may be an option ?
+            # A type check is required any way we choose
+            #
+            # Time for a generic archipack's datablock getter / filter into utils
+            #
+            # May also be implemented into nearly hidden "reference point"
+            # to delete / duplicate / link duplicate / unlink of
+            # a complete set of wall, doors and windows at once
             self.manipulable_disable(context)
 
             bpy.ops.object.delete('INVOKE_DEFAULT', use_global=False)
@@ -2010,6 +2117,8 @@ class Manipulable():
 
         for manipulator in self.manip_stack:
             # manipulator should return false on left mouse release
+            # so proper release handler is called
+            # and return true to call manipulate when required
             # print("manipulator:%s" % manipulator)
             if manipulator is not None and manipulator.modal(context, event):
                 self.manipulable_manipulate(context, event, manipulator)

@@ -200,14 +200,14 @@ class WallGenerator():
 
             if type(wall).__name__ == "StraightWall":
                 # segment length
-                manipulators[1].type = 'SIZE'
+                manipulators[1].type_key = 'SIZE'
                 manipulators[1].prop1_name = "length"
                 manipulators[1].set_pts([p0, p1, (1, 0, 0)])
             else:
                 # segment radius + angle
                 v0 = (wall.lerp(0) - wall.c).to_3d()
                 v1 = (wall.lerp(1) - wall.c).to_3d()
-                manipulators[1].type = 'ARC_ANGLE_RADIUS'
+                manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
                 manipulators[1].prop1_name = "da"
                 manipulators[1].prop2_name = "radius"
                 manipulators[1].set_pts([wall.c.to_3d(), v0, v1])
@@ -552,8 +552,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
     def from_lines(self, lines):
         """
-            setup length, a0, radius and da from Lines and arc classes in an array
+            TODO:
+                look at fence implementation for this part
         """
+        raise NotImplementedError
+        
         for i, line in enumerate(lines):
             if type(line).__name__ == 'Line':
                 self.parts[i].a0 = line.angle
@@ -640,7 +643,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             g.segs[-1].lerp(1.1 + 0.5 / g.segs[-1].length).to_3d(), (-1, 0, 0)])
 
         # Height
-        self.manipulators[2].set_pts([(0, 0, 0), (0, 0, self.z), (-1, 0, 0)])
+        self.manipulators[2].set_pts([(0, 0, 0), (0, 0, self.z), (-1, 0, 0)], normal=g.segs[0].straight(1, 0).v.to_3d())
 
         if self.realtime:
             # update child location and size
@@ -648,7 +651,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             # store gl points
             self.update_childs(context, o, g)
         else:
-            bpy.ops.archipack.wall2_delay_update(name=o.name)
+            bpy.ops.archipack.wall2_throttle_update(name=o.name)
 
         modif = o.modifiers.get('Wall')
         if modif is None:
@@ -675,7 +678,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         active.select = True
         context.scene.objects.active = active
 
-    # manipulable
+    # manipulable children objects like windows and doors
     def child_partition(self, array, begin, end):
         pivot = begin
         for i in range(begin + 1, end + 1):
@@ -759,7 +762,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
         for child in relocate:
             name, wall_idx, pos, flip = child
             self.add_child(name, wall_idx, pos, flip)
-
+            
+        # add a dumb size from last child to end of wall segment
         for i in range(sum(wall_with_childs)):
             m = self.childs_manipulators.add()
             m.type_key = 'DUMB_SIZE'
@@ -823,27 +827,29 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 if child.wall_idx == wall_idx:
                     c, d = child.get_child(context)
                     if d is not None:
+                        # child is either a window or a door
                         wall_has_childs = True
                         dt = 0.5 * d.x / wall.length
                         pt = (itM * c.location).to_2d()
                         res, y, t = wall.point_sur_segment(pt)
                         child.pos = (wall.length * t, y, child.pos.z)
                         p1 = wall.lerp(t - dt)
-                        # dumb
+                        # dumb size between childs
                         self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5, 0, 0)])
                         m_idx += 1
-                        # delta loc
                         x, y = 0.5 * d.x, 0.5 * d.y
                         if child.flip:
                             side = -1
                         else:
                             side = 1
+                        # delta loc
                         child.manipulators[0].set_pts([(-x, side * -y, 0), (x, side * -y, 0), (side, 0, 0)])
                         # loc size
                         child.manipulators[1].set_pts([(-x, side * -y, 0), (x, side * -y, 0), (0.5 * side, 0, 0)])
                         p0 = wall.lerp(t + dt)
             p1 = wall.lerp(1)
             if wall_has_childs:
+                # dub size after all childs
                 self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5, 0, 0)])
                 m_idx += 1
 
@@ -852,13 +858,14 @@ class archipack_wall2(Manipulable, PropertyGroup):
             setup child manipulators
         """
         # print("manipulate_childs")
-
         for wall_idx in range(self.n_parts):
             for child in self.childs:
                 if child.wall_idx == wall_idx:
                     c, d = child.get_child(context)
                     if d is not None:
+                        # delta loc
                         self.manip_stack.append(child.manipulators[0].setup(context, c, d))
+                        # loc size
                         self.manip_stack.append(child.manipulators[1].setup(context, c, d))
 
     def manipulable_manipulate(self, context, event=None, manipulator=None):
@@ -880,8 +887,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
                     child.pos = (t * wall.length, d, child.pos.z)
             if not self.realtime:
                 self.update_childs(context, o, g)
-            # trigger update by hand as those manipulations
-            # dosen't affect wall data
+            # trigger wall's update by hand as those manipulations
+            # dosen't affect wall data 
+            # NOTE: update manipulators should be sufficient here
             self.update(context)
 
     def manipulable_release(self, context):
@@ -912,10 +920,16 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
-
+            
+            # height as per segment will be here when done 
+            
+        # TODO:
+        # add last segment snap manipulator at end of the segment
+        
         # width + counter
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
+        
         # dumb between childs
         for m in self.childs_manipulators:
             self.manip_stack.append(m.setup(context, o, self))
@@ -943,19 +957,21 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.setup_childs(o, g)
         # store gl points
         self.update_childs(context, o, g)
-        self.manipulable_release(context)
+        # dont do anything ..
+        # self.manipulable_release(context)
         self.manipulable_setup(context)
         self.manipulate_mode = True
         return True
 
 
+# Update throttle (smell hack here)
 # use 2 globals to store a timer and state of update_action
 update_timer = None
 update_timer_updating = False
 
 
-class ARCHIPACK_OT_wall2_delay_update(Operator):
-    bl_idname = "archipack.wall2_delay_update"
+class ARCHIPACK_OT_wall2_throttle_update(Operator):
+    bl_idname = "archipack.wall2_throttle_update"
     bl_label = "Update childs with a delay"
 
     name = StringProperty()
@@ -1014,7 +1030,8 @@ class ARCHIPACK_PT_wall2(Panel):
             return
         layout = self.layout
         row = layout.row(align=True)
-        row.operator("archipack.wall2_manipulate")
+        row.operator("archipack.wall2_manipulate", icon='HAND')
+        row = layout.row(align=True)
         row.prop(prop, 'realtime')
         box = layout.box()
         box.prop(prop, 'n_parts')
@@ -1404,4 +1421,4 @@ bpy.utils.register_class(ARCHIPACK_OT_wall2_draw)
 bpy.utils.register_class(ARCHIPACK_OT_wall2_insert)
 bpy.utils.register_class(ARCHIPACK_OT_wall2_remove)
 bpy.utils.register_class(ARCHIPACK_OT_wall2_manipulate)
-bpy.utils.register_class(ARCHIPACK_OT_wall2_delay_update)
+bpy.utils.register_class(ARCHIPACK_OT_wall2_throttle_update)
