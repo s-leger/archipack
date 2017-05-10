@@ -1216,7 +1216,7 @@ class archipack_fence(Manipulable, PropertyGroup):
         # user defined subs
         if self.user_defined_subs_enable:
             user_def_subs = context.scene.objects.get(self.user_defined_subs)
-            if user_def_subs is not None and user_def_subs.type_key == 'MESH':
+            if user_def_subs is not None and user_def_subs.type == 'MESH':
                 g.setup_user_defined_post(user_def_subs, self.subs_x, self.subs_y, self.subs_z)
 
         if self.subs:

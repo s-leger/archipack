@@ -955,7 +955,7 @@ class StairGenerator():
                 p0 = (stair.lerp(0) - c).to_3d()
                 p1 = (stair.lerp(1) - c).to_3d()
                 manipulator.set_pts([(c.x, c.y, stair.top), p0, p1])
-                manipulator.type = 'ARC_ANGLE_RADIUS'
+                manipulator.type_key = 'ARC_ANGLE_RADIUS'
                 manipulator.prop1_name = 'da'
                 manipulator.prop2_name = 'radius'
             else:
@@ -966,7 +966,7 @@ class StairGenerator():
                 v0 = stair.lerp(0)
                 v1 = stair.lerp(1)
                 manipulator.set_pts([(v0.x, v0.y, stair.top), (v1.x, v1.y, stair.top), (side, 0, 0)])
-                manipulator.type = 'SIZE'
+                manipulator.type_key = 'SIZE'
                 manipulator.prop1_name = 'length'
 
             for i in range(stair.n_step):
@@ -1044,7 +1044,7 @@ class StairGenerator():
             x, y = -n.v.normalized()
             tM = Matrix([
                 [x, y, 0, n.p.x],
-                [y, -x, 0, n.p.y],
+                [-y, x, 0, n.p.y],
                 [0, 0, 1, z0 + post_alt],
                 [0, 0, 0, 1]
             ])
@@ -1063,10 +1063,10 @@ class StairGenerator():
         dx = post_x * vn
         dy = post_y * Vector((vn.y, -vn.x))
         oy = sub_offset_x * vn
-        x0, y0 = n.p + dx + dy + oy
-        x1, y1 = n.p + dx - dy + oy
-        x2, y2 = n.p - dx - dy + oy
-        x3, y3 = n.p - dx + dy + oy
+        x0, y0 = n.p - dx + dy + oy
+        x1, y1 = n.p - dx - dy + oy
+        x2, y2 = n.p + dx - dy + oy
+        x3, y3 = n.p + dx + dy + oy
         f = len(verts)
         verts.extend([(x0, y0, z0), (x0, y0, z3),
                     (x1, y1, z1), (x1, y1, z4),
@@ -2305,7 +2305,7 @@ class archipack_stair(Manipulable, PropertyGroup):
         for i in range(len(self.parts), self.n_parts):
             p = self.parts.add()
             m = p.manipulators.add()
-            m.type = 'SIZE'
+            m.type_key = 'SIZE'
             m.prop1_name = 'length'
 
     def update(self, context, manipulable_refresh=False):
@@ -2474,10 +2474,10 @@ class archipack_stair(Manipulable, PropertyGroup):
         elif self.handrail_profil == 'SQUARE':
             x = 0.5 * self.handrail_x
             y = self.handrail_y
-            handrail = [Vector((-x, 0)), Vector((-x, y)), Vector((x, y)), Vector((x, 0))]
+            handrail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
         elif self.handrail_profil == 'CIRCLE':
             r = self.handrail_radius
-            handrail = [Vector((r * sin(0.1 * a * pi), r * (0.5 + cos(0.1 * a * pi)))) for a in range(0, 20)]
+            handrail = [Vector((r * sin(0.1 * -a * pi), r * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
 
         if self.right_handrail:
             g.make_profile(handrail, int(self.idmat_handrail), "RIGHT", self.handrail_slice_right,

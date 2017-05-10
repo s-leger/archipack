@@ -42,8 +42,6 @@ from .archipack_door_panel import ARCHIPACK_OT_select_parent
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset
 
-BATTUE = 0.01
-
 
 def update(self, context):
     self.update(context)
@@ -636,6 +634,11 @@ class archipack_window(Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
             )
+    flip = BoolProperty(
+            default=False,
+            update=update,
+            description='flip outside and outside material of hole'
+            )
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
@@ -723,6 +726,11 @@ class archipack_window(Manipulable, PropertyGroup):
         else:
             x0 = -min(self.frame_x - 0.001, self.out_frame_y + self.out_frame_offset)
 
+        outside_mat = 0
+        inside_mat = 1
+        if self.flip:
+            outside_mat, inside_mat = inside_mat, outside_mat
+
         y_outside = -y_inside           # inside wall
 
         return WindowPanel(
@@ -730,7 +738,7 @@ class archipack_window(Manipulable, PropertyGroup):
             [1, 1, 0, 0],     # x index
             [-x1, x0],
             [y_outside, y0, y0, y_inside],
-            [0, 0, 1],     # material index
+            [outside_mat, outside_mat, inside_mat],     # material index
             side_cap_front=3,     # cap index
             side_cap_back=0
             )

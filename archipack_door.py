@@ -30,7 +30,7 @@ import bpy
 # noinspection PyUnresolvedReferences
 from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
 from bpy.props import (
-    FloatProperty, IntProperty, CollectionProperty, 
+    FloatProperty, IntProperty, CollectionProperty,
     EnumProperty, BoolProperty, StringProperty
     )
 from mathutils import Vector
@@ -198,12 +198,17 @@ class archipack_door(Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
             )
+    flip = BoolProperty(
+            default=False,
+            update=update,
+            description='flip outside and outside material of hole'
+            )
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
             update=update
             )
-            
+
     @property
     def frame(self):
 
@@ -245,12 +250,16 @@ class archipack_door(Manipulable, PropertyGroup):
         y0 = self.y / 2 + self.hole_margin
         y1 = -y0
         y2 = 0
+        outside_mat = 0
+        inside_mat = 1
+        if self.flip:
+            outside_mat, inside_mat = inside_mat, outside_mat
         return DoorPanel(
             False,       # closed
             [0, 0, 0],  # x index
             [x0],
             [y1, y2, y0],
-            [0, 1, 1],  # material index
+            [outside_mat, inside_mat, inside_mat],  # material index
             closed_path=True,
             side_cap_front=2,
             side_cap_back=0     # cap index
@@ -949,9 +958,9 @@ class ARCHIPACK_OT_door_manipulate(Operator):
 
 class ARCHIPACK_MT_door_preset(Menu):
     bl_label = "Door Styles"
-    preset_subdir = "archipack_door" # you might wanna change this
-    preset_operator = "script.execute_preset" # but not this
-    draw = Menu.draw_preset # or that
+    preset_subdir = "archipack_door"
+    preset_operator = "script.execute_preset"
+    draw = Menu.draw_preset
 
 
 class ARCHIPACK_OT_door_preset(ArchipackPreset, Operator):
