@@ -672,7 +672,6 @@ class archipack_fence(Manipulable, PropertyGroup):
     n_parts = IntProperty(
             name="parts",
             min=1,
-            max=512,
             default=1, update=update_manipulators
             )
     x_offset = FloatProperty(
@@ -1163,7 +1162,8 @@ class archipack_fence(Manipulable, PropertyGroup):
             p.a0 = da
             a0 += da
             p0 = p1
-
+            
+        
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
