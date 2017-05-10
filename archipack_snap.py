@@ -29,14 +29,30 @@
         from .archipack_snap import snap_point
 
         snap_point(takeloc, draw_callback, action_callback, constraint_axis)
-        
+
+        arguments:
+
+        takeloc Vector3d location of point to snap
+
+        constraint_axis boolean tuple for each axis
+              eg: (True, True, False) to constrtaint to xy plane
+
         draw_callback(context, sp)
+            sp.takeloc
+            sp.placeloc
+            sp.delta
+
         action_callback(context, event, state, sp)
-            state in SUCCESS CANCEL
-        
-        sp.takeloc
-        sp.placeloc
-        sp.delta
+            state in {'SUCCESS', 'CANCEL'}
+            sp.takeloc
+            sp.placeloc
+            sp.delta
+
+        with 3d Vectors
+        - delta     = placeloc - takeloc
+        - takeloc
+        - placeloc
+
 """
 
 import bpy
@@ -56,15 +72,20 @@ class SnapStore:
     constraint_axis = (True, True, False)
 
 
-def snap_point(takeloc, draw, callback, constraint_axis=(True, True, False)):
+def snap_point(takeloc, draw, callback, constraint_axis=(True, True, False), mode='OBJECT'):
     """
-        Invoke snap_point
+        Invoke op from outside world
+        in a convenient importable function
     """
     SnapStore.draw = draw
     SnapStore.callback = callback
     SnapStore.constraint_axis = constraint_axis
     SnapStore.takeloc = takeloc
     SnapStore.placeloc = takeloc
+    # @NOTE: unused mode var to switch between OBJECT and EDIT mode
+    # for ArchipackSnapBase to be able to handle both modes
+    # must implements corresponding helper create and delete actions
+    SnapStore.mode = mode
     bpy.ops.archipack.snap('INVOKE_DEFAULT')
 
 
@@ -73,6 +94,13 @@ class ArchipackSnapBase():
         Helper class for snap Operators
         store and restore context
         create and destroy helper
+        install and remove a draw_callback working while snapping
+
+        store and provide access to 3d Vectors
+        in draw_callback and action_callback
+        - delta     = placeloc - takeloc
+        - takeloc
+        - placeloc
     """
     def __init__(self):
         self.act = None
@@ -114,6 +142,7 @@ class ArchipackSnapBase():
         """
             Create a helper with fake user
             or find older one in bpy data and relink to scene
+            currently only support OBJECT mode
         """
         helper_idx = bpy.data.objects.find('Archipack_snap_helper')
         if helper_idx > -1:
@@ -134,6 +163,7 @@ class ArchipackSnapBase():
     def destroy_helper(self, context):
         """
             Unlink helper
+            currently only support OBJECT mode
         """
         if SnapStore.helper is not None:
             context.scene.objects.unlink(SnapStore.helper)
@@ -164,6 +194,8 @@ class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
 
     def modal(self, context, event):
         context.area.tag_redraw()
+        # NOTE: this part only run after transform LEFTMOUSE RELEASE
+        # or with ESC and RIGHTMOUSE
         if event.type in ('ESC', 'RIGHTMOUSE'):
             SnapStore.callback(context, event, 'CANCEL', self)
         else:
