@@ -164,6 +164,7 @@ class FenceGenerator():
         f0 = self.segs[0]
         z = 0
         for i, f in enumerate(self.segs):
+            f.line = f.offset(0)
             if f.dist > 0:
                 f.t_start = f.dist / self.length
             else:
@@ -263,7 +264,7 @@ class FenceGenerator():
             x, y = -n.v.normalized()
             tM = Matrix([
                 [x, y, 0, n.p.x],
-                [-y, x, 0, n.p.y],
+                [y, -x, 0, n.p.y],
                 [0, 0, 1, zl + post_alt],
                 [0, 0, 0, 1]
             ])
@@ -350,7 +351,7 @@ class FenceGenerator():
     def make_subs(self, x, y, z, post_y, altitude,
             sub_spacing, sub_offset_x, mat, verts, faces, matids, uvs):
 
-        self.set_offset(sub_offset_x)
+        # self.set_offset(sub_offset_x)
 
         t_post = (0.5 * post_y - y) / self.length
         t_spacing = sub_spacing / self.length
@@ -376,12 +377,12 @@ class FenceGenerator():
                     t = (t_s - f.t_start) / f.t_diff
                     n = f.line.normal(t)
                     post = (n, f.dz / f.length, f.z0 + f.dz * t)
-                    self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
+                    self.get_post(post, x, y, z, altitude, sub_offset_x, mat, verts, faces, matids, uvs)
                 s += 1
 
     def make_post(self, x, y, z, altitude, x_offset, mat, verts, faces, matids, uvs):
 
-        self.set_offset(x_offset)
+        # self.set_offset(x_offset)
 
         for segment in self.segments:
             t_step = segment.t_step
@@ -396,18 +397,18 @@ class FenceGenerator():
                 t = (t_cur - f.t_start) / f.t_diff
                 n = f.line.normal(t)
                 post = (n, f.dz / f.length, f.z0 + f.dz * t)
-                self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
+                self.get_post(post, x, y, z, altitude, x_offset, mat, verts, faces, matids, uvs)
                 s += 1
             if segment.i_end + 1 == len(self.segs):
                 f = self.segs[segment.i_end]
                 n = f.line.normal(1)
                 post = (n, f.dz / f.length, f.z0 + f.dz)
-                self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
+                self.get_post(post, x, y, z, altitude, x_offset, mat, verts, faces, matids, uvs)
 
     def make_panels(self, x, z, post_y, altitude, panel_dist,
             sub_offset_x, idmat, verts, faces, matids, uvs):
 
-        self.set_offset(sub_offset_x)
+        # self.set_offset(sub_offset_x)
 
         t_post = (0.5 * post_y + panel_dist) / self.length
         for segment in self.segments:
@@ -442,13 +443,13 @@ class FenceGenerator():
                 t = (t_end - f.t_start) / f.t_diff
                 n = f.line.normal(t)
                 subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
-                self.get_panel(subs, altitude, x, z, 0, idmat, verts, faces, matids, uvs)
+                self.get_panel(subs, altitude, x, z, sub_offset_x, idmat, verts, faces, matids, uvs)
                 s += 1
 
     def make_profile(self, profile, idmat,
             x_offset, z_offset, extend, verts, faces, matids, uvs):
 
-        self.set_offset(x_offset)
+        # self.set_offset(x_offset)
 
         n_fences = len(self.segs) - 1
 
@@ -462,20 +463,24 @@ class FenceGenerator():
         # first step
         if extend != 0:
             t = -extend / self.segs[0].line.length
-            n = f.line.normal(t)
+            n = f.line.sized_normal(t, 1)
+            # n.p = f.lerp(x_offset)
             sections.append((n, f.dz / f.length, f.z0 + f.dz * t))
 
         # add first section
-        n = f.line.normal(0)
+        n = f.line.sized_normal(0, 1)
+        # n.p = f.lerp(x_offset)
         sections.append((n, f.dz / f.length, f.z0))
 
         for s, f in enumerate(self.segs):
-            n = f.line.normal(1)
+            n = f.line.sized_normal(1, 1)
+            # n.p = f.lerp(x_offset)
             sections.append((n, f.dz / f.length, f.z0 + f.dz))
 
         if extend != 0:
             t = 1 + extend / self.segs[-1].line.length
-            n = f.line.normal(t)
+            n = f.line.sized_normal(t, 1)
+            # n.p = f.lerp(x_offset)
             sections.append((n, f.dz / f.length, f.z0 + f.dz * t))
 
         user_path_verts = len(sections)
@@ -496,7 +501,7 @@ class FenceGenerator():
                 dir = (v0 + v1).normalized()
                 scale = 1 / cos(0.5 * acos(min(1, max(-1, v0 * v1))))
                 for p in profile:
-                    x, y = n.p + scale * p.x * dir
+                    x, y = n.p + scale * (x_offset + p.x) * dir
                     z = zl + p.y + z_offset
                     verts.append((x, y, z))
                 if s > 0:
