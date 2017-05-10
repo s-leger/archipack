@@ -364,7 +364,7 @@ class FenceGenerator():
             if n_sub > 0:
                 t_sub = s_sub / n_sub
             else:
-                t_sub = 1 / self.line.length
+                t_sub = 1
             i = segment.i_start
             while s < segment.n_step:
                 t_cur = t_start + s * t_step
