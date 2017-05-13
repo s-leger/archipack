@@ -1984,7 +1984,7 @@ def empty_stack(dummy):
         for m in manip_stack[key]:
             if m is not None:
                 m.exit()
-        del manip_stack[key]
+    manip_stack = {}
 
 
 def exit_stack(key):
@@ -1997,16 +1997,19 @@ def exit_stack(key):
             if m is not None:
                 m.exit()
         del manip_stack[key]
-
+    
 
 def clean_stack():
     """
         remove references to renamed or deleted objects from stack
     """
     global manip_stack
+    key_to_remove = []
     for key in manip_stack.keys():
         if bpy.data.objects.find(key) is None:
-            exit_stack(key)
+            key_to_remove.append(key)
+    for key in key_to_remove:
+        exit_stack(key)
 
 
 def get_stack(key):
