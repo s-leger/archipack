@@ -1087,7 +1087,7 @@ class ARCHIPACK_OT_wall2(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     auto_manipulate = BoolProperty(default=True)
-
+    
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -1249,6 +1249,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 ('CTRL', 'Snap'),
                 ('MMBTN', 'Constraint to axis'),
                 ('X Y', 'Constraint to axis'),
+                ('BACK_SPACE', 'Remove part'),
                 ('RIGHTCLICK or ESC', 'exit')
                 ])
 
@@ -1267,7 +1268,17 @@ class ARCHIPACK_OT_wall2_draw(Operator):
 
                 snap_point(takeloc, self.sp_draw, self.sp_callback, constraint_axis=(True, True, False))
             return {'RUNNING_MODAL'}
-
+            
+        if event.type in {'BACK_SPACE'} and event.value == 'RELEASE':
+            if self.o is not None:
+                o = self.o                
+                o.select = True
+                context.scene.objects.active = o
+                d = o.data.archipack_wall2[0]
+                if d.n_parts > 1:
+                    d.n_parts -= 1
+                
+            
         if self.state == 'CANCEL' or (event.type in {'ESC', 'RIGHTMOUSE'} and
                 event.value == 'RELEASE'):
 
