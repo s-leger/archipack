@@ -54,9 +54,19 @@ class Fence():
         self.z0 = 0
         self.a0 = 0
 
-    def set_offset(self, offset):
+    def set_offset(self, offset, last=None):
+        """
+            Offset line and compute intersection point between 
+            straight segments
+        """
         self.line = self.offset(offset)
-
+        if last != None:
+            i, p, t = self.line.intersect(last)
+            if type(self).__name__ == 'StraightFence':
+                self.line.p0 = p
+            if type(last).__name__ == 'StraightFence':
+                last.line.p1 = p
+        
     @property
     def t_diff(self):
         return self.t_end - self.t_start
@@ -185,8 +195,8 @@ class FenceGenerator():
                 self.segments.append(segment)
 
             manipulators = self.parts[i].manipulators
-            p0 = f.lerp(0).to_3d()
-            p1 = f.lerp(1).to_3d()
+            p0 = f.p0.to_3d()
+            p1 = f.p1.to_3d()
             # angle from last to current segment
             if i > 0:
                 v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
@@ -200,8 +210,8 @@ class FenceGenerator():
                 manipulators[1].set_pts([p0, p1, (1, 0, 0)])
             else:
                 # segment radius + angle
-                v0 = (f.lerp(0) - f.c).to_3d()
-                v1 = (f.lerp(1) - f.c).to_3d()
+                v0 = (f.p0 - f.c).to_3d()
+                v1 = (f.p1 - f.c).to_3d()
                 manipulators[1].type = 'ARC_ANGLE_RADIUS'
                 manipulators[1].prop1_name = "da"
                 manipulators[1].prop2_name = "radius"

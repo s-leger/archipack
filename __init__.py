@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 2, 1),
+    'version': (1, 2, 2),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -53,13 +53,14 @@ if "bpy" in locals():
     imp.reload(archipack_wall2)
     imp.reload(archipack_fence)
     imp.reload(archipack_wall)
+    imp.reload(archipack_rendering)
     try:
         imp.reload(archipack_polylib)
         HAS_POLYLIB = True
     except:
         HAS_POLYLIB = False
         pass
-    
+
     print("archipack: reload ready")
 else:
     from . import archipack_autoboolean
@@ -69,6 +70,7 @@ else:
     from . import archipack_wall
     from . import archipack_wall2
     from . import archipack_fence
+    from . import archipack_rendering
     try:
         """
             polylib depends on shapely
@@ -80,7 +82,9 @@ else:
         print("archipack: Polylib failed to load, missing shapely ?")
         HAS_POLYLIB = False
         pass
-    
+
+    # from . import archipack_polylib
+
     print("archipack: ready")
 
 # noinspection PyUnresolvedReferences
@@ -217,6 +221,11 @@ class TOOLS_PT_Archipack_Tools(Panel):
         row = box.row(align=True)
         row.operator("archipack.auto_boolean", text="Robust", icon='HAND').interactive = False
         row.operator("archipack.auto_boolean", text="Interactive", icon='AUTO').interactive = True
+        row = layout.row(align=True)
+        box = row.box()
+        box.label("Rendering")
+        row = box.row(align=True)
+        row.operator("archipack.render", icon='RENDER_STILL')
 
 
 class TOOLS_PT_Archipack_Create(Panel):
@@ -246,7 +255,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         row = box.row(align=True)
         row.operator("archipack.fence")
         row.operator("archipack.fence_from_curve", icon='CURVE_DATA')
-        
+
 
 def register():
     global icons_dict
@@ -256,13 +265,13 @@ def register():
         name, ext = os.path.splitext(icon)
         icons_dict.load(name, os.path.join(icons_dir, icon), 'IMAGE')
     bpy.utils.register_module(__name__)
-    
+
 
 def unregister():
     global icons_dict
     iconsLib.remove(icons_dict)
     bpy.utils.unregister_module(__name__)
-    
+
 
 if __name__ == "__main__":
     register()

@@ -73,9 +73,7 @@ from bpy.types import Operator, PropertyGroup
 from bpy.props import StringProperty, FloatProperty, PointerProperty, EnumProperty, IntProperty, BoolProperty
 from bpy.app.handlers import persistent
 from .materialutils import MaterialUtils
-# from .archipack_door import ARCHIPACK_OT_door
-# from .archipack_window import ARCHIPACK_OT_window
-# from .archipack_wall import ARCHIPACK_OT_wall
+from .archipack_manipulator import FeedbackPanel, GlCursorFence, GlCursorArea, GlLine, GlPolyline
 
 # module globals vars dict
 vars_dict = {
@@ -131,7 +129,7 @@ class GlDrawOnScreen():
         bgl.glColor4f(*colour)
         bgl.glLineWidth(width)
         bgl.glBegin(bgl.GL_LINE_STRIP)
-
+    
     def Line(self, x0, y0, x1, y1, colour, width=2, style=bgl.GL_LINE_STIPPLE):
         self._start_line(colour, width=width, style=style)
         bgl.glVertex2f(x0, y0)
@@ -1144,7 +1142,10 @@ class Selectable(object):
         # Material to represent selection on screen
         self.mat = self.build_display_mat("Selected",
                 color=bpy.context.user_preferences.themes[0].view_3d.object_selected)
-        self.gl = GlDrawOnScreen()
+        # self.gl = GlDrawOnScreen()
+        self.cursor_fence = GlCursorFence()
+        self.cursor_area = GlCursorArea()
+        self.feedback = FeedbackPanel()
         self.action = None
         self.store_index = 0
 
@@ -1194,7 +1195,7 @@ class Selectable(object):
         loc = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
                                    Vector((0, 0, 0)), Vector((0, 0, 1)), False)
         x, y, z = self.coordsys.invert * loc
-        return (x, y, z)
+        return Vector((x, y, z))
 
     def _position_2d_from_coord(self, context, coord):
         """ coord given in local input coordsys
@@ -1203,7 +1204,7 @@ class Selectable(object):
         rv3d = context.region_data
         loc = view3d_utils.location_3d_to_region_2d(region, rv3d, self.coordsys.world * coord)
         x, y = loc
-        return (int(x), int(y))
+        return Vector((x, y))
 
     def _contains(self, context, coord, event):
         t = time.time()
@@ -1347,13 +1348,26 @@ class SelectPoints(Selectable):
         self.startPoint = (0, 0)
         self.endPoint = (0, 0)
         self.drag = False
+        self.feedback.instructions(context, "Select Points", "Click & Drag to select points in area",[
+            ('SHIFT', 'deselect'),
+            ('ALT', 'contains'),
+            ('A', 'All'),
+            ('I', 'Inverse'),
+            ('F', 'Create line around selection'),
+            ('ALT+F', 'Create best fit rectangle'),
+            ('R', 'Retrieve selection'),
+            ('S', 'Store selection'),
+            ('ESC or RIGHTMOUSE', 'exit when done')          
+        ])
+        self.feedback.enable()
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
-        self.action = action
+        self.action = action 
         self._draw(context)
         print("SelectPoints.init()")
 
     def complete(self, context):
+        self.feedback.disable()
         self._hide(context)
 
     def keyboard(self, context, event):
@@ -1400,10 +1414,12 @@ class SelectPoints(Selectable):
             return {'FINISHED'}
         elif event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             self.drag = True
+            self.cursor_area.enable()
             self.startPoint = (event.mouse_region_x, event.mouse_region_y)
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
         elif event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
             self.drag = False
+            self.cursor_area.disable()
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
             self.select(context, self.startPoint, event)
         elif event.type == 'MOUSEMOVE':
@@ -1411,23 +1427,13 @@ class SelectPoints(Selectable):
         return {'RUNNING_MODAL'}
 
     def draw_callback(self, _self, context):
-        self.gl.String("Select with left mouse, SHIFT to unselect, drag for areas (crossing), ALT contains",
-                       10, 139, 10, self.gl.explanation_colour)
-        self.gl.String("ESC or right click when done", 10, 126, 10, self.gl.explanation_colour)
-        self.gl.String("A select all / none", 10, 113, 10, self.gl.explanation_colour)
-        self.gl.String("I invert selection", 10, 100, 10, self.gl.explanation_colour)
-        self.gl.String("S store selection", 10, 87, 10, self.gl.explanation_colour)
-        self.gl.String("R retrieve selection", 10, 74, 10, self.gl.explanation_colour)
-        self.gl.String("F fill, alt+F for best fitting rectangle", 10, 61, 10, self.gl.explanation_colour)
-        if self.drag:
-            # x0, y0 = self.startPoint
-            # x1, y1 = self.endPoint
-            self.gl.Border_select(self.startPoint, self.endPoint, self.gl.line_colour)
-            # self.gl.Rectangle(x0, y0, x1, y1, self.gl.line_colour)
-        else:
-            self.gl.Border_cross(context, self.endPoint, self.gl.line_colour)
-
-
+        self.feedback.draw(context)
+        self.cursor_area.set_location(context, self.startPoint, self.endPoint)
+        self.cursor_fence.set_location(context, self.endPoint)
+        self.cursor_area.draw(context)
+        self.cursor_fence.draw(context)
+        
+        
 class SelectLines(Selectable):
 
     def __init__(self, geoms, coordsys):
@@ -1452,6 +1458,17 @@ class SelectLines(Selectable):
         self.startPoint = (0, 0)
         self.endPoint = (0, 0)
         self.drag = False
+        self.feedback.instructions(context, "Select Lines", "Click & Drag to select lines in area",[
+            ('SHIFT', 'deselect'),
+            ('ALT', 'contains'),
+            ('A', 'All'),
+            ('I', 'Inverse'),
+            # ('F', 'Create lines from selection'),
+            ('R', 'Retrieve selection'),
+            ('S', 'Store selection'),
+            ('ESC or RIGHTMOUSE', 'exit when done')          
+        ])
+        self.feedback.enable()
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(
                 self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
@@ -1477,6 +1494,7 @@ class SelectLines(Selectable):
                 resopt = ShapelyOps.optimize(union)
                 result = Io.to_curve(scene, self.coordsys, resopt, 'union')
                 scene.objects.active = result
+        self.feedback.disable()
         print("SelectLines.complete() :%.2f seconds" % (time.time() - t))
 
     def keyboard(self, context, event):
@@ -1502,10 +1520,12 @@ class SelectLines(Selectable):
             return {'FINISHED'}
         elif event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             self.drag = True
+            self.cursor_area.enable()
             self.startPoint = (event.mouse_region_x, event.mouse_region_y)
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
         elif event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
             self.drag = False
+            self.cursor_area.disable()
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
             self.select(context, self.startPoint, event)
         elif event.type == 'MOUSEMOVE':
@@ -1513,6 +1533,12 @@ class SelectLines(Selectable):
         return {'RUNNING_MODAL'}
 
     def draw_callback(self, _self, context):
+        self.feedback.draw(context)
+        self.cursor_area.set_location(context, self.startPoint, self.endPoint)
+        self.cursor_fence.set_location(context, self.endPoint)
+        self.cursor_area.draw(context)
+        self.cursor_fence.draw(context)
+        """
         self.gl.String("Select left mouse, SHIFT unselect, drag areas (crossing), ALT contains",
                 10, 139, 10, self.gl.explanation_colour)
         self.gl.String("ESC or right click when done", 10, 126, 10, self.gl.explanation_colour)
@@ -1524,7 +1550,7 @@ class SelectLines(Selectable):
             self.gl.Border_select(self.startPoint, self.endPoint, self.gl.line_colour)
         else:
             self.gl.Border_cross(context, self.endPoint, self.gl.line_colour)
-
+        """
 
 class SelectPolygons(Selectable):
 
@@ -1542,6 +1568,53 @@ class SelectPolygons(Selectable):
         self.selectMode = True
         self.startPoint = (0, 0)
         self.endPoint = (0, 0)
+        if action in ['select', 'union', 'rectangle']:
+            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                ('SHIFT', 'deselect'),
+                ('ALT', 'contains'),
+                ('A', 'All'),
+                ('I', 'Inverse'),
+                ('B', 'Bigger than current'),
+                # ('F', 'Create  from selection'),
+                ('R', 'Retrieve selection'),
+                ('S', 'Store selection'),
+                ('ESC or RIGHTMOUSE', 'exit when done')          
+            ])
+        elif action == 'wall':
+            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                ('SHIFT', 'deselect'),
+                ('ALT', 'contains'),
+                ('A', 'All'),
+                ('I', 'Inverse'),
+                ('B', 'Bigger than current'),
+                ('R', 'Retrieve selection'),
+                ('S', 'Store selection'),
+                ('ESC or RIGHTMOUSE', 'exit and build wall when done')          
+            ])
+        elif action == 'window':
+            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                ('SHIFT', 'deselect'),
+                ('ALT', 'contains'),
+                ('A', 'All'),
+                ('I', 'Inverse'),
+                ('B', 'Bigger than current'),
+                ('F', 'Create a window from selection'),
+                ('ESC or RIGHTMOUSE', 'exit tool when done')          
+            ])
+        elif action == 'door':
+            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                ('SHIFT', 'deselect'),
+                ('ALT', 'contains'),
+                ('A', 'All'),
+                ('I', 'Inverse'),
+                ('B', 'Bigger than current'),
+                ('F', 'Create a door from selection'),
+                ('ESC or RIGHTMOUSE', 'exit tool when done')          
+            ])
+        self.gl_arc = GlPolyline((1.0, 0.0, 0.0, 1.0), d=2, width=1, style=bgl.GL_LINE_STIPPLE)
+        self.gl_line = GlLine(d=2, width=2, colour=(1.0, 1.0, 1.0, 0.5), style=bgl.GL_LINE_STIPPLE)
+        self.gl_side = GlLine(d=2, width=2, colour=(1.0, 1.0, 1.0, 0.5), style=bgl.GL_LINE_STIPPLE)
+        self.feedback.enable()
         self.drag = False
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(
@@ -1589,52 +1662,55 @@ class SelectPolygons(Selectable):
                 self.ba.none()
                 scene.objects.active = result
             elif self.action == 'window':
-                tM, w, h, l_pts, w_pts = self.object_location
-                if self.need_rotation:
-                    rM = Matrix([
-                        [-1, 0, 0, 0],
-                        [0, -1, 0, 0],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1],
-                    ])
-                else:
-                    rM = Matrix()
-                if w > 1.8:
-                    z = 2.2
-                    altitude = 0.0
-                else:
-                    z = 1.2
-                    altitude = 1.0
-                bpy.ops.archipack.window(x=w, y=h, z=z, altitude=altitude, auto_manipulate=False)
-                result = context.object
-                result.matrix_world = self.coordsys.world * tM * rM
-                result.data.archipack_window[0].hole_margin = 0.02
+                if self.object_location is not None:
+                    tM, w, h, l_pts, w_pts = self.object_location
+                    if self.need_rotation:
+                        rM = Matrix([
+                            [-1, 0, 0, 0],
+                            [0, -1, 0, 0],
+                            [0, 0, 1, 0],
+                            [0, 0, 0, 1],
+                        ])
+                    else:
+                        rM = Matrix()
+                    if w > 1.8:
+                        z = 2.2
+                        altitude = 0.0
+                    else:
+                        z = 1.2
+                        altitude = 1.0
+                    bpy.ops.archipack.window(x=w, y=h, z=z, altitude=altitude, auto_manipulate=False)
+                    result = context.object
+                    result.matrix_world = self.coordsys.world * tM * rM
+                    result.data.archipack_window[0].hole_margin = 0.02
                 self.ba.none()
             elif self.action == 'door':
-                tM, w, h, l_pts, w_pts = self.object_location
+                if self.object_location is not None:
+                    tM, w, h, l_pts, w_pts = self.object_location
 
-                if self.need_rotation:
-                    rM = Matrix([
-                        [-1, 0, 0, 0],
-                        [0, -1, 0, 0],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1],
-                    ])
-                else:
-                    rM = Matrix()
+                    if self.need_rotation:
+                        rM = Matrix([
+                            [-1, 0, 0, 0],
+                            [0, -1, 0, 0],
+                            [0, 0, 1, 0],
+                            [0, 0, 0, 1],
+                        ])
+                    else:
+                        rM = Matrix()
 
-                if w < 1.5:
-                    n_panels = 1
-                else:
-                    n_panels = 2
+                    if w < 1.5:
+                        n_panels = 1
+                    else:
+                        n_panels = 2
 
-                bpy.ops.archipack.door(x=w, y=h, z=2.0, n_panels=n_panels,
-                            direction=self.direction, auto_manipulate=False)
-                result = context.object
-                result.matrix_world = self.coordsys.world * tM * rM
-                result.data.archipack_door[0].hole_margin = 0.02
+                    bpy.ops.archipack.door(x=w, y=h, z=2.0, n_panels=n_panels,
+                                direction=self.direction, auto_manipulate=False)
+                    result = context.object
+                    result.matrix_world = self.coordsys.world * tM * rM
+                    result.data.archipack_door[0].hole_margin = 0.02
                 self.ba.none()
-
+        self.feedback.disable()
+        
         print("SelectPolygons.complete() :%.2f seconds" % (time.time() - t))
 
     def keyboard(self, context, event):
@@ -1659,9 +1735,23 @@ class SelectPolygons(Selectable):
         elif event.type in {'F'}:
             if self.action == 'rectangle':
                 self.complete(context)
-            else:
+            else:                
                 sel = [self.geoms[i] for i in self.ba.list]
                 if len(sel) > 0:
+                    if self.action == 'window':
+                        self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                            ('CLICK & DRAG', 'Set window orientation'),
+                            ('RELEASE', 'Create window'),
+                            ('F', 'Return to select mode'),
+                            ('ESC or RIGHTMOUSE', 'exit tool when done')          
+                        ])
+                    elif self.action == 'door':
+                        self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                            ('CLICK & DRAG', 'Set door orientation'),
+                            ('RELEASE', 'Create door'),
+                            ('F', 'Return to select mode'),
+                            ('ESC or RIGHTMOUSE', 'exit tool when done')          
+                        ])
                     self.selectMode = not self.selectMode
                     geom = ShapelyOps.union(sel)
                     tM, w, h, l_pts, w_pts = ShapelyOps.min_bounding_rect(geom)
@@ -1671,6 +1761,7 @@ class SelectPolygons(Selectable):
 
     def modal(self, context, event):
         if event.type in {'I', 'A', 'S', 'R', 'F', 'B'} and event.value == 'PRESS':
+            
             self.keyboard(context, event)
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             if self.action == 'object':
@@ -1681,16 +1772,38 @@ class SelectPolygons(Selectable):
             return {'FINISHED'}
         elif event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             self.drag = True
+            self.cursor_area.enable()
             if self.selectMode:
                 self.startPoint = (event.mouse_region_x, event.mouse_region_y)
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
         elif event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
             self.drag = False
+            self.cursor_area.disable()
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
             if self.selectMode:
                 self.select(context, self.startPoint, event)
             else:
                 self.complete(context)
+                if self.action == 'window':
+                    self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                        ('SHIFT', 'deselect'),
+                        ('ALT', 'contains'),
+                        ('A', 'All'),
+                        ('I', 'Inverse'),
+                        ('B', 'Bigger than current'),
+                        ('F', 'Create a window from selection'),
+                        ('ESC or RIGHTMOUSE', 'exit tool when done')          
+                    ])
+                elif self.action == 'door':
+                    self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area",[
+                        ('SHIFT', 'deselect'),
+                        ('ALT', 'contains'),
+                        ('A', 'All'),
+                        ('I', 'Inverse'),
+                        ('B', 'Bigger than current'),
+                        ('F', 'Create a door from selection'),
+                        ('ESC or RIGHTMOUSE', 'exit tool when done')          
+                    ])
             self.selectMode = True
         if event.type == 'MOUSEMOVE':
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
@@ -1715,17 +1828,32 @@ class SelectPolygons(Selectable):
         for i in range(13):
             a = a0 + da * i
             p3d = c + Vector((cos(a) * r, sin(a) * r, 0))
+            # pts.append(self.coordsys.world * p3d)
             p2d = self._position_2d_from_coord(context, p3d)
             pts.append(p2d)
+       
+        self.gl_arc.set_pos(pts)
+        self.gl_arc.draw(context)
         c2d = self._position_2d_from_coord(context, c)
-        self.gl.PolyLine(pts, self.gl.line_colour, width=1)
-        self.gl.Line(c2d[0], c2d[1], pts[0][0], pts[0][1], self.gl.line_colour, width=1)
+        self.gl_line.p = c2d
+        self.gl_line.v = pts[0] - c2d
+        self.gl_line.draw(context)
+        # c2d = self._position_2d_from_coord(context, c)
+        # self.gl.PolyLine(pts, self.gl.line_colour, width=1)
+        # self.gl.Line(c2d[0], c2d[1], pts[0][0], pts[0][1], self.gl.line_colour, width=1)
 
     def draw_callback(self, _self, context):
         """
             draw on screen feedback using gl.
         """
+        self.feedback.draw(context)
+        
         if self.selectMode:
+            self.cursor_area.set_location(context, self.startPoint, self.endPoint)
+            self.cursor_fence.set_location(context, self.endPoint)
+            self.cursor_area.draw(context)
+            self.cursor_fence.draw(context)
+            """
             self.gl.String("Select with left mouse, SHIFT to unselect, drag for areas (crossing), ALT contains",
                             10, 139, 10, self.gl.explanation_colour)
             self.gl.String("ESC or right click when done", 10, 126, 10, self.gl.explanation_colour)
@@ -1738,13 +1866,21 @@ class SelectPolygons(Selectable):
                 self.gl.Border_select(self.startPoint, self.endPoint, self.gl.line_colour)
             else:
                 self.gl.Border_cross(context, self.endPoint, self.gl.line_colour)
+            """
         else:
-            self.gl.String("Pick a point on inside", 10, 139, 10, self.gl.explanation_colour)
-            self.gl.String("ESC or right click to exit", 10, 126, 10, self.gl.explanation_colour)
+            # self.gl.String("Pick a point on inside", 10, 139, 10, self.gl.explanation_colour)
+            # self.gl.String("ESC or right click to exit", 10, 126, 10, self.gl.explanation_colour)
             if self.drag:
                 x0, y0 = self.startPoint
                 x1, y1 = self.endPoint
-                self.gl.Line(x0, y0, x1, y1, self.gl.line_colour)
+                # draw 2d line marker
+                # self.gl.Line(x0, y0, x1, y1, self.gl.line_colour)
+                
+                # 2d line
+                self.gl_side.p = Vector(self.startPoint)
+                self.gl_side.v = Vector(self.endPoint) - Vector(self.startPoint)
+                self.gl_side.draw(context)
+                
                 tM, w, h, l_pts, w_pts = self.object_location
                 pt = self._position_3d_from_coord(context, self.endPoint)
                 pt = tM.inverted() * Vector(pt)
@@ -1777,7 +1913,7 @@ class SelectPolygons(Selectable):
                     pc = w_pts[i_c0] + 0.5 * (w_pts[i_c1] - w_pts[i_c0])
                     self._draw_2d_arc(context, w_pts[i_c0], w_pts[i_s0], pc)
                     self._draw_2d_arc(context, w_pts[i_c1], w_pts[i_s1], pc)
-
+                    
 
 class TOOLS_OP_PolyLib_Pick2DPoints(Operator):
     bl_idname = "tools.poly_lib_pick_2d_points"

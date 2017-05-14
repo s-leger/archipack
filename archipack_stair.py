@@ -952,8 +952,8 @@ class StairGenerator():
             # Store Gl Points for manipulators
             if 'Curved' in type(stair).__name__:
                 c = stair.c
-                p0 = (stair.lerp(0) - c).to_3d()
-                p1 = (stair.lerp(1) - c).to_3d()
+                p0 = (stair.p0 - c).to_3d()
+                p1 = (stair.p1 - c).to_3d()
                 manipulator.set_pts([(c.x, c.y, stair.top), p0, p1])
                 manipulator.type_key = 'ARC_ANGLE_RADIUS'
                 manipulator.prop1_name = 'da'
@@ -963,8 +963,8 @@ class StairGenerator():
                     side = 1
                 else:
                     side = -1
-                v0 = stair.lerp(0)
-                v1 = stair.lerp(1)
+                v0 = stair.p0
+                v1 = stair.p1
                 manipulator.set_pts([(v0.x, v0.y, stair.top), (v1.x, v1.y, stair.top), (side, 0, 0)])
                 manipulator.type_key = 'SIZE'
                 manipulator.prop1_name = 'length'

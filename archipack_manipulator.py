@@ -30,12 +30,12 @@ import blf
 from math import sin, cos, atan2, pi
 from mathutils import Vector, Matrix
 from mathutils.geometry import intersect_line_plane, intersect_point_line, intersect_line_sphere
-from bpy_extras import view3d_utils
+from bpy_extras import view3d_utils, object_utils
 from bpy.types import PropertyGroup
 from bpy.props import FloatVectorProperty, StringProperty, CollectionProperty, BoolProperty
 from bpy.app.handlers import persistent
 from .archipack_snap import snap_point
-
+from .archipack_keymaps import Keymaps
 
 # ------------------------------------------------------------------
 # Define Gl Handle types
@@ -91,6 +91,8 @@ class Gl():
     """
     def __init__(self, d=3):
         self.width = 1
+        self.style = bgl.GL_LINE
+        self.closed = False
         self.d = d
         self.pos_2d = Vector((0, 0))
         self.colour_active = (1.0, 0.0, 0.0, 1.0)
@@ -102,15 +104,26 @@ class Gl():
     def colour(self):
         return self.colour_inactive
 
-    def position_2d_from_coord(self, context, coord):
+    def position_2d_from_coord(self, context, coord, render=False):
         """ coord given in local input coordsys
         """
         if self.d == 2:
             return coord
+        if render:
+            return self.get_render_location(context, coord)
         region = context.region
         rv3d = context.region_data
         loc = view3d_utils.location_3d_to_region_2d(region, rv3d, coord, self.pos_2d)
         return loc
+
+    def get_render_location(self, context, coord):
+        scene = context.scene
+        co_2d = object_utils.world_to_camera_view(scene, scene.camera, coord)
+        # Get pixel coords
+        render_scale = scene.render.resolution_percentage / 100
+        render_size = (int(scene.render.resolution_x * render_scale),
+                       int(scene.render.resolution_y * render_scale))
+        return [round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1])]
 
     def _end(self):
         bgl.glEnd()
@@ -127,11 +140,16 @@ class Gl():
 
     def _start_line(self):
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
+        if self.style == bgl.GL_LINE_STIPPLE:
+            bgl.glLineStipple(1, 0x9999)
+        bgl.glEnable(self.style)
         bgl.glEnable(bgl.GL_BLEND)
-        bgl.glEnable(bgl.GL_LINE)
         bgl.glColor4f(*self.colour)
         bgl.glLineWidth(self.width)
-        bgl.glBegin(bgl.GL_LINE_STRIP)
+        if self.closed:
+            bgl.glBegin(bgl.GL_LINE_LOOP)
+        else:
+            bgl.glBegin(bgl.GL_LINE_STRIP)
 
     def draw_text(self, x, y):
         # dirty fast assignment
@@ -146,18 +164,18 @@ class Gl():
         if self.angle != 0:
             blf.disable(font_id, blf.ROTATION)
 
-    def draw(self, context):
+    def draw(self, context, render=False):
         gl_type = type(self).__name__
         if 'Handle' in gl_type or gl_type in ['GlPolygon']:
             self._start_poly()
-        elif 'Line' in gl_type or gl_type in ['GlArc', 'GlPolyline']:
+        elif gl_type in ['GlArc', 'GlLine', 'GlPolyline']:
             self._start_line()
         if 'Text' in gl_type:
-            x, y = self.position_2d_from_coord(context, self.pts[0])
+            x, y = self.position_2d_from_coord(context, self.pts[0], render)
             self.draw_text(x, y)
         else:
             for pt in self.pts:
-                x, y = self.position_2d_from_coord(context, pt)
+                x, y = self.position_2d_from_coord(context, pt, render)
                 bgl.glVertex2f(x, y)
             self._end()
 
@@ -347,16 +365,12 @@ class GlArc(GlCircle):
 
 class GlPolygon(Gl):
     def __init__(self, colour, d=3):
-        self._colour = colour
         self.pts_3d = []
         Gl.__init__(self, d)
+        self.colour_inactive = colour
 
     def set_pos(self, pts_3d):
         self.pts_3d = pts_3d
-
-    @property
-    def colour(self):
-        return self._colour
 
     @property
     def pts(self):
@@ -365,17 +379,13 @@ class GlPolygon(Gl):
 
 class GlPolyline(Gl):
     def __init__(self, colour, d=3):
-        self._colour = colour
         self.pts_3d = []
-        Gl.__init__(self, d)
+        Gl.__init__(self, d=d)
+        self.colour_inactive = colour
 
     def set_pos(self, pts_3d):
         self.pts_3d = pts_3d
         # self.pts_3d.append(pts_3d[0])
-
-    @property
-    def colour(self):
-        return self._colour
 
     @property
     def pts(self):
@@ -566,7 +576,7 @@ class FeedbackPanel():
         self.main_title.pos_3d = (self.margin + self.spacing.x, pos.y)
         self.title.pos_3d = (self.margin + self.spacing.x + main_title_size.x, pos.y)
 
-    def draw(self, context):
+    def draw(self, context, render=False):
         if self.on:
             """
                 draw from bottom to top
@@ -579,6 +589,66 @@ class FeedbackPanel():
             self.explanation.draw(context)
             for s in self.shortcuts:
                 s.draw(context)
+
+
+class GlCursorFence():
+    """
+        Cursor crossing Fence
+    """
+    def __init__(self, width=1, colour=(1.0, 1.0, 1.0, 0.5), style=bgl.GL_LINE_STIPPLE):
+        self.line_x = GlLine(d=2)
+        self.line_x.style = style
+        self.line_x.width = width
+        self.line_x.colour_inactive = colour
+        self.line_y = GlLine(d=2)
+        self.line_y.style = style
+        self.line_y.width = width
+        self.line_y.colour_inactive = colour
+
+    def set_location(self, context, location):
+        w = context.region.width
+        h = context.region.height
+        x, y = location
+        self.line_x.p = Vector((0, y))
+        self.line_x.v = Vector((w, 0))
+        self.line_y.p = Vector((x, 0))
+        self.line_y.v = Vector((0, h))
+
+    def draw(self, context, render=False):
+        self.line_x.draw(context)
+        self.line_y.draw(context)
+
+
+class GlCursorArea():
+    def __init__(self,
+                width=1,
+                bordercolour=(1.0, 1.0, 1.0, 0.5),
+                areacolour=(1.0, 1.0, 1.0, 0.1),
+                style=bgl.GL_LINE_STIPPLE):
+
+        self.border = GlPolyline(bordercolour, d=2)
+        self.border.style = style
+        self.border.width = width
+        self.area = GlPolygon(areacolour, d=2)
+        self.on = False
+
+    def set_location(self, context, p0, p1):
+        x0, y0 = p0
+        x1, y1 = p1
+        pos = [Vector((x0, y0)), Vector((x0, y1)), Vector((x1, y1)), Vector((x1, y0))]
+        self.area.set_pos(pos)
+        self.border.set_pos(pos)
+
+    def enable(self):
+        self.on = True
+
+    def disable(self):
+        self.on = False
+
+    def draw(self, context, render=False):
+        if self.on:
+            self.area.draw(context)
+            self.border.draw(context)
 
 
 # ------------------------------------------------------------------
@@ -611,6 +681,7 @@ class Manipulator():
             datablock : object data to manipulate
             manipulator: object archipack_manipulator datablock
         """
+        self.keymap = Keymaps(context)
         self.feedback = FeedbackPanel()
         # active text input value for manipulator
         self.keyboard_input_active = False
@@ -774,7 +845,7 @@ class Manipulator():
                     self.feedback.enable()
                 return active
 
-            elif event.ctrl and event.type == 'Z':
+            elif self.keymap.check(event, self.keymap.undo):
                 if self.keyboard_input_active:
                     self.keyboard_input_active = False
                     self.keyboard_cancel(context, event)
@@ -982,10 +1053,10 @@ class SnapPointManipulator(Manipulator):
             self.check_hover()
         return False
 
-    def draw_callback(self, _self, context):
+    def draw_callback(self, _self, context, render=False):
         left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
         self.handle.set_pos(context, left, Vector((1, 0, 0)), normal=normal)
-        self.handle.draw(context)
+        self.handle.draw(context, render)
 
 
 # Generic snap tool for line based archipack objects (fence, wall, maybe stair too)
@@ -1147,20 +1218,20 @@ class WallSnapManipulator(Manipulator):
         p1 = gl_pts3d[2]
         self.placeholder_part1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
         self.placeholder_line1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
-        self.placeholder_part1.draw(context)
-        self.placeholder_line1.draw(context)
+        self.placeholder_part1.draw(context, render=False)
+        self.placeholder_line1.draw(context, render=False)
         if gl_pts3d[0] is not None:
             p0, p1 = gl_pts3d[0], p0
             self.placeholder_part2.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
             self.placeholder_line2.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
-            self.placeholder_part2.draw(context)
-            self.placeholder_line2.draw(context)
+            self.placeholder_part2.draw(context, render=False)
+            self.placeholder_line2.draw(context, render=False)
 
         self.line.p = gl_pts3d[1]
         self.line.v = sp.delta
         self.label.set_pos(context, self.line.length, self.line.lerp(0.5), self.line.v, normal=Vector((0, 0, 1)))
-        self.line.draw(context)
-        self.label.draw(context)
+        self.line.draw(context, render=False)
+        self.label.draw(context, render=False)
 
     def mouse_move(self, context, event):
         self.mouse_position(event)
@@ -1172,11 +1243,11 @@ class WallSnapManipulator(Manipulator):
             self.check_hover()
         return False
 
-    def draw_callback(self, _self, context):
+    def draw_callback(self, _self, context, render=False):
         left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
         self.handle.set_pos(context, left, (left - right).normalized(), normal=normal)
-        self.handle.draw(context)
-        self.feedback.draw(context)
+        self.handle.draw(context, render)
+        self.feedback.draw(context, render)
 
 
 class CounterManipulator(Manipulator):
@@ -1224,7 +1295,7 @@ class CounterManipulator(Manipulator):
             self.check_hover()
         return False
 
-    def draw_callback(self, _self, context):
+    def draw_callback(self, _self, context, render=False):
         """
             draw on screen feedback using gl.
         """
@@ -1238,9 +1309,9 @@ class CounterManipulator(Manipulator):
         self.handle_left.set_pos(context, self.line_0.p, -self.line_0.v, normal=normal)
         self.handle_right.set_pos(context, self.line_0.lerp(1), self.line_0.v, normal=normal)
         self.label.set_pos(context, value, self.line_0.lerp(0.5), self.line_0.v, normal=normal)
-        self.label.draw(context)
-        self.handle_left.draw(context)
-        self.handle_right.draw(context)
+        self.label.draw(context, render)
+        self.handle_left.draw(context, render)
+        self.handle_right.draw(context, render)
 
 
 class SizeManipulator(Manipulator):
@@ -1306,7 +1377,7 @@ class SizeManipulator(Manipulator):
             length = round(length, 1)
         self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
 
-    def draw_callback(self, _self, context):
+    def draw_callback(self, _self, context, render=False):
         """
             draw on screen feedback using gl.
         """
@@ -1326,13 +1397,13 @@ class SizeManipulator(Manipulator):
         if not self.keyboard_input_active:
             self.label_value = self.line_1.length
         self.label.set_pos(context, self.label_value, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
-        self.label.draw(context)
-        self.line_0.draw(context)
-        self.line_1.draw(context)
-        self.line_2.draw(context)
-        self.handle_left.draw(context)
-        self.handle_right.draw(context)
-        self.feedback.draw(context)
+        self.label.draw(context, render)
+        self.line_0.draw(context, render)
+        self.line_1.draw(context, render)
+        self.line_2.draw(context, render)
+        self.handle_left.draw(context, render)
+        self.handle_right.draw(context, render)
+        self.feedback.draw(context, render)
 
 
 class SizeLocationManipulator(SizeManipulator):
@@ -1481,7 +1552,7 @@ class DeltaLocationManipulator(SizeManipulator):
             dl = -dl
         self.move(context, self.manipulator.prop1_name, dl)
 
-    def draw_callback(self, _self, context):
+    def draw_callback(self, _self, context, render=False):
         """
             draw on screen feedback using gl.
         """
@@ -1492,8 +1563,8 @@ class DeltaLocationManipulator(SizeManipulator):
         self.line_1.z_axis = normal
         self.handle_left.set_pos(context, self.line_1.lerp(0.5), -self.line_1.v, normal=normal)
         self.handle_right.set_pos(context, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
-        self.handle_left.draw(context)
-        self.handle_right.draw(context)
+        self.handle_left.draw(context, render)
+        self.handle_right.draw(context, render)
 
 
 class DumbSizeManipulator(SizeManipulator):
@@ -1594,7 +1665,7 @@ class AngleManipulator(Manipulator):
                 da = round(da / pi * 180, 0) / 180 * pi
             self.set_value(context, self.datablock, self.manipulator.prop1_name, da)
 
-    def draw_callback(self, _self, context):
+    def draw_callback(self, _self, context, render=False):
         c, left, right, normal = self.manipulator.get_pts(self.o.matrix_world)
         self.line_0.z_axis = normal
         self.line_1.z_axis = normal
@@ -1618,13 +1689,13 @@ class AngleManipulator(Manipulator):
         if self.keyboard_input_active:
             label_value = self.label_value
         self.label_a.set_pos(context, label_value, self.arc.lerp(0.5), -self.line_0.v)
-        self.arc.draw(context)
-        self.line_0.draw(context)
-        self.line_1.draw(context)
-        self.handle_right.draw(context)
-        self.handle_center.draw(context)
-        self.label_a.draw(context)
-        self.feedback.draw(context)
+        self.arc.draw(context, render)
+        self.line_0.draw(context, render)
+        self.line_1.draw(context, render)
+        self.handle_right.draw(context, render)
+        self.handle_center.draw(context, render)
+        self.label_a.draw(context, render)
+        self.feedback.draw(context, render)
 
 
 class ArcAngleManipulator(Manipulator):
@@ -1736,7 +1807,7 @@ class ArcAngleManipulator(Manipulator):
                 da = round(da / pi * 180, 0) / 180 * pi
             self.set_value(context, self.datablock, self.manipulator.prop1_name, da)
 
-    def draw_callback(self, _self, context):
+    def draw_callback(self, _self, context, render=False):
         # center : 3d points
         # left   : 3d vector pt-c
         # right  : 3d vector pt-c
@@ -1768,15 +1839,15 @@ class ArcAngleManipulator(Manipulator):
                 label_a_value = self.label_value
         self.label_a.set_pos(context, label_a_value, self.arc.lerp(0.5), -self.line_0.v)
         self.label_r.set_pos(context, label_r_value, self.line_0.lerp(0.5), self.line_0.v)
-        self.arc.draw(context)
-        self.line_0.draw(context)
-        self.line_1.draw(context)
-        self.handle_left.draw(context)
-        self.handle_right.draw(context)
-        self.handle_center.draw(context)
-        self.label_r.draw(context)
-        self.label_a.draw(context)
-        self.feedback.draw(context)
+        self.arc.draw(context, render)
+        self.line_0.draw(context, render)
+        self.line_1.draw(context, render)
+        self.handle_left.draw(context, render)
+        self.handle_right.draw(context, render)
+        self.handle_center.draw(context, render)
+        self.label_r.draw(context, render)
+        self.label_a.draw(context, render)
+        self.feedback.draw(context, render)
 
 
 class ArcAngleRadiusManipulator(ArcAngleManipulator):
@@ -2049,6 +2120,13 @@ class Manipulable():
             description="Flag manipulation state so we are able to toggle"
             )
 
+    keymap = None
+
+    def manipulable_getstack(self, context):
+        o = context.active_object
+        if o is not None:
+            self.manip_stack = get_stack(o.name)
+
     def manipulable_disable(self, context):
         """
             disable gl draw handlers
@@ -2100,8 +2178,16 @@ class Manipulable():
 
         context.area.tag_redraw()
 
+        if self.keymap is None:
+            self.keymap = Keymaps(context)
+
+        if self.keymap.check(event, self.keymap.undo):
+            # user feedback on undo by disabling manipulators
+            self.manipulable_disable(context)
+            return {'FINISHED'}
+
         # clean up manipulator on delete
-        if event.type in {'X'}:
+        if self.keymap.check(event, self.keymap.delete):  # {'X'}:
             # @TODO:
             # for doors and windows, seek and destroy holes object if any
             # a dedicated delete method into those objects may be an option ?

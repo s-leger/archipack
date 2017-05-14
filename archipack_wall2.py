@@ -46,6 +46,7 @@ from .archipack_manipulator import (
     )
 from .archipack_2d import Line, Arc
 from .archipack_snap import snap_point
+from .archipack_keymaps import Keymaps
 
 
 class Wall():
@@ -556,7 +557,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 look at fence implementation for this part
         """
         raise NotImplementedError
-        
+
         for i, line in enumerate(lines):
             if type(line).__name__ == 'Line':
                 self.parts[i].a0 = line.angle
@@ -762,7 +763,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         for child in relocate:
             name, wall_idx, pos, flip = child
             self.add_child(name, wall_idx, pos, flip)
-            
+
         # add a dumb size from last child to end of wall segment
         for i in range(sum(wall_with_childs)):
             m = self.childs_manipulators.add()
@@ -888,7 +889,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             if not self.realtime:
                 self.update_childs(context, o, g)
             # trigger wall's update by hand as those manipulations
-            # dosen't affect wall data 
+            # dosen't affect wall data
             # NOTE: update manipulators should be sufficient here
             self.update(context)
 
@@ -920,16 +921,16 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
-            
-            # height as per segment will be here when done 
-            
+
+            # height as per segment will be here when done
+
         # TODO:
         # add last segment snap manipulator at end of the segment
-        
+
         # width + counter
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
-        
+
         # dumb between childs
         for m in self.childs_manipulators:
             self.manip_stack.append(m.setup(context, o, self))
@@ -1087,7 +1088,7 @@ class ARCHIPACK_OT_wall2(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     auto_manipulate = BoolProperty(default=True)
-    
+
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -1245,7 +1246,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
 
         if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
 
-            self.feedback.instructions(context, "Draw a wall", "Drag to move, click to add a segment", [
+            self.feedback.instructions(context, "Draw a wall", "Click & Drag to add a segment", [
                 ('CTRL', 'Snap'),
                 ('MMBTN', 'Constraint to axis'),
                 ('X Y', 'Constraint to axis'),
@@ -1268,17 +1269,19 @@ class ARCHIPACK_OT_wall2_draw(Operator):
 
                 snap_point(takeloc, self.sp_draw, self.sp_callback, constraint_axis=(True, True, False))
             return {'RUNNING_MODAL'}
-            
-        if event.type in {'BACK_SPACE'} and event.value == 'RELEASE':
+
+        if self.keymap.check(event, self.keymap.undo) or (
+                event.type in {'BACK_SPACE'} and event.value == 'RELEASE'
+                ):
             if self.o is not None:
-                o = self.o                
+                o = self.o
                 o.select = True
                 context.scene.objects.active = o
                 d = o.data.archipack_wall2[0]
                 if d.n_parts > 1:
                     d.n_parts -= 1
-                
-            
+            return {'RUNNING_MODAL'}
+
         if self.state == 'CANCEL' or (event.type in {'ESC', 'RIGHTMOUSE'} and
                 event.value == 'RELEASE'):
 
@@ -1296,12 +1299,13 @@ class ARCHIPACK_OT_wall2_draw(Operator):
 
     def invoke(self, context, event):
         if context.mode == "OBJECT":
+            self.keymap = Keymaps(context)
             self.wall_part1 = GlPolygon((0.5, 0, 0, 0.2))
             self.wall_line1 = GlPolyline((0.5, 0, 0, 0.8))
             self.line = GlLine()
             self.label = GlText()
             self.feedback = FeedbackPanel()
-            self.feedback.instructions(context, "Draw a wall", "Click to start and drag to move", [
+            self.feedback.instructions(context, "Draw a wall", "Click % Drag to start", [
                 ('CTRL', 'Snap'),
                 ('MMBTN', 'Constraint to axis'),
                 ('X Y', 'Constraint to axis'),

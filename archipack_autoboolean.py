@@ -123,8 +123,13 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         hole.hide_render = True
         hole.hide_select = True
         hole.select = True
+        hole.cycles_visibility.camera = False
+        hole.cycles_visibility.diffuse = False
+        hole.cycles_visibility.glossy = False
+        hole.cycles_visibility.shadow = False
+        hole.cycles_visibility.scatter = False
+        hole.cycles_visibility.transmission = False
         
-
     def _generate_holes(self, context, childs):
         # generate holes from archipack primitives
         for o in context.scene.objects:

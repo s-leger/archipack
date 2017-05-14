@@ -78,21 +78,86 @@ class Projection():
 
 
 class Line(Projection):
-    def __init__(self, p, v):
-        self.p = p
-        self.v = v
-        self.v2 = v * v
+    """
+        2d Line
+        Internally stored as p: origin and v:size and direction
+        moving p will move both ends of line
+        moving p0 or p1 move only one end of line
+            p1
+            ^
+            | v
+            p0 == p
+    """
+    def __init__(self, p=None, v=None, p0=None, p1=None):
+        """
+            Init by either
+            p: Vector or tuple origin
+            v: Vector or tuple size and direction
+            or
+            p0: Vector or tuple 1 point location
+            p1: Vector or tuple 2 point location
+            Will convert any into Vector 2d
+            both optionnals
+        """
+        if p is not None and v is not None:
+            self.p = Vector(p).to_2d()
+            self.v = Vector(v).to_2d()
+        elif p0 is not None and p1 is not None:
+            self.p = Vector(p0).to_2d()
+            self.v = Vector(p1).to_2d() - self.p
+        else:
+            self.p = Vector((0, 0))
+            self.v = Vector((0, 0))
+
+    @property
+    def p0(self):
+        return self.p
+
+    @property
+    def p1(self):
+        return self.p + self.v
+
+    @p0.setter
+    def p0(self, p0):
+        """
+            Note: setting p0
+            move p0 only
+        """
+        p1 = self.p1
+        self.p = Vector(p0).to_2d()
+        self.v = p1 - p0
+
+    @p1.setter
+    def p1(self, p1):
+        """
+            Note: setting p1
+            move p1 only
+        """
+        self.v = Vector(p1).to_2d() - self.p
 
     @property
     def length(self):
+        """
+            3d length
+        """
         return self.v.length
 
     @property
     def angle(self):
+        """
+            2d angle on xy plane
+        """
         return atan2(self.v.y, self.v.x)
 
     @property
     def angle_normal(self):
+        """
+            2d angle of perpendicular
+            lie on the right side
+            p1
+            |--x
+            p0
+        """
         return atan2(-self.v.x, self.v.y)
 
     @property
@@ -105,22 +170,59 @@ class Line(Projection):
 
     @property
     def cross_z(self):
+        """
+            2d Vector perpendicular on plane xy
+            lie on the right side
+            p1
+            |--x
+            p0
+        """
         return Vector((self.v.y, -self.v.x))
 
+    @property
+    def cross(self):
+        return Vector((self.v.y, -self.v.x))
+
+    @property
+    def pts(self):
+        return [self.p0, self.p1]
+
     def normal(self, t=0):
-        # perpendicular on the right of segment
+        """
+            2d Line perpendicular on plane xy
+            at position t in current segment
+            lie on the right side
+            p1
+            |--x
+            p0
+        """
         return Line(self.lerp(t), self.cross_z)
 
     def sized_normal(self, t, size):
+        """
+            2d Line perpendicular on plane xy
+            at position t in current segment
+            and of given length
+            lie on the right side when size > 0
+            p1
+            |--x
+            p0
+        """
         return Line(self.lerp(t), size * self.cross_z.normalized())
 
     def lerp(self, t):
+        """
+            3d interpolation
+        """
         return self.p + self.v * t
 
     def intersect(self, line):
-        """ point_sur_segment return
-            p: point d'intersection
-            t: param t de l'intersection sur le segment courant
+        """
+            2d intersection on plane xy
+            return
+            True if intersect
+            p: point of intersection
+            t: param t of intersection on current line
         """
         c = line.cross_z
         d = self.v * c
@@ -129,12 +231,32 @@ class Line(Projection):
         t = (c * (line.p - self.p)) / d
         return True, self.lerp(t), t
 
+    def point_sur_segment(self, pt):
+        """ _point_sur_segment
+            point: Vector 2d
+            t: param t de l'intersection sur le segment courant
+            d: distance laterale perpendiculaire positif a droite
+        """
+        dp = pt - self.p
+        dl = self.length
+        d = (self.v.x * dp.y - self.v.y * dp.x) / dl
+        t = (self.v * dp) / (dl * dl)
+        return t > 0 and t < 1, d, t
+
     def steps(self, len):
         steps = max(1, round(self.length / len, 0))
         return 1 / steps, int(steps)
 
+    def in_place_offset(self, offset):
+        """
+            Offset current line
+            offset > 0 on the right part
+        """
+        self.p += offset * self.cross_z.normalized()
+
     def offset(self, offset):
         """
+            Return a new line
             offset > 0 on the right part
         """
         return Line(self.p + offset * self.cross_z.normalized(), self.v)
@@ -165,17 +287,12 @@ class Line(Projection):
     def tangeant_unit_vector(self, t):
         return self.v.normalized()
 
-    def point_sur_segment(self, pt):
-        """ _point_sur_segment
-            point: Vector 2d
-            t: param t de l'intersection sur le segment courant
-            d: distance laterale perpendiculaire positif a droite
+    def draw(self, context):
         """
-        dp = pt - self.p
-        dl = self.length
-        d = (self.v.x * dp.y - self.v.y * dp.x) / dl
-        t = (self.v * dp) / (dl * dl)
-        return t > 0 and t < 1, d, t
+            Draw Line with open gl in screen space
+            aka: coords are in pixels
+        """
+        return NotImplementedError
 
 
 class Circle(Projection):
@@ -208,26 +325,54 @@ class Circle(Projection):
 
 
 class Arc(Circle):
-
+    """
+        Represent a 2d Arc
+        TODO:
+            Add some sugar here
+            like being able to set p0 and p1 of line
+            make it possible to define an arc by start point end point and center
+    """
     def __init__(self, c, radius, a0, da):
         """
             a0 and da arguments are in radians
+            c Vector 2d center
+            radius float radius
+            a0 radians start angle
+            da radians delta angle from start to end
             a0 = 0   on the right side
             a0 = pi on the left side
             da > 0 CCW contrary-clockwise
             da < 0 CW  clockwise
             stored internally as radians
         """
-        Circle.__init__(self, c, radius)
+        Circle.__init__(self, Vector(c).to_2d(), radius)
         self.a0 = a0
         self.da = da
 
     @property
+    def p0(self):
+        """
+            start point of arc
+        """
+        return self.lerp(0)
+
+    @property
+    def p1(self):
+        """
+            end point of arc
+        """
+        return self.lerp(1)
+
+    @property
     def length(self):
+        """
+            arc length
+        """
         return self.r * abs(self.da)
 
     def normal(self, t=0):
         """
+            Perpendicular line starting at t
             always on the right side
         """
         p = self.lerp(t)
@@ -237,6 +382,10 @@ class Arc(Circle):
             return Line(p, p - self.c)
 
     def sized_normal(self, t, size):
+        """
+            Perpendicular line starting at t and of a length size
+            on the right side when size > 0
+        """
         p = self.lerp(t)
         if self.da < 0:
             v = self.c - p
@@ -245,13 +394,18 @@ class Arc(Circle):
         return Line(p, size * v.normalized())
 
     def lerp(self, t):
+        """
+            Interpolate along segment
+            t parameter [0, 1] where 0 is start of arc and 1 is end
+        """
         a = self.a0 + t * self.da
         return self.c + Vector((self.r * cos(a), self.r * sin(a)))
 
-    # not the same, wall does use angle instead of length..
-    # maybe use a 2nd method here ?
-    def steps(self, len):
-        steps = max(1, round(self.length / len, 0))
+    def steps(self, length):
+        """
+            Compute step count given desired step length
+        """
+        steps = max(1, round(self.length / length, 0))
         return 1.0 / steps, int(steps)
 
     # this is for wall
@@ -261,6 +415,7 @@ class Arc(Circle):
 
     def offset(self, offset):
         """
+            Offset circle
             offset > 0 on the right part
         """
         if self.da > 0:
@@ -270,6 +425,10 @@ class Arc(Circle):
         return Arc(self.c, radius, self.a0, self.da)
 
     def tangeant(self, t, length):
+        """
+            Tangeant line so we are able to chain Circle and lines
+            Beware, counterpart on Line does return an Arc !
+        """
         a = self.a0 + t * self.da
         ca = cos(a)
         sa = sin(a)
@@ -280,6 +439,9 @@ class Arc(Circle):
         return Line(p, v)
 
     def tangeant_unit_vector(self, t):
+        """
+            Return Tangeant vector of length 1
+        """
         a = self.a0 + t * self.da
         ca = cos(a)
         sa = sin(a)
@@ -289,10 +451,21 @@ class Arc(Circle):
         return v
 
     def straight(self, length, t=1):
+        """
+            Return a tangeant Line
+            Counterpart on Line also return a Line
+        """
         s = self.tangeant(t, length)
         return s
 
     def point_sur_segment(self, pt):
+        """
+            Point pt lie on arc ?
+            return
+            True when pt lie on segment
+            t [0, 1] where it lie (normalized between start and end)
+            d distance from arc
+        """
         dp = pt - self.c
         d = dp.length - self.r
         a = atan2(dp.y, dp.x)
@@ -300,9 +473,147 @@ class Arc(Circle):
         return t > 0 and t < 1, d, t
 
     def rotate(self, da):
+        """
+            Rotate
+            Mmmhhh, dosen't work as it
+
+            Should move center so we rotate arround start
+            also adjusting start angle a0
+        """
+        raise NotImplementedError
+
         cs = cos(da)
         sn = sin(da)
         x, y = self.v
         self.v.x = x * cs - y * sn
         self.v.y = x * sn + y * cs
         return self
+
+    def draw(self, context):
+        """
+            Draw 2d arc with open gl in screen space
+            aka: coords are in pixels
+        """
+        raise NotImplementedError
+
+
+class Line3d(Line):
+    """
+        3d Line
+        mostly a gl enabled for future use in manipulators
+        coords are in world space
+    """
+    def __init__(self, p=None, v=None, p0=None, p1=None, z_axis=None):
+        """
+            Init by either
+            p: Vector or tuple origin
+            v: Vector or tuple size and direction
+            or
+            p0: Vector or tuple 1 point location
+            p1: Vector or tuple 2 point location
+            Will convert any into Vector 3d
+            both optionnals
+        """
+        if p is not None and v is not None:
+            self.p = Vector(p).to_3d()
+            self.v = Vector(v).to_3d()
+        elif p0 is not None and p1 is not None:
+            self.p = Vector(p0).to_3d()
+            self.v = Vector(p1).to_3d() - self.p
+        else:
+            self.p = Vector((0, 0, 0))
+            self.v = Vector((0, 0, 0))
+        if z_axis is not None:
+            self.z_axis = z_axis
+        else:
+            self.z_axis = Vector((0, 0, 1))
+
+    @property
+    def p0(self):
+        return self.p
+
+    @property
+    def p1(self):
+        return self.p + self.v
+
+    @p0.setter
+    def p0(self, p0):
+        """
+            Note: setting p0
+            move p0 only
+        """
+        p1 = self.p1
+        self.p = Vector(p0).to_3d()
+        self.v = p1 - p0
+
+    @p1.setter
+    def p1(self, p1):
+        """
+            Note: setting p1
+            move p1 only
+        """
+        self.v = Vector(p1).to_3d() - self.p
+
+    @property
+    def cross_z(self):
+        """
+            3d Vector perpendicular on plane xy
+            lie on the right side
+            p1
+            |--x
+            p0
+        """
+        return self.v.cross(Vector((0, 0, 1)))
+
+    @property
+    def cross(self):
+        """
+            3d Vector perpendicular on plane defined by z_axis
+            lie on the right side
+            p1
+            |--x
+            p0
+        """
+        return self.v.cross(self.z_axis)
+
+    def normal(self, t=0):
+        """
+            3d Vector perpendicular on plane defined by z_axis
+            lie on the right side
+            p1
+            |--x
+            p0
+        """
+        n = Line3d()
+        n.p = self.lerp(t)
+        n.v = self.cross
+        return n
+
+    def sized_normal(self, t, size):
+        """
+            3d Line perpendicular on plane defined by z_axis and of given size
+            positionned at t in current line
+            lie on the right side
+            p1
+            |--x
+            p0
+        """
+        p = self.lerp(t)
+        v = size * self.cross.normalized()
+        return Line3d(p, v, z_axis=self.z_axis)
+
+    def offset(self, offset):
+        """
+            offset > 0 on the right part
+        """
+        return Line3d(self.p + offset * self.cross.normalized(), self.v)
+
+    # unless override, 2d methods should raise NotImplementedError
+    def intersect(self, line):
+        raise NotImplementedError
+
+    def point_sur_segment(self, pt):
+        raise NotImplementedError
+
+    def tangeant(self, t, da, radius):
+        raise NotImplementedError
