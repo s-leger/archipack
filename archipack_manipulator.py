@@ -150,7 +150,7 @@ class Gl():
         gl_type = type(self).__name__
         if 'Handle' in gl_type or gl_type in ['GlPolygon']:
             self._start_poly()
-        elif 'Line' in gl_type or gl_type in ['GlArc']:
+        elif 'Line' in gl_type or gl_type in ['GlArc', 'GlPolyline']:
             self._start_line()
         if 'Text' in gl_type:
             x, y = self.position_2d_from_coord(context, self.pts[0])
