@@ -90,7 +90,8 @@ else:
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Panel
+from bpy.types import Panel, WindowManager
+from bpy.props import EnumProperty
 from bpy.utils import previews as iconsLib
 icons_dict = {}
 
@@ -214,6 +215,7 @@ class TOOLS_PT_Archipack_Tools(Panel):
         return True
 
     def draw(self, context):
+        wm = context.window_manager
         layout = self.layout
         row = layout.row(align=True)
         box = row.box()
@@ -224,6 +226,8 @@ class TOOLS_PT_Archipack_Tools(Panel):
         row = layout.row(align=True)
         box = row.box()
         box.label("Rendering")
+        row = box.row(align=True)
+        row.prop(wm, 'archipack_render_type', text="")
         row = box.row(align=True)
         row.operator("archipack.render", icon='RENDER_STILL')
 
@@ -256,8 +260,21 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.fence")
         row.operator("archipack.fence_from_curve", icon='CURVE_DATA')
 
-
+ 
 def register():
+    
+    WindowManager.archipack_render_type = EnumProperty (
+        items=(
+            ('1', "Draw over", "Draw over last rendered image"),
+            ('2', "OpenGL", ""),
+            ('3', "Animation OpenGL", ""),
+            ('4', "Image", "Render image and draw over"),
+            ('5', "Animation", "Draw on each frame")
+            ),
+        name="Render type",
+        description="Render method"
+        )
+    
     global icons_dict
     icons_dict = iconsLib.new()
     icons_dir = os.path.join(os.path.dirname(__file__), "icons")
@@ -268,6 +285,7 @@ def register():
 
 
 def unregister():
+    del WindowManager.archipack_render_type
     global icons_dict
     iconsLib.remove(icons_dict)
     bpy.utils.unregister_module(__name__)
