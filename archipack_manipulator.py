@@ -90,9 +90,15 @@ class Gl():
             2 to keep pos as 2d absolute screen position
     """
     def __init__(self, d=3):
+        # flag output over render image
+        self.render = False
+        # default line width
         self.width = 1
+        # default line style
         self.style = bgl.GL_LINE
+        # allow closed lines
         self.closed = False
+        # nth dimensions of input coords 3=word coords 2=pixel screen coords
         self.d = d
         self.pos_2d = Vector((0, 0))
         self.colour_active = (1.0, 0.0, 0.0, 1.0)
@@ -135,6 +141,9 @@ class Gl():
     def _start_poly(self):
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         bgl.glEnable(bgl.GL_BLEND)
+        if self.render:
+            # enable anti-alias on polygons
+            bgl.glEnable(bgl.GL_POLYGON_SMOOTH)
         bgl.glColor4f(*self.colour)
         bgl.glBegin(bgl.GL_POLYGON)
 
@@ -144,6 +153,9 @@ class Gl():
             bgl.glLineStipple(1, 0x9999)
         bgl.glEnable(self.style)
         bgl.glEnable(bgl.GL_BLEND)
+        if self.render:
+            # enable anti-alias on lines
+            bgl.glEnable(bgl.GL_LINE_SMOOTH)
         bgl.glColor4f(*self.colour)
         bgl.glLineWidth(self.width)
         if self.closed:
@@ -165,6 +177,10 @@ class Gl():
             blf.disable(font_id, blf.ROTATION)
 
     def draw(self, context, render=False):
+        """
+            render flag when rendering 
+        """
+        self.render = render
         gl_type = type(self).__name__
         if 'Handle' in gl_type or gl_type in ['GlPolygon']:
             self._start_poly()
@@ -604,7 +620,8 @@ class GlCursorFence():
         self.line_y.style = style
         self.line_y.width = width
         self.line_y.colour_inactive = colour
-
+        self.on = True
+        
     def set_location(self, context, location):
         w = context.region.width
         h = context.region.height
@@ -614,9 +631,16 @@ class GlCursorFence():
         self.line_y.p = Vector((x, 0))
         self.line_y.v = Vector((0, h))
 
+    def enable(self):
+        self.on = True
+
+    def disable(self):
+        self.on = False
+
     def draw(self, context, render=False):
-        self.line_x.draw(context)
-        self.line_y.draw(context)
+        if self.on:
+            self.line_x.draw(context)
+            self.line_y.draw(context)
 
 
 class GlCursorArea():
@@ -1397,12 +1421,12 @@ class SizeManipulator(Manipulator):
         if not self.keyboard_input_active:
             self.label_value = self.line_1.length
         self.label.set_pos(context, self.label_value, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
-        self.label.draw(context, render)
         self.line_0.draw(context, render)
         self.line_1.draw(context, render)
         self.line_2.draw(context, render)
         self.handle_left.draw(context, render)
         self.handle_right.draw(context, render)
+        self.label.draw(context, render)
         self.feedback.draw(context, render)
 
 

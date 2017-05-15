@@ -96,9 +96,9 @@ from bpy.utils import previews as iconsLib
 icons_dict = {}
 
 
-class TOOLS_PT_PolyLib(Panel):
-    bl_label = "Archipack 2d"
-    bl_idname = "TOOLS_PT_PolyLib"
+class TOOLS_PT_Archipack_PolyLib(Panel):
+    bl_label = "Archipack 2d to 3d"
+    bl_idname = "TOOLS_PT_Archipack_PolyLib"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Tools"
@@ -116,91 +116,91 @@ class TOOLS_PT_PolyLib(Panel):
         box = row.box()
         row = box.row(align=True)
         row.operator(
-            "tools.poly_lib_detect",
+            "archipack.polylib_detect",
             icon_value=icons_dict["detect"].icon_id,
             text='Detect'
-            ).extend = context.window_manager.poly_lib.extend
-        row.prop(context.window_manager.poly_lib, "extend")
+            ).extend = context.window_manager.archipack_polylib.extend
+        row.prop(context.window_manager.archipack_polylib, "extend")
         row = box.row(align=True)
-        row.prop(context.window_manager.poly_lib, "resolution")
+        row.prop(context.window_manager.archipack_polylib, "resolution")
         row = box.row(align=True)
         row.label(text="Polygons")
         row = box.row(align=True)
         row.operator(
-            "tools.poly_lib_pick_2d_polygons",
+            "archipack.polylib_pick_2d_polygons",
             icon_value=icons_dict["selection"].icon_id,
             text='Select'
             ).action = 'select'
         row.operator(
-            "tools.poly_lib_pick_2d_polygons",
+            "archipack.polylib_pick_2d_polygons",
             icon_value=icons_dict["union"].icon_id,
             text='Union'
             ).action = 'union'
         row.operator(
-            "tools.poly_lib_output_polygons",
+            "archipack.polylib_output_polygons",
             icon_value=icons_dict["polygons"].icon_id,
             text='All')
         row = box.row(align=True)
         row.operator(
-            "tools.poly_lib_pick_2d_polygons",
+            "archipack.polylib_pick_2d_polygons",
             text='Wall',
             icon_value=icons_dict["wall"].icon_id).action = 'wall'
-        row.prop(context.window_manager.poly_lib, "solidify_thickness")
+        row.prop(context.window_manager.archipack_polylib, "solidify_thickness")
         row = box.row(align=True)
-        row.operator("tools.poly_lib_pick_2d_polygons",
+        row.operator("archipack.polylib_pick_2d_polygons",
             text='Window',
             icon_value=icons_dict["window"].icon_id).action = 'window'
-        row.operator("tools.poly_lib_pick_2d_polygons",
+        row.operator("archipack.polylib_pick_2d_polygons",
             text='Door',
             icon_value=icons_dict["door"].icon_id).action = 'door'
-        row.operator("tools.poly_lib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
+        row.operator("archipack.polylib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
         row = box.row(align=True)
         row.label(text="Lines")
         row = box.row(align=True)
         row.operator(
-            "tools.poly_lib_pick_2d_lines",
+            "archipack.polylib_pick_2d_lines",
             icon_value=icons_dict["selection"].icon_id,
             text='Lines').action = 'select'
         row.operator(
-            "tools.poly_lib_pick_2d_lines",
+            "archipack.polylib_pick_2d_lines",
             icon_value=icons_dict["union"].icon_id,
             text='Union').action = 'union'
         row.operator(
-            "tools.poly_lib_output_lines",
+            "archipack.polylib_output_lines",
             icon_value=icons_dict["polygons"].icon_id,
             text='All')
         # row = layout.row(align=True)
         # box = row.box()
         # row = box.row(align=True)
-        # row.operator("tools.poly_lib_solidify")
+        # row.operator("archipack.polylib_solidify")
         row = box.row(align=True)
         row.label(text="Points")
         row = box.row(align=True)
         row.operator(
-            "tools.poly_lib_pick_2d_points",
+            "archipack.polylib_pick_2d_points",
             icon_value=icons_dict["selection"].icon_id,
             text='Points').action = 'select'
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
-        row.operator("tools.poly_lib_simplify")
-        row.prop(context.window_manager.poly_lib, "simplify_tolerance")
+        row.operator("archipack.polylib_simplify")
+        row.prop(context.window_manager.archipack_polylib, "simplify_tolerance")
         row = box.row(align=True)
-        row.prop(context.window_manager.poly_lib, "simplify_preserve_topology")
+        row.prop(context.window_manager.archipack_polylib, "simplify_preserve_topology")
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
-        row.operator("tools.poly_lib_offset")
+        row.operator("archipack.polylib_offset")
         row = box.row(align=True)
-        row.prop(context.window_manager.poly_lib, "offset_distance")
+        row.prop(context.window_manager.archipack_polylib, "offset_distance")
         row = box.row(align=True)
-        row.prop(context.window_manager.poly_lib, "offset_side")
+        row.prop(context.window_manager.archipack_polylib, "offset_side")
         row = box.row(align=True)
-        row.prop(context.window_manager.poly_lib, "offset_resolution")
+        row.prop(context.window_manager.archipack_polylib, "offset_resolution")
         row = box.row(align=True)
-        row.prop(context.window_manager.poly_lib, "offset_join_style")
+        row.prop(context.window_manager.archipack_polylib, "offset_join_style")
         row = box.row(align=True)
-        row.prop(context.window_manager.poly_lib, "offset_mitre_limit")
+        row.prop(context.window_manager.archipack_polylib, "offset_mitre_limit")
 
 
 class TOOLS_PT_Archipack_Tools(Panel):
