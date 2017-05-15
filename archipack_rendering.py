@@ -49,13 +49,13 @@ class ARCHIPACK_OT_render(Operator):
     bl_category = 'Archipack'
     bl_description = "Create a render image with measures. Use UV/Image editor to view image generated"
     bl_category = 'Archipack'
-    
+
     # --------------------------------------------------------------------
     # Get the final render image and return as image object
     #
     # return None if no render available
     # --------------------------------------------------------------------
-        
+
     def get_render_image(self, outpath):
         saved = False
         # noinspection PyBroadException
@@ -81,7 +81,7 @@ class ARCHIPACK_OT_render(Operator):
         except:
             print("Unexpected render image error")
             return None
-    
+
     # -------------------------------------
     # Save image to file
     # -------------------------------------
@@ -111,7 +111,7 @@ class ARCHIPACK_OT_render(Operator):
             print("Unexpected error:" + str(exc_info()))
             self.report({'ERROR'}, "Archipack: Unable to save render image")
             return
-    
+
     # -------------------------------------------------------------
     # Render image main entry point
     #
@@ -347,28 +347,34 @@ class ARCHIPACK_OT_render(Operator):
         except:
             settings.color_depth = depth
             print("Unexpected error:" + str(exc_info()))
-            self.report({'ERROR'}, "Archipack: Unable to create render image. Be sure the output render path is correct")
+            self.report(
+                {'ERROR'},
+                "Archipack: Unable to create render image. Be sure the output render path is correct"
+                )
             return False
 
     def get_objlist(self, context):
+        """
+            Get objects with gl manipulators
+        """
         objlist = []
         for o in context.scene.objects:
             if o.data is not None:
                 d = None
                 if 'archipack_window' in o.data:
                     d = o.data.archipack_window[0]
-                elif 'archipack_wall2' in o.data:
-                    d = o.data.archipack_wall2[0]
                 elif 'archipack_door' in o.data:
                     d = o.data.archipack_door[0]
-                elif 'archipack_fence' in o.data:
-                    d = o.data.archipack_fence[0]
+                elif 'archipack_wall2' in o.data:
+                    d = o.data.archipack_wall2[0]
                 elif 'archipack_stair' in o.data:
                     d = o.data.archipack_stair[0]
+                elif 'archipack_fence' in o.data:
+                    d = o.data.archipack_fence[0]
                 if d is not None:
                     objlist.append((o, d))
         return objlist
-    
+
     def draw_gl(self, context):
         objlist = self.get_objlist(context)
         for o, d in objlist:
@@ -376,12 +382,12 @@ class ARCHIPACK_OT_render(Operator):
             d.manipulable_disable(context)
             d.manipulable_invoke(context)
         return objlist
-    
+
     def hide_gl(self, context, objlist):
         for o, d in objlist:
             context.scene.objects.active = o
             d.manipulable_disable(context)
-            
+
     # ------------------------------
     # Execute button action
     # ------------------------------
@@ -391,16 +397,16 @@ class ARCHIPACK_OT_render(Operator):
         wm = context.window_manager
         msg = "New image created with measures. Open it in UV/image editor"
         camera_msg = "Unable to render. No camera found"
-        
+
         # -----------------------------
         # Check camera
         # -----------------------------
         if scene.camera is None:
             self.report({'ERROR'}, camera_msg)
             return {'FINISHED'}
-        
+
         objlist = self.draw_gl(context)
-        
+
         # -----------------------------
         # Use current rendered image
         # -----------------------------
@@ -412,12 +418,11 @@ class ARCHIPACK_OT_render(Operator):
                     bpy.ops.render.render()
             except:
                 bpy.ops.render.render()
-            
-            
+
             print("Archipack: Using current render image on buffer")
             if self.render_main(context, objlist) is True:
                 self.report({'INFO'}, msg)
-                   
+
         # -----------------------------
         # OpenGL image
         # -----------------------------
@@ -481,9 +486,9 @@ class ARCHIPACK_OT_render(Operator):
             scene.frame_current = oldframe
             if flag is True:
                 self.report({'INFO'}, msg)
-        
+
         self.hide_gl(context, objlist)
-        
+
         return {'FINISHED'}
 
     # ---------------------
