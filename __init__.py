@@ -255,15 +255,25 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
-        row.operator("archipack.window", icon_value=icons_coll["window"].icon_id).mode = 'CREATE'
-        row.operator("archipack.door", icon_value=icons_coll["door"].icon_id).mode = 'CREATE'
+        row.operator("archipack.window", 
+                    icon_value=icons_coll["window"].icon_id
+                    ).mode = 'CREATE'
+        row.operator("archipack.door", 
+                    icon_value=icons_coll["door"].icon_id
+                    ).mode = 'CREATE'
         row = box.row(align=True)
-        row.operator("archipack.stair", icon_value=icons_coll["stair"].icon_id)
+        row.operator("archipack.stair", 
+                    icon_value=icons_coll["stair"].icon_id
+                    )
         row = box.row(align=True)
-        row.operator("archipack.wall2", icon_value=icons_coll["wall"].icon_id)
+        row.operator("archipack.wall2", 
+                    icon_value=icons_coll["wall"].icon_id
+                    )
         row.operator("archipack.wall2_draw", icon='GREASEPENCIL')
         row = box.row(align=True)
-        row.operator("archipack.fence")
+        row.operator("archipack.fence",
+                    icon_value=icons_coll["fence"].icon_id
+                    )
         row.operator("archipack.fence_from_curve", icon='CURVE_DATA')
 
 
@@ -288,8 +298,14 @@ def menu_func(self, context):
                     text="Door",
                     icon_value=icons_coll["door"].icon_id
                     ).mode = 'CREATE'
+    layout.operator("archipack.stair",
+                    text="Stair",
+                    icon_value=icons_coll["stair"].icon_id
+                    )
     layout.operator("archipack.fence",
-                    text="Fence")
+                    text="Fence",
+                    icon_value=icons_coll["fence"].icon_id
+                    )
 
 
 # ----------------------------------------------------
