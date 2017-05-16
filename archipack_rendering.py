@@ -410,7 +410,7 @@ class ARCHIPACK_OT_render(Operator):
         # -----------------------------
         # Use current rendered image
         # -----------------------------
-        if wm.archipack_render_type == "1":
+        if wm.archipack.render_type == "1":
             # noinspection PyBroadException
             try:
                 result = bpy.data.images['Render Result']
@@ -426,7 +426,7 @@ class ARCHIPACK_OT_render(Operator):
         # -----------------------------
         # OpenGL image
         # -----------------------------
-        elif wm.archipack_render_type == "2":
+        elif wm.archipack.render_type == "2":
             self.set_camera_view()
             self.set_only_render(True)
 
@@ -440,7 +440,7 @@ class ARCHIPACK_OT_render(Operator):
         # -----------------------------
         # OpenGL Animation
         # -----------------------------
-        elif wm.archipack_render_type == "3":
+        elif wm.archipack.render_type == "3":
             oldframe = scene.frame_current
             self.set_camera_view()
             self.set_only_render(True)
@@ -462,7 +462,7 @@ class ARCHIPACK_OT_render(Operator):
         # -----------------------------
         # Image
         # -----------------------------
-        elif wm.archipack_render_type == "4":
+        elif wm.archipack.render_type == "4":
             print("Archipack: Rendering image")
             bpy.ops.render.render()
             if self.render_main(context, objlist) is True:
@@ -471,7 +471,7 @@ class ARCHIPACK_OT_render(Operator):
         # -----------------------------
         # Animation
         # -----------------------------
-        elif wm.archipack_render_type == "5":
+        elif wm.archipack.render_type == "5":
             oldframe = scene.frame_current
             flag = False
             # loop frames

@@ -90,8 +90,8 @@ else:
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Panel, WindowManager
-from bpy.props import EnumProperty
+from bpy.types import Panel, WindowManager, PropertyGroup
+from bpy.props import EnumProperty, PointerProperty
 from bpy.utils import previews as iconsLib
 icons_dict = {}
 
@@ -227,7 +227,7 @@ class TOOLS_PT_Archipack_Tools(Panel):
         box = row.box()
         box.label("Rendering")
         row = box.row(align=True)
-        row.prop(wm, 'archipack_render_type', text="")
+        row.prop(wm.archipack, 'render_type', text="")
         row = box.row(align=True)
         row.operator("archipack.render", icon='RENDER_STILL')
 
@@ -260,10 +260,39 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.fence")
         row.operator("archipack.fence_from_curve", icon='CURVE_DATA')
 
- 
-def register():
-    
-    WindowManager.archipack_render_type = EnumProperty (
+
+# ----------------------------------------------------
+# ALT + A menu
+# ----------------------------------------------------
+
+# Define "Archipack" menu
+def menu_func(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.operator_context = 'INVOKE_REGION_WIN'
+    layout.operator("archipack.wall2",
+                    text="Wall",
+                    icon_value=icons_dict["wall"].icon_id
+                    )
+    layout.operator("archipack.window",
+                    text="Window",
+                    icon_value=icons_dict["window"].icon_id
+                    ).mode = 'CREATE'
+    layout.operator("archipack.door",
+                    text="Door",
+                    icon_value=icons_dict["door"].icon_id
+                    ).mode = 'CREATE'
+    layout.operator("archipack.fence",
+                    text="Fence")
+
+
+# ----------------------------------------------------
+# Datablock to store global addon variables
+# ----------------------------------------------------
+
+
+class archipack_data(PropertyGroup):
+    render_type = EnumProperty (
         items=(
             ('1', "Draw over", "Draw over last rendered image"),
             ('2', "OpenGL", ""),
@@ -274,18 +303,26 @@ def register():
         name="Render type",
         description="Render method"
         )
-    
+
+
+def register():
     global icons_dict
     icons_dict = iconsLib.new()
     icons_dir = os.path.join(os.path.dirname(__file__), "icons")
     for icon in os.listdir(icons_dir):
         name, ext = os.path.splitext(icon)
         icons_dict.load(name, os.path.join(icons_dir, icon), 'IMAGE')
+    bpy.types.INFO_MT_mesh_add.append(menu_func)
+    bpy.utils.register_class(archipack_data)
+    WindowManager.archipack = PointerProperty(type=archipack_data)
+
     bpy.utils.register_module(__name__)
 
 
 def unregister():
-    del WindowManager.archipack_render_type
+    bpy.types.INFO_MT_mesh_add.remove(menu_func)
+    bpy.utils.unregister_class(archipack_data)
+    del WindowManager.archipack
     global icons_dict
     iconsLib.remove(icons_dict)
     bpy.utils.unregister_module(__name__)
