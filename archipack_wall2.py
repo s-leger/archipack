@@ -509,8 +509,10 @@ class archipack_wall2(Manipulable, PropertyGroup):
         part_0.a0 = 0
         self.parts.move(len(self.parts) - 1, where)
         self.n_parts += 1
+        # fix snap manipulators index
+        for i in range(self.n_parts):
+            self.parts[i].manipulators[2].prop1_name = str(i)
         self.auto_update = True
-        self.update(context, manipulable_refresh=True)
 
     def add_part(self, context, length):
         self.manipulable_disable(context)
@@ -528,7 +530,6 @@ class archipack_wall2(Manipulable, PropertyGroup):
         p.length = length
         self.n_parts += 1
         self.auto_update = True
-        self.update(context, manipulable_refresh=True)
         return p
 
     def remove_part(self, context, where):
@@ -537,7 +538,6 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.parts.remove(where)
         self.n_parts -= 1
         self.auto_update = True
-        self.update(context, manipulable_refresh=True)
 
     def find_in_selection(self, context):
         """
@@ -594,6 +594,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             s = p.manipulators.add()
             s.type_key = "SIZE"
             s.prop1_name = "length"
+
             s = p.manipulators.add()
             # s.type_key = 'SNAP_POINT'
             s.type_key = 'WALL_SNAP'
@@ -1342,10 +1343,10 @@ class ARCHIPACK_OT_wall2_insert(Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            prop = ARCHIPACK_PT_wall2.params(o)
-            if prop is None:
+            d = ARCHIPACK_PT_wall2.params(o)
+            if d is None:
                 return {'CANCELLED'}
-            prop.insert_part(context, self.index)
+            d.insert_part(context, self.index)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
