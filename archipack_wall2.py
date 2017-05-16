@@ -485,6 +485,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
     def insert_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
+        # the part we do split
         part_0 = self.parts[where]
         part_0.length /= 2
         part_0.da /= 2
@@ -501,13 +502,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
         s.prop2_name = 'z'
         part_1 = self.parts[len(self.parts) - 1]
         part_1.type = part_0.type
-        # part_1.z_left = part_0.z_left
-        # part_1.z_right = part_0.z_right
         part_1.length = part_0.length
         part_1.da = part_0.da
-        part_1.a0 = part_0.a0
-        part_0.a0 = 0
-        self.parts.move(len(self.parts) - 1, where)
+        part_1.a0 = 0
+        # move after current one
+        self.parts.move(len(self.parts) - 1, where + 1)
         self.n_parts += 1
         # fix snap manipulators index
         for i in range(self.n_parts):
