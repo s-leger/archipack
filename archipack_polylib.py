@@ -2179,6 +2179,16 @@ def load_handler(dummy):
 
 
 def register():
+    global vars_dict
+    vars_dict = {
+        # spacial tree for segments and points
+        'seg_tree': None,
+        'point_tree': None,
+        # keep track of shapely geometry selection sets
+        'select_polygons': None,
+        'select_lines': None,
+        'select_points': None
+        }
     bpy.utils.register_class(ARCHIPACK_OP_PolyLib_Pick2DPolygons)
     bpy.utils.register_class(ARCHIPACK_OP_PolyLib_Pick2DLines)
     bpy.utils.register_class(ARCHIPACK_OP_PolyLib_Pick2DPoints)
@@ -2194,6 +2204,8 @@ def register():
 
 
 def unregister():
+    global vars_dict
+    del vars_dict
     bpy.utils.unregister_class(ARCHIPACK_OP_PolyLib_Pick2DPolygons)
     bpy.utils.unregister_class(ARCHIPACK_OP_PolyLib_Pick2DLines)
     bpy.utils.unregister_class(ARCHIPACK_OP_PolyLib_Pick2DPoints)
@@ -2210,5 +2222,4 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-else:
-    register()
+

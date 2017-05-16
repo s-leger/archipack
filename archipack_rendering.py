@@ -521,4 +521,9 @@ class ARCHIPACK_OT_render(Operator):
             s.show_only_render = status
 
 
-bpy.utils.register_class(ARCHIPACK_OT_render)
+def register():
+    bpy.utils.register_class(ARCHIPACK_OT_render)
+
+
+def unregister():
+    bpy.utils.unregister_class(ARCHIPACK_OT_render)

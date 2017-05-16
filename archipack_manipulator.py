@@ -178,7 +178,7 @@ class Gl():
 
     def draw(self, context, render=False):
         """
-            render flag when rendering 
+            render flag when rendering
         """
         self.render = render
         gl_type = type(self).__name__
@@ -621,7 +621,7 @@ class GlCursorFence():
         self.line_y.width = width
         self.line_y.colour_inactive = colour
         self.on = True
-        
+
     def set_location(self, context, location):
         w = context.region.width
         h = context.region.height
@@ -1971,19 +1971,6 @@ def register_manipulator(type_key, manipulator_class):
     manipulators_class_lookup[type_key] = manipulator_class
 
 
-# Register default manipulators
-register_manipulator('SIZE', SizeManipulator)
-register_manipulator('SIZE_LOC', SizeLocationManipulator)
-register_manipulator('ANGLE', AngleManipulator)
-register_manipulator('ARC_ANGLE_RADIUS', ArcAngleRadiusManipulator)
-register_manipulator('COUNTER', CounterManipulator)
-register_manipulator('DUMB_SIZE', DumbSizeManipulator)
-register_manipulator('DELTA_LOC', DeltaLocationManipulator)
-# register_manipulator('SNAP_POINT', SnapPointManipulator)
-# wall's line based object snap
-register_manipulator('WALL_SNAP', WallSnapManipulator)
-
-
 class archipack_manipulator(PropertyGroup):
     """
         A property group to add to manipulable objects
@@ -2055,9 +2042,6 @@ class archipack_manipulator(PropertyGroup):
         return m
 
 
-bpy.utils.register_class(archipack_manipulator)
-
-
 # a global manipulator stack reference
 # prevent Blender "ACCESS_VIOLATION" crashes
 # use a dict to prevent potential
@@ -2115,8 +2099,6 @@ def get_stack(key):
         manip_stack[key] = []
     return manip_stack[key]
 
-
-bpy.app.handlers.load_pre.append(empty_stack)
 
 # ------------------------------------------------------------------
 # Define Manipulable to make a PropertyGroup manipulable
@@ -2266,3 +2248,32 @@ class Manipulable():
             Override with action to do when a handle is active (pressed and mousemove)
         """
         return
+
+
+def register():
+    # Register default manipulators
+    global manip_stack
+    global manipulators_class_lookup
+    manipulators_class_lookup = {}
+    manip_stack = {}
+    register_manipulator('SIZE', SizeManipulator)
+    register_manipulator('SIZE_LOC', SizeLocationManipulator)
+    register_manipulator('ANGLE', AngleManipulator)
+    register_manipulator('ARC_ANGLE_RADIUS', ArcAngleRadiusManipulator)
+    register_manipulator('COUNTER', CounterManipulator)
+    register_manipulator('DUMB_SIZE', DumbSizeManipulator)
+    register_manipulator('DELTA_LOC', DeltaLocationManipulator)
+    # register_manipulator('SNAP_POINT', SnapPointManipulator)
+    # wall's line based object snap
+    register_manipulator('WALL_SNAP', WallSnapManipulator)
+    bpy.utils.register_class(archipack_manipulator)
+    bpy.app.handlers.load_pre.append(empty_stack)
+
+
+def unregister():
+    global manip_stack
+    global manipulators_class_lookup
+    del manipulators_class_lookup
+    del manip_stack
+    bpy.utils.unregister_class(archipack_manipulator)
+    bpy.app.handlers.load_pre.remove(empty_stack)

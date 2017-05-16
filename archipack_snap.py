@@ -217,4 +217,9 @@ class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
             return {'FINISHED'}
 
 
-bpy.utils.register_class(ARCHIPACK_OT_snap)
+def register():
+    bpy.utils.register_class(ARCHIPACK_OT_snap)
+
+
+def unregister():
+    bpy.utils.unregister_class(ARCHIPACK_OT_snap)

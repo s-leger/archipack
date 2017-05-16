@@ -29,7 +29,7 @@ import bmesh
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import FloatProperty, CollectionProperty
 
-    
+
 def update_wall(self, context):
     self.update(context)
 
@@ -144,7 +144,15 @@ class ARCHIPACK_OT_wall(Operator):
             return {'CANCELLED'}
 
 
-bpy.utils.register_class(archipack_wall)
-Mesh.archipack_wall = CollectionProperty(type=archipack_wall)
-bpy.utils.register_class(ARCHIPACK_PT_wall)
-bpy.utils.register_class(ARCHIPACK_OT_wall)
+def register():
+    bpy.utils.register_class(archipack_wall)
+    Mesh.archipack_wall = CollectionProperty(type=archipack_wall)
+    bpy.utils.register_class(ARCHIPACK_PT_wall)
+    bpy.utils.register_class(ARCHIPACK_OT_wall)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_wall)
+    del Mesh.archipack_wall
+    bpy.utils.unregister_class(ARCHIPACK_PT_wall)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall)

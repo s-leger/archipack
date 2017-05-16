@@ -38,7 +38,7 @@ from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as WindowPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
-from .archipack_door_panel import ARCHIPACK_OT_select_parent
+# from .archipack_door_panel import ARCHIPACK_OT_select_parent
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset
 
@@ -1961,15 +1961,31 @@ class ARCHIPACK_OT_window_preset(ArchipackPreset, Operator):
         return ['x', 'y', 'z', 'altitude', 'manipulators', 'window_shape']
 
 
-bpy.utils.register_class(archipack_window_panelrow)
-bpy.utils.register_class(archipack_window_panel)
-Mesh.archipack_window_panel = CollectionProperty(type=archipack_window_panel)
-bpy.utils.register_class(ARCHIPACK_PT_window_panel)
-bpy.utils.register_class(ARCHIPACK_OT_window_panel)
-bpy.utils.register_class(archipack_window)
-Mesh.archipack_window = CollectionProperty(type=archipack_window)
-bpy.utils.register_class(ARCHIPACK_MT_window_preset)
-bpy.utils.register_class(ARCHIPACK_PT_window)
-bpy.utils.register_class(ARCHIPACK_OT_window)
-bpy.utils.register_class(ARCHIPACK_OT_window_preset)
-bpy.utils.register_class(ARCHIPACK_OT_window_manipulate)
+def register():
+    bpy.utils.register_class(archipack_window_panelrow)
+    bpy.utils.register_class(archipack_window_panel)
+    Mesh.archipack_window_panel = CollectionProperty(type=archipack_window_panel)
+    bpy.utils.register_class(ARCHIPACK_PT_window_panel)
+    bpy.utils.register_class(ARCHIPACK_OT_window_panel)
+    bpy.utils.register_class(archipack_window)
+    Mesh.archipack_window = CollectionProperty(type=archipack_window)
+    bpy.utils.register_class(ARCHIPACK_MT_window_preset)
+    bpy.utils.register_class(ARCHIPACK_PT_window)
+    bpy.utils.register_class(ARCHIPACK_OT_window)
+    bpy.utils.register_class(ARCHIPACK_OT_window_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_window_manipulate)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_window_panelrow)
+    bpy.utils.unregister_class(archipack_window_panel)
+    bpy.utils.unregister_class(ARCHIPACK_PT_window_panel)
+    del Mesh.archipack_window_panel
+    bpy.utils.unregister_class(ARCHIPACK_OT_window_panel)
+    bpy.utils.unregister_class(archipack_window)
+    del Mesh.archipack_window
+    bpy.utils.unregister_class(ARCHIPACK_MT_window_preset)
+    bpy.utils.unregister_class(ARCHIPACK_PT_window)
+    bpy.utils.unregister_class(ARCHIPACK_OT_window)
+    bpy.utils.unregister_class(ARCHIPACK_OT_window_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_window_manipulate)

@@ -2900,11 +2900,23 @@ class ARCHIPACK_OT_stair_preset(ArchipackPreset, Operator):
             'total_angle', 'da', 'presets', 'manipulators']
 
 
-bpy.utils.register_class(archipack_stair_material)
-bpy.utils.register_class(archipack_stair_part)
-bpy.utils.register_class(archipack_stair)
-Mesh.archipack_stair = CollectionProperty(type=archipack_stair)
-bpy.utils.register_class(ARCHIPACK_MT_stair_preset)
-bpy.utils.register_class(ARCHIPACK_PT_stair)
-bpy.utils.register_class(ARCHIPACK_OT_stair)
-bpy.utils.register_class(ARCHIPACK_OT_stair_preset)
+def register():
+    bpy.utils.register_class(archipack_stair_material)
+    bpy.utils.register_class(archipack_stair_part)
+    bpy.utils.register_class(archipack_stair)
+    Mesh.archipack_stair = CollectionProperty(type=archipack_stair)
+    bpy.utils.register_class(ARCHIPACK_MT_stair_preset)
+    bpy.utils.register_class(ARCHIPACK_PT_stair)
+    bpy.utils.register_class(ARCHIPACK_OT_stair)
+    bpy.utils.register_class(ARCHIPACK_OT_stair_preset)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_stair_material)
+    bpy.utils.unregister_class(archipack_stair_part)
+    bpy.utils.unregister_class(archipack_stair)
+    del Mesh.archipack_stair
+    bpy.utils.unregister_class(ARCHIPACK_MT_stair_preset)
+    bpy.utils.unregister_class(ARCHIPACK_PT_stair)
+    bpy.utils.unregister_class(ARCHIPACK_OT_stair)
+    bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset)

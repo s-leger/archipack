@@ -27,8 +27,8 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Operator, PropertyGroup, Mesh, Panel
-from bpy.props import FloatProperty, IntProperty, CollectionProperty, EnumProperty
+from bpy.types import Operator, PropertyGroup, Panel
+from bpy.props import FloatProperty, IntProperty, EnumProperty
 from mathutils import Vector
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as DoorPanel
@@ -790,10 +790,3 @@ class ARCHIPACK_OT_select_parent(Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-
-
-bpy.utils.register_class(archipack_door_panel)
-Mesh.archipack_doorpanel = CollectionProperty(type=archipack_door_panel)
-bpy.utils.register_class(ARCHIPACK_PT_door_panel)
-bpy.utils.register_class(ARCHIPACK_OT_door_panel)
-bpy.utils.register_class(ARCHIPACK_OT_select_parent)

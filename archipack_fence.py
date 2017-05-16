@@ -56,17 +56,17 @@ class Fence():
 
     def set_offset(self, offset, last=None):
         """
-            Offset line and compute intersection point between 
+            Offset line and compute intersection point between
             straight segments
         """
         self.line = self.offset(offset)
-        if last != None:
+        if last is not None:
             i, p, t = self.line.intersect(last)
             if type(self).__name__ == 'StraightFence':
                 self.line.p0 = p
             if type(last).__name__ == 'StraightFence':
                 last.line.p1 = p
-        
+
     @property
     def t_diff(self):
         return self.t_end - self.t_start
@@ -1172,8 +1172,7 @@ class archipack_fence(Manipulable, PropertyGroup):
             p.a0 = da
             a0 += da
             p0 = p1
-            
-        
+
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
@@ -1687,13 +1686,27 @@ class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
         return ['n_parts', 'parts', 'manipulators', 'user_defined_path']
 
 
-bpy.utils.register_class(archipack_fence_material)
-bpy.utils.register_class(archipack_fence_part)
-bpy.utils.register_class(archipack_fence)
-Mesh.archipack_fence = CollectionProperty(type=archipack_fence)
-bpy.utils.register_class(ARCHIPACK_MT_fence_preset)
-bpy.utils.register_class(ARCHIPACK_PT_fence)
-bpy.utils.register_class(ARCHIPACK_OT_fence)
-bpy.utils.register_class(ARCHIPACK_OT_fence_preset)
-bpy.utils.register_class(ARCHIPACK_OT_fence_manipulate)
-bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
+def register():
+    bpy.utils.register_class(archipack_fence_material)
+    bpy.utils.register_class(archipack_fence_part)
+    bpy.utils.register_class(archipack_fence)
+    Mesh.archipack_fence = CollectionProperty(type=archipack_fence)
+    bpy.utils.register_class(ARCHIPACK_MT_fence_preset)
+    bpy.utils.register_class(ARCHIPACK_PT_fence)
+    bpy.utils.register_class(ARCHIPACK_OT_fence)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_manipulate)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_fence_material)
+    bpy.utils.unregister_class(archipack_fence_part)
+    bpy.utils.unregister_class(archipack_fence)
+    del Mesh.archipack_fence
+    bpy.utils.unregister_class(ARCHIPACK_MT_fence_preset)
+    bpy.utils.unregister_class(ARCHIPACK_PT_fence)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_manipulate)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_from_curve)

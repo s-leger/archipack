@@ -1426,14 +1426,29 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         return {'FINISHED'}
 
 
-bpy.utils.register_class(archipack_wall2_part)
-bpy.utils.register_class(archipack_wall2_child)
-bpy.utils.register_class(archipack_wall2)
-Mesh.archipack_wall2 = CollectionProperty(type=archipack_wall2)
-bpy.utils.register_class(ARCHIPACK_PT_wall2)
-bpy.utils.register_class(ARCHIPACK_OT_wall2)
-bpy.utils.register_class(ARCHIPACK_OT_wall2_draw)
-bpy.utils.register_class(ARCHIPACK_OT_wall2_insert)
-bpy.utils.register_class(ARCHIPACK_OT_wall2_remove)
-bpy.utils.register_class(ARCHIPACK_OT_wall2_manipulate)
-bpy.utils.register_class(ARCHIPACK_OT_wall2_throttle_update)
+def register():
+    bpy.utils.register_class(archipack_wall2_part)
+    bpy.utils.register_class(archipack_wall2_child)
+    bpy.utils.register_class(archipack_wall2)
+    Mesh.archipack_wall2 = CollectionProperty(type=archipack_wall2)
+    bpy.utils.register_class(ARCHIPACK_PT_wall2)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_draw)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_insert)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_remove)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_manipulate)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_throttle_update)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_wall2_part)
+    bpy.utils.unregister_class(archipack_wall2_child)
+    bpy.utils.unregister_class(archipack_wall2)
+    del Mesh.archipack_wall2
+    bpy.utils.unregister_class(ARCHIPACK_PT_wall2)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_draw)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_insert)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_remove)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_manipulate)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_throttle_update)

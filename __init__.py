@@ -46,13 +46,16 @@ import os
 
 if "bpy" in locals():
     import importlib as imp
+    imp.reload(archipack_snap)
+    imp.reload(archipack_manipulator)
+    imp.reload(archipack_reference_point)
     imp.reload(archipack_autoboolean)
     imp.reload(archipack_door)
     imp.reload(archipack_window)
     imp.reload(archipack_stair)
+    imp.reload(archipack_wall)
     imp.reload(archipack_wall2)
     imp.reload(archipack_fence)
-    imp.reload(archipack_wall)
     imp.reload(archipack_rendering)
     try:
         imp.reload(archipack_polylib)
@@ -63,6 +66,9 @@ if "bpy" in locals():
 
     print("archipack: reload ready")
 else:
+    from . import archipack_snap
+    from . import archipack_manipulator
+    from . import archipack_reference_point
     from . import archipack_autoboolean
     from . import archipack_door
     from . import archipack_window
@@ -92,8 +98,8 @@ import bpy
 # noinspection PyUnresolvedReferences
 from bpy.types import Panel, WindowManager, PropertyGroup
 from bpy.props import EnumProperty, PointerProperty
-from bpy.utils import previews as iconsLib
-icons_dict = {}
+from bpy.utils import previews
+icons_coll = {}
 
 
 class TOOLS_PT_Archipack_PolyLib(Panel):
@@ -117,7 +123,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_detect",
-            icon_value=icons_dict["detect"].icon_id,
+            icon_value=icons_coll["detect"].icon_id,
             text='Detect'
             ).extend = context.window_manager.archipack_polylib.extend
         row.prop(context.window_manager.archipack_polylib, "extend")
@@ -128,46 +134,46 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_polygons",
-            icon_value=icons_dict["selection"].icon_id,
+            icon_value=icons_coll["selection"].icon_id,
             text='Select'
             ).action = 'select'
         row.operator(
             "archipack.polylib_pick_2d_polygons",
-            icon_value=icons_dict["union"].icon_id,
+            icon_value=icons_coll["union"].icon_id,
             text='Union'
             ).action = 'union'
         row.operator(
             "archipack.polylib_output_polygons",
-            icon_value=icons_dict["polygons"].icon_id,
+            icon_value=icons_coll["polygons"].icon_id,
             text='All')
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_polygons",
             text='Wall',
-            icon_value=icons_dict["wall"].icon_id).action = 'wall'
+            icon_value=icons_coll["wall"].icon_id).action = 'wall'
         row.prop(context.window_manager.archipack_polylib, "solidify_thickness")
         row = box.row(align=True)
         row.operator("archipack.polylib_pick_2d_polygons",
             text='Window',
-            icon_value=icons_dict["window"].icon_id).action = 'window'
+            icon_value=icons_coll["window"].icon_id).action = 'window'
         row.operator("archipack.polylib_pick_2d_polygons",
             text='Door',
-            icon_value=icons_dict["door"].icon_id).action = 'door'
+            icon_value=icons_coll["door"].icon_id).action = 'door'
         row.operator("archipack.polylib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
         row = box.row(align=True)
         row.label(text="Lines")
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_lines",
-            icon_value=icons_dict["selection"].icon_id,
+            icon_value=icons_coll["selection"].icon_id,
             text='Lines').action = 'select'
         row.operator(
             "archipack.polylib_pick_2d_lines",
-            icon_value=icons_dict["union"].icon_id,
+            icon_value=icons_coll["union"].icon_id,
             text='Union').action = 'union'
         row.operator(
             "archipack.polylib_output_lines",
-            icon_value=icons_dict["polygons"].icon_id,
+            icon_value=icons_coll["polygons"].icon_id,
             text='All')
         # row = layout.row(align=True)
         # box = row.box()
@@ -178,7 +184,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_points",
-            icon_value=icons_dict["selection"].icon_id,
+            icon_value=icons_coll["selection"].icon_id,
             text='Points').action = 'select'
         row = layout.row(align=True)
         box = row.box()
@@ -249,12 +255,12 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
-        row.operator("archipack.window", icon_value=icons_dict["window"].icon_id).mode = 'CREATE'
-        row.operator("archipack.door", icon_value=icons_dict["door"].icon_id).mode = 'CREATE'
+        row.operator("archipack.window", icon_value=icons_coll["window"].icon_id).mode = 'CREATE'
+        row.operator("archipack.door", icon_value=icons_coll["door"].icon_id).mode = 'CREATE'
         row = box.row(align=True)
-        row.operator("archipack.stair", icon_value=icons_dict["stair"].icon_id)
+        row.operator("archipack.stair", icon_value=icons_coll["stair"].icon_id)
         row = box.row(align=True)
-        row.operator("archipack.wall2", icon_value=icons_dict["wall"].icon_id)
+        row.operator("archipack.wall2", icon_value=icons_coll["wall"].icon_id)
         row.operator("archipack.wall2_draw", icon='GREASEPENCIL')
         row = box.row(align=True)
         row.operator("archipack.fence")
@@ -272,15 +278,15 @@ def menu_func(self, context):
     layout.operator_context = 'INVOKE_REGION_WIN'
     layout.operator("archipack.wall2",
                     text="Wall",
-                    icon_value=icons_dict["wall"].icon_id
+                    icon_value=icons_coll["wall"].icon_id
                     )
     layout.operator("archipack.window",
                     text="Window",
-                    icon_value=icons_dict["window"].icon_id
+                    icon_value=icons_coll["window"].icon_id
                     ).mode = 'CREATE'
     layout.operator("archipack.door",
                     text="Door",
-                    icon_value=icons_dict["door"].icon_id
+                    icon_value=icons_coll["door"].icon_id
                     ).mode = 'CREATE'
     layout.operator("archipack.fence",
                     text="Fence")
@@ -306,26 +312,69 @@ class archipack_data(PropertyGroup):
 
 
 def register():
-    global icons_dict
-    icons_dict = iconsLib.new()
+    global icons_coll
+    
+    icons_coll = previews.new()
     icons_dir = os.path.join(os.path.dirname(__file__), "icons")
     for icon in os.listdir(icons_dir):
         name, ext = os.path.splitext(icon)
-        icons_dict.load(name, os.path.join(icons_dir, icon), 'IMAGE')
+        icons_coll.load(name, os.path.join(icons_dir, icon), 'IMAGE')
+    
+    archipack_snap.register()
+    archipack_manipulator.register()
+    archipack_reference_point.register()
+    archipack_autoboolean.register()
+    archipack_door.register()
+    archipack_window.register()
+    archipack_stair.register()
+    archipack_wall.register()
+    archipack_wall2.register()
+    archipack_fence.register()
+    archipack_rendering.register()
+    
+    if HAS_POLYLIB:
+        archipack_polylib.register()
+   
     bpy.types.INFO_MT_mesh_add.append(menu_func)
     bpy.utils.register_class(archipack_data)
     WindowManager.archipack = PointerProperty(type=archipack_data)
-
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(TOOLS_PT_Archipack_PolyLib)
+    bpy.utils.register_class(TOOLS_PT_Archipack_Tools)
+    bpy.utils.register_class(TOOLS_PT_Archipack_Create)
+    # bpy.utils.register_module(__name__)
 
 
 def unregister():
+    global icons_coll
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
+    
+    bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
+    bpy.utils.unregister_class(TOOLS_PT_Archipack_Tools)
+    bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
+    
+    archipack_snap.unregister()
+    archipack_manipulator.unregister()
+    archipack_reference_point.unregister()
+    archipack_autoboolean.unregister()
+    archipack_door.unregister()
+    archipack_window.unregister()
+    archipack_stair.unregister()
+    archipack_wall.unregister()
+    archipack_wall2.unregister()
+    archipack_fence.unregister()
+    archipack_rendering.unregister()
+    
+    if HAS_POLYLIB:
+        archipack_polylib.unregister()
+        
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack
-    global icons_dict
-    iconsLib.remove(icons_dict)
-    bpy.utils.unregister_module(__name__)
+    
+    # icons_coll.close()
+    previews.remove(icons_coll)
+    del icons_coll
+    
+    # bpy.utils.unregister_module(__name__)
 
 
 if __name__ == "__main__":

@@ -28,7 +28,6 @@ import bpy
 from bpy.types import Operator
 from bpy.props import BoolProperty
 from mathutils import Vector
-from . import archipack_reference_point
 
 
 class ARCHIPACK_OT_auto_boolean(Operator):
@@ -129,7 +128,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         hole.cycles_visibility.shadow = False
         hole.cycles_visibility.scatter = False
         hole.cycles_visibility.transmission = False
-        
+
     def _generate_holes(self, context, childs):
         # generate holes from archipack primitives
         for o in context.scene.objects:
@@ -263,4 +262,9 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             return {'CANCELLED'}
 
 
-bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
+def register():
+    bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
+
+
+def unregister():
+    bpy.utils.unregister_class(ARCHIPACK_OT_auto_boolean)
