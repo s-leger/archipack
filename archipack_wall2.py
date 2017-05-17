@@ -230,7 +230,9 @@ class WallGenerator():
 def update(self, context):
     self.update(context)
 
-
+def update_childs(self, context):
+    self.update(context, update_childs=True)
+    
 def update_manipulators(self, context):
     self.update(context, manipulable_refresh=True)
 
@@ -457,7 +459,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             subtype='ANGLE', unit='ROTATION',
             update=update
             )
-    flip = BoolProperty(default=False, update=update)
+    flip = BoolProperty(default=False, update=update_childs)
     closed = BoolProperty(
             default=False,
             name="Close",
@@ -603,7 +605,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         return g
 
-    def update(self, context, manipulable_refresh=False):
+    def update(self, context, manipulable_refresh=False, update_childs=False):
         # print("update manipulable_refresh:%s" % (manipulable_refresh))
 
         if not self.auto_update:
@@ -614,7 +616,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         if o is None:
             return
 
-        if manipulable_refresh:
+        if manipulable_refresh or update_childs:
             # prevent crash by removing all manipulators refs to datablock before changes
             self.manipulable_disable(context)
 
@@ -641,7 +643,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         # Height
         self.manipulators[2].set_pts([(0, 0, 0), (0, 0, self.z), (-1, 0, 0)], normal=g.segs[0].straight(1, 0).v.to_3d())
-
+        
+        # setup childs on flip
+        if update_childs:
+            self.setup_childs(o, g)
+        
         if self.realtime:
             # update child location and size
             self.relocate_childs(context, o, g)
@@ -746,19 +752,27 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
                     res, d, t = wall.point_sur_segment(pt)
-                    dir = -wall.normal(t).v.normalized()
+                    # outside is on the right side of the wall
+                    #  p1
+                    #  |-- x
+                    #  p0
+                    dir = wall.normal(t).v.normalized()
                     if res and t > 0 and t < 1 and abs(d) < dmax:
                         wall_with_childs[wall_idx] = 1
                         m = self.childs_manipulators.add()
                         m.type_key = 'DUMB_SIZE'
+                        # always make window points outside
+                        if child.data is not None and "archipack_window" in child.data:
+                            flip = self.flip
+                        else:
+                            flip = (dir - dir_y).length > 0.5
                         # store z in wall space
                         relocate.append((child.name, wall_idx, (t * wall.length, d, (itM * child.location).z),
-                            (dir - dir_y).length > 0.5, t))
+                            flip, t))
 
         self.sort_child(relocate)
         for child in relocate:
             name, wall_idx, pos, flip, t = child
-            print("%s w:%s pos:%s" % (name, wall_idx, pos))
             self.add_child(name, wall_idx, pos, flip)
 
         # add a dumb size from last child to end of wall segment
@@ -772,7 +786,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         """
         # print("relocate_childs")
 
-        w = self.width
+        w = -self.x_offset * self.width
         if self.flip:
             w = -w
         tM = o.matrix_world
@@ -791,7 +805,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 c.select = True
                 d.auto_update = False
                 d.flip = child.flip
-                d.y = w
+                d.y = self.width
                 d.auto_update = True
                 c.select = False
                 x, y = n.p - (0.5 * w * n.v.normalized())
