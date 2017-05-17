@@ -67,10 +67,10 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         self._get_bounding_box(wall)
         # generate holes for crossing window and doors
         # hole(s) are selected and active after this one
-        self._generate_holes(context, childs)
+        holes = self._generate_holes(context, childs)
         # update / remove / add  boolean modifier
         if self.interactive:
-            self._update_interactive_boolean_modif(context, wall, childs)
+            self._update_interactive_boolean_modif(context, wall, childs, holes)
         else:
             self._update_boolean_modif(context, wall, childs)
         # parenting childs to wall reference point
@@ -157,6 +157,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         # Select all holes here, fix issue #13
         for hole in holes:
             self._prepare_hole(hole)
+        return holes
         
     def _remove_boolean_modif(self, context, obj, modif):
         old = modif.object
@@ -184,19 +185,23 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             _quicksort(array, pivot + 1, end)
         return _quicksort(array, begin, end)
 
-    def _update_interactive_boolean_modif(self, context, wall, childs):
+    def _update_interactive_boolean_modif(self, context, wall, childs, holes):
         modifs = [wall.modifiers.get(modif.name) for modif in wall.modifiers if modif.type == 'BOOLEAN']
         n_modifs = len(modifs)
         # sort holes by distance from wall center from closest to farthest
         # as multiple boolean may be a bit more robust like that
         center = wall.matrix_world * self.center
-        holes = [(o, (o.matrix_world.translation - center).length) for o in context.selected_objects]
-        n_holes = len(context.selected_objects)
+        holes = [(o, (o.matrix_world.translation - center).length) for o in holes]
+        n_holes = len(holes)
         self.quicksort(holes)
         holes = [o[0] for o in holes]
+        
         # remove modifiers
         for i in range(n_modifs, n_holes, -1):
             self._remove_boolean_modif(context, wall, modifs[i - 1])
+        
+        print("h:%s m:%s holes:%s modifs:%s" % (n_holes, n_modifs, holes, modifs))
+        
         # add modifiers
         for i in range(n_holes):
             if i < n_modifs:
