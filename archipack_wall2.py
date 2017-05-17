@@ -680,11 +680,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
         pivot = begin
         for i in range(begin + 1, end + 1):
             # wall idx
-            if array[i][0] < array[begin][0]:
+            if array[i][1] < array[begin][1]:
                 pivot += 1
                 array[i], array[pivot] = array[pivot], array[i]
             # param t on the wall
-            elif array[i][0] == array[begin][0] and array[i][3] <= array[begin][3]:
+            elif array[i][1] == array[begin][1] and array[i][4] <= array[begin][4]:
                 pivot += 1
                 array[i], array[pivot] = array[pivot], array[i]
         array[pivot], array[begin] = array[begin], array[pivot]
@@ -753,19 +753,18 @@ class archipack_wall2(Manipulable, PropertyGroup):
                         m.type_key = 'DUMB_SIZE'
                         # store z in wall space
                         relocate.append((child.name, wall_idx, (t * wall.length, d, (itM * child.location).z),
-                            (dir - dir_y).length > 0.5))
+                            (dir - dir_y).length > 0.5, t))
 
         self.sort_child(relocate)
         for child in relocate:
-            name, wall_idx, pos, flip = child
+            name, wall_idx, pos, flip, t = child
+            print("%s w:%s pos:%s" % (name, wall_idx, pos))
             self.add_child(name, wall_idx, pos, flip)
 
         # add a dumb size from last child to end of wall segment
         for i in range(sum(wall_with_childs)):
             m = self.childs_manipulators.add()
             m.type_key = 'DUMB_SIZE'
-        
-        
         
     def relocate_childs(self, context, o, g):
         """
@@ -896,6 +895,14 @@ class archipack_wall2(Manipulable, PropertyGroup):
             Override with action to do on mouse release
             eg: big update
         """
+        return
+        
+        o = context.active_object
+        if o.parent is None:
+            return
+        g = self.get_generator()
+        self.setup_childs(o, g)
+        self.update_childs(context, o, g)
         return
 
     def manipulable_setup(self, context):
