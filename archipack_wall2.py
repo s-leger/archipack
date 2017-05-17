@@ -262,14 +262,12 @@ class archipack_wall2_part(PropertyGroup):
     length = FloatProperty(
             name="length",
             min=0.01,
-            max=100.0,
             default=2.0,
             update=update
             )
     radius = FloatProperty(
             name="radius",
             min=0.5,
-            max=100.0,
             default=0.7,
             update=update
             )
@@ -292,7 +290,7 @@ class archipack_wall2_part(PropertyGroup):
     z = FloatVectorProperty(
             name="height",
             min=0,
-            max=1000,
+            max=10000,
             default=[
                 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0,
@@ -431,13 +429,12 @@ class archipack_wall2(Manipulable, PropertyGroup):
     width = FloatProperty(
             name="width",
             min=0.01,
-            max=100.0,
             default=0.2,
             update=update
             )
     z = FloatProperty(
             name='height',
-            min=0.1, max=10000,
+            min=0.1, 
             default=2.7, precision=2,
             description='height', update=update,
             )
@@ -451,7 +448,6 @@ class archipack_wall2(Manipulable, PropertyGroup):
     radius = FloatProperty(
             name="radius",
             min=0.5,
-            max=100.0,
             default=0.7,
             update=update
             )
