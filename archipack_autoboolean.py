@@ -128,11 +128,13 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         hole.cycles_visibility.shadow = False
         hole.cycles_visibility.scatter = False
         hole.cycles_visibility.transmission = False
-
+    
     def _generate_holes(self, context, childs):
         # generate holes from archipack primitives
+        holes = []
         for o in context.scene.objects:
             if o.data is not None:
+                # Keep separate as contains rules may vary from window to doors
                 if ('archipack_window' in o.data and
                     (self._contains(o.location) or
                      self._contains(o.matrix_world * Vector((0, 0, 0.5 * o.data.archipack_window[0].z))))):
@@ -140,7 +142,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
                         hole = o.data.archipack_window[0].interactive_hole(context, o)
                     else:
                         hole = o.data.archipack_window[0].robust_hole(context, o.matrix_world)
-                    self._prepare_hole(hole)
+                    holes.append(hole)
                     childs.append(o)
                 elif ('archipack_door' in o.data and
                     (self._contains(o.location) or
@@ -149,9 +151,13 @@ class ARCHIPACK_OT_auto_boolean(Operator):
                         hole = o.data.archipack_door[0].interactive_hole(context, o)
                     else:
                         hole = o.data.archipack_door[0].robust_hole(context, o.matrix_world)
-                    self._prepare_hole(hole)
+                    holes.append(hole)
                     childs.append(o)
-
+                    
+        # Select all holes here, fix issue #13
+        for hole in holes:
+            self._prepare_hole(hole)
+        
     def _remove_boolean_modif(self, context, obj, modif):
         old = modif.object
         obj.modifiers.remove(modif)
