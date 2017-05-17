@@ -1206,12 +1206,11 @@ class WallSnapManipulator(Manipulator):
                 # adjust length of current segment
                 w = g.segs[idx]
                 part = d.parts[idx]
-                p0 = w.p1
-                dp = p0 - pt
+                dp = w.p1 - pt
                 # adjust radius from distance between points..
-                # use p0-p1 distance as reference
+                # use p0-p1 distance and angle as reference
                 if "C_" in part.type:
-                    dw = (w.p1 - w.p0)
+                    dw = w.p1 - w.p0
                     part.radius = part.radius / dw.length * dp.length
                     da1 = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
                 else:

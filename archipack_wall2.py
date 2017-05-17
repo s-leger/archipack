@@ -205,13 +205,15 @@ class WallGenerator():
                 manipulators[1].prop1_name = "length"
                 manipulators[1].set_pts([p0, p1, (1, 0, 0)])
             else:
-                # segment radius + angle
+                # segment radius + angle 
+                # scale to fix overlap with drag 
                 v0 = (wall.lerp(0) - wall.c).to_3d()
                 v1 = (wall.lerp(1) - wall.c).to_3d()
+                scale = 1.0 + (0.5 / v0.length)
                 manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
                 manipulators[1].prop1_name = "da"
                 manipulators[1].prop2_name = "radius"
-                manipulators[1].set_pts([wall.c.to_3d(), v0, v1])
+                manipulators[1].set_pts([wall.c.to_3d(), scale * v0, scale * v1])
 
             # snap manipulator, dont change index !
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
@@ -768,7 +770,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
         for i in range(sum(wall_with_childs)):
             m = self.childs_manipulators.add()
             m.type_key = 'DUMB_SIZE'
-
+        
+        
+        
     def relocate_childs(self, context, o, g):
         """
             Move and resize childs after wall edition
@@ -1204,6 +1208,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
         self.state = state
 
         if state == 'SUCCESS':
+            
             old = context.active_object
             if self.o is None:
                 bpy.ops.archipack.wall2(auto_manipulate=False)
@@ -1218,6 +1223,12 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 o.select = True
                 context.scene.objects.active = o
                 d = o.data.archipack_wall2[0]
+                # Check for end close to start and close when applicable
+                dp = sp.placeloc - o.location
+                if dp.length < 0.01:
+                    d.closed = True
+                    self.state = 'CANCEL'
+                    return
                 part = d.add_part(context, sp.delta.length)
 
             # print("self.o :%s" % o.name)
@@ -1262,7 +1273,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                     context.scene.objects.active = o
                     d = o.data.archipack_wall2[0]
                     g = d.get_generator()
-                    takeloc = o.matrix_world * g.segs[-1].lerp(1).to_3d()
+                    takeloc = o.matrix_world * g.segs[-1].p1.to_3d()
                     o.select = False
                 else:
                     takeloc = self.mouse_to_plane(context, event)
