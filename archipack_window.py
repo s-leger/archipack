@@ -728,8 +728,8 @@ class archipack_window(Manipulable, PropertyGroup):
 
         outside_mat = 0
         inside_mat = 1
-        if self.flip:
-            outside_mat, inside_mat = inside_mat, outside_mat
+        #if self.flip:
+        #    outside_mat, inside_mat = inside_mat, outside_mat
 
         y_outside = -y_inside           # inside wall
 
