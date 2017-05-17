@@ -2909,6 +2909,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_stair)
     bpy.utils.register_class(ARCHIPACK_OT_stair)
     bpy.utils.register_class(ARCHIPACK_OT_stair_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_stair_manipulate)
 
 
 def unregister():
@@ -2920,3 +2921,4 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_stair)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_stair_manipulate)

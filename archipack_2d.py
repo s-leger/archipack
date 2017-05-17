@@ -475,18 +475,13 @@ class Arc(Circle):
     def rotate(self, da):
         """
             Rotate
-            Mmmhhh, dosen't work as it
-
             Should move center so we rotate arround start
-            also adjusting start angle a0
         """
-        raise NotImplementedError
-
-        cs = cos(da)
+        cs = cos(da) 
         sn = sin(da)
-        x, y = self.v
-        self.v.x = x * cs - y * sn
-        self.v.y = x * sn + y * cs
+        x, y = (self.p0 - self.c)
+        self.c.x = x * cs - y * sn
+        self.c.y = x * sn + y * cs
         return self
 
     def draw(self, context):

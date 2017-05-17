@@ -361,7 +361,7 @@ class GlArc(GlCircle):
         if self.da > 0:
             n.v = -n.v
         return n
-
+        
     def offset(self, offset):
         """
             offset > 0 on the right part
@@ -929,6 +929,7 @@ class Manipulator():
     def get_pos3d(self, context):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
+            pt is in world space
         """
         region = context.region
         rv3d = context.region_data
@@ -1684,14 +1685,17 @@ class AngleManipulator(Manipulator):
         v1 = c + v
         p0, p1 = intersect_line_sphere(v0, v1, c, self.arc.r)
         if p0 is not None and p1 is not None:
+            
             if (p1 - pt).length < (p0 - pt).length:
                 p0, p1 = p1, p0
+            
             v = p0 - self.arc.c
             da = atan2(v.y, v.x) - self.line_0.angle
             if da > pi:
-                da = da - 2 * pi
+                da -= 2 * pi
             if da < -pi:
-                da = da + 2 * pi
+                da += 2 * pi
+            # from there pi > da > -pi
             # print("a:%.4f da:%.4f a0:%.4f" % (atan2(v.y, v.x), da, self.line_0.angle))
             if da > pi:
                 da = pi
@@ -1809,25 +1813,52 @@ class ArcAngleManipulator(Manipulator):
         return False
 
     def update(self, context, event):
+        """
+            NOTE:
+                quadrant issue hidden somewhere
+                mess with object's space and world space ?
+        """
+        # pt in world space here
         pt = self.get_pos3d(context)
         c = self.arc.c
+        
         v = 2 * self.arc.r * (pt - c).normalized()
         v0 = c - v
         v1 = c + v
         p0, p1 = intersect_line_sphere(v0, v1, c, self.arc.r)
+        
         if p0 is not None:
+            # find nearest mouse intersection point 
             if (p1 - pt).length < (p0 - pt).length:
                 p0, p1 = p1, p0
             v = p0 - self.arc.c
+            
+            # a = atan2(v.y, v.x) - self.arc.sized_normal(0, 1).angle
+            
+            # a %= 2 * pi
+                
+            # print("a:%s >pi:%s <0:%s" % (a, a > pi, a < 0))
+            
+            # line0 from c to left (on radius side)
             da = atan2(v.y, v.x) - self.line_0.angle
+            # da = atan2(v.y, v.x) - self.arc.sized_normal(0, 1).angle
+            
             if abs(da) > pi:
-                da = pi
+                if da > 0:
+                    da = pi
+                else:
+                    da = -pi
+                    
             # bottom and top points
-            n = self.line_0.sized_normal(0, 1)
-            top = pt - n.lerp(-1)
-            bottom = pt - n.lerp(1)
+            # s direction = "top"
+            # take arc straight as reference as it wont never swap
+            s = self.arc.tangeant(0, 1)
+            top = s.lerp(1) - pt
+            bottom = s.lerp(-1) - pt
+            
             # left and right points
-            n = self.arc.sized_normal(0, 1)
+            # s direction = "right"
+            n = s.sized_normal(0, 1)
             right = pt - n.lerp(1)
             left = pt - n.lerp(-1)
             # we are on the right part

@@ -172,12 +172,10 @@ class WallGenerator():
                 v = length * Vector((cos(a0), sin(a0)))
                 s = StraightWall(s, p, v, wall_z, z, t, flip)
             elif type == 'C_WALL':
-                if da < 0:
-                    c = Vector((radius, 0))
-                else:
-                    c = Vector((-radius, 0))
+                sa = -sin(a0) * radius
+                ca = -cos(a0) * radius
+                c = Vector((ca, sa))
                 s = CurvedWall(s, c, radius, a0, da, wall_z, z, t, flip)
-
         else:
             if type == 'S_WALL':
                 s = s.straight_wall(s, length, a0, wall_z, z, t)
@@ -191,8 +189,8 @@ class WallGenerator():
     def make_wall(self, step_angle, verts, faces):
         for i, wall in enumerate(self.segs):
             manipulators = self.parts[i].manipulators
-            p0 = wall.lerp(0).to_3d()
-            p1 = wall.lerp(1).to_3d()
+            p0 = wall.p0.to_3d()
+            p1 = wall.p1.to_3d()
             # angle from last to current segment
             if i > 0:
                 v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
@@ -207,8 +205,8 @@ class WallGenerator():
             else:
                 # segment radius + angle 
                 # scale to fix overlap with drag 
-                v0 = (wall.lerp(0) - wall.c).to_3d()
-                v1 = (wall.lerp(1) - wall.c).to_3d()
+                v0 = (wall.p0 - wall.c).to_3d()
+                v1 = (wall.p1 - wall.c).to_3d()
                 scale = 1.0 + (0.5 / v0.length)
                 manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
                 manipulators[1].prop1_name = "da"
