@@ -1097,8 +1097,6 @@ class WallSnapManipulator(Manipulator):
         primitives, currently wall and fences,
         but may also work with stairs (sharing same data structure)
 
-        @TODO:
-            handle reorientation of curved segments
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         self.placeholder_part1 = GlPolygon((0.5, 0, 0, 0.2))
@@ -1185,9 +1183,18 @@ class WallSnapManipulator(Manipulator):
                 if idx > 0:
                     w = g.segs[idx - 1]
                     part = d.parts[idx - 1]
-                    dp = (pt - w.lerp(0))
-                    part.length = dp.length
-                    da = atan2(dp.y, dp.x) - w.straight(1).angle
+                    dp = pt - w.p0
+                        
+                    # adjust radius from distance between points..
+                    # use p0-p1 distance as reference
+                    if "C_" in part.type:
+                        dw = (w.p1 - w.p0)
+                        part.radius = part.radius / dw.length * dp.length
+                        # angle pt - p0        - angle p0 p1
+                        da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+                    else:
+                        part.length = dp.length
+                        da = atan2(dp.y, dp.x) - w.straight(1).angle
                     a0 = part.a0 + da
                     if a0 > pi:
                         a0 -= 2 * pi
@@ -1199,12 +1206,18 @@ class WallSnapManipulator(Manipulator):
                 # adjust length of current segment
                 w = g.segs[idx]
                 part = d.parts[idx]
-                p0 = w.lerp(1)
-                dp = (p0 - pt)
-                # print("pt:%s delta:%s dp:%s idx:%s" % (pt, sp.delta, dp, idx))
-                part.length = dp.length
-
-                da1 = atan2(dp.y, dp.x) - w.straight(1).angle
+                p0 = w.p1
+                dp = p0 - pt
+                # adjust radius from distance between points..
+                # use p0-p1 distance as reference
+                if "C_" in part.type:
+                    dw = (w.p1 - w.p0)
+                    part.radius = part.radius / dw.length * dp.length
+                    da1 = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+                else:
+                    part.length = dp.length
+                    da1 = atan2(dp.y, dp.x) - w.straight(1).angle
+                
                 a0 = part.a0 + da1 - da
                 if a0 > pi:
                     a0 -= 2 * pi
