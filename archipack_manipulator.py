@@ -1544,20 +1544,22 @@ class DeltaLocationManipulator(SizeManipulator):
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
-        self.label.label = 'DL '
-
+        self.label.label = ''
+        self.feedback.instructions(context, "Move", "Drag to move", [('ALT', 'Round value')])
+                    
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
-            self.feedback.instructions(context, "Move", "Drag to move", [('ALT', 'Round value')])
+            self.feedback.enable()
             self.handle_right.active = True
             return True
         return False
 
     def mouse_release(self, context, event):
         self.check_hover()
+        self.feedback.disable()
         self.handle_right.active = False
         return False
 
@@ -1602,6 +1604,7 @@ class DeltaLocationManipulator(SizeManipulator):
         self.handle_right.set_pos(context, self.line_1.lerp(0.5), self.line_1.v, normal=normal)
         self.handle_left.draw(context, render)
         self.handle_right.draw(context, render)
+        self.feedback.draw(context)
 
 
 class DumbSizeManipulator(SizeManipulator):
