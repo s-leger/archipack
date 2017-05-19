@@ -556,7 +556,7 @@ class FeedbackPanel():
             space = ks.x + ls.x + self.spacing.x
             add_y = ks.y + self.spacing.y
             if pos.x + space > w - 2 * self.margin:
-                add_y = 0
+                # add_y = 0
                 pos.y += ks.y + 2 * self.spacing.y
                 pos.x = self.margin + self.spacing.x
             key.pos_3d = pos.copy()
@@ -877,11 +877,11 @@ class Manipulator():
                 if active:
                     self.feedback.enable()
                 return active
-            
+
             elif event.shift:
-                
+
                 print("GOT a SHIFT")
-                
+
             elif self.keymap.check(event, self.keymap.undo):
                 if self.keyboard_input_active:
                     self.keyboard_input_active = False
@@ -1388,7 +1388,7 @@ class SizeManipulator(Manipulator):
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.original_location = self.o.matrix_world.translation.copy()
             self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
-                ('CTRL', 'Snap'), 
+                ('CTRL', 'Snap'),
                 ('SHIFT', 'Round'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
@@ -1401,9 +1401,6 @@ class SizeManipulator(Manipulator):
                 [dx.z, dy.z, dz.z, right.z],
                 [0, 0, 0, 1]
             ])
-            t = context.scene.objects.find("Test")
-            if t > -1:
-                context.scene.objects[t].matrix_world = takemat
             gl_pts3d = [left, right]
             snap_point(takemat=takemat,
                 draw=self.sp_draw,
@@ -1502,7 +1499,7 @@ class SizeManipulator(Manipulator):
         p0 = gl_pts3d[0].copy()
         p1 = gl_pts3d[1].copy()
         p1 += sp.delta
-        
+
         self.sp_update(context, p0, p1)
         """
         # manually update wall when manipulating wall child
@@ -1530,8 +1527,7 @@ class SizeManipulator(Manipulator):
     def sp_update(self, context, p0, p1):
         length = (p0 - p1).length
         self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
-        
-        
+
 
 class SizeLocationManipulator(SizeManipulator):
     """
@@ -1620,7 +1616,7 @@ class SizeLocationManipulator(SizeManipulator):
             # must move back to original location
             itM = self.o.matrix_world.inverted()
             dl = self.get_value(itM * self.original_location, self.manipulator.prop2_name)
-            
+
             self.move(context, self.manipulator.prop2_name, dl)
             self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_size)
             self.move_linked(context, self.manipulator.prop2_name, dl)
@@ -1664,8 +1660,8 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
         Changing size is not necessary as link does
         allredy handle this and childs panels are
         updated by base object.
-        
-        
+
+
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         SizeLocationManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
@@ -1682,7 +1678,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.original_location = self.o.matrix_world.translation.copy()
             self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
-                ('CTRL', 'Snap'), 
+                ('CTRL', 'Snap'),
                 ('SHIFT', 'Round'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
@@ -1700,7 +1696,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             draw=self.sp_draw,
             callback=self.sp_callback,
             constraint_axis=(True, False, False))
-        
+
             self.handle_right.active = True
             return True
         if self.handle_left.hover:
@@ -1708,7 +1704,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.original_location = self.o.matrix_world.translation.copy()
             self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
-                ('CTRL', 'Snap'), 
+                ('CTRL', 'Snap'),
                 ('SHIFT', 'Round'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
@@ -1716,9 +1712,9 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             dx = (left - right).normalized()
             dy = dz.cross(dx)
             takemat = Matrix([
-                [dx.x, dy.x, dz.x, right.x],
-                [dx.y, dy.y, dz.y, right.y],
-                [dx.z, dy.z, dz.z, right.z],
+                [dx.x, dy.x, dz.x, left.x],
+                [dx.y, dy.y, dz.y, left.y],
+                [dx.z, dy.z, dz.z, left.z],
                 [0, 0, 0, 1]
             ])
             gl_pts3d = [left, right]
@@ -1785,7 +1781,7 @@ class DeltaLocationManipulator(SizeManipulator):
     """
         Move a child window or door in wall segment
         not limited to this by the way
-        
+
         @TODO:
             add snap feature on this one too
     """
@@ -1795,7 +1791,7 @@ class DeltaLocationManipulator(SizeManipulator):
         self.feedback.instructions(context, "Move", "Drag to move", [
             ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
             ])
-        
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
 
@@ -1831,7 +1827,7 @@ class DeltaLocationManipulator(SizeManipulator):
             itM = self.o.matrix_world.inverted()
             dl = self.get_value(itM * self.original_location, self.manipulator.prop1_name)
             self.move(context, self.manipulator.prop1_name, dl)
-            
+
     def update(self, context, event):
         # 0  1  2
         # |_____|
@@ -1885,7 +1881,7 @@ class AngleManipulator(Manipulator):
     """
         NOTE:
             There is a default shortcut to +5 and -5 on angles with left/right arrows
-    
+
         Manipulate angle between segments
         bound to [-pi, pi]
     """
