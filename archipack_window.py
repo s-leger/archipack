@@ -1668,11 +1668,11 @@ class ARCHIPACK_OT_window(Operator):
         s = d.manipulators.add()
         s.prop1_name = "x"
         s.prop2_name = "x"
-        s.type_key = "SIZE_LOC"
+        s.type_key = "SNAP_SIZE_LOC"
         s = d.manipulators.add()
         s.prop1_name = "y"
         s.prop2_name = "y"
-        s.type_key = "SIZE_LOC"
+        s.type_key = "SNAP_SIZE_LOC"
         s = d.manipulators.add()
         s.prop1_name = "z"
         s.normal = Vector((0, 1, 0))

@@ -361,7 +361,7 @@ class GlArc(GlCircle):
         if self.da > 0:
             n.v = -n.v
         return n
-        
+
     def offset(self, offset):
         """
             offset > 0 on the right part
@@ -707,6 +707,7 @@ class Manipulator():
         """
         self.keymap = Keymaps(context)
         self.feedback = FeedbackPanel()
+        self.active = False
         # active text input value for manipulator
         self.keyboard_input_active = False
         self.label_value = 0
@@ -798,6 +799,14 @@ class Manipulator():
         """
         return
 
+    def cancel(self, context, event):
+        """
+            Manipulators may implement
+            cancelled event (ESC RIGHTCLICK)
+        """
+        self.active = False
+        return
+
     def undo(self, context, event):
         """
             Manipulators may implement
@@ -884,14 +893,19 @@ class Manipulator():
                 # get keyboard input
                 return self.keyboard_eval(context, event)
 
-            elif self.keyboard_input_active and event.type in {'ESC', 'RIGHTMOUSE'}:
-                # allow keyboard exit without setting value
-                self.length_entered = ""
-                self.line_pos = 0
-                self.keyboard_input_active = False
-                self.keyboard_cancel(context, event)
+            elif event.type in {'ESC', 'RIGHTMOUSE'}:
                 self.feedback.disable()
-                return True
+                if self.keyboard_input_active:
+                    # allow keyboard exit without setting value
+                    self.length_entered = ""
+                    self.line_pos = 0
+                    self.keyboard_input_active = False
+                    self.keyboard_cancel(context, event)
+                    return True
+                elif self.active:
+                    self.cancel(context, event)
+                    return True
+                return False
 
         elif event.value == 'RELEASE':
 
@@ -954,6 +968,7 @@ class Manipulator():
             else:
                 return getattr(data, attr)
         except:
+            print("get_value of %s %s failed" % (data, attr))
             return 0
 
     def set_value(self, context, data, attr, value, index=-1):
@@ -1097,7 +1112,6 @@ class WallSnapManipulator(Manipulator):
         Misnamed as it work for all line based archipack's
         primitives, currently wall and fences,
         but may also work with stairs (sharing same data structure)
-
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         self.placeholder_part1 = GlPolygon((0.5, 0, 0, 0.2))
@@ -1108,10 +1122,6 @@ class WallSnapManipulator(Manipulator):
         self.line = GlLine()
         self.handle = SquareHandle(handle_size, 1.2 * arrow_size, selectable=True)
         Manipulator.__init__(self, context, o, datablock, manipulator)
-
-    @classmethod
-    def poll(cls, context):
-        return True
 
     def check_hover(self):
         self.handle.check_hover(self.mouse_pos)
@@ -1185,7 +1195,7 @@ class WallSnapManipulator(Manipulator):
                     w = g.segs[idx - 1]
                     part = d.parts[idx - 1]
                     dp = pt - w.p0
-                        
+
                     # adjust radius from distance between points..
                     # use p0-p1 distance as reference
                     if "C_" in part.type:
@@ -1217,7 +1227,7 @@ class WallSnapManipulator(Manipulator):
                 else:
                     part.length = dp.length
                     da1 = atan2(dp.y, dp.x) - w.straight(1).angle
-                
+
                 a0 = part.a0 + da1 - da
                 if a0 > pi:
                     a0 -= 2 * pi
@@ -1250,7 +1260,7 @@ class WallSnapManipulator(Manipulator):
         if self.o is None:
             return
         z = self.get_value(self.datablock, self.manipulator.prop2_name)
-        print("z:%s, type:%s prop:%s" % (z, type(self.datablock).__name__, self.manipulator.prop2_name))
+        # print("z:%s, type:%s prop:%s" % (z, type(self.datablock).__name__, self.manipulator.prop2_name))
         p0 = gl_pts3d[1] + sp.delta
         p1 = gl_pts3d[2]
         self.placeholder_part1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
@@ -1369,6 +1379,8 @@ class SizeManipulator(Manipulator):
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
+            self.active = True
+            self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Size", "Drag to modify size", [('ALT', 'Round value')])
             self.handle_right.active = True
             return True
@@ -1381,6 +1393,7 @@ class SizeManipulator(Manipulator):
         return False
 
     def mouse_release(self, context, event):
+        self.active = False
         self.check_hover()
         self.handle_right.active = False
         return False
@@ -1393,6 +1406,11 @@ class SizeManipulator(Manipulator):
         else:
             self.check_hover()
         return False
+
+    def cancel(self, context, event):
+        if self.active:
+            self.mouse_release(context, event)
+            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_size)
 
     def keyboard_done(self, context, event, value):
         self.set_value(context, self.datablock, self.manipulator.prop1_name, value)
@@ -1466,10 +1484,16 @@ class SizeLocationManipulator(SizeManipulator):
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
+            self.active = True
+            self.original_location = self.o.matrix_world.translation.copy()
+            self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Size", "Drag to modify size", [('ALT', 'Round value')])
             self.handle_right.active = True
             return True
         if self.handle_left.hover:
+            self.active = True
+            self.original_location = self.o.matrix_world.translation.copy()
+            self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Size", "Drag to modify size", [('ALT', 'Round value')])
             self.handle_left.active = True
             return True
@@ -1482,6 +1506,7 @@ class SizeLocationManipulator(SizeManipulator):
         return False
 
     def mouse_release(self, context, event):
+        self.active = False
         self.check_hover()
         self.handle_right.active = False
         self.handle_left.active = False
@@ -1499,17 +1524,30 @@ class SizeLocationManipulator(SizeManipulator):
         return False
 
     def keyboard_done(self, context, event, value):
-        dl = value - self.get_value(context, self.datablock, self.manipulator.prop1_name)
-        flip = self.get_value(context, self.datablock, 'flip')
+        """
+        dl = value - self.get_value(self.datablock, self.manipulator.prop1_name)
+        flip = self.get_value(self.datablock, 'flip')
         dl = 0.5 * dl
         if flip:
             dl = -dl
         self.move(context, self.manipulator.prop2_name, dl)
+        """
         self.set_value(context, self.datablock, self.manipulator.prop1_name, value)
-        self.move_linked(context, self.manipulator.prop2_name, dl)
+        # self.move_linked(context, self.manipulator.prop2_name, dl)
         self.label.active = False
         self.feedback.disable()
         return True
+
+    def cancel(self, context, event):
+        if self.active:
+            self.mouse_release(context, event)
+            # must move back to original location
+            itM = self.o.matrix_world.inverted()
+            dl = self.get_value(itM * self.original_location, self.manipulator.prop2_name)
+            
+            self.move(context, self.manipulator.prop2_name, dl)
+            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_size)
+            self.move_linked(context, self.manipulator.prop2_name, dl)
 
     def update(self, context, event):
         # 0  1  2
@@ -1532,6 +1570,143 @@ class SizeLocationManipulator(SizeManipulator):
             dl = 0.5 * dl
         else:
             dl = -0.5 * dl
+
+        self.move(context, self.manipulator.prop2_name, dl)
+        self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
+        self.move_linked(context, self.manipulator.prop2_name, dl)
+
+
+class SnapSizeLocationManipulator(SizeLocationManipulator):
+    """
+        Snap aware extension of SizeLocationManipulator
+        Handle resizing by any of the boundaries
+        of objects with centered pivots
+        so when size change, object should move of the
+        half of the change in the direction of change.
+
+        Also take care of moving linked objects too
+        Changing size is not necessary as link does
+        allredy handle this and childs panels are
+        updated by base object.
+    """
+    def __init__(self, context, o, datablock, manipulator, handle_size):
+        SizeLocationManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
+        if (context.active_object.data is not None and
+                "archipack_wall2" in context.active_object.data):
+            self.wall = context.active_object
+        else:
+            self.wall = None
+
+    def mouse_press(self, context, event):
+        global gl_pts3d
+        if self.handle_right.hover:
+            self.active = True
+            self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
+            self.original_location = self.o.matrix_world.translation.copy()
+            if event.ctrl:
+                self.feedback.instructions(context, "Size", "Drag to modify size", [
+                    ('CTRL', 'Snap'), ('RIGHTCLICK or ESC', 'cancel')
+                    ])
+                left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
+                dx = (right - left).normalized()
+                dy = dx.cross(normal)
+                takemat = Matrix([
+                    [dx.x, dx.y, 0, right.x],
+                    [dy.x, dy.y, 0, right.y],
+                    [normal.x, normal.y, normal.z, right.z],
+                    [0, 0, 0, 1]
+                ])
+                gl_pts3d = [left, right]
+                snap_point(takemat=takemat,
+                draw=self.sp_draw,
+                callback=self.sp_callback,
+                constraint_axis=(True, False, False))
+            else:
+                self.feedback.instructions(context, "Size", "Drag to modify size", [
+                    ('ALT', 'Round value')
+                    ])
+            self.handle_right.active = True
+            return True
+        if self.handle_left.hover:
+            self.active = True
+            self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
+            self.original_location = self.o.matrix_world.translation.copy()
+            if event.ctrl:
+                self.feedback.instructions(context, "Size", "Drag to modify size", [
+                    ('CTRL', 'Snap'), ('RIGHTCLICK or ESC', 'cancel')
+                    ])
+                left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
+                dx = (left - right).normalized()
+                dy = dx.cross(normal)
+                takemat = Matrix([
+                    [dx.x, dx.y, 0, left.x],
+                    [dy.x, dy.y, 0, left.y],
+                    [normal.x, normal.y, normal.z, left.z],
+                    [0, 0, 0, 1]
+                ])
+                gl_pts3d = [left, right]
+                snap_point(takemat=takemat,
+                draw=self.sp_draw,
+                callback=self.sp_callback,
+                constraint_axis=(True, False, False))
+            else:
+                self.feedback.instructions(context, "Size", "Drag to modify size", [
+                    ('ALT', 'Round value')
+                    ])
+            self.handle_left.active = True
+            return True
+        if self.label.hover:
+            self.feedback.instructions(context, "Size", "Use keyboard to modify size",
+                [('ENTER', 'Validate'), ('RIGHTCLICK or ESC', 'cancel')])
+            self.label.active = True
+            self.keyboard_input_active = True
+            return True
+        return False
+
+    def sp_draw(self, sp, context):
+        global gl_pts3d
+        if self.o is None:
+            return
+        p0 = gl_pts3d[0].copy()
+        p1 = gl_pts3d[1].copy()
+        if self.handle_right.active:
+            p1 += sp.delta
+        else:
+            p0 += sp.delta
+        self.sp_update(context, p0, p1)
+
+        # manually update wall when manipulating wall child
+        # as events are captured by snap
+        if self.wall is not None:
+            snap_helper = context.active_object
+            context.scene.objects.active = self.wall
+            self.wall.data.archipack_wall2[0].manipulable_manipulate(context, manipulator=self)
+            context.scene.objects.active = snap_helper
+        return
+
+    def sp_callback(self, context, event, state, sp):
+
+        if state == 'SUCCESS':
+            self.sp_draw(sp, context)
+            self.handle_right.active = False
+            self.handle_left.active = False
+            self.feedback.disable()
+
+        if state == 'CANCEL':
+            p0 = gl_pts3d[0].copy()
+            p1 = gl_pts3d[1].copy()
+            self.sp_update(context, p0, p1)
+            self.handle_right.active = False
+            self.handle_left.active = False
+            self.feedback.disable()
+
+    def sp_update(self, context, p0, p1):
+        l0 = self.get_value(self.datablock, self.manipulator.prop1_name)
+        length = (p0 - p1).length
+        dp = length - l0
+        if self.handle_left.active:
+            dp = -dp
+        dl = 0.5 * dp
         self.move(context, self.manipulator.prop2_name, dl)
         self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
         self.move_linked(context, self.manipulator.prop2_name, dl)
@@ -1546,12 +1721,14 @@ class DeltaLocationManipulator(SizeManipulator):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
         self.label.label = ''
         self.feedback.instructions(context, "Move", "Drag to move", [('ALT', 'Round value')])
-                    
+        self.original_location = o.location.copy()
+
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
+            self.active = True
             self.feedback.enable()
             self.handle_right.active = True
             return True
@@ -1560,6 +1737,7 @@ class DeltaLocationManipulator(SizeManipulator):
     def mouse_release(self, context, event):
         self.check_hover()
         self.feedback.disable()
+        self.active = False
         self.handle_right.active = False
         return False
 
@@ -1571,6 +1749,11 @@ class DeltaLocationManipulator(SizeManipulator):
         else:
             self.check_hover()
         return False
+
+    def cancel(self, context, event):
+        if self.active:
+            self.mouse_release(context, event)
+            self.o.location = self.original_location
 
     def update(self, context, event):
         # 0  1  2
@@ -1645,6 +1828,8 @@ class AngleManipulator(Manipulator):
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
+            self.active = True
+            self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Angle", "Drag to modify angle", [('ALT', 'Round value')])
             self.handle_right.active = True
             return True
@@ -1660,6 +1845,7 @@ class AngleManipulator(Manipulator):
     def mouse_release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
+        self.active = False
         return False
 
     def mouse_move(self, context, event):
@@ -1680,6 +1866,11 @@ class AngleManipulator(Manipulator):
         self.label_a.active = False
         return False
 
+    def cancel(self, context, event):
+        if self.active:
+            self.mouse_release(context, event)
+            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_angle)
+
     def update(self, context, event):
         pt = self.get_pos3d(context)
         c = self.arc.c
@@ -1688,10 +1879,10 @@ class AngleManipulator(Manipulator):
         v1 = c + v
         p0, p1 = intersect_line_sphere(v0, v1, c, self.arc.r)
         if p0 is not None and p1 is not None:
-            
+
             if (p1 - pt).length < (p0 - pt).length:
                 p0, p1 = p1, p0
-            
+
             v = p0 - self.arc.c
             da = atan2(v.y, v.x) - self.line_0.angle
             if da > pi:
@@ -1771,6 +1962,8 @@ class ArcAngleManipulator(Manipulator):
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
+            self.active = True
+            self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Angle", "Drag to modify angle", [('ALT', 'Round value')])
             self.handle_right.active = True
             return True
@@ -1793,6 +1986,7 @@ class ArcAngleManipulator(Manipulator):
     def mouse_release(self, context, event):
         self.check_hover()
         self.handle_right.active = False
+        self.active = False
         return False
 
     def mouse_move(self, context, event):
@@ -1815,6 +2009,11 @@ class ArcAngleManipulator(Manipulator):
         self.label_r.active = False
         return False
 
+    def cancel(self, context, event):
+        if self.active:
+            self.mouse_release(context, event)
+            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_angle)
+
     def update(self, context, event):
         """
             NOTE:
@@ -1824,41 +2023,41 @@ class ArcAngleManipulator(Manipulator):
         # pt in world space here
         pt = self.get_pos3d(context)
         c = self.arc.c
-        
+
         v = 2 * self.arc.r * (pt - c).normalized()
         v0 = c - v
         v1 = c + v
         p0, p1 = intersect_line_sphere(v0, v1, c, self.arc.r)
-        
+
         if p0 is not None:
-            # find nearest mouse intersection point 
+            # find nearest mouse intersection point
             if (p1 - pt).length < (p0 - pt).length:
                 p0, p1 = p1, p0
             v = p0 - self.arc.c
-            
+
             # a = atan2(v.y, v.x) - self.arc.sized_normal(0, 1).angle
-            
+
             # a %= 2 * pi
-                
+
             # print("a:%s >pi:%s <0:%s" % (a, a > pi, a < 0))
-            
+
             # line0 from c to left (on radius side)
             da = atan2(v.y, v.x) - self.line_0.angle
             # da = atan2(v.y, v.x) - self.arc.sized_normal(0, 1).angle
-            
+
             if abs(da) > pi:
                 if da > 0:
                     da = pi
                 else:
                     da = -pi
-                    
+
             # bottom and top points
             # s direction = "top"
             # take arc straight as reference as it wont never swap
             s = self.arc.tangeant(0, 1)
             top = s.lerp(1) - pt
             bottom = s.lerp(-1) - pt
-            
+
             # left and right points
             # s direction = "right"
             n = s.sized_normal(0, 1)
@@ -1941,10 +2140,14 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
+            self.active = True
+            self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Angle", "Drag to modify angle", [('ALT', 'Round value')])
             self.handle_right.active = True
             return True
         if self.handle_center.hover:
+            self.active = True
+            self.original_radius = self.get_value(self.datablock, self.manipulator.prop2_name)
             self.feedback.instructions(context, "Radius", "Drag to modify radius", [('ALT', 'Round value')])
             self.handle_center.active = True
             return True
@@ -1966,6 +2169,7 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
 
     def mouse_release(self, context, event):
         self.check_hover()
+        self.active = False
         self.handle_right.active = False
         self.handle_center.active = False
         return False
@@ -2000,6 +2204,14 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
         if event.alt:
             radius = round(radius, 1)
         self.set_value(context, self.datablock, self.manipulator.prop2_name, radius)
+
+    def cancel(self, context, event):
+        if self.handle_right.active:
+            self.mouse_release(context, event)
+            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_angle)
+        if self.handle_center.active:
+            self.mouse_release(context, event)
+            self.set_value(context, self.datablock, self.manipulator.prop2_name, self.original_radius)
 
 
 # ------------------------------------------------------------------
@@ -2309,6 +2521,8 @@ def register():
     register_manipulator('COUNTER', CounterManipulator)
     register_manipulator('DUMB_SIZE', DumbSizeManipulator)
     register_manipulator('DELTA_LOC', DeltaLocationManipulator)
+    # snap aware size loc
+    register_manipulator('SNAP_SIZE_LOC', SnapSizeLocationManipulator)
     # register_manipulator('SNAP_POINT', SnapPointManipulator)
     # wall's line based object snap
     register_manipulator('WALL_SNAP', WallSnapManipulator)

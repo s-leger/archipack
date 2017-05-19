@@ -1544,7 +1544,7 @@ class ARCHIPACK_OT_door(Operator):
                 ('REGULAR', 'Regular', '', 0),
                 ('ONE_THIRD', '1/3 2/3', '', 1)
                 ),
-            default='REGULAR'
+                default='REGULAR'
             )
     handle = EnumProperty(
             name='Shape',
@@ -1599,11 +1599,11 @@ class ARCHIPACK_OT_door(Operator):
         s = d.manipulators.add()
         s.prop1_name = "x"
         s.prop2_name = "x"
-        s.type_key = "SIZE_LOC"
+        s.type_key = "SNAP_SIZE_LOC"
         s = d.manipulators.add()
         s.prop1_name = "y"
         s.prop2_name = "y"
-        s.type_key = "SIZE_LOC"
+        s.type_key = "SNAP_SIZE_LOC"
         s = d.manipulators.add()
         s.prop1_name = "z"
         s.normal = Vector((0, 1, 0))

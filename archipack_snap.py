@@ -57,7 +57,15 @@
 
 import bpy
 from bpy.types import Operator
-from mathutils import Vector
+from mathutils import Vector, Matrix
+
+
+def dumb_callback(context, event, state, sp):
+    return
+
+
+def dumb_draw(sp, context):
+    return
 
 
 class SnapStore:
@@ -70,18 +78,49 @@ class SnapStore:
     takeloc = Vector((0, 0, 0))
     placeloc = Vector((0, 0, 0))
     constraint_axis = (True, True, False)
+    helper_matrix = Matrix()
+    transform_orientation = 'GLOBAL'
 
 
-def snap_point(takeloc, draw, callback, constraint_axis=(True, True, False), mode='OBJECT'):
+def snap_point(takeloc=None,
+                draw=dumb_draw,
+                callback=dumb_callback,
+                takemat=None,
+                constraint_axis=(True, True, False),
+                transform_orientation='GLOBAL',
+                mode='OBJECT'):
     """
         Invoke op from outside world
         in a convenient importable function
+
+        transform_orientation in [‘GLOBAL’, ‘LOCAL’, ‘NORMAL’, ‘GIMBAL’, ‘VIEW’]
+
+        draw(sp, context) a draw callback
+        callback(context, event, state, sp) action callback
+
+        Use either :
+        takeloc Vector, unconstraint or system axis constraints
+        takemat Matrix, constaint to this matrix as 'LOCAL' coordsys
+            The snap source helper use it as world matrix
+            so it is possible to constraint to user defined coordsys.
     """
     SnapStore.draw = draw
     SnapStore.callback = callback
     SnapStore.constraint_axis = constraint_axis
+
+    if takemat is not None:
+        SnapStore.helper_matrix = takemat
+        takeloc = takemat.translation
+        transform_orientation = 'LOCAL'
+    else:
+        if takeloc is None:
+            raise ValueError("ArchipackSnap: Either takeloc or takemat must be defined")
+        SnapStore.helper_matrix = Matrix().Translation(takeloc)
+
     SnapStore.takeloc = takeloc
     SnapStore.placeloc = takeloc
+    SnapStore.transform_orientation = transform_orientation
+
     # @NOTE: unused mode var to switch between OBJECT and EDIT mode
     # for ArchipackSnapBase to be able to handle both modes
     # must implements corresponding helper create and delete actions
@@ -113,6 +152,7 @@ class ArchipackSnapBase():
         self._handle = None
 
     def init(self, context):
+        # Store context data
         self.sel = [o for o in context.selected_objects]
         self.act = context.active_object
         bpy.ops.object.select_all(action="DESELECT")
@@ -121,13 +161,17 @@ class ArchipackSnapBase():
         self.snap_target = context.tool_settings.snap_target
         self.pivot_point = context.space_data.pivot_point
         self.transform_orientation = context.space_data.transform_orientation
+
         self.create_helper(context)
+        self.set_transform_orientation(context)
+
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(SnapStore.draw, args, 'WINDOW', 'POST_PIXEL')
 
     def exit(self, context):
         bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
         self.destroy_helper(context)
+        # Restore original context
         context.tool_settings.use_snap = self.use_snap
         context.tool_settings.snap_element = self.snap_element
         context.tool_settings.snap_target = self.snap_target
@@ -137,6 +181,12 @@ class ArchipackSnapBase():
             o.select = True
         if self.act is not None:
             context.scene.objects.active = self.act
+
+    def set_transform_orientation(self, context):
+        """
+            Allow local constraint orientation to be set
+        """
+        context.space_data.transform_orientation = SnapStore.transform_orientation
 
     def create_helper(self, context):
         """
@@ -149,13 +199,13 @@ class ArchipackSnapBase():
             helper = bpy.data.objects[helper_idx]
             if context.scene.objects.find('Archipack_snap_helper') < 0:
                 context.scene.objects.link(helper)
-            helper.location = SnapStore.takeloc
         else:
-            bpy.ops.object.add(type='MESH', location=SnapStore.takeloc)
+            bpy.ops.object.add(type='MESH')
             helper = context.active_object
             helper.name = 'Archipack_snap_helper'
             helper.use_fake_user = True
             helper.data.use_fake_user = True
+        helper.matrix_world = SnapStore.helper_matrix
         helper.select = True
         context.scene.objects.active = helper
         SnapStore.helper = helper
