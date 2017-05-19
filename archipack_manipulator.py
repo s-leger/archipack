@@ -1381,7 +1381,9 @@ class SizeManipulator(Manipulator):
         if self.handle_right.hover:
             self.active = True
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Size", "Drag to modify size", [('ALT', 'Round value')])
+            self.feedback.instructions(context, "Size", "Drag to modify size", [
+                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ])
             self.handle_right.active = True
             return True
         if self.label.hover:
@@ -1487,14 +1489,18 @@ class SizeLocationManipulator(SizeManipulator):
             self.active = True
             self.original_location = self.o.matrix_world.translation.copy()
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Size", "Drag to modify size", [('ALT', 'Round value')])
+            self.feedback.instructions(context, "Size", "Drag to modify size", [
+                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ])
             self.handle_right.active = True
             return True
         if self.handle_left.hover:
             self.active = True
             self.original_location = self.o.matrix_world.translation.copy()
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Size", "Drag to modify size", [('ALT', 'Round value')])
+            self.feedback.instructions(context, "Size", "Drag to modify size", [
+                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ])
             self.handle_left.active = True
             return True
         if self.label.hover:
@@ -1604,7 +1610,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.original_location = self.o.matrix_world.translation.copy()
             if event.ctrl:
-                self.feedback.instructions(context, "Size", "Drag to modify size", [
+                self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
                     ('CTRL', 'Snap'), ('RIGHTCLICK or ESC', 'cancel')
                     ])
                 left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
@@ -1623,7 +1629,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
                 constraint_axis=(True, False, False))
             else:
                 self.feedback.instructions(context, "Size", "Drag to modify size", [
-                    ('ALT', 'Round value')
+                    ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
                     ])
             self.handle_right.active = True
             return True
@@ -1632,7 +1638,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.original_location = self.o.matrix_world.translation.copy()
             if event.ctrl:
-                self.feedback.instructions(context, "Size", "Drag to modify size", [
+                self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
                     ('CTRL', 'Snap'), ('RIGHTCLICK or ESC', 'cancel')
                     ])
                 left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
@@ -1651,7 +1657,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
                 constraint_axis=(True, False, False))
             else:
                 self.feedback.instructions(context, "Size", "Drag to modify size", [
-                    ('ALT', 'Round value')
+                    ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
                     ])
             self.handle_left.active = True
             return True
@@ -1688,17 +1694,13 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
 
         if state == 'SUCCESS':
             self.sp_draw(sp, context)
-            self.handle_right.active = False
-            self.handle_left.active = False
-            self.feedback.disable()
+            self.mouse_release(context, event)
 
         if state == 'CANCEL':
             p0 = gl_pts3d[0].copy()
             p1 = gl_pts3d[1].copy()
             self.sp_update(context, p0, p1)
-            self.handle_right.active = False
-            self.handle_left.active = False
-            self.feedback.disable()
+            self.mouse_release(context, event)
 
     def sp_update(self, context, p0, p1):
         l0 = self.get_value(self.datablock, self.manipulator.prop1_name)
@@ -1716,18 +1718,23 @@ class DeltaLocationManipulator(SizeManipulator):
     """
         Move a child window or door in wall segment
         not limited to this by the way
+        
+        @TODO:
+            add snap feature on this one too
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
         self.label.label = ''
-        self.feedback.instructions(context, "Move", "Drag to move", [('ALT', 'Round value')])
-        self.original_location = o.location.copy()
-
+        self.feedback.instructions(context, "Move", "Drag to move", [
+            ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+            ])
+        
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
 
     def mouse_press(self, context, event):
         if self.handle_right.hover:
+            self.original_location = self.o.matrix_world.translation.copy()
             self.active = True
             self.feedback.enable()
             self.handle_right.active = True
@@ -1753,8 +1760,11 @@ class DeltaLocationManipulator(SizeManipulator):
     def cancel(self, context, event):
         if self.active:
             self.mouse_release(context, event)
-            self.o.location = self.original_location
-
+            # must move back to original location
+            itM = self.o.matrix_world.inverted()
+            dl = self.get_value(itM * self.original_location, self.manipulator.prop1_name)
+            self.move(context, self.manipulator.prop1_name, dl)
+            
     def update(self, context, event):
         # 0  1  2
         # |_____|
@@ -1830,7 +1840,9 @@ class AngleManipulator(Manipulator):
         if self.handle_right.hover:
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Angle", "Drag to modify angle", [('ALT', 'Round value')])
+            self.feedback.instructions(context, "Angle", "Drag to modify angle", [
+                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ])
             self.handle_right.active = True
             return True
         if self.label_a.hover:
@@ -1964,7 +1976,9 @@ class ArcAngleManipulator(Manipulator):
         if self.handle_right.hover:
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Angle", "Drag to modify angle", [('ALT', 'Round value')])
+            self.feedback.instructions(context, "Angle", "Drag to modify angle", [
+                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ])
             self.handle_right.active = True
             return True
         if self.label_a.hover:
@@ -2142,13 +2156,17 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
         if self.handle_right.hover:
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Angle", "Drag to modify angle", [('ALT', 'Round value')])
+            self.feedback.instructions(context, "Angle", "Drag to modify angle", [
+                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ])
             self.handle_right.active = True
             return True
         if self.handle_center.hover:
             self.active = True
             self.original_radius = self.get_value(self.datablock, self.manipulator.prop2_name)
-            self.feedback.instructions(context, "Radius", "Drag to modify radius", [('ALT', 'Round value')])
+            self.feedback.instructions(context, "Radius", "Drag to modify radius", [
+                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ])
             self.handle_center.active = True
             return True
         if self.label_a.hover:
