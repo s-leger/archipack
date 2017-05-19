@@ -877,7 +877,11 @@ class Manipulator():
                 if active:
                     self.feedback.enable()
                 return active
-
+            
+            elif event.shift:
+                
+                print("GOT a SHIFT")
+                
             elif self.keymap.check(event, self.keymap.undo):
                 if self.keyboard_input_active:
                     self.keyboard_input_active = False
@@ -1378,13 +1382,42 @@ class SizeManipulator(Manipulator):
         self.label.check_hover(self.mouse_pos)
 
     def mouse_press(self, context, event):
+        global gl_pts3d
         if self.handle_right.hover:
+            self.active = True
+            self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
+            self.original_location = self.o.matrix_world.translation.copy()
+            self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
+                ('CTRL', 'Snap'), 
+                ('SHIFT', 'Round'),
+                ('RIGHTCLICK or ESC', 'cancel')
+                ])
+            left, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
+            dx = (right - left).normalized()
+            dy = dz.cross(dx)
+            takemat = Matrix([
+                [dx.x, dy.x, dz.x, right.x],
+                [dx.y, dy.y, dz.y, right.y],
+                [dx.z, dy.z, dz.z, right.z],
+                [0, 0, 0, 1]
+            ])
+            t = context.scene.objects.find("Test")
+            if t > -1:
+                context.scene.objects[t].matrix_world = takemat
+            gl_pts3d = [left, right]
+            snap_point(takemat=takemat,
+                draw=self.sp_draw,
+                callback=self.sp_callback,
+                constraint_axis=(True, False, False))
+            self.handle_right.active = True
+            """
             self.active = True
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Size", "Drag to modify size", [
                 ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
                 ])
             self.handle_right.active = True
+            """
             return True
         if self.label.hover:
             self.feedback.instructions(context, "Size", "Use keyboard to modify size",
@@ -1462,6 +1495,43 @@ class SizeManipulator(Manipulator):
         self.label.draw(context, render)
         self.feedback.draw(context, render)
 
+    def sp_draw(self, sp, context):
+        global gl_pts3d
+        if self.o is None:
+            return
+        p0 = gl_pts3d[0].copy()
+        p1 = gl_pts3d[1].copy()
+        p1 += sp.delta
+        
+        self.sp_update(context, p0, p1)
+        """
+        # manually update wall when manipulating wall child
+        # as events are captured by snap
+        if self.wall is not None:
+            snap_helper = context.active_object
+            context.scene.objects.active = self.wall
+            self.wall.data.archipack_wall2[0].manipulable_manipulate(context, manipulator=self)
+            context.scene.objects.active = snap_helper
+        """
+        return
+
+    def sp_callback(self, context, event, state, sp):
+
+        if state == 'SUCCESS':
+            self.sp_draw(sp, context)
+            self.mouse_release(context, event)
+
+        if state == 'CANCEL':
+            p0 = gl_pts3d[0].copy()
+            p1 = gl_pts3d[1].copy()
+            self.sp_update(context, p0, p1)
+            self.mouse_release(context, event)
+
+    def sp_update(self, context, p0, p1):
+        length = (p0 - p1).length
+        self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
+        
+        
 
 class SizeLocationManipulator(SizeManipulator):
     """
@@ -1594,6 +1664,8 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
         Changing size is not necessary as link does
         allredy handle this and childs panels are
         updated by base object.
+        
+        
     """
     def __init__(self, context, o, datablock, manipulator, handle_size):
         SizeLocationManipulator.__init__(self, context, o, datablock, manipulator, handle_size)
@@ -1609,56 +1681,51 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             self.active = True
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.original_location = self.o.matrix_world.translation.copy()
-            if event.ctrl:
-                self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
-                    ('CTRL', 'Snap'), ('RIGHTCLICK or ESC', 'cancel')
-                    ])
-                left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
-                dx = (right - left).normalized()
-                dy = dx.cross(normal)
-                takemat = Matrix([
-                    [dx.x, dx.y, 0, right.x],
-                    [dy.x, dy.y, 0, right.y],
-                    [normal.x, normal.y, normal.z, right.z],
-                    [0, 0, 0, 1]
+            self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
+                ('CTRL', 'Snap'), 
+                ('SHIFT', 'Round'),
+                ('RIGHTCLICK or ESC', 'cancel')
                 ])
-                gl_pts3d = [left, right]
-                snap_point(takemat=takemat,
-                draw=self.sp_draw,
-                callback=self.sp_callback,
-                constraint_axis=(True, False, False))
-            else:
-                self.feedback.instructions(context, "Size", "Drag to modify size", [
-                    ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
-                    ])
+            left, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
+            dx = (right - left).normalized()
+            dy = dz.cross(dx)
+            takemat = Matrix([
+                [dx.x, dy.x, dz.x, right.x],
+                [dx.y, dy.y, dz.y, right.y],
+                [dx.z, dy.z, dz.z, right.z],
+                [0, 0, 0, 1]
+            ])
+            gl_pts3d = [left, right]
+            snap_point(takemat=takemat,
+            draw=self.sp_draw,
+            callback=self.sp_callback,
+            constraint_axis=(True, False, False))
+        
             self.handle_right.active = True
             return True
         if self.handle_left.hover:
             self.active = True
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.original_location = self.o.matrix_world.translation.copy()
-            if event.ctrl:
-                self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
-                    ('CTRL', 'Snap'), ('RIGHTCLICK or ESC', 'cancel')
-                    ])
-                left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
-                dx = (left - right).normalized()
-                dy = dx.cross(normal)
-                takemat = Matrix([
-                    [dx.x, dx.y, 0, left.x],
-                    [dy.x, dy.y, 0, left.y],
-                    [normal.x, normal.y, normal.z, left.z],
-                    [0, 0, 0, 1]
+            self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
+                ('CTRL', 'Snap'), 
+                ('SHIFT', 'Round'),
+                ('RIGHTCLICK or ESC', 'cancel')
                 ])
-                gl_pts3d = [left, right]
-                snap_point(takemat=takemat,
-                draw=self.sp_draw,
-                callback=self.sp_callback,
-                constraint_axis=(True, False, False))
-            else:
-                self.feedback.instructions(context, "Size", "Drag to modify size", [
-                    ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
-                    ])
+            left, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
+            dx = (left - right).normalized()
+            dy = dz.cross(dx)
+            takemat = Matrix([
+                [dx.x, dy.x, dz.x, right.x],
+                [dx.y, dy.y, dz.y, right.y],
+                [dx.z, dy.z, dz.z, right.z],
+                [0, 0, 0, 1]
+            ])
+            gl_pts3d = [left, right]
+            snap_point(takemat=takemat,
+            draw=self.sp_draw,
+            callback=self.sp_callback,
+            constraint_axis=(True, False, False))
             self.handle_left.active = True
             return True
         if self.label.hover:
@@ -1816,6 +1883,9 @@ class DumbSizeManipulator(SizeManipulator):
 
 class AngleManipulator(Manipulator):
     """
+        NOTE:
+            There is a default shortcut to +5 and -5 on angles with left/right arrows
+    
         Manipulate angle between segments
         bound to [-pi, pi]
     """
@@ -2279,9 +2349,10 @@ class archipack_manipulator(PropertyGroup):
             pts: array of 3 vectors 3d
             normal: optionnal vector 3d default to Z axis
         """
+        pts = [Vector(p) for p in pts]
         self.p0, self.p1, self.p2 = pts
         if normal is not None:
-            self.normal = normal
+            self.normal = Vector(normal)
 
     def get_pts(self, tM):
         """
