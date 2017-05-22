@@ -183,43 +183,59 @@ class WallGenerator():
 
         self.segs.append(s)
         self.last_type = type
-        
+
         return manip_index
-    
-    def make_wall(self, step_angle, verts, faces):
+
+    def make_wall(self, step_angle, flip, closed, verts, faces):
+
+        # swap manipulators so they always face outside
+        side = 1
+        if flip:
+            side = -1
+
+        # Make last segment implicit closing one
+        if closed:
+            self.segs[-1].p1 = self.segs[0].p0
+
+        nb_segs = len(self.segs)
+
         for i, wall in enumerate(self.segs):
+
             manipulators = self.parts[i].manipulators
+
             p0 = wall.p0.to_3d()
             p1 = wall.p1.to_3d()
-            # angle from last to current segment
-            if i > 0:
-                v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
-                v1 = wall.straight(1, 0).v.to_3d()
-                manipulators[0].set_pts([p0, v0, v1])
 
-            if type(wall).__name__ == "StraightWall":
-                # segment length
-                manipulators[1].type_key = 'SIZE'
-                manipulators[1].prop1_name = "length"
-                manipulators[1].set_pts([p0, p1, (1, 0, 0)])
-            else:
-                # segment radius + angle
-                # scale to fix overlap with drag
-                v0 = (wall.p0 - wall.c).to_3d()
-                v1 = (wall.p1 - wall.c).to_3d()
-                scale = 1.0 + (0.5 / v0.length)
-                manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
-                manipulators[1].prop1_name = "da"
-                manipulators[1].prop2_name = "radius"
-                manipulators[1].set_pts([wall.c.to_3d(), scale * v0, scale * v1])
+            if i < nb_segs or closed:
+                # angle from last to current segment
+                if i > 0:
+                    v0 = self.segs[i - 1].straight(-side, 1).v.to_3d()
+                    v1 = wall.straight(side, 0).v.to_3d()
+                    manipulators[0].set_pts([p0, v0, v1])
+
+                if type(wall).__name__ == "StraightWall":
+                    # segment length
+                    manipulators[1].type_key = 'SIZE'
+                    manipulators[1].prop1_name = "length"
+                    manipulators[1].set_pts([p0, p1, (side, 0, 0)])
+                else:
+                    # segment radius + angle
+                    # scale to fix overlap with drag
+                    v0 = side * (wall.p0 - wall.c).to_3d()
+                    v1 = side * (wall.p1 - wall.c).to_3d()
+                    scale = 1.0 + (0.5 / v0.length)
+                    manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
+                    manipulators[1].prop1_name = "da"
+                    manipulators[1].prop2_name = "radius"
+                    manipulators[1].set_pts([wall.c.to_3d(), scale * v0, scale * v1])
 
             # snap manipulator, dont change index !
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
 
-            wall.param_t(step_angle)
-            for j in range(wall.n_step + 1):
-                wall.make_wall(j, verts, faces)
-            
+            if i < nb_segs:
+                wall.param_t(step_angle)
+                for j in range(wall.n_step + 1):
+                    wall.make_wall(j, verts, faces)
 
     def debug(self, verts):
         for wall in self.segs:
@@ -233,7 +249,7 @@ def update(self, context):
 
 
 def update_childs(self, context):
-    self.update(context, update_childs=True)
+    self.update(context, update_childs=True, manipulable_refresh=True)
 
 
 def update_manipulators(self, context):
@@ -266,12 +282,14 @@ class archipack_wall2_part(PropertyGroup):
             name="length",
             min=0.01,
             default=2.0,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     radius = FloatProperty(
             name="radius",
             min=0.5,
             default=0.7,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     a0 = FloatProperty(
@@ -433,25 +451,27 @@ class archipack_wall2(Manipulable, PropertyGroup):
             name="width",
             min=0.01,
             default=0.2,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     z = FloatProperty(
             name='height',
             min=0.1,
             default=2.7, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
             description='height', update=update,
             )
     x_offset = FloatProperty(
             name="x offset",
             min=-1, max=1,
             default=-1, precision=2, step=1,
-            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     radius = FloatProperty(
             name="radius",
             min=0.5,
             default=0.7,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     da = FloatProperty(
@@ -579,6 +599,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
     def update_parts(self, o, update_childs=False):
         # print("update_parts")
         # remove rows
+        # NOTE:
+        # n_parts+1
+        # as last one is end point of last segment or closing one
         row_change = False
         for i in range(len(self.parts), self.n_parts, -1):
             row_change = True
@@ -615,10 +638,10 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 closing segment must be explicit, in
                 order to support manipulators
                 childs, splitting for height ...
-                
+
                 To achieve this, we must define a true segment
                 in datablock, while not using those data in generator
-                Generator will then use last p1 and first p0 to realy close. 
+                Generator will then use last p1 and first p0 to realy close.
                 This way no need to take care of geometry aspects
                 at datablock creation time.
         """
@@ -630,7 +653,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         if o is None:
             return
 
-        if manipulable_refresh or update_childs:
+        if manipulable_refresh:
             # prevent crash by removing all manipulators refs to datablock before changes
             self.manipulable_disable(context)
 
@@ -639,7 +662,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         g = self.update_parts(o, update_childs)
         # print("make_wall")
-        g.make_wall(self.step_angle, verts, faces)
+        g.make_wall(self.step_angle, self.flip, self.closed, verts, faces)
 
         if self.closed:
             f = len(verts)
@@ -648,15 +671,29 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # print("buildmesh")
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=True)
 
+        side = 1
+        if self.flip:
+            side = -1
         # Width
-        self.manipulators[0].set_pts([(0, 0, 0), g.segs[0].sized_normal(0, -self.width).v.to_3d(), (-1, 0, 0)])
+        offset = side * (0.5 * self.x_offset) * self.width
+        self.manipulators[0].set_pts([
+            g.segs[0].sized_normal(0, offset + 0.5 * side * self.width).v.to_3d(),
+            g.segs[0].sized_normal(0, offset - 0.5 * side * self.width).v.to_3d(),
+            (-side, 0, 0)
+            ])
 
         # Parts COUNTER
         self.manipulators[1].set_pts([g.segs[-1].lerp(1.1).to_3d(),
-            g.segs[-1].lerp(1.1 + 0.5 / g.segs[-1].length).to_3d(), (-1, 0, 0)])
+            g.segs[-1].lerp(1.1 + 0.5 / g.segs[-1].length).to_3d(),
+            (-side, 0, 0)
+            ])
 
         # Height
-        self.manipulators[2].set_pts([(0, 0, 0), (0, 0, self.z), (-1, 0, 0)], normal=g.segs[0].straight(1, 0).v.to_3d())
+        self.manipulators[2].set_pts([
+            (0, 0, 0),
+            (0, 0, self.z),
+            (-1, 0, 0)
+            ], normal=g.segs[0].straight(side, 0).v.to_3d())
 
         if self.realtime:
             # update child location and size
@@ -841,6 +878,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
         if o.parent is None:
             return
 
+        # swap manipulators so they always face outside
+        manip_side = 1
+        if self.flip:
+            manip_side = -1
+
         itM = o.matrix_world.inverted() * o.parent.matrix_world
         m_idx = 0
         for wall_idx, wall in enumerate(g.segs):
@@ -858,22 +900,33 @@ class archipack_wall2(Manipulable, PropertyGroup):
                         child.pos = (wall.length * t, y, child.pos.z)
                         p1 = wall.lerp(t - dt)
                         # dumb size between childs
-                        self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5, 0, 0)])
+                        self.childs_manipulators[m_idx].set_pts([
+                            (p0.x, p0.y, 0),
+                            (p1.x, p1.y, 0),
+                            (manip_side * 0.5, 0, 0)])
                         m_idx += 1
-                        x, y = 0.5 * d.x, 0.5 * d.y
+                        x, y = 0.5 * d.x, -self.x_offset * 0.5 * d.y
+
                         if child.flip:
-                            side = -1
+                            side = -manip_side
                         else:
-                            side = 1
+                            side = manip_side
+
                         # delta loc
                         child.manipulators[0].set_pts([(-x, side * -y, 0), (x, side * -y, 0), (side, 0, 0)])
                         # loc size
-                        child.manipulators[1].set_pts([(-x, side * -y, 0), (x, side * -y, 0), (0.5 * side, 0, 0)])
+                        child.manipulators[1].set_pts([
+                            (-x, side * -y, 0),
+                            (x, side * -y, 0),
+                            (0.5 * side, 0, 0)])
                         p0 = wall.lerp(t + dt)
             p1 = wall.lerp(1)
             if wall_has_childs:
                 # dub size after all childs
-                self.childs_manipulators[m_idx].set_pts([(p0.x, p0.y, 0), (p1.x, p1.y, 0), (0.5, 0, 0)])
+                self.childs_manipulators[m_idx].set_pts([
+                    (p0.x, p0.y, 0),
+                    (p1.x, p1.y, 0),
+                    (manip_side * 0.5, 0, 0)])
                 m_idx += 1
 
     def manipulate_childs(self, context):
@@ -889,13 +942,26 @@ class archipack_wall2(Manipulable, PropertyGroup):
                         # delta loc
                         self.manip_stack.append(child.manipulators[0].setup(context, c, d))
                         # loc size
-                        self.manip_stack.append(child.manipulators[1].setup(context, c, d))
+                        self.manip_stack.append(child.manipulators[1].setup(context, c, d, self.manipulate_callback))
+
+    def manipulate_callback(self, context, o=None, manipulator=None):
+        found = False
+        if o.parent is not None:
+            for c in o.parent.children:
+                if (c.data is not None and
+                        'archipack_wall2' in c.data and
+                        c.data.archipack_wall2[0] == self):
+                    context.scene.objects.active = c
+                    found = True
+                    break
+        if found:
+            self.manipulable_manipulate(context, manipulator=manipulator)
 
     def manipulable_manipulate(self, context, event=None, manipulator=None):
         type_name = type(manipulator).__name__
         # print("manipulable_manipulate %s" % (type_name))
         if type_name in [
-                'DeltaLocationManipulator', 
+                'DeltaLocationManipulator',
                 'SizeLocationManipulator',
                 'SnapSizeLocationManipulator'
                 ]:
@@ -914,7 +980,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                     child.pos = (t * wall.length, d, child.pos.z)
             # update childs manipulators
             self.update_childs(context, o, g)
-            
+
     def manipulable_release(self, context):
         """
             Override with action to do on mouse release
@@ -926,25 +992,24 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # print("manipulable_setup")
         self.manipulable_disable(context)
         o = context.active_object
-        d = self
 
         # setup childs manipulators
         self.manipulate_childs(context)
 
-        for i, part in enumerate(d.parts):
-            if i >= d.n_parts:
-                break
-            if i > 0:
-                # start angle
-                self.manip_stack.append(part.manipulators[0].setup(context, o, part))
+        for i, part in enumerate(self.parts):
 
-            # length / radius + angle
-            self.manip_stack.append(part.manipulators[1].setup(context, o, part))
+            if i < self.n_parts:
+                if i > 0:
+                    # start angle
+                    self.manip_stack.append(part.manipulators[0].setup(context, o, part))
+
+                # length / radius + angle
+                self.manip_stack.append(part.manipulators[1].setup(context, o, part))
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
 
-            # height as per segment will be here when done
+        # height as per segment will be here when done
 
         # TODO:
         # add last segment snap manipulator at end of the segment
@@ -1334,7 +1399,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             self.line = GlLine()
             self.label = GlText()
             self.feedback = FeedbackPanel()
-            self.feedback.instructions(context, "Draw a wall", "Click % Drag to start", [
+            self.feedback.instructions(context, "Draw a wall", "Click & Drag to start", [
                 ('CTRL', 'Snap'),
                 ('MMBTN', 'Constraint to axis'),
                 ('X Y', 'Constraint to axis'),
@@ -1417,6 +1482,9 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
     bl_label = "Manipulate"
     bl_description = "Manipulate"
     bl_options = {'REGISTER', 'UNDO'}
+
+    def __del__(self):
+        print("ARCHIPACK_OT_wall2_manipulate End")
 
     @classmethod
     def poll(self, context):

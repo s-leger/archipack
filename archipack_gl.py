@@ -24,7 +24,7 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
-
+import bpy
 import bgl
 import blf
 from math import sin, cos, atan2, pi
@@ -36,7 +36,7 @@ from bpy_extras import view3d_utils, object_utils
 # ------------------------------------------------------------------
 
 # Arrow sizes (world units)
-arrow_size = 0.1
+arrow_size = 0.05
 # Handle area size (pixels)
 handle_size = 10
 
@@ -99,6 +99,7 @@ class Gl():
         self.colour_hover = (1.0, 1.0, 0.0, 1.0)
         self.colour_normal = (1.0, 1.0, 1.0, 1.0)
         self.colour_inactive = (0.0, 0.0, 0.0, 1.0)
+        self.colour_selected = (0.0, 0.0, 0.7, 1.0)
 
     @property
     def colour(self):
@@ -157,9 +158,9 @@ class Gl():
         else:
             bgl.glBegin(bgl.GL_LINE_STRIP)
 
-    def draw_text(self, x, y):
+    def draw_text(self, context, x, y):
         # dirty fast assignment
-        dpi, font_id = 72, 0
+        dpi, font_id = context.user_preferences.system.dpi, 0
         bgl.glColor4f(*self.colour)
         if self.angle != 0:
             blf.enable(font_id, blf.ROTATION)
@@ -178,11 +179,11 @@ class Gl():
         gl_type = type(self).__name__
         if 'Handle' in gl_type or gl_type in ['GlPolygon']:
             self._start_poly()
-        elif gl_type in ['GlArc', 'GlLine', 'GlPolyline']:
+        elif gl_type in ['GlArc', 'GlCircle', 'GlLine', 'GlPolyline']:
             self._start_line()
         if 'Text' in gl_type:
             x, y = self.position_2d_from_coord(context, self.pts[0], render)
-            self.draw_text(x, y)
+            self.draw_text(context, x, y)
         else:
             for pt in self.pts:
                 x, y = self.position_2d_from_coord(context, pt, render)
@@ -192,25 +193,33 @@ class Gl():
 
 class GlText(Gl):
 
-    def __init__(self, d=3, round=2, label='', font_size=16, colour=(1, 1, 1, 1), z_axis=Vector((0, 0, 1))):
+    def __init__(self, d=3, precision=2,
+                label="", unit_mode='AUTO', unit_type='SIZE',
+                dimension=1, font_size=12,
+                colour=(1, 1, 1, 1), z_axis=Vector((0, 0, 1))):
         self.z_axis = z_axis
         self.value = None
-        self.round = round
+        self.precision = precision
+        self.dimension = dimension
         self.label = label
-        self.unit = ''
+        self.unit_type = unit_type
+        self.unit_mode = unit_mode
         self.font_size = font_size
         self.angle = 0
         Gl.__init__(self, d)
         self.colour_inactive = colour
+        self._text = ""
 
-    @property
-    def text_size(self):
-        dpi, font_id = 72, 0
-        blf.enable(font_id, blf.ROTATION)
-        blf.rotation(font_id, self.angle)
+    def text_size(self, context):
+        dpi, font_id = context.user_preferences.system.dpi, 0
+        if self.angle != 0:
+            blf.enable(font_id, blf.ROTATION)
+            blf.rotation(font_id, self.angle)
+        blf.aspect(font_id, 1.0)
         blf.size(font_id, self.font_size, dpi)
         x, y = blf.dimensions(font_id, self.text)
-        blf.disable(font_id, blf.ROTATION)
+        if self.angle != 0:
+            blf.disable(font_id, blf.ROTATION)
         return Vector((x, y))
 
     @property
@@ -219,10 +228,65 @@ class GlText(Gl):
 
     @property
     def text(self):
-        if self.value is not None:
-            return self.label + str(round(self.value, self.round)) + self.unit
+        s = self.label + self._text
+        return s.strip()
+
+    def as_text(self, context):
+        if self.unit_type == 'ANGLE':
+            scale = 1
         else:
-            return self.label
+            scale = context.scene.unit_settings.scale_length
+        val = self.value * scale
+        mode = self.unit_mode
+        if mode == 'AUTO':
+            if self.unit_type == 'ANGLE':
+                if context.scene.unit_settings.system_rotation == 'RADIANS':
+                    mode = 'RADIANS'
+                else:
+                    mode = 'DEGREES'
+            else:
+                if context.scene.unit_settings.system == "IMPERIAL":
+                    if round(self.value * scale * (3.2808399 ** self.dimension), 2) >= 1.0:
+                        mode = 'FEET'
+                    else:
+                        mode = 'INCH'
+                elif context.scene.unit_settings.system == "METRIC":
+                    if round(val, 2) >= 1.0:
+                        mode = 'METER'
+                    else:
+                        if round(val, 2) >= 0.01:
+                            mode = 'CENTIMETER'
+                        else:
+                            mode = 'MILIMETER'
+        # convert values
+        if mode == 'METER':
+            unit = "m"
+        elif mode == 'CENTIMETER':
+            val *= (100 ** self.dimension)
+            unit = "cm"
+        elif mode == 'MILIMETER':
+            val *= (1000 ** self.dimension)
+            unit = 'mm'
+        elif mode == 'INCH':
+            val *= (39.3700787 ** self.dimension)
+            unit = "in"
+        elif mode == 'FEET':
+            val *= (3.2808399 ** self.dimension)
+            unit = "in"
+        elif mode == 'RADIANS':
+            unit = ""
+        elif mode == 'DEGREES':
+            val = self.value / pi * 180
+            unit = "°"
+        else:
+            unit = ""
+        if self.dimension == 2:
+            unit += "\u00b2"  # Superscript two
+        elif self.dimension == 3:
+            unit += "\u00b3"  # Superscript three
+
+        fmt = "%1." + str(self.precision) + "f " + unit
+        return fmt % val
 
     def set_pos(self, context, value, pos_3d, direction, angle=0, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
@@ -230,6 +294,7 @@ class GlText(Gl):
         self.pos_3d = pos_3d
         self.value = value
         self.angle = angle
+        self._text = self.as_text(context)
 
 
 class GlLine(Gl):
@@ -357,10 +422,36 @@ class GlLine(Gl):
 
 class GlCircle(Gl):
 
-    def __init__(self, d=3):
+    def __init__(self, d=3, z_axis=Vector((0, 0, 1))):
         self.r = 0
         self.c = Vector((0, 0, 0))
+        z = z_axis
+        if z.z < 1:
+            x = z.cross(Vector((0, 0, 1)))
+            y = x.cross(z)
+        else:
+            x = Vector((1, 0, 0))
+            y = Vector((0, 1, 0))
+
+        self.rM = Matrix([
+            Vector((x.x, y.x, z.x)),
+            Vector((x.y, y.y, z.y)),
+            Vector((x.z, y.z, z.z))
+        ])
+        self.z_axis = z
+        self.a0 = 0
+        self.da = 2 * pi
         Gl.__init__(self, d)
+
+    def lerp(self, t):
+        a = self.a0 + t * self.da
+        return self.c + self.rM * Vector((self.r * cos(a), self.r * sin(a), 0))
+
+    @property
+    def pts(self):
+        n_pts = max(1, int(round(abs(self.da) / pi * 30, 0)))
+        t_step = 1 / n_pts
+        return [self.lerp(i * t_step) for i in range(n_pts + 1)]
 
 
 class GlArc(GlCircle):
@@ -374,20 +465,7 @@ class GlArc(GlCircle):
             da < 0 CW  clockwise
             stored internally as radians
         """
-        GlCircle.__init__(self, d)
-        if z_axis.z < 1:
-            x_axis = z_axis.cross(Vector((0, 0, 1)))
-            y_axis = x_axis.cross(z_axis)
-        else:
-            x_axis = Vector((1, 0, 0))
-            y_axis = Vector((0, 1, 0))
-        self.rM = Matrix([
-            x_axis,
-            y_axis,
-            z_axis
-        ])
-        self.z_axis = z_axis
-        self.a0 = 0
+        GlCircle.__init__(self, d, z_axis)
         self.da = 0
 
     @property
@@ -415,10 +493,6 @@ class GlArc(GlCircle):
             n.v = size * (n.p - self.c).normalized()
         return n
 
-    def lerp(self, t):
-        a = self.a0 + t * self.da
-        return self.c + self.rM * Vector((self.r * cos(a), self.r * sin(a), 0))
-
     def tangeant(self, t, length):
         a = self.a0 + t * self.da
         ca = cos(a)
@@ -439,12 +513,6 @@ class GlArc(GlCircle):
         else:
             radius = self.r - offset
         return GlArc(self.c, radius, self.a0, self.da, z_axis=self.z_axis)
-
-    @property
-    def pts(self):
-        n_pts = max(1, int(round(abs(self.da) / pi * 30, 0)))
-        t_step = 1 / n_pts
-        return [self.lerp(i * t_step) for i in range(n_pts + 1)]
 
 
 class GlPolygon(Gl):
@@ -478,7 +546,7 @@ class GlPolyline(Gl):
 
 class GlHandle(Gl):
 
-    def __init__(self, sensor_size, size, selectable=False):
+    def __init__(self, sensor_size, size, draggable=False, selectable=False):
         """
             sensor_size : 2d size in pixels of sensor area
             size : 3d size of handle
@@ -491,7 +559,9 @@ class GlHandle(Gl):
         self.c_axis = Vector((0, 0, 0))
         self.hover = False
         self.active = False
+        self.draggable = draggable
         self.selectable = selectable
+        self.selected = False
         Gl.__init__(self)
 
     def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
@@ -501,7 +571,7 @@ class GlHandle(Gl):
         self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
 
     def check_hover(self, pos_2d):
-        if self.selectable:
+        if self.draggable:
             dp = pos_2d - self.pos_2d
             self.hover = abs(dp.x) < self.sensor_width and abs(dp.y) < self.sensor_height
 
@@ -522,11 +592,13 @@ class GlHandle(Gl):
 
     @property
     def colour(self):
-        if self.selectable:
+        if self.draggable:
             if self.active:
                 return self.colour_active
             elif self.hover:
                 return self.colour_hover
+            elif self.selected:
+                return self.colour_selected
             return self.colour_normal
         else:
             return self.colour_inactive
@@ -534,8 +606,8 @@ class GlHandle(Gl):
 
 class SquareHandle(GlHandle):
 
-    def __init__(self, sensor_size, size, selectable=False):
-        GlHandle.__init__(self, sensor_size, size, selectable)
+    def __init__(self, sensor_size, size, draggable=False, selectable=False):
+        GlHandle.__init__(self, sensor_size, size, draggable, selectable)
 
     @property
     def pts(self):
@@ -548,21 +620,21 @@ class SquareHandle(GlHandle):
 
 class TriHandle(GlHandle):
 
-    def __init__(self, sensor_size, size, selectable=False):
-        GlHandle.__init__(self, sensor_size, size, selectable)
+    def __init__(self, sensor_size, size, draggable=False, selectable=False):
+        GlHandle.__init__(self, sensor_size, size, draggable, selectable)
 
     @property
     def pts(self):
         n = self.up_axis
         c = self.c_axis
-        x = n * self.size
+        x = n * self.size * 2
         y = c * self.size / 2
         return [self.pos_3d - x + y, self.pos_3d - x - y, self.pos_3d]
 
 
 class EditableText(GlText, GlHandle):
-    def __init__(self, sensor_size, size, selectable=False):
-        GlHandle.__init__(self, sensor_size, size, selectable)
+    def __init__(self, sensor_size, size, draggable=False, selectable=False):
+        GlHandle.__init__(self, sensor_size, size, draggable, selectable)
         GlText.__init__(self)
 
     def set_pos(self, context, value, pos_3d, direction, normal=Vector((0, 0, 1))):
@@ -570,9 +642,12 @@ class EditableText(GlText, GlHandle):
         self.c_axis = self.up_axis.cross(normal)
         self.pos_3d = pos_3d
         self.value = value
-        self.sensor_width, self.sensor_height = self.text_size
+        self._text = self.as_text(context)
+        x, y = self.text_size(context)
         self.pos_2d = self.position_2d_from_coord(context, pos_3d)
-
+        self.pos_2d.x += 0.5 * x
+        self.sensor_width, self.sensor_height = 0.5 * x, y
+        
     @property
     def sensor_center(self):
         return self.pos_3d
@@ -594,6 +669,8 @@ class FeedbackPanel():
         self.title_area = GlPolygon(colour=(0, 0.4, 0.6, 0.5), d=2)
         self.shortcuts = []
         self.on = False
+        self.show_title = True
+        self.show_main_title = True
 
     def disable(self):
         self.on = False
@@ -606,6 +683,9 @@ class FeedbackPanel():
             position from bottom to top
         """
         w = context.region.width
+        available_w = w - 2 * self.margin
+        main_title_size = self.main_title.text_size(context)
+
         # h = context.region.height
         # 0,0 = bottom left
         pos = Vector((self.margin + self.spacing.x, self.margin))
@@ -619,11 +699,11 @@ class FeedbackPanel():
         for key, label in shortcuts:
             key = GlText(d=2, label=key + ' : ', font_size=feedback_size_shortcut, colour=feedback_colour_key)
             label = GlText(d=2, label=label, font_size=feedback_size_shortcut, colour=feedback_colour_shortcut)
-            ks = key.text_size
-            ls = label.text_size
+            ks = key.text_size(context)
+            ls = label.text_size(context)
             space = ks.x + ls.x + self.spacing.x
             add_y = ks.y + self.spacing.y
-            if pos.x + space > w - 2 * self.margin:
+            if pos.x + space > available_w:
                 # add_y = 0
                 pos.y += ks.y + 2 * self.spacing.y
                 pos.x = self.margin + self.spacing.x
@@ -646,8 +726,6 @@ class FeedbackPanel():
         if len(shortcuts) > 0:
             pos.y += 0.5 * self.spacing.y
 
-        self.title.label = ' : ' + title
-        main_title_size = self.main_title.text_size
         self.title_area.pts_3d = [
             (self.margin, pos.y),
             (w - self.margin, pos.y),
@@ -655,10 +733,34 @@ class FeedbackPanel():
             (self.margin, pos.y + main_title_size.y + 2 * self.spacing.y)
             ]
         pos.y += self.spacing.y
+
         self.explanation.label = explanation
-        self.explanation.pos_3d = (w - self.margin - self.spacing.x - self.explanation.text_size.x, pos.y)
+
+        self.title.label = ' : ' + title
+        title_size = self.title.text_size(context)
+        # check for space available:
+        # if explanation + title + main_title are too big
+        # 1 remove main title
+        # 2 remove title
+        explanation_size = self.explanation.text_size(context)
+
+        self.show_title = True
+        self.show_main_title = True
+
+        if title_size.x + explanation_size.x > available_w:
+            # keep only explanation
+            self.show_title = False
+            self.show_main_title = False
+        elif main_title_size.x + title_size.x + explanation_size.x > available_w:
+            # keep title + explanation
+            self.title.label = title
+            self.show_main_title = False
+            self.title.pos_3d = (self.margin + self.spacing.x, pos.y)
+        else:
+            self.title.pos_3d = (self.margin + self.spacing.x + main_title_size.x, pos.y)
+
+        self.explanation.pos_3d = (w - self.margin - self.spacing.x - self.explanation.text_size(context).x, pos.y)
         self.main_title.pos_3d = (self.margin + self.spacing.x, pos.y)
-        self.title.pos_3d = (self.margin + self.spacing.x + main_title_size.x, pos.y)
 
     def draw(self, context, render=False):
         if self.on:
@@ -668,8 +770,10 @@ class FeedbackPanel():
             """
             self.shortcut_area.draw(context)
             self.title_area.draw(context)
-            self.main_title.draw(context)
-            self.title.draw(context)
+            if self.show_title:
+                self.title.draw(context)
+            if self.show_main_title:
+                self.main_title.draw(context)
             self.explanation.draw(context)
             for s in self.shortcuts:
                 s.draw(context)
@@ -721,12 +825,25 @@ class GlCursorArea():
         self.border = GlPolyline(bordercolour, d=2)
         self.border.style = style
         self.border.width = width
+        self.border.closed = True
         self.area = GlPolygon(areacolour, d=2)
+        self.min = Vector((0, 0))
+        self.max = Vector((0, 0))
         self.on = False
-
+    
+    def in_area(self, pt):
+        return (self.min.x <= pt.x and self.max.x >= pt.x and
+            self.min.y <= pt.y and self.max.y >= pt.y)
+    
     def set_location(self, context, p0, p1):
         x0, y0 = p0
         x1, y1 = p1
+        if x0 > x1:
+            x1, x0 = x0, x1
+        if y0 > y1:
+            y1, y0 = y0, y1
+        self.min = Vector((x0, y0))
+        self.max = Vector((x1, y1))
         pos = [Vector((x0, y0)), Vector((x0, y1)), Vector((x1, y1)), Vector((x1, y0))]
         self.area.set_pos(pos)
         self.border.set_pos(pos)

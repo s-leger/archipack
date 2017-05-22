@@ -53,18 +53,25 @@
         - takeloc
         - placeloc
 
+
+        NOTE:
+            may change grid size to 0.1 round feature (SHIFT)
+            see https://blenderartists.org/forum/showthread.php?205158-Blender-2-5-Snap-mode-increment
+            then use a SHIFT use grid snap
+
 """
 
 import bpy
 from bpy.types import Operator
 from mathutils import Vector, Matrix
+from .archipack_gl import GlCircle
 
 
 def dumb_callback(context, event, state, sp):
     return
 
 
-def dumb_draw(sp, context):
+def dumb_draw(sp, context, event):
     return
 
 
@@ -149,9 +156,9 @@ class ArchipackSnapBase():
         self.snap_target = None
         self.pivot_point = None
         self.transform_orientation = None
-        self._handle = None
-
-    def init(self, context):
+        self._draw_handler = None
+    
+    def init(self, context, event):
         # Store context data
         self.sel = [o for o in context.selected_objects]
         self.act = context.active_object
@@ -161,15 +168,13 @@ class ArchipackSnapBase():
         self.snap_target = context.tool_settings.snap_target
         self.pivot_point = context.space_data.pivot_point
         self.transform_orientation = context.space_data.transform_orientation
-
         self.create_helper(context)
-        self.set_transform_orientation(context)
-
+        self.set_transform_orientation(context)       
         args = (self, context)
-        self._handle = bpy.types.SpaceView3D.draw_handler_add(SnapStore.draw, args, 'WINDOW', 'POST_PIXEL')
-
+        self._draw_handler = bpy.types.SpaceView3D.draw_handler_add(SnapStore.draw, args, 'WINDOW', 'POST_PIXEL')
+        
     def exit(self, context):
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+        bpy.types.SpaceView3D.draw_handler_remove(self._draw_handler, 'WINDOW')
         self.destroy_helper(context)
         # Restore original context
         context.tool_settings.use_snap = self.use_snap
@@ -193,6 +198,9 @@ class ArchipackSnapBase():
             Create a helper with fake user
             or find older one in bpy data and relink to scene
             currently only support OBJECT mode
+
+            Do target helper be linked to scene in order to work ?
+
         """
         helper_idx = bpy.data.objects.find('Archipack_snap_helper')
         if helper_idx > -1:
@@ -205,6 +213,8 @@ class ArchipackSnapBase():
             helper.name = 'Archipack_snap_helper'
             helper.use_fake_user = True
             helper.data.use_fake_user = True
+        # hide snap helper
+        # helper.hide = True
         helper.matrix_world = SnapStore.helper_matrix
         helper.select = True
         context.scene.objects.active = helper
@@ -256,7 +266,7 @@ class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
-            self.init(context)
+            self.init(context, event)
             context.window_manager.modal_handler_add(self)
             bpy.ops.transform.translate('INVOKE_DEFAULT',
                 constraint_axis=SnapStore.constraint_axis,

@@ -72,7 +72,13 @@ from bpy.types import Operator, PropertyGroup
 from bpy.props import StringProperty, FloatProperty, PointerProperty, EnumProperty, IntProperty, BoolProperty
 from bpy.app.handlers import persistent
 from .materialutils import MaterialUtils
-from .archipack_manipulator import FeedbackPanel, GlCursorFence, GlCursorArea, GlLine, GlPolyline
+from .archipack_gl import (
+    FeedbackPanel,
+    GlCursorFence,
+    GlCursorArea,
+    GlLine,
+    GlPolyline
+)
 
 # module globals vars dict
 vars_dict = {
@@ -2222,4 +2228,3 @@ def unregister():
 
 if __name__ == "__main__":
     register()
-
