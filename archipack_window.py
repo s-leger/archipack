@@ -485,18 +485,25 @@ class archipack_window(Manipulable, PropertyGroup):
             default=False, update=update,
             )
     out_frame_y = FloatProperty(
-            name='Depth',
+            name='Side depth',
             min=0.001, max=100,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
-            description='frame depth', update=update,
+            description='frame side depth', update=update,
+            )
+    out_frame_y2 = FloatProperty(
+            name='Front depth',
+            min=0.001, max=100,
+            default=0.02, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            description='frame front depth', update=update,
             )
     out_frame_x = FloatProperty(
-            name='Width',
+            name='Front Width',
             min=0.0, max=100,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
-            description='frame width', update=update,
+            description='frame width set to 0 disable front frame', update=update,
             )
     out_frame_offset = FloatProperty(
             name='offset',
@@ -593,6 +600,18 @@ class archipack_window(Manipulable, PropertyGroup):
             max=128,
             default=16, update=update,
             )
+    hole_outside_mat = IntProperty(
+            name="Outside",
+            min=0,
+            max=128,
+            default=0, update=update,
+            )
+    hole_inside_mat = IntProperty(
+            name="Inside",
+            min=0,
+            max=128,
+            default=1, update=update,
+            )
     window_shape = EnumProperty(
             name='Shape',
             items=(
@@ -650,6 +669,10 @@ class archipack_window(Manipulable, PropertyGroup):
             default=False
             )
     display_panels = BoolProperty(
+            options={'SKIP_SAVE'},
+            default=True
+            )
+    display_materials = BoolProperty(
             options={'SKIP_SAVE'},
             default=True
             )
@@ -726,9 +749,9 @@ class archipack_window(Manipulable, PropertyGroup):
         else:
             x0 = -min(self.frame_x - 0.001, self.out_frame_y + self.out_frame_offset)
 
-        outside_mat = 0
-        inside_mat = 1
-        #if self.flip:
+        outside_mat = self.hole_outside_mat
+        inside_mat = self.hole_inside_mat
+        # if self.flip:
         #    outside_mat, inside_mat = inside_mat, outside_mat
 
         y_outside = -y_inside           # inside wall
@@ -753,7 +776,7 @@ class archipack_window(Manipulable, PropertyGroup):
         # x1 x2  x0
         y2 = -0.5 * self.y
         y0 = 0.5 * self.y - self.offset
-        y1 = y2 - self.out_frame_y
+        y1 = y2 - self.out_frame_y2
         x0 = 0   # -min(self.frame_x - 0.001, self.out_frame_offset)
         x1 = x0 - self.out_frame_x
         x2 = x0 - self.out_frame_y
@@ -1487,6 +1510,7 @@ class ARCHIPACK_PT_window(Panel):
             row.prop(prop, 'out_frame')
             if prop.out_frame:
                 box.prop(prop, 'out_frame_x')
+                box.prop(prop, 'out_frame_y2')
                 box.prop(prop, 'out_frame_y')
                 box.prop(prop, 'out_frame_offset')
             if prop.window_shape != 'CIRCLE':
@@ -1526,6 +1550,17 @@ class ARCHIPACK_PT_window(Panel):
                     box = layout.box()
                     box.label(text="Row " + str(i + 1))
                     row.draw(box, context, i == last_row)
+
+        row = layout.row(align=True)
+        if prop.display_materials:
+            row.prop(prop, "display_materials", icon="TRIA_DOWN", icon_only=True, text="Materials", emboss=False)
+        else:
+            row.prop(prop, "display_materials", icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
+        if prop.display_materials:
+            box = layout.box()
+            box.label("Hole")
+            box.prop(prop, 'hole_inside_mat')
+            box.prop(prop, 'hole_outside_mat')
 
     @classmethod
     def params(cls, o):
