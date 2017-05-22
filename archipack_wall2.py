@@ -194,8 +194,8 @@ class WallGenerator():
             side = -1
 
         # Make last segment implicit closing one
-        if closed:
-            self.segs[-1].p1 = self.segs[0].p0
+        # if closed:
+        #    self.segs[-1].p1 = self.segs[0].p0
 
         nb_segs = len(self.segs)
 

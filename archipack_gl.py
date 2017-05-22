@@ -240,10 +240,7 @@ class GlText(Gl):
         mode = self.unit_mode
         if mode == 'AUTO':
             if self.unit_type == 'ANGLE':
-                if context.scene.unit_settings.system_rotation == 'RADIANS':
-                    mode = 'RADIANS'
-                else:
-                    mode = 'DEGREES'
+                mode = context.scene.unit_settings.system_rotation
             else:
                 if context.scene.unit_settings.system == "IMPERIAL":
                     if round(val * (3.2808399 ** self.dimension), 2) >= 1.0:

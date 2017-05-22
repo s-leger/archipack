@@ -294,13 +294,13 @@ class Manipulator():
                     try:
                         value = bpy.utils.units.to_value(
                             context.scene.unit_settings.system,
-                            'LENGTH', self.length_entered)
+                            self.value_type, self.length_entered)
                         self.length_entered = ""
                         ret = self.keyboard_done(context, event, value)
                     except:  # ValueError:
                         ret = False
                         self.keyboard_cancel(context, event)
-                        self.report({'INFO'}, "Operation not supported yet")
+                        pass
                     context.area.header_text_set()
                     self.keyboard_input_active = False
                     self.feedback.disable()
@@ -1320,6 +1320,7 @@ class AngleManipulator(Manipulator):
                 [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'ROTATION'
             self.label_a.active = True
+            self.label_value = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.keyboard_input_active = True
             return True
         return False
@@ -1340,7 +1341,7 @@ class AngleManipulator(Manipulator):
         return False
 
     def keyboard_done(self, context, event, value):
-        self.set_value(context, self.datablock, self.manipulator.prop1_name, value / 180 * pi)
+        self.set_value(context, self.datablock, self.manipulator.prop1_name, value)
         self.label_a.active = False
         return True
 
@@ -1455,6 +1456,7 @@ class ArcAngleManipulator(Manipulator):
             self.feedback.instructions(context, "Angle", "Use keyboard to modify angle",
                 [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'ROTATION'
+            self.label_value = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.label_a.active = True
             self.keyboard_input_active = True
             return True
@@ -1483,7 +1485,7 @@ class ArcAngleManipulator(Manipulator):
         return False
 
     def keyboard_done(self, context, event, value):
-        self.set_value(context, self.datablock, self.manipulator.prop1_name, value / 180 * pi)
+        self.set_value(context, self.datablock, self.manipulator.prop1_name, value)
         self.label_a.active = False
         self.label_r.active = False
         return True
@@ -1643,6 +1645,7 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
             self.feedback.instructions(context, "Angle", "Use keyboard to modify angle",
                 [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'ROTATION'
+            self.label_value = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.label_a.active = True
             self.keyboard_input_active = True
             return True
@@ -1679,7 +1682,7 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
             self.set_value(context, self.datablock, self.manipulator.prop2_name, value)
             self.label_r.active = False
         else:
-            self.set_value(context, self.datablock, self.manipulator.prop1_name, value / 180 * pi)
+            self.set_value(context, self.datablock, self.manipulator.prop1_name, value)
             self.label_a.active = False
         return True
 
@@ -1982,8 +1985,9 @@ class Manipulable():
                     args,
                     'WINDOW',
                     'POST_PIXEL')
-                # keep focus
-                return {'RUNNING_MODAL'}
+                # don't keep focus
+                # as this prevent click over ui
+                # return {'RUNNING_MODAL'}
 
             elif event.value == 'RELEASE':
                 if self.select_mode:
