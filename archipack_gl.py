@@ -246,7 +246,7 @@ class GlText(Gl):
                     mode = 'DEGREES'
             else:
                 if context.scene.unit_settings.system == "IMPERIAL":
-                    if round(self.value * scale * (3.2808399 ** self.dimension), 2) >= 1.0:
+                    if round(val * (3.2808399 ** self.dimension), 2) >= 1.0:
                         mode = 'FEET'
                     else:
                         mode = 'INCH'
@@ -272,7 +272,7 @@ class GlText(Gl):
             unit = "in"
         elif mode == 'FEET':
             val *= (3.2808399 ** self.dimension)
-            unit = "in"
+            unit = "ft"
         elif mode == 'RADIANS':
             unit = ""
         elif mode == 'DEGREES':
@@ -683,47 +683,64 @@ class FeedbackPanel():
             position from bottom to top
         """
         w = context.region.width
-        available_w = w - 2 * self.margin
+        available_w = w - 2 * (self.margin + self.spacing.x)
         main_title_size = self.main_title.text_size(context)
 
         # h = context.region.height
         # 0,0 = bottom left
         pos = Vector((self.margin + self.spacing.x, self.margin))
         self.shortcuts = []
-
-        if len(shortcuts) > 0:
-            pos.y += self.spacing.y
-
-        add_y = 0
-
+        n_shortcuts = len(shortcuts)
+        
+        i = 0
+        # sort by lines
+        lines = []
+        line = []
+        space = 0
+        sum_txt = 0
+        pos.x = self.margin + self.spacing.x
         for key, label in shortcuts:
-            key = GlText(d=2, label=key + ' : ', font_size=feedback_size_shortcut, colour=feedback_colour_key)
-            label = GlText(d=2, label=label, font_size=feedback_size_shortcut, colour=feedback_colour_shortcut)
+            key = GlText(d=2, label=key, font_size=feedback_size_shortcut, colour=feedback_colour_key)
+            label = GlText(d=2, label=' : ' + label, font_size=feedback_size_shortcut, colour=feedback_colour_shortcut)
             ks = key.text_size(context)
             ls = label.text_size(context)
-            space = ks.x + ls.x + self.spacing.x
-            add_y = ks.y + self.spacing.y
+            space += ks.x + ls.x + self.spacing.x
             if pos.x + space > available_w:
-                # add_y = 0
-                pos.y += ks.y + 2 * self.spacing.y
-                pos.x = self.margin + self.spacing.x
-            key.pos_3d = pos.copy()
-            pos.x += ks.x
-            label.pos_3d = pos.copy()
-            pos.x += ls.x + 2 * self.spacing.x
-            self.shortcuts.extend([key, label])
-
-        if len(shortcuts) > 0:
-            pos.y += add_y + 0.5 * self.spacing.y
-
+                txt_spacing = (available_w - sum_txt) / (max(1, len(line) - 1))
+                sum_txt = 0
+                space = ks.x + ls.x + self.spacing.x
+                lines.append((txt_spacing, line))
+                line = []
+            sum_txt += ks.x + ls.x
+            line.append([key, ks, label, ls])
+            
+        if len(line) > 0: 
+            txt_spacing = (available_w - sum_txt) / (max(1, len(line) - 1))
+            lines.append((txt_spacing, line))
+        
+        # reverse lines to draw from bottom to top
+        lines = list(reversed(lines))
+        for spacing, line in lines:
+            pos.y += self.spacing.y
+            pos.x = self.margin + self.spacing.x
+            for key, ks, label, ls in line:
+                key.pos_3d = pos.copy()
+                pos.x += ks.x
+                label.pos_3d = pos.copy()
+                pos.x += ls.x + spacing
+                self.shortcuts.extend([key, label])
+            pos.y += ks.y + self.spacing.y
+         
+        # shortcut area 
         self.shortcut_area.pts_3d = [
             (self.margin, self.margin),
             (w - self.margin, self.margin),
             (w - self.margin, pos.y),
             (self.margin, pos.y)
             ]
-
-        if len(shortcuts) > 0:
+        
+        # small space between shortcut area and main title bar
+        if n_shortcuts > 0:
             pos.y += 0.5 * self.spacing.y
 
         self.title_area.pts_3d = [

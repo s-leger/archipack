@@ -511,7 +511,8 @@ class WallSnapManipulator(Manipulator):
     def mouse_press(self, context, event):
         global gl_pts3d
         if self.handle.hover:
-
+            self.active = True
+            self.handle.active = True
             gl_pts3d = []
             idx = int(self.manipulator.prop1_name)
 
@@ -527,20 +528,26 @@ class WallSnapManipulator(Manipulator):
                 # if selected p0 will move and require placeholder
                 gl_pts3d.append((p0, p1, i in selection or i == idx))
 
-            self.feedback.enable()
             self.feedback.instructions(context, "Move / Snap", "Drag to move, use keyboard to input values", [
                 ('CTRL', 'Snap'),
-                ('MMBTN', 'Constraint to axis'),
-                ('X Y', 'Constraint to axis'),
+                ('X Y', 'Constraint to axis (toggle Global Local None)'),
                 ('SHIFT+Z', 'Constraint to xy plane'),
+                ('MMBTN', 'Constraint to axis'),
                 ('RIGHTCLICK or ESC', 'exit without change')
                 ])
+            self.feedback.enable()
             self.handle.hover = False
-            self.handle.active = True
             self.o.select = True
-            takeloc, p1, side, normal = self.manipulator.get_pts(self.o.matrix_world)
-            # enable placeholders drawing
-            snap_point(takeloc, self.sp_draw, self.sp_callback,
+            takeloc, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
+            dx = (right - takeloc).normalized()
+            dy = dz.cross(dx)
+            takemat = Matrix([
+                [dx.x, dy.x, dz.x, takeloc.x],
+                [dx.y, dy.y, dz.y, takeloc.y],
+                [dx.z, dy.z, dz.z, takeloc.z],
+                [0, 0, 0, 1]
+            ])
+            snap_point(takemat=takemat, draw=self.sp_draw, callback=self.sp_callback,
                 constraint_axis=(True, True, False))
             # this prevent other selected to run
             return True
@@ -550,6 +557,8 @@ class WallSnapManipulator(Manipulator):
     def mouse_release(self, context, event):
         self.check_hover()
         self.handle.active = False
+        self.active = False
+        self.feedback.disable()
         # False to callback manipulable_release
         return False
 
@@ -558,73 +567,44 @@ class WallSnapManipulator(Manipulator):
             np station callback on moving, place, or cancel
         """
         global gl_pts3d
+        
+        if state == 'SUCCESS':
 
-        # print("sp_callback %s" % (state))
-        if state != 'RUNNING':
+            self.o.select = True
+            # apply changes to wall
+            d = self.datablock
+            d.auto_update = False
 
-            # kill gl placeholder
-            self.handle.active = False
+            g = d.get_generator()
 
-            if state == 'SUCCESS':
+            # rotation relative to object
+            rM = self.o.matrix_world.inverted().to_3x3()
+            idx = 0
+            for p0, p1, selected in gl_pts3d:
 
-                self.o.select = True
-                # apply changes to wall
-                d = self.datablock
-                d.auto_update = False
+                if selected:
 
-                g = d.get_generator()
+                    # new point in object space
+                    pt = g.segs[idx].lerp(0) + (rM * sp.delta).to_2d()
+                    da = 0
 
-                # rotation relative to object
-                rM = self.o.matrix_world.inverted().to_3x3()
-                idx = 0
-                for p0, p1, selected in gl_pts3d:
-
-                    if selected:
-
-                        # new point in object space
-                        pt = g.segs[idx].lerp(0) + (rM * sp.delta).to_2d()
-                        da = 0
-
-                        # adjust size and rotation of segment before current
-                        if idx > 0:
-                            w = g.segs[idx - 1]
-                            part = d.parts[idx - 1]
-                            dp = pt - w.p0
-
-                            # adjust radius from distance between points..
-                            # use p0-p1 distance as reference
-                            if "C_" in part.type:
-                                dw = (w.p1 - w.p0)
-                                part.radius = part.radius / dw.length * dp.length
-                                # angle pt - p0        - angle p0 p1
-                                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                            else:
-                                part.length = dp.length
-                                da = atan2(dp.y, dp.x) - w.straight(1).angle
-                            a0 = part.a0 + da
-                            if a0 > pi:
-                                a0 -= 2 * pi
-                            if a0 < -pi:
-                                a0 += 2 * pi
-                            # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-                            part.a0 = a0
-
-                        # adjust length of current segment
-                        w = g.segs[idx]
-                        part = d.parts[idx]
-                        dp = w.p1 - pt
+                    # adjust size and rotation of segment before current
+                    if idx > 0:
+                        w = g.segs[idx - 1]
+                        part = d.parts[idx - 1]
+                        dp = pt - w.p0
 
                         # adjust radius from distance between points..
-                        # use p0-p1 distance and angle as reference
+                        # use p0-p1 distance as reference
                         if "C_" in part.type:
-                            dw = w.p1 - w.p0
+                            dw = (w.p1 - w.p0)
                             part.radius = part.radius / dw.length * dp.length
-                            da1 = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+                            # angle pt - p0        - angle p0 p1
+                            da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
                         else:
                             part.length = dp.length
-                            da1 = atan2(dp.y, dp.x) - w.straight(1).angle
-
-                        a0 = part.a0 + da1 - da
+                            da = atan2(dp.y, dp.x) - w.straight(1).angle
+                        a0 = part.a0 + da
                         if a0 > pi:
                             a0 -= 2 * pi
                         if a0 < -pi:
@@ -632,28 +612,56 @@ class WallSnapManipulator(Manipulator):
                         # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
                         part.a0 = a0
 
-                        # move object when point 0
-                        if idx == 0:
-                            self.o.location += sp.delta
+                    # adjust length of current segment
+                    w = g.segs[idx]
+                    part = d.parts[idx]
+                    dp = w.p1 - pt
 
-                        # adjust rotation on both sides of next segment
-                        if idx + 1 < d.n_parts:
+                    # adjust radius from distance between points..
+                    # use p0-p1 distance and angle as reference
+                    if "C_" in part.type:
+                        dw = w.p1 - w.p0
+                        part.radius = part.radius / dw.length * dp.length
+                        da1 = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+                    else:
+                        part.length = dp.length
+                        da1 = atan2(dp.y, dp.x) - w.straight(1).angle
 
-                            part = d.parts[idx + 1]
-                            a0 = part.a0 - da1
-                            if a0 > pi:
-                                a0 -= 2 * pi
-                            if a0 < -pi:
-                                a0 += 2 * pi
-                            part.a0 = a0
+                    a0 = part.a0 + da1 - da
+                    if a0 > pi:
+                        a0 -= 2 * pi
+                    if a0 < -pi:
+                        a0 += 2 * pi
+                    # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
+                    part.a0 = a0
 
-                            # refresh wall data for next loop
-                            g = d.get_generator()
+                    # move object when point 0
+                    if idx == 0:
+                        self.o.location += sp.delta
 
-                    idx += 1
+                    # adjust rotation on both sides of next segment
+                    if idx + 1 < d.n_parts:
 
-                d.auto_update = True
+                        part = d.parts[idx + 1]
+                        a0 = part.a0 - da1
+                        if a0 > pi:
+                            a0 -= 2 * pi
+                        if a0 < -pi:
+                            a0 += 2 * pi
+                        part.a0 = a0
 
+                        # refresh wall data for next loop
+                        g = d.get_generator()
+
+                idx += 1
+
+            
+            self.mouse_release(context, event)
+            d.auto_update = True
+            
+        if state == 'CANCEL':
+            self.mouse_release(context, event)
+            
         return
 
     def sp_draw(self, sp, context):
@@ -1848,7 +1856,6 @@ class Manipulable():
     keymap = None
 
     # selectable manipulators
-    manipulable_selection = []
     manipulable_area = GlCursorArea()
     manipulable_start_point = Vector((0, 0))
     manipulable_end_point = Vector((0, 0))

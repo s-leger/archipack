@@ -157,7 +157,7 @@ class ArchipackSnapBase():
         self.pivot_point = None
         self.transform_orientation = None
         self._draw_handler = None
-    
+        
     def init(self, context, event):
         # Store context data
         self.sel = [o for o in context.selected_objects]
@@ -192,7 +192,7 @@ class ArchipackSnapBase():
             Allow local constraint orientation to be set
         """
         context.space_data.transform_orientation = SnapStore.transform_orientation
-
+        
     def create_helper(self, context):
         """
             Create a helper with fake user
@@ -270,6 +270,7 @@ class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
             context.window_manager.modal_handler_add(self)
             bpy.ops.transform.translate('INVOKE_DEFAULT',
                 constraint_axis=SnapStore.constraint_axis,
+                constraint_orientation=SnapStore.transform_orientation,
                 release_confirm=True)
             return {'RUNNING_MODAL'}
         else:
