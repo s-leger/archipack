@@ -64,7 +64,6 @@
 import bpy
 from bpy.types import Operator
 from mathutils import Vector, Matrix
-from .archipack_gl import GlCircle
 
 
 def dumb_callback(context, event, state, sp):
@@ -157,7 +156,7 @@ class ArchipackSnapBase():
         self.pivot_point = None
         self.transform_orientation = None
         self._draw_handler = None
-        
+
     def init(self, context, event):
         # Store context data
         self.sel = [o for o in context.selected_objects]
@@ -169,10 +168,10 @@ class ArchipackSnapBase():
         self.pivot_point = context.space_data.pivot_point
         self.transform_orientation = context.space_data.transform_orientation
         self.create_helper(context)
-        self.set_transform_orientation(context)       
+        self.set_transform_orientation(context)
         args = (self, context)
         self._draw_handler = bpy.types.SpaceView3D.draw_handler_add(SnapStore.draw, args, 'WINDOW', 'POST_PIXEL')
-        
+
     def exit(self, context):
         bpy.types.SpaceView3D.draw_handler_remove(self._draw_handler, 'WINDOW')
         self.destroy_helper(context)
@@ -192,7 +191,7 @@ class ArchipackSnapBase():
             Allow local constraint orientation to be set
         """
         context.space_data.transform_orientation = SnapStore.transform_orientation
-        
+
     def create_helper(self, context):
         """
             Create a helper with fake user

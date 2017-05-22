@@ -567,7 +567,7 @@ class WallSnapManipulator(Manipulator):
             np station callback on moving, place, or cancel
         """
         global gl_pts3d
-        
+
         if state == 'SUCCESS':
 
             self.o.select = True
@@ -655,13 +655,12 @@ class WallSnapManipulator(Manipulator):
 
                 idx += 1
 
-            
             self.mouse_release(context, event)
             d.auto_update = True
-            
+
         if state == 'CANCEL':
             self.mouse_release(context, event)
-            
+
         return
 
     def sp_draw(self, sp, context):
@@ -1102,6 +1101,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
 
             self.handle_right.active = True
             return True
+
         if self.handle_left.hover:
             self.active = True
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
@@ -1127,12 +1127,14 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             constraint_axis=(True, False, False))
             self.handle_left.active = True
             return True
+
         if self.label.hover:
             self.feedback.instructions(context, "Size", "Use keyboard to modify size",
                 [('ENTER', 'Validate'), ('RIGHTCLICK or ESC', 'cancel')])
             self.label.active = True
             self.keyboard_input_active = True
             return True
+
         return False
 
     def sp_draw(self, sp, context):
@@ -1184,26 +1186,46 @@ class DeltaLocationManipulator(SizeManipulator):
     """
         Move a child window or door in wall segment
         not limited to this by the way
-
-        @TODO:
-            add snap feature on this one too
     """
     def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size, snap_callback)
         self.label.label = ''
         self.feedback.instructions(context, "Move", "Drag to move", [
-            ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+            ('CTRL', 'Snap'),
+            ('SHIFT', 'Round value'),
+            ('RIGHTCLICK or ESC', 'cancel')
             ])
 
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
 
     def mouse_press(self, context, event):
+        global gl_pts3d
         if self.handle_right.hover:
             self.original_location = self.o.matrix_world.translation.copy()
             self.active = True
             self.feedback.enable()
             self.handle_right.active = True
+
+            left, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
+            dp = (right - left)
+            dx = dp.normalized()
+            dy = dz.cross(dx)
+            p0 = left + 0.5 * dp
+            takemat = Matrix([
+                [dx.x, dy.x, dz.x, p0.x],
+                [dx.y, dy.y, dz.y, p0.y],
+                [dx.z, dy.z, dz.z, p0.z],
+                [0, 0, 0, 1]
+            ])
+            gl_pts3d = [p0]
+            snap_point(takemat=takemat,
+                draw=self.sp_draw,
+                callback=self.sp_callback,
+                constraint_axis=(
+                    self.manipulator.prop1_name == 'x',
+                    self.manipulator.prop1_name == 'y',
+                    self.manipulator.prop1_name == 'z'))
             return True
         return False
 
@@ -1217,11 +1239,39 @@ class DeltaLocationManipulator(SizeManipulator):
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle_right.active:
-            self.update(context, event)
+            # self.update(context, event)
             return True
         else:
             self.check_hover()
         return False
+
+    def sp_draw(self, sp, context):
+        global gl_pts3d
+        if self.o is None:
+            return
+        p0 = gl_pts3d[0].copy()
+        p1 = p0 + sp.delta
+        itM = self.o.matrix_world.inverted()
+        dl = self.get_value(itM * p1, self.manipulator.prop1_name)
+        self.move(context, self.manipulator.prop1_name, dl)
+
+        # snapping child objects may require base object update
+        # eg manipulating windows requiring wall update
+        if self.snap_callback is not None:
+            snap_helper = context.active_object
+            self.snap_callback(context, o=self.o, manipulator=self)
+            context.scene.objects.active = snap_helper
+
+        return
+
+    def sp_callback(self, context, event, state, sp):
+
+        if state == 'SUCCESS':
+            self.sp_draw(sp, context)
+            self.mouse_release(context, event)
+
+        if state == 'CANCEL':
+            self.cancel(context, event)
 
     def cancel(self, context, event):
         if self.active:
@@ -1231,6 +1281,7 @@ class DeltaLocationManipulator(SizeManipulator):
             dl = self.get_value(itM * self.original_location, self.manipulator.prop1_name)
             self.move(context, self.manipulator.prop1_name, dl)
 
+    """
     def update(self, context, event):
         # 0  1  2
         # |_____|
@@ -1249,6 +1300,7 @@ class DeltaLocationManipulator(SizeManipulator):
         else:
             dl = -dl
         self.move(context, self.manipulator.prop1_name, dl)
+    """
 
     def draw_callback(self, _self, context, render=False):
         """
@@ -1311,13 +1363,15 @@ class AngleManipulator(Manipulator):
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Angle", "Drag to modify angle", [
-                ('ALT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ('SHIFT', 'Round value'),
+                ('RIGHTCLICK or ESC', 'cancel')
                 ])
             self.handle_right.active = True
             return True
         if self.label_a.hover:
-            self.feedback.instructions(context, "Angle", "Use keyboard to modify angle",
-                [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
+            self.feedback.instructions(context, "Angle (degree)", "Use keyboard to modify angle",
+                [('ENTER', 'validate'),
+                ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'ROTATION'
             self.label_a.active = True
             self.label_value = self.get_value(self.datablock, self.manipulator.prop1_name)
@@ -1447,14 +1501,16 @@ class ArcAngleManipulator(Manipulator):
         if self.handle_right.hover:
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Angle", "Drag to modify angle", [
-                ('SHIFT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+            self.feedback.instructions(context, "Angle (degree)", "Drag to modify angle", [
+                ('SHIFT', 'Round value'),
+                ('RIGHTCLICK or ESC', 'cancel')
                 ])
             self.handle_right.active = True
             return True
         if self.label_a.hover:
-            self.feedback.instructions(context, "Angle", "Use keyboard to modify angle",
-                [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
+            self.feedback.instructions(context, "Angle (degree)", "Use keyboard to modify angle",
+                [('ENTER', 'validate'),
+                ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'ROTATION'
             self.label_value = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.label_a.active = True
@@ -1462,7 +1518,8 @@ class ArcAngleManipulator(Manipulator):
             return True
         if self.label_r.hover:
             self.feedback.instructions(context, "Radius", "Use keyboard to modify radius",
-                [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
+                [('ENTER', 'validate'),
+                ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'LENGTH'
             self.label_r.active = True
             self.keyboard_input_active = True
@@ -1628,8 +1685,9 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
         if self.handle_right.hover:
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
-            self.feedback.instructions(context, "Angle", "Drag to modify angle", [
-                ('SHIFT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+            self.feedback.instructions(context, "Angle (degree)", "Drag to modify angle", [
+                ('SHIFT', 'Round value'),
+                ('RIGHTCLICK or ESC', 'cancel')
                 ])
             self.handle_right.active = True
             return True
@@ -1637,13 +1695,15 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
             self.active = True
             self.original_radius = self.get_value(self.datablock, self.manipulator.prop2_name)
             self.feedback.instructions(context, "Radius", "Drag to modify radius", [
-                ('SHIFT', 'Round value'), ('RIGHTCLICK or ESC', 'cancel')
+                ('SHIFT', 'Round value'),
+                ('RIGHTCLICK or ESC', 'cancel')
                 ])
             self.handle_center.active = True
             return True
         if self.label_a.hover:
-            self.feedback.instructions(context, "Angle", "Use keyboard to modify angle",
-                [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
+            self.feedback.instructions(context, "Angle (degree)", "Use keyboard to modify angle",
+                [('ENTER', 'validate'),
+                ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'ROTATION'
             self.label_value = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.label_a.active = True
@@ -1651,7 +1711,8 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
             return True
         if self.label_r.hover:
             self.feedback.instructions(context, "Radius", "Use keyboard to modify radius",
-                [('ENTER', 'validate'), ('RIGHTCLICK or ESC', 'cancel')])
+                [('ENTER', 'validate'),
+                ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'LENGTH'
             self.label_r.active = True
             self.keyboard_input_active = True
@@ -2001,7 +2062,7 @@ class Manipulable():
                         'WINDOW')
 
                     # keep focus
-                    return {'RUNNING_MODAL'}
+                    # return {'RUNNING_MODAL'}
 
                 else:
                     # allow manipulator action on release

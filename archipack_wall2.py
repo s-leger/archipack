@@ -815,8 +815,12 @@ class archipack_wall2(Manipulable, PropertyGroup):
                             # let door point where user want
                             flip = (dir - dir_y).length > 0.5
                         # store z in wall space
-                        relocate.append((child.name, wall_idx, (t * wall.length, d, (itM * child.location).z),
-                            flip, t))
+                        relocate.append((
+                            child.name,
+                            wall_idx,
+                            (t * wall.length, d, (itM * child.location).z),
+                            flip,
+                            t))
 
         self.sort_child(relocate)
         for child in relocate:
@@ -940,7 +944,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                     c, d = child.get_child(context)
                     if d is not None:
                         # delta loc
-                        self.manip_stack.append(child.manipulators[0].setup(context, c, d))
+                        self.manip_stack.append(child.manipulators[0].setup(context, c, d, self.manipulate_callback))
                         # loc size
                         self.manip_stack.append(child.manipulators[1].setup(context, c, d, self.manipulate_callback))
 

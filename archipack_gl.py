@@ -24,7 +24,7 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
-import bpy
+
 import bgl
 import blf
 from math import sin, cos, atan2, pi
@@ -644,7 +644,7 @@ class EditableText(GlText, GlHandle):
         self.pos_2d = self.position_2d_from_coord(context, pos_3d)
         self.pos_2d.x += 0.5 * x
         self.sensor_width, self.sensor_height = 0.5 * x, y
-        
+
     @property
     def sensor_center(self):
         return self.pos_3d
@@ -688,8 +688,7 @@ class FeedbackPanel():
         pos = Vector((self.margin + self.spacing.x, self.margin))
         self.shortcuts = []
         n_shortcuts = len(shortcuts)
-        
-        i = 0
+
         # sort by lines
         lines = []
         line = []
@@ -710,11 +709,11 @@ class FeedbackPanel():
                 line = []
             sum_txt += ks.x + ls.x
             line.append([key, ks, label, ls])
-            
-        if len(line) > 0: 
+
+        if len(line) > 0:
             txt_spacing = (available_w - sum_txt) / (max(1, len(line) - 1))
             lines.append((txt_spacing, line))
-        
+
         # reverse lines to draw from bottom to top
         lines = list(reversed(lines))
         for spacing, line in lines:
@@ -727,15 +726,15 @@ class FeedbackPanel():
                 pos.x += ls.x + spacing
                 self.shortcuts.extend([key, label])
             pos.y += ks.y + self.spacing.y
-         
-        # shortcut area 
+
+        # shortcut area
         self.shortcut_area.pts_3d = [
             (self.margin, self.margin),
             (w - self.margin, self.margin),
             (w - self.margin, pos.y),
             (self.margin, pos.y)
             ]
-        
+
         # small space between shortcut area and main title bar
         if n_shortcuts > 0:
             pos.y += 0.5 * self.spacing.y
@@ -844,11 +843,11 @@ class GlCursorArea():
         self.min = Vector((0, 0))
         self.max = Vector((0, 0))
         self.on = False
-    
+
     def in_area(self, pt):
         return (self.min.x <= pt.x and self.max.x >= pt.x and
             self.min.y <= pt.y and self.max.y >= pt.y)
-    
+
     def set_location(self, context, p0, p1):
         x0, y0 = p0
         x1, y1 = p1
