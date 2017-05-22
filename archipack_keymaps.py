@@ -48,6 +48,23 @@ class Keymaps:
         # delete event
         self.delete = self.get_event(context, 'Object Mode', 'object.delete')
 
+        """
+        # provide abstration between user and addon
+        # with different select mouse side
+        mouse_right = context.user_preferences.inputs.select_mouse
+        if mouse_right == 'LEFT':
+            mouse_left = 'RIGHT'
+            mouse_right_side = 'Left'
+            mouse_left_side = 'Right'
+        else:
+            mouse_left = 'LEFT'
+            mouse_right_side = 'Right'
+            mouse_left_side = 'Left'
+
+        self.leftmouse = mouse_left + 'MOUSE'
+        self.rightmouse = mouse_right + 'MOUSE'
+        """
+
     def check(self, event, against):
         return against['event'] == (event.alt, event.ctrl, event.shift, event.type, event.value)
 

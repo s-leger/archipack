@@ -412,6 +412,19 @@ class GlLine(Gl):
         """
         self.p += offset * self.cross.normalized()
 
+    def point_sur_segment(self, pt):
+        """ point_sur_segment
+            point: Vector 3d
+            t: param t de l'intersection sur le segment courant
+            d: distance laterale perpendiculaire positif a droite
+        """
+        dp = (pt - self.p).to_2d()
+        v2d = self.v.to_2d()
+        dl = v2d.length
+        d = (self.v.x * dp.y - self.v.y * dp.x) / dl
+        t = (v2d * dp) / (dl * dl)
+        return t > 0 and t < 1, d, t
+
     @property
     def pts(self):
         return [self.p0, self.p1]
@@ -610,8 +623,12 @@ class SquareHandle(GlHandle):
     def pts(self):
         n = self.up_axis
         c = self.c_axis
-        x = n * self.size / 2
-        y = c * self.size / 2
+        if self.selected or self.hover or self.active:
+            scale = 1
+        else:
+            scale = 0.5
+        x = n * self.size * scale
+        y = c * self.size * scale
         return [self.pos_3d - x - y, self.pos_3d + x - y, self.pos_3d + x + y, self.pos_3d - x + y]
 
 
@@ -624,8 +641,12 @@ class TriHandle(GlHandle):
     def pts(self):
         n = self.up_axis
         c = self.c_axis
-        x = n * self.size * 2
-        y = c * self.size / 2
+        if self.selected or self.hover or self.active:
+            scale = 1
+        else:
+            scale = 0.5
+        x = n * self.size * 4 * scale
+        y = c * self.size * scale
         return [self.pos_3d - x + y, self.pos_3d - x - y, self.pos_3d]
 
 
@@ -832,7 +853,7 @@ class GlCursorArea():
     def __init__(self,
                 width=1,
                 bordercolour=(1.0, 1.0, 1.0, 0.5),
-                areacolour=(1.0, 1.0, 1.0, 0.1),
+                areacolour=(0.5, 0.5, 0.5, 0.1),
                 style=bgl.GL_LINE_STIPPLE):
 
         self.border = GlPolyline(bordercolour, d=2)
@@ -857,7 +878,11 @@ class GlCursorArea():
             y1, y0 = y0, y1
         self.min = Vector((x0, y0))
         self.max = Vector((x1, y1))
-        pos = [Vector((x0, y0)), Vector((x0, y1)), Vector((x1, y1)), Vector((x1, y0))]
+        pos = [
+            Vector((x0, y0)),
+            Vector((x0, y1)),
+            Vector((x1, y1)),
+            Vector((x1, y0))]
         self.area.set_pos(pos)
         self.border.set_pos(pos)
 

@@ -945,7 +945,7 @@ class SizeLocationManipulator(SizeManipulator):
     """
     def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
         SizeManipulator.__init__(self, context, o, datablock, manipulator, handle_size, snap_callback)
-        self.handle_left.selectable = True
+        self.handle_left.draggable = True
 
     def check_hover(self):
         self.handle_right.check_hover(self.mouse_pos)
@@ -1067,11 +1067,6 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
     """
     def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
         SizeLocationManipulator.__init__(self, context, o, datablock, manipulator, handle_size, snap_callback)
-        if (context.active_object.data is not None and
-                "archipack_wall2" in context.active_object.data):
-            self.wall = context.active_object
-        else:
-            self.wall = None
 
     def mouse_press(self, context, event):
         global gl_pts3d
@@ -1558,12 +1553,7 @@ class ArcAngleManipulator(Manipulator):
             self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_angle)
 
     def update(self, context, event):
-        """
-            NOTE:
-                quadrant issue hidden somewhere
-                mess with object's space and world space ?
-        """
-        # pt in world space here
+
         pt = self.get_pos3d(context)
         c = self.arc.c
 
@@ -1572,49 +1562,37 @@ class ArcAngleManipulator(Manipulator):
         v1 = c + v
         p0, p1 = intersect_line_sphere(v0, v1, c, self.arc.r)
 
-        if p0 is not None:
+        if p0 is not None and p1 is not None:
             # find nearest mouse intersection point
             if (p1 - pt).length < (p0 - pt).length:
                 p0, p1 = p1, p0
+
             v = p0 - self.arc.c
 
-            # a = atan2(v.y, v.x) - self.arc.sized_normal(0, 1).angle
+            s = self.arc.tangeant(0, 1)
+            res, d, t = s.point_sur_segment(pt)
+            if d > 0:
+                # right side
+                a = self.arc.sized_normal(0, self.arc.r).angle
+            else:
+                a = self.arc.sized_normal(0, -self.arc.r).angle
 
-            # a %= 2 * pi
+            da = atan2(v.y, v.x) - a
 
-            # print("a:%s >pi:%s <0:%s" % (a, a > pi, a < 0))
-
-            # line0 from c to left (on radius side)
-            da = atan2(v.y, v.x) - self.line_0.angle
-            # da = atan2(v.y, v.x) - self.arc.sized_normal(0, 1).angle
-
-            if abs(da) > pi:
-                if da > 0:
+            # bottom side +- pi
+            if t < 0:
+                # right
+                if d > 0:
                     da = pi
                 else:
                     da = -pi
-
-            # bottom and top points
-            # s direction = "top"
-            # take arc straight as reference as it wont never swap
-            s = self.arc.tangeant(0, 1)
-            top = s.lerp(1) - pt
-            bottom = s.lerp(-1) - pt
-
-            # left and right points
-            # s direction = "right"
-            n = s.sized_normal(0, 1)
-            right = pt - n.lerp(1)
-            left = pt - n.lerp(-1)
-            # we are on the right part
-            if right.length < left.length:
-                da = -abs(da)
+            # top side bound to +- pi
             else:
-                # on bottom part da = pi
-                if bottom.length < top.length:
-                    da = pi
-                else:
-                    da = abs(da)
+                if da > pi:
+                    da -= 2 * pi
+                if da < -pi:
+                    da += 2 * pi
+
             if event.shift:
                 da = round(da / pi * 180, 0) / 180 * pi
             self.set_value(context, self.datablock, self.manipulator.prop1_name, da)
@@ -2088,6 +2066,8 @@ class Manipulable():
                 for i, manipulator in enumerate(self.manip_stack):
                     if manipulator is not None and manipulator.selectable:
                         manipulator.select(self.manipulable_area)
+            # keep focus to prevent left select mouse to actually move object
+            return {'RUNNING_MODAL'}
 
         if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
             self.manipulable_disable(context)
