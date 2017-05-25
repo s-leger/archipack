@@ -35,11 +35,11 @@ bl_info = {
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
-    'wiki_url': 'https://github.com/s-leger/blenderPolygons/wiki',
-    'tracker_url': 'https://github.com/s-leger/blenderPolygons/issues',
-    'link': 'https://github.com/s-leger/blenderPolygons',
+    'wiki_url': 'https://github.com/s-leger/archipack/wiki',
+    'tracker_url': 'https://github.com/s-leger/archipack/issues',
+    'link': 'https://github.com/s-leger/archipack',
     'support': 'COMMUNITY',
-    'category': '3D View'
+    'category': 'Add Mesh'
     }
 
 import os
@@ -120,11 +120,12 @@ def update_panel(self, context):
         bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
     except:
         pass
-    TOOLS_PT_Archipack_PolyLib.bl_category = context.user_preferences.addons[__name__].preferences.tools_category
+    prefs = context.user_preferences.addons[__name__].preferences
+    TOOLS_PT_Archipack_PolyLib.bl_category = prefs.tools_category
     bpy.utils.register_class(TOOLS_PT_Archipack_PolyLib)
-    TOOLS_PT_Archipack_Tools.bl_category = context.user_preferences.addons[__name__].preferences.tools_category
+    TOOLS_PT_Archipack_Tools.bl_category = prefs.tools_category
     bpy.utils.register_class(TOOLS_PT_Archipack_Tools)
-    TOOLS_PT_Archipack_Create.bl_category = context.user_preferences.addons[__name__].preferences.create_category
+    TOOLS_PT_Archipack_Create.bl_category = prefs.create_category
     bpy.utils.register_class(TOOLS_PT_Archipack_Create)
 
 

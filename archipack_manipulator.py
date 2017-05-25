@@ -768,6 +768,9 @@ class CounterManipulator(Manipulator):
         """
             draw on screen feedback using gl.
         """
+        # won't render counter
+        if render:
+            return
         left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
         self.origin = left
         self.line_0.p = left
@@ -1464,6 +1467,43 @@ class AngleManipulator(Manipulator):
         self.feedback.draw(context, render)
 
 
+class DumbAngleManipulator(AngleManipulator):
+    def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
+        AngleManipulator.__init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None)
+        self.handle_right.draggable = False
+        self.label_a.draggable = False
+    
+    def draw_callback(self, _self, context, render=False):
+        c, left, right, normal = self.manipulator.get_pts(self.o.matrix_world)
+        self.line_0.z_axis = normal
+        self.line_1.z_axis = normal
+        self.arc.z_axis = normal
+        self.label_a.z_axis = normal
+        self.origin = c
+        self.line_0.p = c
+        self.line_1.p = c
+        self.arc.c = c
+        self.line_0.v = left
+        self.line_0.v = -self.line_0.cross.normalized()
+        self.line_1.v = right
+        self.line_1.v = self.line_1.cross.normalized()
+        self.arc.a0 = self.line_0.angle
+        self.arc.da = left.to_2d().angle_signed(right.to_2d())
+        self.arc.r = 1.0
+        self.handle_right.set_pos(context, self.line_1.lerp(1),
+                                  self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
+        self.handle_center.set_pos(context, self.arc.c, -self.line_0.v)
+        label_value = self.arc.da
+        self.label_a.set_pos(context, label_value, self.arc.lerp(0.5), -self.line_0.v)
+        self.arc.draw(context, render)
+        self.line_0.draw(context, render)
+        self.line_1.draw(context, render)
+        self.handle_right.draw(context, render)
+        self.handle_center.draw(context, render)
+        self.label_a.draw(context, render)
+        self.feedback.draw(context, render)
+
+
 class ArcAngleManipulator(Manipulator):
     """
         Manipulate angle of an arc
@@ -2106,6 +2146,7 @@ def register():
     register_manipulator('SIZE', SizeManipulator)
     register_manipulator('SIZE_LOC', SizeLocationManipulator)
     register_manipulator('ANGLE', AngleManipulator)
+    register_manipulator('DUMB_ANGLE', DumbAngleManipulator)
     register_manipulator('ARC_ANGLE_RADIUS', ArcAngleRadiusManipulator)
     register_manipulator('COUNTER', CounterManipulator)
     register_manipulator('DUMB_SIZE', DumbSizeManipulator)

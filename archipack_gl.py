@@ -561,6 +561,7 @@ class GlHandle(Gl):
             sensor_size : 2d size in pixels of sensor area
             size : 3d size of handle
         """
+        Gl.__init__(self)
         self.size = size
         self.sensor_width = sensor_size
         self.sensor_height = sensor_size
@@ -572,8 +573,7 @@ class GlHandle(Gl):
         self.draggable = draggable
         self.selectable = selectable
         self.selected = False
-        Gl.__init__(self)
-
+        
     def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
         self.c_axis = self.up_axis.cross(normal)
@@ -602,7 +602,9 @@ class GlHandle(Gl):
 
     @property
     def colour(self):
-        if self.draggable:
+        if self.render:
+            return self.colour_inactive
+        elif self.draggable:
             if self.active:
                 return self.colour_active
             elif self.hover:
@@ -652,9 +654,9 @@ class TriHandle(GlHandle):
 
 class EditableText(GlText, GlHandle):
     def __init__(self, sensor_size, size, draggable=False, selectable=False):
+        GlText.__init__(self, colour=(0, 0, 0, 1))
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
-        GlText.__init__(self)
-
+        
     def set_pos(self, context, value, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
         self.c_axis = self.up_axis.cross(normal)
@@ -853,7 +855,7 @@ class GlCursorArea():
     def __init__(self,
                 width=1,
                 bordercolour=(1.0, 1.0, 1.0, 0.5),
-                areacolour=(0.5, 0.5, 0.5, 0.1),
+                areacolour=(0.5, 0.5, 0.5, 0.08),
                 style=bgl.GL_LINE_STIPPLE):
 
         self.border = GlPolyline(bordercolour, d=2)

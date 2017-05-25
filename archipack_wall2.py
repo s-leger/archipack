@@ -194,10 +194,27 @@ class WallGenerator():
             side = -1
 
         # Make last segment implicit closing one
-        # if closed:
-        #    self.segs[-1].p1 = self.segs[0].p0
 
         nb_segs = len(self.segs)
+        if closed:
+            part = self.parts[-1]
+            w = self.segs[-1]
+            dp = self.segs[0].p0 - self.segs[-1].p0
+            if "C_" in part.type:
+                dw = (w.p1 - w.p0)
+                w.r = part.radius / dw.length * dp.length
+                # angle pt - p0        - angle p0 p1
+                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+                a0 = w.a0 + da
+                if a0 > pi:
+                    a0 -= 2 * pi
+                if a0 < -pi:
+                    a0 += 2 * pi
+                w.a0 = a0
+            else:
+                w.v = dp
+                
+            nb_segs -= 1
 
         for i, wall in enumerate(self.segs):
 
@@ -206,28 +223,33 @@ class WallGenerator():
             p0 = wall.p0.to_3d()
             p1 = wall.p1.to_3d()
 
-            if i < nb_segs or closed:
-                # angle from last to current segment
-                if i > 0:
-                    v0 = self.segs[i - 1].straight(-side, 1).v.to_3d()
-                    v1 = wall.straight(side, 0).v.to_3d()
-                    manipulators[0].set_pts([p0, v0, v1])
+            # angle from last to current segment
+            if i > 0:
 
-                if type(wall).__name__ == "StraightWall":
-                    # segment length
-                    manipulators[1].type_key = 'SIZE'
-                    manipulators[1].prop1_name = "length"
-                    manipulators[1].set_pts([p0, p1, (side, 0, 0)])
+                if i < nb_segs:
+                    manipulators[0].type_key = 'ANGLE'
                 else:
-                    # segment radius + angle
-                    # scale to fix overlap with drag
-                    v0 = side * (wall.p0 - wall.c).to_3d()
-                    v1 = side * (wall.p1 - wall.c).to_3d()
-                    scale = 1.0 + (0.5 / v0.length)
-                    manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
-                    manipulators[1].prop1_name = "da"
-                    manipulators[1].prop2_name = "radius"
-                    manipulators[1].set_pts([wall.c.to_3d(), scale * v0, scale * v1])
+                    manipulators[0].type_key = 'DUMB_ANGLE'
+                    
+                v0 = self.segs[i - 1].straight(-side, 1).v.to_3d()
+                v1 = wall.straight(side, 0).v.to_3d()
+                manipulators[0].set_pts([p0, v0, v1])
+
+            if type(wall).__name__ == "StraightWall":
+                # segment length
+                manipulators[1].type_key = 'SIZE'
+                manipulators[1].prop1_name = "length"
+                manipulators[1].set_pts([p0, p1, (side, 0, 0)])
+            else:
+                # segment radius + angle
+                # scale to fix overlap with drag
+                v0 = side * (wall.p0 - wall.c).to_3d()
+                v1 = side * (wall.p1 - wall.c).to_3d()
+                scale = 1.0 + (0.5 / v0.length)
+                manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
+                manipulators[1].prop1_name = "da"
+                manipulators[1].prop2_name = "radius"
+                manipulators[1].set_pts([wall.c.to_3d(), scale * v0, scale * v1])
 
             # snap manipulator, dont change index !
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
@@ -486,7 +508,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
     closed = BoolProperty(
             default=False,
             name="Close",
-            update=update
+            update=update_manipulators
             )
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
@@ -999,6 +1021,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         # setup childs manipulators
         self.manipulate_childs(context)
+        nb_segs = self.n_parts
+        if self.closed:
+            nb_segs -= 1
 
         for i, part in enumerate(self.parts):
 
@@ -1243,6 +1268,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
     line = None
     label = None
     feedback = None
+    takeloc = Vector((0, 0, 0))
 
     def mouse_to_plane(self, context, event):
         """
@@ -1275,36 +1301,47 @@ class ARCHIPACK_OT_wall2_draw(Operator):
 
     def sp_draw(self, sp, context):
         z = 2.7
-        p0 = sp.takeloc
+        if self.state == 'CREATE':
+            p0 = self.takeloc
+        else:
+            p0 = sp.takeloc
+
         p1 = sp.placeloc
-        # self.feedback.draw(context)
-        if sp.delta.length == 0:
+        delta = p1 - p0
+        print("sp_draw state:%s delta:%s p0:%s p1:%s" % (self.state, delta.length, p0, p1))
+        if delta.length == 0:
             return
         self.wall_part1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
         self.wall_line1.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
         self.wall_part1.draw(context)
         self.wall_line1.draw(context)
         self.line.p = p0
-        self.line.v = sp.delta
+        self.line.v = delta
         self.label.set_pos(context, self.line.length, self.line.lerp(0.5), self.line.v, normal=Vector((0, 0, 1)))
         self.label.draw(context)
         self.line.draw(context)
 
     def sp_callback(self, context, event, state, sp):
-
-        self.state = state
+        print("sp_callback event %s %s state:%s" % (event.type, event.value, state))
 
         if state == 'SUCCESS':
+
+            if self.state == 'CREATE':
+                takeloc = self.takeloc
+                delta = sp.placeloc - self.takeloc
+            else:
+                takeloc = sp.takeloc
+                delta = sp.delta
 
             old = context.active_object
             if self.o is None:
                 bpy.ops.archipack.wall2(auto_manipulate=False)
                 o = context.active_object
-                o.location = sp.takeloc
+                o.location = takeloc
                 self.o = o
                 d = o.data.archipack_wall2[0]
                 part = d.parts[0]
-                part.length = sp.delta.length
+                part.length = delta.length
             else:
                 o = self.o
                 o.select = True
@@ -1314,15 +1351,15 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 dp = sp.placeloc - o.location
                 if dp.length < 0.01:
                     d.closed = True
-                    self.state = 'CANCEL'
-                    return
-                part = d.add_part(context, sp.delta.length)
+                    state = 'CANCEL'
+                    # return
+                part = d.add_part(context, delta.length)
 
             # print("self.o :%s" % o.name)
             rM = o.matrix_world.inverted().to_3x3()
             g = d.get_generator()
             w = g.segs[-1]
-            dp = rM * sp.delta
+            dp = rM * delta
             da = atan2(dp.y, dp.x) - w.straight(1).angle
             a0 = part.a0 + da
             if a0 > pi:
@@ -1335,15 +1372,48 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             self.flag_next = True
             context.area.tag_redraw()
             # print("feedback.on:%s" % self.feedback.on)
+
+        self.state = state
+
+    def sp_init(self, context, event, state, sp):
+        print("sp_init event %s %s %s" % (event.type, event.value, state))
+        if state == 'SUCCESS':
+            self.state = 'RUNNING'
+            self.takeloc = sp.placeloc.copy()
+            # print("feedback.on:%s" % self.feedback.on)
         elif state == 'CANCEL':
+            self.state = state
             return
 
     def modal(self, context, event):
 
         context.area.tag_redraw()
+        print("modal event %s %s" % (event.type, event.value))
+        # if event.type == 'NONE':
+        #    return {'PASS_THROUGH'}
 
-        if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
+        if self.state == 'STARTING':
+            takeloc = self.mouse_to_plane(context, event)
+            print("STARTING")
+            snap_point(takeloc=takeloc,
+                callback=self.sp_init,
+                constraint_axis=(True, True, False),
+                release_confirm=True)
+            return {'RUNNING_MODAL'}
 
+        elif self.state == 'RUNNING':
+            print("RUNNING")
+            self.state = 'CREATE'
+            snap_point(takeloc=self.takeloc,
+                draw=self.sp_draw,
+                callback=self.sp_callback,
+                constraint_axis=(True, True, False),
+                release_confirm=True)
+            return {'RUNNING_MODAL'}
+
+        elif event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
+
+            print('LEFTMOUSE %s' % (event.value))
             self.feedback.instructions(context, "Draw a wall", "Click & Drag to add a segment", [
                 ('CTRL', 'Snap'),
                 ('MMBTN', 'Constraint to axis'),
@@ -1353,6 +1423,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 ])
 
             if event.value == 'PRESS':
+
                 if self.flag_next:
                     self.flag_next = False
                     o = self.o
@@ -1365,7 +1436,12 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 else:
                     takeloc = self.mouse_to_plane(context, event)
 
-                snap_point(takeloc, self.sp_draw, self.sp_callback, constraint_axis=(True, True, False))
+                snap_point(takeloc=takeloc,
+                    draw=self.sp_draw,
+                    callback=self.sp_callback,
+                    constraint_axis=(True, True, False),
+                    release_confirm=True)
+
             return {'RUNNING_MODAL'}
 
         if self.keymap.check(event, self.keymap.undo) or (
@@ -1389,13 +1465,15 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             if self.o is not None:
                 self.o.select = True
                 context.scene.objects.active = self.o
-                bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
+                if bpy.ops.archipack.wall2_manipulate.poll():
+                    bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
 
             return {'FINISHED'}
 
         return {'PASS_THROUGH'}
 
     def invoke(self, context, event):
+
         if context.mode == "OBJECT":
             self.keymap = Keymaps(context)
             self.wall_part1 = GlPolygon((0.5, 0, 0, 0.2))
@@ -1411,6 +1489,9 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 ])
             self.feedback.enable()
             args = (self, context)
+
+            self.state = 'STARTING'
+
             self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
