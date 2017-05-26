@@ -186,16 +186,8 @@ class WallGenerator():
 
         return manip_index
 
-    def make_wall(self, step_angle, flip, closed, verts, faces):
-
-        # swap manipulators so they always face outside
-        side = 1
-        if flip:
-            side = -1
-
+    def close(self, closed):
         # Make last segment implicit closing one
-
-        nb_segs = len(self.segs)
         if closed:
             part = self.parts[-1]
             w = self.segs[-1]
@@ -213,7 +205,18 @@ class WallGenerator():
                 w.a0 = a0
             else:
                 w.v = dp
-                
+        
+    def make_wall(self, step_angle, flip, closed, verts, faces):
+
+        # swap manipulators so they always face outside
+        side = 1
+        if flip:
+            side = -1
+
+        # Make last segment implicit closing one
+
+        nb_segs = len(self.segs)
+        if closed:
             nb_segs -= 1
 
         for i, wall in enumerate(self.segs):
@@ -524,7 +527,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
     # dumb manipulators to show sizes between childs
     childs_manipulators = CollectionProperty(type=archipack_manipulator)
     childs = CollectionProperty(type=archipack_wall2_child)
-
+    
     def insert_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
@@ -616,6 +619,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         for part in self.parts:
             g.add_part(part.type, center, part.radius, part.a0, part.da, part.length,
                 self.z, part.z, part.t, part.n_splits, self.flip)
+        g.close(self.closed)
         return g
 
     def update_parts(self, o, update_childs=False):
@@ -688,8 +692,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         if self.closed:
             f = len(verts)
-            faces.append((f - 2, 0, 1, f - 1))
-
+            if self.flip:
+                faces.append((0, f - 2, f - 1, 1))
+            else:
+                faces.append((f - 2, 0, 1, f - 1))
+                
         # print("buildmesh")
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=True)
 
@@ -1214,6 +1221,8 @@ class ARCHIPACK_OT_wall2(Operator):
         m = bpy.data.meshes.new("Wall")
         o = bpy.data.objects.new("Wall", m)
         d = m.archipack_wall2.add()
+        # make manipulators selectable
+        d.manipulable_selectable = True
         s = d.manipulators.add()
         s.prop1_name = "width"
         s = d.manipulators.add()

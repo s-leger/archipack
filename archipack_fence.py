@@ -141,10 +141,7 @@ class FenceGenerator():
                 v = length * Vector((cos(a0), sin(a0)))
                 s = StraightFence(p, v)
             elif type == 'C_FENCE':
-                if da < 0:
-                    c = Vector((radius, 0))
-                else:
-                    c = Vector((-radius, 0))
+                c = -radius * Vector((cos(a0), sin(a0)))
                 s = CurvedFence(c, radius, 0, da)
         else:
             if type == 'S_FENCE':
@@ -1154,6 +1151,8 @@ class archipack_fence(Manipulable, PropertyGroup):
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
 
+        self.auto_update = False
+
         self.n_parts = len(pts) - 1
         self.update_parts()
 
@@ -1173,12 +1172,12 @@ class archipack_fence(Manipulable, PropertyGroup):
             a0 += da
             p0 = p1
 
+        self.auto_update = True
+
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
-            self.auto_update = False
             self.from_spline(user_def_path.matrix_world, self.user_defined_resolution, user_def_path.data.splines[0])
-            self.auto_update = True
 
     def get_generator(self):
         g = FenceGenerator(self.parts)
@@ -1518,6 +1517,8 @@ class ARCHIPACK_OT_fence(Operator):
         m = bpy.data.meshes.new("Fence")
         o = bpy.data.objects.new("Fence", m)
         d = m.archipack_fence.add()
+        # make manipulators selectable
+        d.manipulable_selectable = True
         s = d.manipulators.add()
         s.prop1_name = "width"
         s = d.manipulators.add()
@@ -1581,6 +1582,8 @@ class ARCHIPACK_OT_fence_from_curve(Operator):
         m = bpy.data.meshes.new("Fence")
         o = bpy.data.objects.new("Fence", m)
         d = m.archipack_fence.add()
+        # make manipulators selectable
+        d.manipulable_selectable = True
         s = d.manipulators.add()
         s.prop1_name = "width"
         s = d.manipulators.add()

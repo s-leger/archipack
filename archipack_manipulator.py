@@ -685,7 +685,12 @@ class WallSnapManipulator(Manipulator):
                     placeholders[-1][1] = pt
                     placeholders[-1][2] = True
             placeholders.append([pt, p1, selected])
-
+        
+        # first selected and closed -> should move last p1 too
+        if gl_pts3d[0][2] and self.datablock.closed:
+            placeholders[-1][1] = placeholders[0][0].copy()
+            placeholders[-1][2] = True
+            
         for p0, p1, selected in placeholders:
             if selected:
                 self.placeholder_area.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
@@ -1488,7 +1493,7 @@ class DumbAngleManipulator(AngleManipulator):
         self.line_1.v = right
         self.line_1.v = self.line_1.cross.normalized()
         self.arc.a0 = self.line_0.angle
-        self.arc.da = left.to_2d().angle_signed(right.to_2d())
+        self.arc.da = self.line_1.v.to_2d().angle_signed(self.line_0.v.to_2d())
         self.arc.r = 1.0
         self.handle_right.set_pos(context, self.line_1.lerp(1),
                                   self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
@@ -1934,7 +1939,11 @@ class Manipulable():
             options={'SKIP_SAVE'},
             description="Flag select state so we are able to toggle"
             )
-
+    manipulable_selectable = BoolProperty(
+            default=False,
+            options={'SKIP_SAVE'},
+            description="Flag allow select mode"
+            )
     keymap = None
 
     # selectable manipulators
@@ -2049,7 +2058,7 @@ class Manipulable():
 
             # either we are starting select mode
             # user press on area not over maniuplator
-            if event.value == 'PRESS':
+            if self.manipulable_selectable and event.value == 'PRESS':
                 self.select_mode = True
                 self.manipulable_area.enable()
                 self.manipulable_start_point = Vector((event.mouse_region_x, event.mouse_region_y))
