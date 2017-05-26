@@ -706,7 +706,8 @@ class FeedbackPanel():
         w = context.region.width
         x_min = self.margin
         x_max = w - self.margin
-        if system.window_draw_method in ('TRIPLE_BUFFER', 'AUTOMATIC'):
+        if (system.use_region_overlap and
+                system.window_draw_method in {'TRIPLE_BUFFER', 'AUTOMATIC'}):
             area = context.area
             for r in area.regions:
                 if r.type == 'TOOLS':
