@@ -260,12 +260,17 @@ class WallGenerator():
             # dumb, segment index
             z = Vector((0, 0, 0.75 * wall.wall_z))
             manipulators[3].set_pts([p0 + z, p1 + z, (1, 0, 0)])
-
+            
+            wall.param_t(step_angle)
             if i < nb_segs:
-                wall.param_t(step_angle)
                 for j in range(wall.n_step + 1):
                     wall.make_wall(j, verts, faces)
-
+            else:
+                # last segment
+                for j in range(wall.n_step):
+                    print("%s" % (wall.n_step))
+                    # wall.make_wall(j, verts, faces)
+                    
     def debug(self, verts):
         for wall in self.segs:
             for i in range(33):
@@ -555,6 +560,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.manipulable_disable(context)
         self.auto_update = False
         p = self.parts.add()
+        p.length = length
         self.n_parts += 1
         self.setup_parts_manipulators()
         self.auto_update = True
