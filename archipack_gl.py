@@ -573,7 +573,7 @@ class GlHandle(Gl):
         self.draggable = draggable
         self.selectable = selectable
         self.selected = False
-        
+
     def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
         self.c_axis = self.up_axis.cross(normal)
@@ -656,7 +656,7 @@ class EditableText(GlText, GlHandle):
     def __init__(self, sensor_size, size, draggable=False, selectable=False):
         GlText.__init__(self, colour=(0, 0, 0, 1))
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
-        
+
     def set_pos(self, context, value, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
         self.c_axis = self.up_axis.cross(normal)
@@ -702,13 +702,24 @@ class FeedbackPanel():
         """
             position from bottom to top
         """
+        system = context.user_preferences.system
         w = context.region.width
-        available_w = w - 2 * (self.margin + self.spacing.x)
+        x_min = self.margin
+        x_max = w - self.margin
+        if system.window_draw_method in ('TRIPLE_BUFFER', 'AUTOMATIC'):
+            area = context.area
+            for r in area.regions:
+                if r.type == 'TOOLS':
+                    x_min += r.width
+                elif r.type == 'UI':
+                    x_max -= r.width
+
+        available_w = x_max - x_min - 2 * self.spacing.x
         main_title_size = self.main_title.text_size(context)
 
         # h = context.region.height
         # 0,0 = bottom left
-        pos = Vector((self.margin + self.spacing.x, self.margin))
+        pos = Vector((x_min + self.spacing.x, self.margin))
         self.shortcuts = []
         n_shortcuts = len(shortcuts)
 
@@ -717,7 +728,7 @@ class FeedbackPanel():
         line = []
         space = 0
         sum_txt = 0
-        pos.x = self.margin + self.spacing.x
+
         for key, label in shortcuts:
             key = GlText(d=2, label=key, font_size=feedback_size_shortcut, colour=feedback_colour_key)
             label = GlText(d=2, label=' : ' + label, font_size=feedback_size_shortcut, colour=feedback_colour_shortcut)
@@ -741,7 +752,7 @@ class FeedbackPanel():
         lines = list(reversed(lines))
         for spacing, line in lines:
             pos.y += self.spacing.y
-            pos.x = self.margin + self.spacing.x
+            pos.x = x_min + self.spacing.x
             for key, ks, label, ls in line:
                 key.pos_3d = pos.copy()
                 pos.x += ks.x
@@ -752,10 +763,10 @@ class FeedbackPanel():
 
         # shortcut area
         self.shortcut_area.pts_3d = [
-            (self.margin, self.margin),
-            (w - self.margin, self.margin),
-            (w - self.margin, pos.y),
-            (self.margin, pos.y)
+            (x_min, self.margin),
+            (x_max, self.margin),
+            (x_max, pos.y),
+            (x_min, pos.y)
             ]
 
         # small space between shortcut area and main title bar
@@ -763,10 +774,10 @@ class FeedbackPanel():
             pos.y += 0.5 * self.spacing.y
 
         self.title_area.pts_3d = [
-            (self.margin, pos.y),
-            (w - self.margin, pos.y),
-            (w - self.margin, pos.y + main_title_size.y + 2 * self.spacing.y),
-            (self.margin, pos.y + main_title_size.y + 2 * self.spacing.y)
+            (x_min, pos.y),
+            (x_max, pos.y),
+            (x_max, pos.y + main_title_size.y + 2 * self.spacing.y),
+            (x_min, pos.y + main_title_size.y + 2 * self.spacing.y)
             ]
         pos.y += self.spacing.y
 
@@ -791,12 +802,12 @@ class FeedbackPanel():
             # keep title + explanation
             self.title.label = title
             self.show_main_title = False
-            self.title.pos_3d = (self.margin + self.spacing.x, pos.y)
+            self.title.pos_3d = (x_min + self.spacing.x, pos.y)
         else:
-            self.title.pos_3d = (self.margin + self.spacing.x + main_title_size.x, pos.y)
+            self.title.pos_3d = (x_min + self.spacing.x + main_title_size.x, pos.y)
 
-        self.explanation.pos_3d = (w - self.margin - self.spacing.x - self.explanation.text_size(context).x, pos.y)
-        self.main_title.pos_3d = (self.margin + self.spacing.x, pos.y)
+        self.explanation.pos_3d = (x_max - self.spacing.x - self.explanation.text_size(context).x, pos.y)
+        self.main_title.pos_3d = (x_min + self.spacing.x, pos.y)
 
     def draw(self, context, render=False):
         if self.on:
