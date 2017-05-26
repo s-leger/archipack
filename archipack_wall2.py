@@ -655,7 +655,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 s.prop1_name = str(i + 1)
             p.manipulators[2].prop1_name = str(i)
             p.manipulators[3].prop1_name = str(i + 1)
-
+        
+        self.manipulable_selectable = True
+        
     def update(self, context, manipulable_refresh=False, update_childs=False):
         # print("update manipulable_refresh:%s" % (manipulable_refresh))
         """
