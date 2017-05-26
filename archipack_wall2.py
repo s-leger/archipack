@@ -205,7 +205,7 @@ class WallGenerator():
                 w.a0 = a0
             else:
                 w.v = dp
-        
+
     def make_wall(self, step_angle, flip, closed, verts, faces):
 
         # swap manipulators so they always face outside
@@ -233,7 +233,7 @@ class WallGenerator():
                     manipulators[0].type_key = 'ANGLE'
                 else:
                     manipulators[0].type_key = 'DUMB_ANGLE'
-                    
+
                 v0 = self.segs[i - 1].straight(-side, 1).v.to_3d()
                 v1 = wall.straight(side, 0).v.to_3d()
                 manipulators[0].set_pts([p0, v0, v1])
@@ -256,6 +256,10 @@ class WallGenerator():
 
             # snap manipulator, dont change index !
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
+
+            # dumb, segment index
+            z = Vector((0, 0, 0.75 * wall.wall_z))
+            manipulators[3].set_pts([p0 + z, p1 + z, (1, 0, 0)])
 
             if i < nb_segs:
                 wall.param_t(step_angle)
@@ -527,7 +531,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
     # dumb manipulators to show sizes between childs
     childs_manipulators = CollectionProperty(type=archipack_manipulator)
     childs = CollectionProperty(type=archipack_wall2_child)
-    
+
     def insert_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
@@ -535,17 +539,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         part_0 = self.parts[where]
         part_0.length /= 2
         part_0.da /= 2
-        p = self.parts.add()
-        s = p.manipulators.add()
-        s.type_key = "ANGLE"
-        s.prop1_name = "a0"
-        s = p.manipulators.add()
-        s.prop1_name = "length"
-        s = p.manipulators.add()
-        # s.type_key = 'SNAP_POINT'
-        s.type_key = 'WALL_SNAP'
-        s.prop1_name = str(where + 1)
-        s.prop2_name = 'z'
+        self.parts.add()
         part_1 = self.parts[len(self.parts) - 1]
         part_1.type = part_0.type
         part_1.length = part_0.length
@@ -554,26 +548,15 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # move after current one
         self.parts.move(len(self.parts) - 1, where + 1)
         self.n_parts += 1
-        # fix snap manipulators index
-        for i in range(self.n_parts):
-            self.parts[i].manipulators[2].prop1_name = str(i)
+        self.setup_parts_manipulators()
         self.auto_update = True
 
     def add_part(self, context, length):
         self.manipulable_disable(context)
         self.auto_update = False
         p = self.parts.add()
-        s = p.manipulators.add()
-        s.type_key = "ANGLE"
-        s.prop1_name = "a0"
-        s = p.manipulators.add()
-        s.prop1_name = "length"
-        s = p.manipulators.add()
-        s.type_key = 'WALL_SNAP'
-        s.prop1_name = str(self.n_parts)
-        s.prop2_name = 'z'
-        p.length = length
         self.n_parts += 1
+        self.setup_parts_manipulators()
         self.auto_update = True
         return p
 
@@ -582,6 +565,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.auto_update = False
         self.parts.remove(where)
         self.n_parts -= 1
+        # fix snap manipulators index
+        self.setup_parts_manipulators()
         self.auto_update = True
 
     def find_in_selection(self, context):
@@ -636,19 +621,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # add rows
         for i in range(len(self.parts), self.n_parts):
             row_change = True
-            p = self.parts.add()
-            s = p.manipulators.add()
-            s.type_key = "ANGLE"
-            s.prop1_name = "a0"
-            s = p.manipulators.add()
-            s.type_key = "SIZE"
-            s.prop1_name = "length"
+            self.parts.add()
 
-            s = p.manipulators.add()
-            # s.type_key = 'SNAP_POINT'
-            s.type_key = 'WALL_SNAP'
-            s.prop1_name = str(i)
-            s.prop2_name = 'z'
+        self.setup_parts_manipulators()
 
         g = self.get_generator()
 
@@ -656,6 +631,30 @@ class archipack_wall2(Manipulable, PropertyGroup):
             self.setup_childs(o, g)
 
         return g
+
+    def setup_parts_manipulators(self):
+        for i in range(self.n_parts):
+            p = self.parts[i]
+            n_manips = len(p.manipulators)
+            if n_manips < 1:
+                s = p.manipulators.add()
+                s.type_key = "ANGLE"
+                s.prop1_name = "a0"
+            if n_manips < 2:
+                s = p.manipulators.add()
+                s.type_key = "SIZE"
+                s.prop1_name = "length"
+            if n_manips < 3:
+                s = p.manipulators.add()
+                s.type_key = 'WALL_SNAP'
+                s.prop1_name = str(i)
+                s.prop2_name = 'z'
+            if n_manips < 4:
+                s = p.manipulators.add()
+                s.type_key = 'DUMB_STRING'
+                s.prop1_name = str(i + 1)
+            p.manipulators[2].prop1_name = str(i)
+            p.manipulators[3].prop1_name = str(i + 1)
 
     def update(self, context, manipulable_refresh=False, update_childs=False):
         # print("update manipulable_refresh:%s" % (manipulable_refresh))
@@ -696,7 +695,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 faces.append((0, f - 2, f - 1, 1))
             else:
                 faces.append((f - 2, 0, 1, f - 1))
-                
+
         # print("buildmesh")
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=True)
 
@@ -1032,6 +1031,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
         if self.closed:
             nb_segs -= 1
 
+        # update manipulators on version change
+        self.setup_parts_manipulators()
+
         for i, part in enumerate(self.parts):
 
             if i < self.n_parts:
@@ -1044,6 +1046,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
+
+            # segment index
+            self.manip_stack.append(part.manipulators[3].setup(context, o, self))
 
         # height as per segment will be here when done
 

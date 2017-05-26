@@ -685,12 +685,12 @@ class WallSnapManipulator(Manipulator):
                     placeholders[-1][1] = pt
                     placeholders[-1][2] = True
             placeholders.append([pt, p1, selected])
-        
+
         # first selected and closed -> should move last p1 too
         if gl_pts3d[0][2] and self.datablock.closed:
             placeholders[-1][1] = placeholders[0][0].copy()
             placeholders[-1][2] = True
-            
+
         for p0, p1, selected in placeholders:
             if selected:
                 self.placeholder_area.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
@@ -789,6 +789,41 @@ class CounterManipulator(Manipulator):
         self.label.draw(context, render)
         self.handle_left.draw(context, render)
         self.handle_right.draw(context, render)
+
+
+class DumbStringManipulator(Manipulator):
+    """
+        not a real manipulator, but allow to show a string
+    """
+    def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
+        self.label = GlText(colour=(0, 0, 0, 1))
+        self.label.unit_mode = 'NONE'
+        self.label.label = manipulator.prop1_name
+        Manipulator.__init__(self, context, o, datablock, manipulator, snap_callback)
+
+    def check_hover(self):
+        return False
+
+    def mouse_press(self, context, event):
+        return False
+
+    def mouse_release(self, context, event):
+        return False
+
+    def mouse_move(self, context, event):
+        return False
+
+    def draw_callback(self, _self, context, render=False):
+        """
+            draw on screen feedback using gl.
+        """
+        # won't render string
+        if render:
+            return
+        left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
+        pos = left + 0.5 * (right - left)
+        self.label.set_pos(context, None, pos, pos, normal=normal)
+        self.label.draw(context, render)
 
 
 class SizeManipulator(Manipulator):
@@ -1477,7 +1512,7 @@ class DumbAngleManipulator(AngleManipulator):
         AngleManipulator.__init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None)
         self.handle_right.draggable = False
         self.label_a.draggable = False
-    
+
     def draw_callback(self, _self, context, render=False):
         c, left, right, normal = self.manipulator.get_pts(self.o.matrix_world)
         self.line_0.z_axis = normal
@@ -2160,6 +2195,8 @@ def register():
     register_manipulator('COUNTER', CounterManipulator)
     register_manipulator('DUMB_SIZE', DumbSizeManipulator)
     register_manipulator('DELTA_LOC', DeltaLocationManipulator)
+    register_manipulator('DUMB_STRING', DumbStringManipulator)
+    
     # snap aware size loc
     register_manipulator('SNAP_SIZE_LOC', SnapSizeLocationManipulator)
     # register_manipulator('SNAP_POINT', SnapPointManipulator)
