@@ -2093,7 +2093,8 @@ class Manipulable():
 
             # either we are starting select mode
             # user press on area not over maniuplator
-            if self.manipulable_selectable and event.value == 'PRESS':
+            # Prevent 3 mouse emultation to select when alt pressed
+            if self.manipulable_selectable and event.value == 'PRESS' and not event.alt:
                 self.select_mode = True
                 self.manipulable_area.enable()
                 self.manipulable_start_point = Vector((event.mouse_region_x, event.mouse_region_y))
@@ -2133,7 +2134,7 @@ class Manipulable():
                             manipulator.selected = False
                     self.manipulable_release(context)
 
-        elif event.type == 'MOUSEMOVE' and event.value == 'PRESS':
+        elif  self.select_mode and event.type == 'MOUSEMOVE' and event.value == 'PRESS':
             # update select area size
             self.manipulable_end_point = Vector((event.mouse_region_x, event.mouse_region_y))
             self.manipulable_area.set_location(
