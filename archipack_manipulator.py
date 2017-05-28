@@ -47,6 +47,40 @@ arrow_size = 0.05
 # Handle area size (pixels)
 handle_size = 10
 
+
+# a global manipulator stack reference
+# prevent Blender "ACCESS_VIOLATION" crashes
+# use a dict to prevent potential
+# collisions between many objects being in
+# manipulate mode (at create time)
+# use object names as loose keys
+# NOTE : use app.drivers to reset before file load
+manip_stack = {}
+
+
+@persistent
+def empty_stack(dummy=None):
+    """
+        Empty manipulators stack on file load
+    """
+    global manip_stack
+    for key in manip_stack.keys():
+        for m in manip_stack[key]:
+            if m is not None:
+                m.exit()
+    manip_stack = {}
+
+
+def get_stack(key):
+    """
+        return reference to manipulator stack for given object
+    """
+    global manip_stack
+    if key not in manip_stack.keys():
+        manip_stack[key] = []
+    return manip_stack[key]
+
+
 # ------------------------------------------------------------------
 # Define Manipulators
 # ------------------------------------------------------------------
@@ -510,6 +544,7 @@ class WallSnapManipulator(Manipulator):
 
     def mouse_press(self, context, event):
         global gl_pts3d
+        global manip_stack
         if self.handle.hover:
             self.active = True
             self.handle.active = True
@@ -518,7 +553,7 @@ class WallSnapManipulator(Manipulator):
 
             # get selected manipulators idx
             selection = []
-            for m in self.datablock.manip_stack:
+            for m in manip_stack[self.o.name]:
                 if m is not None and m.selected:
                     selection.append(int(m.manipulator.prop1_name))
 
@@ -1911,37 +1946,7 @@ class archipack_manipulator(PropertyGroup):
         return m
 
 
-# a global manipulator stack reference
-# prevent Blender "ACCESS_VIOLATION" crashes
-# use a dict to prevent potential
-# collisions between many objects being in
-# manipulate mode (at create time)
-# use object names as loose keys
-# NOTE : use app.drivers to reset before file load
-manip_stack = {}
 
-
-@persistent
-def empty_stack(dummy=None):
-    """
-        Empty manipulators stack on file load
-    """
-    global manip_stack
-    for key in manip_stack.keys():
-        for m in manip_stack[key]:
-            if m is not None:
-                m.exit()
-    manip_stack = {}
-
-
-def get_stack(key):
-    """
-        return reference to manipulator stack for given object
-    """
-    global manip_stack
-    if key not in manip_stack.keys():
-        manip_stack[key] = []
-    return manip_stack[key]
 
 
 # ------------------------------------------------------------------

@@ -569,6 +569,39 @@ class archipack_wall2(Manipulable, PropertyGroup):
     def remove_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
+        # preserve shape
+        # using generator 
+        if where > 0:
+            g = self.get_generator()
+            w = g.segs[where - 1]
+            dp = g.segs[where].p1 - w.p0 
+            if where + 1 < self.n_parts:
+                a0 = g.segs[where + 1].straight(1).angle - atan2(dp.y, dp.x)
+                part = self.parts[where + 1]
+                if a0 > pi:
+                    a0 -= 2 * pi
+                if a0 < -pi:
+                    a0 += 2 * pi
+                part.a0 = a0
+            part = self.parts[where - 1] 
+            # adjust radius from distance between points..
+            # use p0-p1 distance as reference
+            if "C_" in part.type:
+                dw = (w.p1 - w.p0)
+                part.radius = part.radius / dw.length * dp.length
+                # angle pt - p0        - angle p0 p1
+                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+            else:
+                part.length = dp.length
+                da = atan2(dp.y, dp.x) - w.straight(1).angle
+            a0 = part.a0 + da
+            if a0 > pi:
+                a0 -= 2 * pi
+            if a0 < -pi:
+                a0 += 2 * pi
+            # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
+            part.a0 = a0
+            
         self.parts.remove(where)
         self.n_parts -= 1
         # fix snap manipulators index
@@ -706,7 +739,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         # print("buildmesh")
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=True)
-
+        bpy.ops.object.shade_smooth()
+        
         side = 1
         if self.flip:
             side = -1
@@ -1249,6 +1283,9 @@ class ARCHIPACK_OT_wall2(Operator):
         context.scene.objects.active = o
         d.update(context)
         MaterialUtils.add_wall_materials(o)
+        # around 12 degree
+        m.auto_smooth_angle = 0.20944
+        m.use_auto_smooth = True
         # select frame
         o.select = True
         context.scene.objects.active = o
