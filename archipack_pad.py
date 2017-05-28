@@ -48,35 +48,14 @@ from .archipack_preset import ArchipackPreset
 class Pad():
 
     def __init__(self):
-        # total distance from start
-        self.z0 = 0
-        self.a0 = 0
-
-    def set_offset(self, offset, last=None):
-        """
-            Offset line and compute intersection point between
-            straight segments
-        """
-        self.line = self.offset(offset)
-        if last is not None:
-            i, p, t = self.line.intersect(last.line)
-            if i:
-                if type(self).__name__ == 'StraightPad':
-                    self.line.p0 = p
-                if type(last).__name__ == 'StraightPad':
-                    last.line.p1 = p
-
-    @property
-    def t_diff(self):
-        return self.t_end - self.t_start
-
-    def straight_pad(self, a0, length):
-        s = self.straight(length).rotate(a0)
+        pass
+        
+    def straight_pad(self, last, a0, length):
+        s = last.straight(length).rotate(a0)
         return StraightPad(s.p, s.v)
 
-    def curved_pad(self, a0, da, radius):
-        n = self.normal(1)
-        n.v = radius * n.v.normalized()
+    def curved_pad(self, last, a0, da, radius):
+        n = last.normal(1).rotate(a0).scale(radius)
         if da < 0:
             n.v = -n.v
         a0 = n.angle
@@ -110,7 +89,7 @@ class PadGenerator():
             s = None
         else:
             s = self.segs[-1]
-        last = s
+        
         # start a new pad
         if s is None:
             if type == 'S_SEG':
@@ -119,16 +98,16 @@ class PadGenerator():
                 s = StraightPad(p, v)
             elif type == 'C_SEG':
                 c = -radius * Vector((cos(a0), sin(a0)))
-                s = CurvedPad(c, radius, 0, da)
+                s = CurvedPad(c, radius, a0, da)
         else:
             if type == 'S_SEG':
-                s = s.straight_pad(a0, length)
+                s = s.straight_pad(s, a0, length)
             elif type == 'C_SEG':
-                s = s.curved_pad(a0, da, radius)
+                s = s.curved_pad(s, a0, da, radius)
         
         self.segs.append(s)
         self.last_type = type
-        s.set_offset(offset, last=last)
+        
         
     def close(self, closed):
         # Make last segment implicit closing one
@@ -149,22 +128,6 @@ class PadGenerator():
                 w.a0 = a0
             else:
                 w.v = dp
-                w.line = w.offset(part.offset)
-                
-            if len(self.segs) > 2:
-                i, p, t = self.segs[-2].line.intersect(w.line)
-                if i:
-                    if type(self.segs[-2]).__name__ == 'StraightPad':
-                        self.segs[-2].line.p1 = p
-                    if type(w).__name__ == 'StraightPad':
-                        w.line.p0 = p
-                    
-            i, p, t = self.segs[0].line.intersect(w.line)
-            if i:
-                if type(self.segs[0]).__name__ == 'StraightPad':
-                    self.segs[0].line.p0 = p
-                if type(w).__name__ == 'StraightPad':
-                    w.line.p1 = p
             
     def locate_manipulators(self):
         """
@@ -202,8 +165,13 @@ class PadGenerator():
     
     def get_verts(self, verts):
         for pad in self.segs:
-            x, y = pad.line.p0
-            verts.append((x, y, 0))
+            if "Curved" in type(pad).__name__:
+                for i in range(16):
+                    x, y = pad.lerp(i / 16)
+                    verts.append((x, y, 0))
+            else:
+                x, y = pad.p0
+                verts.append((x, y, 0))
             """
             for i in range(33):
                 x, y = pad.line.lerp(i / 32)
@@ -303,10 +271,6 @@ class ArchipackSegment():
             subtype='ANGLE', unit='ROTATION',
             update=update
             )
-    dz = FloatProperty(
-            name="delta z",
-            default=0
-            )
     offset = FloatProperty(
             name="offset",
             min=0,
@@ -342,8 +306,6 @@ class ArchipackSegment():
         else:
             row = box.row()
             row.prop(self, "length")
-        # row = box.row()
-        # row.prop(self, "offset")
         row = box.row()
         row.prop(self, "a0")
 
@@ -409,21 +371,6 @@ class archipack_pad(Manipulable, PropertyGroup):
             update=update
             )
 
-    radius = FloatProperty(
-            name="radius",
-            min=0.5,
-            max=100.0,
-            default=0.7,
-            update=update
-            )
-    da = FloatProperty(
-            name="angle",
-            min=-pi,
-            max=pi,
-            default=pi / 2,
-            subtype='ANGLE', unit='ROTATION',
-            update=update
-            )
     angle_limit = FloatProperty(
             name="angle",
             min=0,
@@ -469,7 +416,7 @@ class archipack_pad(Manipulable, PropertyGroup):
         g = PadGenerator(self.parts)
         for part in self.parts:
             # type, radius, da, length
-            g.add_part(part.type, part.radius, part.a0, part.da, part.length, part.offset)
+            g.add_part(part.type, part.radius, part.a0, part.da, part.length, 0)
 
         g.close(self.closed)    
         g.locate_manipulators()
