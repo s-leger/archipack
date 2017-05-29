@@ -1153,7 +1153,7 @@ class Selectable(object):
         poly = ShapelyPolygon([c0, c1, c2, c3])
         prepared_poly = shapely.prepared.prep(poly)
         count, gids = self.tree.intersects(poly)
-        if event.alt:
+        if event.ctrl:
             selection = [i for i in gids if prepared_poly.contains(self.geoms[i])]
         else:
             selection = [i for i in gids if prepared_poly.intersects(self.geoms[i])]
@@ -1273,7 +1273,7 @@ class SelectPoints(Selectable):
         self.drag = False
         self.feedback.instructions(context, "Select Points", "Click & Drag to select points in area", [
             ('SHIFT', 'deselect'),
-            ('ALT', 'contains'),
+            ('CTRL', 'contains'),
             ('A', 'All'),
             ('I', 'Inverse'),
             ('F', 'Create line around selection'),
@@ -1385,7 +1385,7 @@ class SelectLines(Selectable):
         self.drag = False
         self.feedback.instructions(context, "Select Lines", "Click & Drag to select lines in area", [
             ('SHIFT', 'deselect'),
-            ('ALT', 'contains'),
+            ('CTRL', 'contains'),
             ('A', 'All'),
             ('I', 'Inverse'),
             # ('F', 'Create lines from selection'),
@@ -1486,7 +1486,7 @@ class SelectPolygons(Selectable):
         if action in ['select', 'union', 'rectangle']:
             self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
                 ('SHIFT', 'deselect'),
-                ('ALT', 'contains'),
+                ('CTRL', 'contains'),
                 ('A', 'All'),
                 ('I', 'Inverse'),
                 ('B', 'Bigger than current'),
@@ -1498,7 +1498,7 @@ class SelectPolygons(Selectable):
         elif action == 'wall':
             self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
                 ('SHIFT', 'deselect'),
-                ('ALT', 'contains'),
+                ('CTRL', 'contains'),
                 ('A', 'All'),
                 ('I', 'Inverse'),
                 ('B', 'Bigger than current'),
@@ -1509,7 +1509,7 @@ class SelectPolygons(Selectable):
         elif action == 'window':
             self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
                 ('SHIFT', 'deselect'),
-                ('ALT', 'contains'),
+                ('CTRL', 'contains'),
                 ('A', 'All'),
                 ('I', 'Inverse'),
                 ('B', 'Bigger than current'),
@@ -1519,7 +1519,7 @@ class SelectPolygons(Selectable):
         elif action == 'door':
             self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
                 ('SHIFT', 'deselect'),
-                ('ALT', 'contains'),
+                ('CTRL', 'contains'),
                 ('A', 'All'),
                 ('I', 'Inverse'),
                 ('B', 'Bigger than current'),
@@ -1719,7 +1719,7 @@ class SelectPolygons(Selectable):
                 if self.action == 'window':
                     self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
                         ('SHIFT', 'deselect'),
-                        ('ALT', 'contains'),
+                        ('CTRL', 'contains'),
                         ('A', 'All'),
                         ('I', 'Inverse'),
                         ('B', 'Bigger than current'),
@@ -1729,7 +1729,7 @@ class SelectPolygons(Selectable):
                 elif self.action == 'door':
                     self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
                         ('SHIFT', 'deselect'),
-                        ('ALT', 'contains'),
+                        ('CTRL', 'contains'),
                         ('A', 'All'),
                         ('I', 'Inverse'),
                         ('B', 'Bigger than current'),
@@ -2007,7 +2007,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
         return len(context.selected_objects) > 0 and context.object is not None and context.object.type == 'CURVE'
 
     def execute(self, context):
-        wm = context.window_manager.poly_lib
+        wm = context.window_manager.archipack_polylib
         objs = list(obj for obj in context.selected_objects if obj.type == 'CURVE')
         if len(objs) < 1:
             self.report({'WARNING'}, "Select a curve object before")
@@ -2039,7 +2039,7 @@ class ARCHIPACK_OP_PolyLib_Simplify(Operator):
 
     def execute(self, context):
         global vars_dict
-        wm = context.window_manager.poly_lib
+        wm = context.window_manager.archipack_polylib
         objs = [obj for obj in context.selected_objects if obj.type == 'CURVE']
         if len(objs) < 1:
             self.report({'WARNING'}, "Select a curve object before")
@@ -2107,7 +2107,7 @@ class ARCHIPACK_OP_PolyLib_Solidify(Operator):
                 context.object.type == 'CURVE')
 
     def execute(self, context):
-        wm = context.window_manager.poly_lib
+        wm = context.window_manager.archipack_polylib
         objs = [obj for obj in context.selected_objects if obj.type == 'CURVE']
         if len(objs) < 1:
             self.report({'WARNING'}, "Select a curve object before")
