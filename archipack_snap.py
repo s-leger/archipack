@@ -88,7 +88,7 @@ class SnapStore:
     transform_orientation = 'GLOBAL'
     release_confirm = True
     instances_running = 0
-    
+
     # context related
     act = None
     sel = []
@@ -174,7 +174,7 @@ class ArchipackSnapBase():
             SnapStore.trans_orientation = context.space_data.transform_orientation
         self.create_helper(context)
         SnapStore.instances_running += 1
-        print("ArchipackSnapBase init: %s" % (SnapStore.instances_running))
+        # print("ArchipackSnapBase init: %s" % (SnapStore.instances_running))
         self.set_transform_orientation(context)
         args = (self, context)
         self._draw_handler = bpy.types.SpaceView3D.draw_handler_add(SnapStore.draw, args, 'WINDOW', 'POST_PIXEL')
@@ -184,7 +184,7 @@ class ArchipackSnapBase():
         # trick to allow launch 2nd instance
         # via callback, preserve context as it
         SnapStore.instances_running -= 1
-        print("ArchipackSnapBase exit: %s" % (SnapStore.instances_running))
+        # print("ArchipackSnapBase exit: %s" % (SnapStore.instances_running))
         if SnapStore.instances_running > 0:
             return
 
@@ -215,7 +215,7 @@ class ArchipackSnapBase():
             Do target helper be linked to scene in order to work ?
 
         """
-        
+
         helper_idx = bpy.data.objects.find('Archipack_snap_helper')
         if helper_idx > -1:
             helper = bpy.data.objects[helper_idx]
@@ -267,7 +267,7 @@ class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
     bl_options = {'UNDO'}
 
     def modal(self, context, event):
-        print("Snap.modal event %s %s" % (event.type, event.value))
+        # print("Snap.modal event %s %s" % (event.type, event.value))
         context.area.tag_redraw()
         # NOTE: this part only run after transform LEFTMOUSE RELEASE
         # or with ESC and RIGHTMOUSE
@@ -283,7 +283,7 @@ class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
-            print("Snap.invoke event %s %s" % (event.type, event.value))
+            # print("Snap.invoke event %s %s" % (event.type, event.value))
             self.init(context, event)
             context.window_manager.modal_handler_add(self)
             bpy.ops.transform.translate('INVOKE_DEFAULT',
