@@ -1946,9 +1946,6 @@ class archipack_manipulator(PropertyGroup):
         return m
 
 
-
-
-
 # ------------------------------------------------------------------
 # Define Manipulable to make a PropertyGroup manipulable
 # ------------------------------------------------------------------
@@ -2139,7 +2136,7 @@ class Manipulable():
                             manipulator.selected = False
                     self.manipulable_release(context)
 
-        elif  self.select_mode and event.type == 'MOUSEMOVE' and event.value == 'PRESS':
+        elif self.select_mode and event.type == 'MOUSEMOVE' and event.value == 'PRESS':
             # update select area size
             self.manipulable_end_point = Vector((event.mouse_region_x, event.mouse_region_y))
             self.manipulable_area.set_location(
@@ -2202,7 +2199,7 @@ def register():
     register_manipulator('DUMB_SIZE', DumbSizeManipulator)
     register_manipulator('DELTA_LOC', DeltaLocationManipulator)
     register_manipulator('DUMB_STRING', DumbStringManipulator)
-    
+
     # snap aware size loc
     register_manipulator('SNAP_SIZE_LOC', SnapSizeLocationManipulator)
     # register_manipulator('SNAP_POINT', SnapPointManipulator)
