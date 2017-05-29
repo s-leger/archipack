@@ -30,16 +30,14 @@ import bpy
 from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
 from bpy.props import (
     FloatProperty, BoolProperty, IntProperty,
-    StringProperty, EnumProperty, FloatVectorProperty,
-    CollectionProperty, PointerProperty
+    StringProperty, EnumProperty,
+    CollectionProperty
     )
 import bmesh
-from .bmesh_utils import BmeshEdit as bmed
 from .materialutils import MaterialUtils
-from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from mathutils.geometry import interpolate_bezier
-from math import sin, cos, pi, acos, atan2
+from math import sin, cos, pi, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
 from .archipack_preset import ArchipackPreset
@@ -49,13 +47,13 @@ class Pad():
 
     def __init__(self):
         pass
-        
-    def straight_pad(self, last, a0, length):
-        s = last.straight(length).rotate(a0)
+
+    def straight_pad(self, a0, length):
+        s = self.straight(length).rotate(a0)
         return StraightPad(s.p, s.v)
 
-    def curved_pad(self, last, a0, da, radius):
-        n = last.normal(1).rotate(a0).scale(radius)
+    def curved_pad(self, a0, da, radius):
+        n = self.normal(1).rotate(a0).scale(radius)
         if da < 0:
             n.v = -n.v
         a0 = n.angle
@@ -64,14 +62,14 @@ class Pad():
 
 
 class StraightPad(Pad, Line):
-    
+
     def __init__(self, p, v):
         Pad.__init__(self)
         Line.__init__(self, p, v)
 
 
 class CurvedPad(Pad, Arc):
-    
+
     def __init__(self, c, radius, a0, da):
         Pad.__init__(self)
         Arc.__init__(self, c, radius, a0, da)
@@ -82,14 +80,14 @@ class PadGenerator():
     def __init__(self, parts):
         self.parts = parts
         self.segs = []
-        
+
     def add_part(self, type, radius, a0, da, length, offset):
 
         if len(self.segs) < 1:
             s = None
         else:
             s = self.segs[-1]
-        
+
         # start a new pad
         if s is None:
             if type == 'S_SEG':
@@ -101,14 +99,13 @@ class PadGenerator():
                 s = CurvedPad(c, radius, a0, da)
         else:
             if type == 'S_SEG':
-                s = s.straight_pad(s, a0, length)
+                s = s.straight_pad(a0, length)
             elif type == 'C_SEG':
-                s = s.curved_pad(s, a0, da, radius)
-        
+                s = s.curved_pad(a0, da, radius)
+
         self.segs.append(s)
         self.last_type = type
-        
-        
+
     def close(self, closed):
         # Make last segment implicit closing one
         if closed:
@@ -128,13 +125,13 @@ class PadGenerator():
                 w.a0 = a0
             else:
                 w.v = dp
-            
+
     def locate_manipulators(self):
         """
             setup manipulators
         """
         for i, f in enumerate(self.segs):
-            
+
             manipulators = self.parts[i].manipulators
             p0 = f.p0.to_3d()
             p1 = f.p1.to_3d()
@@ -162,7 +159,7 @@ class PadGenerator():
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
             # dumb segment id
             manipulators[3].set_pts([p0, p1, (1, 0, 0)])
-    
+
     def get_verts(self, verts):
         for pad in self.segs:
             if "Curved" in type(pad).__name__:
@@ -227,19 +224,87 @@ class archipack_pad_material(PropertyGroup):
         if props is not None:
             props.update(context)
 
+
+def update_type(self, context):
+    # self.update(context, update_manipulators=True)
+    # return
+    # TODO:
+    # use generator and rebuild current and next segment
+    
+    d = self.find_in_selection(context)
+    if d is not None:
+        d.auto_update = False
+        idx = 0
+        for i, part in enumerate(d.parts):
+            if part == self:
+                idx = i
+                break
+        part = d.parts[idx]
+        a0 = 0
+        if idx > 0:
+            g = d.get_generator()       
+            w0 = g.segs[idx - 1]
+            a0 = w0.straight(1).angle
+            if "C_" in self.type:
+                w = w0.straight_pad(part.a0, part.length)
+            else:
+                w = w0.curved_pad(part.a0, part.da, part.radius)
+        else:
+            g = PadGenerator(None)
+            if "C_" in self.type:
+                g.add_part("S_SEG", self.radius, self.a0, self.da, self.length, 0)
+            else:
+                g.add_part("C_SEG", self.radius, self.a0, self.da, self.length, 0)
+            w = g.segs[0]
+            
+        # w0 - w - w1
+        dp = w.p1 - w.p0
+        if "C_" in self.type:
+            da = - pi / 2
+            part.radius = 0.5 * dp.length
+            part.da = pi
+            a0 = atan2(dp.y, dp.x) - pi / 2 - a0
+        else:
+            da = 0
+            part.length = dp.length
+            a0 = atan2(dp.y, dp.x) - a0
+        
+        if a0 > pi:
+            a0 -= 2 * pi
+        if a0 < -pi:
+            a0 += 2 * pi
+        part.a0 = a0  
+            
+        if idx + 1 < d.n_parts:
+            # adjust rotation of next part
+            part1 = d.parts[idx + 1]
+            if "C_" in part.type:
+                a0 = part1.a0 - pi / 2
+            else:               
+                a0 = part1.a0 + w.straight(1).angle - atan2(dp.y, dp.x)
+            
+            if a0 > pi:
+                a0 -= 2 * pi
+            if a0 < -pi:
+                a0 += 2 * pi
+            part1.a0 = a0
+        
+        d.auto_update = True
             
 class ArchipackSegment():
     """
-        A single manipulable segment
-        either linear or arc based
+        A single manipulable polyline like segment
+        polyline like segment line or arc based
+        @TODO: share this base class with
+        stair, wall, fence, pad
     """
     type = EnumProperty(
             items=(
-                ('S_SEG', 'Straight pad', '', 0),
-                ('C_SEG', 'Curved pad', '', 1),
+                ('S_SEG', 'Straight', '', 0),
+                ('C_SEG', 'Curved', '', 1),
                 ),
             default='S_SEG',
-            update=update_manipulators
+            update=update_type
             )
     length = FloatProperty(
             name="length",
@@ -264,35 +329,29 @@ class ArchipackSegment():
             update=update
             )
     a0 = FloatProperty(
-            name="angle",
+            name="start angle",
             min=-2 * pi,
             max=2 * pi,
             default=0,
             subtype='ANGLE', unit='ROTATION',
             update=update
             )
-    offset = FloatProperty(
-            name="offset",
-            min=0,
-            default=0,
-            update=update
-            )
     manipulators = CollectionProperty(type=archipack_manipulator)
-    
+
     def find_in_selection(self, context):
         raise NotImplementedError
-        
+
     def update(self, context, manipulable_refresh=False):
         props = self.find_in_selection(context)
         if props is not None:
             props.update(context, manipulable_refresh)
-    
+
     def draw_insert(self, context, layout, index):
         """
-            May implement draw for insert / remove operators
+            May implement draw for insert / remove segment operators
         """
         pass
-        
+
     def draw(self, context, layout, index):
         box = layout.box()
         row = box.row()
@@ -310,14 +369,14 @@ class ArchipackSegment():
         row.prop(self, "a0")
 
 
-
 class archipack_pad_part(ArchipackSegment, PropertyGroup):
-    
+
     def draw_insert(self, context, layout, index):
         row = layout.row(align=True)
         row.operator("archipack.pad_insert", text="Split").index = index
+        row.operator("archipack.pad_balcony", text="Balcony").index = index
         row.operator("archipack.pad_remove", text="Remove").index = index
-            
+
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -333,11 +392,10 @@ class archipack_pad_part(ArchipackSegment, PropertyGroup):
         return None
 
 
-        
 class archipack_pad(Manipulable, PropertyGroup):
     # boundary
     n_parts = IntProperty(
-        name="parts",
+            name="parts",
             min=1,
             default=1, update=update_manipulators
             )
@@ -352,7 +410,7 @@ class archipack_pad(Manipulable, PropertyGroup):
             options={'SKIP_SAVE'},
             default=False
             )
-    
+
     user_defined_path = StringProperty(
             name="user defined",
             update=update_path
@@ -370,7 +428,6 @@ class archipack_pad(Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-
     angle_limit = FloatProperty(
             name="angle",
             min=0,
@@ -379,16 +436,12 @@ class archipack_pad(Manipulable, PropertyGroup):
             subtype='ANGLE', unit='ROTATION',
             update=update_manipulators
             )
-    
     z = FloatProperty(
             name="z",
             default=0.3, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-
-
-    
     # Flag to prevent mesh update while making bulk changes over variables
     # use :
     # .auto_update = False
@@ -418,10 +471,10 @@ class archipack_pad(Manipulable, PropertyGroup):
             # type, radius, da, length
             g.add_part(part.type, part.radius, part.a0, part.da, part.length, 0)
 
-        g.close(self.closed)    
+        g.close(self.closed)
         g.locate_manipulators()
-        return g    
-    
+        return g
+
     def insert_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
@@ -440,6 +493,62 @@ class archipack_pad(Manipulable, PropertyGroup):
         self.n_parts += 1
         self.setup_parts_manipulators()
         self.auto_update = True
+    
+    def insert_balcony(self, context, where):
+        self.manipulable_disable(context)
+        self.auto_update = False
+        
+        # the part we do split
+        part_0 = self.parts[where]
+        part_0.length /= 3
+        part_0.da /= 3
+        
+        # 1st part 90deg
+        self.parts.add()
+        part_1 = self.parts[len(self.parts) - 1]
+        part_1.type = "S_SEG"
+        part_1.length = 1.5
+        part_1.da = part_0.da
+        part_1.a0 = -pi / 2
+        # move after current one
+        self.parts.move(len(self.parts) - 1, where + 1)
+        
+        # 2nd part -90deg
+        self.parts.add()
+        part_1 = self.parts[len(self.parts) - 1]
+        part_1.type = part_0.type
+        part_1.length = part_0.length
+        part_1.radius = part_0.radius + 1.5
+        part_1.da = part_0.da
+        part_1.a0 = pi / 2
+        # move after current one
+        self.parts.move(len(self.parts) - 1, where + 2)
+        
+        # 3nd part -90deg
+        self.parts.add()
+        part_1 = self.parts[len(self.parts) - 1]
+        part_1.type = "S_SEG"
+        part_1.length = 1.5
+        part_1.da = part_0.da
+        part_1.a0 = pi / 2
+        # move after current one
+        self.parts.move(len(self.parts) - 1, where + 3)        
+        
+        # 4nd part -90deg
+        self.parts.add()
+        part_1 = self.parts[len(self.parts) - 1]
+        part_1.type = part_0.type
+        part_1.length = part_0.length
+        part_1.radius = part_0.radius
+        part_1.da = part_0.da
+        part_1.a0 = -pi / 2
+        # move after current one
+        self.parts.move(len(self.parts) - 1, where + 4)        
+        
+        
+        self.n_parts += 4
+        self.setup_parts_manipulators()
+        self.auto_update = True
 
     def add_part(self, context, length):
         self.manipulable_disable(context)
@@ -454,13 +563,13 @@ class archipack_pad(Manipulable, PropertyGroup):
     def remove_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
-        
+
         # preserve shape
-        # using generator 
+        # using generator
         if where > 0:
             g = self.get_generator()
             w = g.segs[where - 1]
-            dp = g.segs[where].p1 - w.p0 
+            dp = g.segs[where].p1 - w.p0
             if where + 1 < self.n_parts:
                 a0 = g.segs[where + 1].straight(1).angle - atan2(dp.y, dp.x)
                 part = self.parts[where + 1]
@@ -469,7 +578,7 @@ class archipack_pad(Manipulable, PropertyGroup):
                 if a0 < -pi:
                     a0 += 2 * pi
                 part.a0 = a0
-            part = self.parts[where - 1] 
+            part = self.parts[where - 1]
             # adjust radius from distance between points..
             # use p0-p1 distance as reference
             if "C_" in part.type:
@@ -487,7 +596,7 @@ class archipack_pad(Manipulable, PropertyGroup):
                 a0 += 2 * pi
             # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
             part.a0 = a0
-            
+
         self.parts.remove(where)
         self.n_parts -= 1
         # fix snap manipulators index
@@ -501,7 +610,6 @@ class archipack_pad(Manipulable, PropertyGroup):
         # n_parts+1
         # as last one is end point of last segment or closing one
         for i in range(len(self.parts), self.n_parts, -1):
-            row_change = True
             self.parts.remove(i - 1)
 
         # add rows
@@ -509,7 +617,7 @@ class archipack_pad(Manipulable, PropertyGroup):
             self.parts.add()
 
         self.setup_parts_manipulators()
-          
+
     def setup_parts_manipulators(self):
         for i in range(self.n_parts):
             p = self.parts[i]
@@ -533,7 +641,7 @@ class archipack_pad(Manipulable, PropertyGroup):
                 s.prop1_name = str(i + 1)
             p.manipulators[2].prop1_name = str(i)
             p.manipulators[3].prop1_name = str(i + 1)
-    
+
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
@@ -614,7 +722,7 @@ class archipack_pad(Manipulable, PropertyGroup):
         bmesh.ops.contextual_create(bm, geom=bm.edges)
         bm.to_mesh(o.data)
         bm.free()
-        
+
         """
         import bmesh
         verts = [
@@ -634,7 +742,7 @@ class archipack_pad(Manipulable, PropertyGroup):
         bm.to_mesh(o.data)
         bm.free()
         """
-    
+
     def unwrap_uv(self, o):
         bm = bmesh.new()
         bm.from_mesh(o.data)
@@ -642,13 +750,13 @@ class archipack_pad(Manipulable, PropertyGroup):
             face.select = face.material_index > 0
         bm.to_mesh(o.data)
         bpy.ops.uv.cube_project(scale_to_bounds=False, correct_aspect=True)
-        
+
         for face in bm.faces:
             face.select = face.material_index < 1
         bm.to_mesh(o.data)
         bpy.ops.uv.smart_project(use_aspect=True, stretch_to_bounds=False)
         bm.free()
-             
+
     def update(self, context, manipulable_refresh=False):
 
         active, selected, o = self.find_in_selection(context)
@@ -663,14 +771,11 @@ class archipack_pad(Manipulable, PropertyGroup):
         self.update_parts()
 
         verts = []
-        faces = []
-        matids = []
-        uvs = []
 
         g = self.get_generator()
         g.get_verts(verts)
         self.make_surface(o, verts)
-        
+
         modif = o.modifiers.get('Pad')
         if modif is None:
             modif = o.modifiers.new('Pad', 'SOLIDIFY')
@@ -688,8 +793,6 @@ class archipack_pad(Manipulable, PropertyGroup):
             (0, 0, -self.z),
             (-1, 0, 0)
             ], normal=g.segs[0].straight(-1, 0).v.to_3d())
-
-        # bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=False)
 
         # enable manipulators rebuild
         if manipulable_refresh:
@@ -734,8 +837,7 @@ class archipack_pad(Manipulable, PropertyGroup):
             self.manip_stack.append(part.manipulators[2].setup(context, o, d))
             # index
             self.manip_stack.append(part.manipulators[3].setup(context, o, d))
-            
-       
+
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
 
@@ -778,9 +880,7 @@ class ARCHIPACK_PT_pad(Panel):
                 part.draw(context, layout, i)
         else:
             row.prop(prop, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
-     
-        
-        
+
     @classmethod
     def params(cls, o):
         try:
@@ -865,7 +965,7 @@ class ARCHIPACK_OT_pad(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
-           
+
 class ARCHIPACK_OT_pad_insert(Operator):
     bl_idname = "archipack.pad_insert"
     bl_label = "Insert"
@@ -873,7 +973,7 @@ class ARCHIPACK_OT_pad_insert(Operator):
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
     index = IntProperty(default=0)
-
+    
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -891,7 +991,33 @@ class ARCHIPACK_OT_pad_insert(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+            
+class ARCHIPACK_OT_pad_balcony(Operator):
+    bl_idname = "archipack.pad_balcony"
+    bl_label = "Insert"
+    bl_description = "Insert part"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    index = IntProperty(default=0)
+    
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Use Properties panel (N) to define parms", icon='INFO')
 
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            o = context.active_object
+            d = ARCHIPACK_PT_pad.params(o)
+            if d is None:
+                return {'CANCELLED'}
+            d.insert_balcony(context, self.index)
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+            
 class ARCHIPACK_OT_pad_remove(Operator):
     bl_idname = "archipack.pad_remove"
     bl_label = "Remove"
@@ -992,7 +1118,7 @@ class ARCHIPACK_OT_pad_from_curve(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
-            
+
 class ARCHIPACK_OT_pad_from_wall(Operator):
     bl_idname = "archipack.pad_from_wall"
     bl_label = "Wall -> Pad"
@@ -1048,7 +1174,7 @@ class ARCHIPACK_OT_pad_from_wall(Operator):
         context.scene.objects.active = o
         d.auto_update = True
         MaterialUtils.add_wall_materials(o)
-        
+
         # pretranslate
         o.matrix_world = wall.matrix_world.copy()
         o.select = True
@@ -1140,11 +1266,13 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_pad)
     bpy.utils.register_class(ARCHIPACK_OT_pad)
     bpy.utils.register_class(ARCHIPACK_OT_pad_insert)
+    bpy.utils.register_class(ARCHIPACK_OT_pad_balcony)
     bpy.utils.register_class(ARCHIPACK_OT_pad_remove)
     bpy.utils.register_class(ARCHIPACK_OT_pad_preset)
     bpy.utils.register_class(ARCHIPACK_OT_pad_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_pad_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_pad_from_wall)
+
 
 def unregister():
     bpy.utils.unregister_class(archipack_pad_material)
@@ -1155,6 +1283,7 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_pad)
     bpy.utils.unregister_class(ARCHIPACK_OT_pad)
     bpy.utils.unregister_class(ARCHIPACK_OT_pad_insert)
+    bpy.utils.unregister_class(ARCHIPACK_OT_pad_balcony)
     bpy.utils.unregister_class(ARCHIPACK_OT_pad_remove)
     bpy.utils.unregister_class(ARCHIPACK_OT_pad_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_pad_manipulate)

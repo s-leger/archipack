@@ -232,6 +232,8 @@ class GlText(Gl):
         return s.strip()
 
     def as_text(self, context):
+        if self.value is None:
+            return ""
         if self.unit_type == 'ANGLE':
             scale = 1
         else:
@@ -680,7 +682,7 @@ class FeedbackPanel():
     """
     def __init__(self, title='Archipack'):
 
-        self.main_title = GlText(d=2, label=title, font_size=feedback_size_main, colour=feedback_colour_main)
+        self.main_title = GlText(d=2, label=title + " : ", font_size=feedback_size_main, colour=feedback_colour_main)
         self.title = GlText(d=2, font_size=feedback_size_title, colour=feedback_colour_main)
         self.spacing = Vector((0.5 * feedback_size_shortcut, 0.5 * feedback_size_shortcut))
         self.margin = 50
@@ -702,113 +704,17 @@ class FeedbackPanel():
         """
             position from bottom to top
         """
-        system = context.user_preferences.system
-        w = context.region.width
-        x_min = self.margin
-        x_max = w - self.margin
-        if (system.use_region_overlap and
-                system.window_draw_method in {'TRIPLE_BUFFER', 'AUTOMATIC'}):
-            area = context.area
-            for r in area.regions:
-                if r.type == 'TOOLS':
-                    x_min += r.width
-                elif r.type == 'UI':
-                    x_max -= r.width
+        self.explanation.label = explanation
+        self.title.label = title
 
-        available_w = x_max - x_min - 2 * self.spacing.x
-        main_title_size = self.main_title.text_size(context)
-
-        # h = context.region.height
-        # 0,0 = bottom left
-        pos = Vector((x_min + self.spacing.x, self.margin))
         self.shortcuts = []
-        n_shortcuts = len(shortcuts)
-
-        # sort by lines
-        lines = []
-        line = []
-        space = 0
-        sum_txt = 0
 
         for key, label in shortcuts:
             key = GlText(d=2, label=key, font_size=feedback_size_shortcut, colour=feedback_colour_key)
             label = GlText(d=2, label=' : ' + label, font_size=feedback_size_shortcut, colour=feedback_colour_shortcut)
             ks = key.text_size(context)
             ls = label.text_size(context)
-            space += ks.x + ls.x + self.spacing.x
-            if pos.x + space > available_w:
-                txt_spacing = (available_w - sum_txt) / (max(1, len(line) - 1))
-                sum_txt = 0
-                space = ks.x + ls.x + self.spacing.x
-                lines.append((txt_spacing, line))
-                line = []
-            sum_txt += ks.x + ls.x
-            line.append([key, ks, label, ls])
-
-        if len(line) > 0:
-            txt_spacing = (available_w - sum_txt) / (max(1, len(line) - 1))
-            lines.append((txt_spacing, line))
-
-        # reverse lines to draw from bottom to top
-        lines = list(reversed(lines))
-        for spacing, line in lines:
-            pos.y += self.spacing.y
-            pos.x = x_min + self.spacing.x
-            for key, ks, label, ls in line:
-                key.pos_3d = pos.copy()
-                pos.x += ks.x
-                label.pos_3d = pos.copy()
-                pos.x += ls.x + spacing
-                self.shortcuts.extend([key, label])
-            pos.y += ks.y + self.spacing.y
-
-        # shortcut area
-        self.shortcut_area.pts_3d = [
-            (x_min, self.margin),
-            (x_max, self.margin),
-            (x_max, pos.y),
-            (x_min, pos.y)
-            ]
-
-        # small space between shortcut area and main title bar
-        if n_shortcuts > 0:
-            pos.y += 0.5 * self.spacing.y
-
-        self.title_area.pts_3d = [
-            (x_min, pos.y),
-            (x_max, pos.y),
-            (x_max, pos.y + main_title_size.y + 2 * self.spacing.y),
-            (x_min, pos.y + main_title_size.y + 2 * self.spacing.y)
-            ]
-        pos.y += self.spacing.y
-
-        self.explanation.label = explanation
-
-        self.title.label = ' : ' + title
-        title_size = self.title.text_size(context)
-        # check for space available:
-        # if explanation + title + main_title are too big
-        # 1 remove main title
-        # 2 remove title
-        explanation_size = self.explanation.text_size(context)
-
-        self.show_title = True
-        self.show_main_title = True
-
-        if title_size.x + explanation_size.x > available_w:
-            # keep only explanation
-            self.show_title = False
-            self.show_main_title = False
-        elif main_title_size.x + title_size.x + explanation_size.x > available_w:
-            # keep title + explanation
-            self.title.label = title
-            self.show_main_title = False
-            self.title.pos_3d = (x_min + self.spacing.x, pos.y)
-        else:
-            self.title.pos_3d = (x_min + self.spacing.x + main_title_size.x, pos.y)
-
-        self.explanation.pos_3d = (x_max - self.spacing.x - self.explanation.text_size(context).x, pos.y)
-        self.main_title.pos_3d = (x_min + self.spacing.x, pos.y)
+            self.shortcuts.append([key, ks, label, ls])
 
     def draw(self, context, render=False):
         if self.on:
@@ -816,6 +722,106 @@ class FeedbackPanel():
                 draw from bottom to top
                 so we are able to always fit needs
             """
+            system = context.user_preferences.system
+            w = context.region.width
+            x_min = self.margin
+            x_max = w - self.margin
+            if (system.use_region_overlap and
+                    system.window_draw_method in {'TRIPLE_BUFFER', 'AUTOMATIC'}):
+                area = context.area
+                for r in area.regions:
+                    if r.type == 'TOOLS':
+                        x_min += r.width
+                    elif r.type == 'UI':
+                        x_max -= r.width
+
+            available_w = x_max - x_min - 2 * self.spacing.x
+            main_title_size = self.main_title.text_size(context)
+
+            # h = context.region.height
+            # 0,0 = bottom left
+            pos = Vector((x_min + self.spacing.x, self.margin))
+            shortcuts = []
+
+            # sort by lines
+            lines = []
+            line = []
+            space = 0
+            sum_txt = 0
+
+            for key, ks, label, ls in self.shortcuts:
+                space += ks.x + ls.x + self.spacing.x
+                if pos.x + space > available_w:
+                    txt_spacing = (available_w - sum_txt) / (max(1, len(line) - 1))
+                    sum_txt = 0
+                    space = ks.x + ls.x + self.spacing.x
+                    lines.append((txt_spacing, line))
+                    line = []
+                sum_txt += ks.x + ls.x
+                line.append([key, ks, label, ls])
+
+            if len(line) > 0:
+                txt_spacing = (available_w - sum_txt) / (max(1, len(line) - 1))
+                lines.append((txt_spacing, line))
+
+            # reverse lines to draw from bottom to top
+            lines = list(reversed(lines))
+            for spacing, line in lines:
+                pos.y += self.spacing.y
+                pos.x = x_min + self.spacing.x
+                for key, ks, label, ls in line:
+                    key.pos_3d = pos.copy()
+                    pos.x += ks.x
+                    label.pos_3d = pos.copy()
+                    pos.x += ls.x + spacing
+                    shortcuts.extend([key, label])
+                pos.y += ks.y + self.spacing.y
+
+            n_shortcuts = len(shortcuts)
+            # shortcut area
+            self.shortcut_area.pts_3d = [
+                (x_min, self.margin),
+                (x_max, self.margin),
+                (x_max, pos.y),
+                (x_min, pos.y)
+                ]
+
+            # small space between shortcut area and main title bar
+            if n_shortcuts > 0:
+                pos.y += 0.5 * self.spacing.y
+
+            self.title_area.pts_3d = [
+                (x_min, pos.y),
+                (x_max, pos.y),
+                (x_max, pos.y + main_title_size.y + 2 * self.spacing.y),
+                (x_min, pos.y + main_title_size.y + 2 * self.spacing.y)
+                ]
+            pos.y += self.spacing.y
+
+            title_size = self.title.text_size(context)
+            # check for space available:
+            # if explanation + title + main_title are too big
+            # 1 remove main title
+            # 2 remove title
+            explanation_size = self.explanation.text_size(context)
+
+            self.show_title = True
+            self.show_main_title = True
+
+            if title_size.x + explanation_size.x > available_w:
+                # keep only explanation
+                self.show_title = False
+                self.show_main_title = False
+            elif main_title_size.x + title_size.x + explanation_size.x > available_w:
+                # keep title + explanation
+                self.show_main_title = False
+                self.title.pos_3d = (x_min + self.spacing.x, pos.y)
+            else:
+                self.title.pos_3d = (x_min + self.spacing.x + main_title_size.x, pos.y)
+
+            self.explanation.pos_3d = (x_max - self.spacing.x - explanation_size.x, pos.y)
+            self.main_title.pos_3d = (x_min + self.spacing.x, pos.y)
+
             self.shortcut_area.draw(context)
             self.title_area.draw(context)
             if self.show_title:
@@ -823,7 +829,7 @@ class FeedbackPanel():
             if self.show_main_title:
                 self.main_title.draw(context)
             self.explanation.draw(context)
-            for s in self.shortcuts:
+            for s in shortcuts:
                 s.draw(context)
 
 
