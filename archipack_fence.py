@@ -54,8 +54,18 @@ class Fence():
         self.z0 = 0
         self.a0 = 0
 
-    def set_offset(self, offset):
+    def set_offset(self, offset, last=None):
+        """
+            Offset line and compute intersection point between
+            straight segments
+        """
         self.line = self.offset(offset)
+        if last is not None:
+            i, p, t = self.line.intersect(last)
+            if type(self).__name__ == 'StraightFence':
+                self.line.p0 = p
+            if type(last).__name__ == 'StraightFence':
+                last.line.p1 = p
 
     @property
     def t_diff(self):
@@ -131,10 +141,7 @@ class FenceGenerator():
                 v = length * Vector((cos(a0), sin(a0)))
                 s = StraightFence(p, v)
             elif type == 'C_FENCE':
-                if da < 0:
-                    c = Vector((radius, 0))
-                else:
-                    c = Vector((-radius, 0))
+                c = -radius * Vector((cos(a0), sin(a0)))
                 s = CurvedFence(c, radius, 0, da)
         else:
             if type == 'S_FENCE':
@@ -185,8 +192,8 @@ class FenceGenerator():
                 self.segments.append(segment)
 
             manipulators = self.parts[i].manipulators
-            p0 = f.lerp(0).to_3d()
-            p1 = f.lerp(1).to_3d()
+            p0 = f.p0.to_3d()
+            p1 = f.p1.to_3d()
             # angle from last to current segment
             if i > 0:
                 v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
@@ -200,8 +207,8 @@ class FenceGenerator():
                 manipulators[1].set_pts([p0, p1, (1, 0, 0)])
             else:
                 # segment radius + angle
-                v0 = (f.lerp(0) - f.c).to_3d()
-                v1 = (f.lerp(1) - f.c).to_3d()
+                v0 = (f.p0 - f.c).to_3d()
+                v1 = (f.p1 - f.c).to_3d()
                 manipulators[1].type = 'ARC_ANGLE_RADIUS'
                 manipulators[1].prop1_name = "da"
                 manipulators[1].prop2_name = "radius"
@@ -1144,6 +1151,8 @@ class archipack_fence(Manipulable, PropertyGroup):
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
 
+        self.auto_update = False
+
         self.n_parts = len(pts) - 1
         self.update_parts()
 
@@ -1162,14 +1171,13 @@ class archipack_fence(Manipulable, PropertyGroup):
             p.a0 = da
             a0 += da
             p0 = p1
-            
-        
+
+        self.auto_update = True
+
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
-            self.auto_update = False
             self.from_spline(user_def_path.matrix_world, self.user_defined_resolution, user_def_path.data.splines[0])
-            self.auto_update = True
 
     def get_generator(self):
         g = FenceGenerator(self.parts)
@@ -1509,6 +1517,8 @@ class ARCHIPACK_OT_fence(Operator):
         m = bpy.data.meshes.new("Fence")
         o = bpy.data.objects.new("Fence", m)
         d = m.archipack_fence.add()
+        # make manipulators selectable
+        d.manipulable_selectable = True
         s = d.manipulators.add()
         s.prop1_name = "width"
         s = d.manipulators.add()
@@ -1572,6 +1582,8 @@ class ARCHIPACK_OT_fence_from_curve(Operator):
         m = bpy.data.meshes.new("Fence")
         o = bpy.data.objects.new("Fence", m)
         d = m.archipack_fence.add()
+        # make manipulators selectable
+        d.manipulable_selectable = True
         s = d.manipulators.add()
         s.prop1_name = "width"
         s = d.manipulators.add()
@@ -1677,13 +1689,27 @@ class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
         return ['n_parts', 'parts', 'manipulators', 'user_defined_path']
 
 
-bpy.utils.register_class(archipack_fence_material)
-bpy.utils.register_class(archipack_fence_part)
-bpy.utils.register_class(archipack_fence)
-Mesh.archipack_fence = CollectionProperty(type=archipack_fence)
-bpy.utils.register_class(ARCHIPACK_MT_fence_preset)
-bpy.utils.register_class(ARCHIPACK_PT_fence)
-bpy.utils.register_class(ARCHIPACK_OT_fence)
-bpy.utils.register_class(ARCHIPACK_OT_fence_preset)
-bpy.utils.register_class(ARCHIPACK_OT_fence_manipulate)
-bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
+def register():
+    bpy.utils.register_class(archipack_fence_material)
+    bpy.utils.register_class(archipack_fence_part)
+    bpy.utils.register_class(archipack_fence)
+    Mesh.archipack_fence = CollectionProperty(type=archipack_fence)
+    bpy.utils.register_class(ARCHIPACK_MT_fence_preset)
+    bpy.utils.register_class(ARCHIPACK_PT_fence)
+    bpy.utils.register_class(ARCHIPACK_OT_fence)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_manipulate)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_fence_material)
+    bpy.utils.unregister_class(archipack_fence_part)
+    bpy.utils.unregister_class(archipack_fence)
+    del Mesh.archipack_fence
+    bpy.utils.unregister_class(ARCHIPACK_MT_fence_preset)
+    bpy.utils.unregister_class(ARCHIPACK_PT_fence)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_manipulate)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_from_curve)

@@ -265,12 +265,25 @@ class ARCHIPACK_OT_parent_to_reference(Operator):
             return {'CANCELLED'}
 
 
-bpy.utils.register_class(archipack_reference_point)
-Object.archipack_reference_point = CollectionProperty(type=archipack_reference_point)
-bpy.utils.register_class(ARCHIPACK_PT_reference_point)
-bpy.utils.register_class(ARCHIPACK_OT_reference_point)
-bpy.utils.register_class(ARCHIPACK_OT_move_to_3d)
-bpy.utils.register_class(ARCHIPACK_OT_move_to_2d)
-bpy.utils.register_class(ARCHIPACK_OT_store_2d_reference)
-bpy.utils.register_class(ARCHIPACK_OT_move_2d_reference_to_cursor)
-bpy.utils.register_class(ARCHIPACK_OT_parent_to_reference)
+def register():
+    bpy.utils.register_class(archipack_reference_point)
+    Object.archipack_reference_point = CollectionProperty(type=archipack_reference_point)
+    bpy.utils.register_class(ARCHIPACK_PT_reference_point)
+    bpy.utils.register_class(ARCHIPACK_OT_reference_point)
+    bpy.utils.register_class(ARCHIPACK_OT_move_to_3d)
+    bpy.utils.register_class(ARCHIPACK_OT_move_to_2d)
+    bpy.utils.register_class(ARCHIPACK_OT_store_2d_reference)
+    bpy.utils.register_class(ARCHIPACK_OT_move_2d_reference_to_cursor)
+    bpy.utils.register_class(ARCHIPACK_OT_parent_to_reference)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_reference_point)
+    del Object.archipack_reference_point
+    bpy.utils.unregister_class(ARCHIPACK_PT_reference_point)
+    bpy.utils.unregister_class(ARCHIPACK_OT_reference_point)
+    bpy.utils.unregister_class(ARCHIPACK_OT_move_to_3d)
+    bpy.utils.unregister_class(ARCHIPACK_OT_move_to_2d)
+    bpy.utils.unregister_class(ARCHIPACK_OT_store_2d_reference)
+    bpy.utils.unregister_class(ARCHIPACK_OT_move_2d_reference_to_cursor)
+    bpy.utils.unregister_class(ARCHIPACK_OT_parent_to_reference)

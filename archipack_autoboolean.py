@@ -28,7 +28,6 @@ import bpy
 from bpy.types import Operator
 from bpy.props import BoolProperty
 from mathutils import Vector
-from . import archipack_reference_point
 
 
 class ARCHIPACK_OT_auto_boolean(Operator):
@@ -68,10 +67,10 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         self._get_bounding_box(wall)
         # generate holes for crossing window and doors
         # hole(s) are selected and active after this one
-        self._generate_holes(context, childs)
+        holes = self._generate_holes(context, childs)
         # update / remove / add  boolean modifier
         if self.interactive:
-            self._update_interactive_boolean_modif(context, wall, childs)
+            self._update_interactive_boolean_modif(context, wall, childs, holes)
         else:
             self._update_boolean_modif(context, wall, childs)
         # parenting childs to wall reference point
@@ -123,12 +122,19 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         hole.hide_render = True
         hole.hide_select = True
         hole.select = True
-        
-
+        hole.cycles_visibility.camera = False
+        hole.cycles_visibility.diffuse = False
+        hole.cycles_visibility.glossy = False
+        hole.cycles_visibility.shadow = False
+        hole.cycles_visibility.scatter = False
+        hole.cycles_visibility.transmission = False
+    
     def _generate_holes(self, context, childs):
         # generate holes from archipack primitives
+        holes = []
         for o in context.scene.objects:
             if o.data is not None:
+                # Keep separate as contains rules may vary from window to doors
                 if ('archipack_window' in o.data and
                     (self._contains(o.location) or
                      self._contains(o.matrix_world * Vector((0, 0, 0.5 * o.data.archipack_window[0].z))))):
@@ -136,7 +142,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
                         hole = o.data.archipack_window[0].interactive_hole(context, o)
                     else:
                         hole = o.data.archipack_window[0].robust_hole(context, o.matrix_world)
-                    self._prepare_hole(hole)
+                    holes.append(hole)
                     childs.append(o)
                 elif ('archipack_door' in o.data and
                     (self._contains(o.location) or
@@ -145,9 +151,14 @@ class ARCHIPACK_OT_auto_boolean(Operator):
                         hole = o.data.archipack_door[0].interactive_hole(context, o)
                     else:
                         hole = o.data.archipack_door[0].robust_hole(context, o.matrix_world)
-                    self._prepare_hole(hole)
+                    holes.append(hole)
                     childs.append(o)
-
+                    
+        # Select all holes here, fix issue #13
+        for hole in holes:
+            self._prepare_hole(hole)
+        return holes
+        
     def _remove_boolean_modif(self, context, obj, modif):
         old = modif.object
         obj.modifiers.remove(modif)
@@ -174,19 +185,23 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             _quicksort(array, pivot + 1, end)
         return _quicksort(array, begin, end)
 
-    def _update_interactive_boolean_modif(self, context, wall, childs):
+    def _update_interactive_boolean_modif(self, context, wall, childs, holes):
         modifs = [wall.modifiers.get(modif.name) for modif in wall.modifiers if modif.type == 'BOOLEAN']
         n_modifs = len(modifs)
         # sort holes by distance from wall center from closest to farthest
         # as multiple boolean may be a bit more robust like that
         center = wall.matrix_world * self.center
-        holes = [(o, (o.matrix_world.translation - center).length) for o in context.selected_objects]
-        n_holes = len(context.selected_objects)
+        holes = [(o, (o.matrix_world.translation - center).length) for o in holes]
+        n_holes = len(holes)
         self.quicksort(holes)
         holes = [o[0] for o in holes]
+        
         # remove modifiers
         for i in range(n_modifs, n_holes, -1):
             self._remove_boolean_modif(context, wall, modifs[i - 1])
+        
+        print("h:%s m:%s holes:%s modifs:%s" % (n_holes, n_modifs, holes, modifs))
+        
         # add modifiers
         for i in range(n_holes):
             if i < n_modifs:
@@ -258,4 +273,9 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             return {'CANCELLED'}
 
 
-bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
+def register():
+    bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
+
+
+def unregister():
+    bpy.utils.unregister_class(ARCHIPACK_OT_auto_boolean)

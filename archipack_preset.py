@@ -47,7 +47,7 @@ class ArchipackPreset(AddPresetBase):
             may override on addon basis
         """
         return []
-    
+
     @property
     def preset_values(self):
         blacklist = self.blacklist
@@ -70,4 +70,3 @@ class ArchipackPreset(AddPresetBase):
 
     def post_cb(self, context):
         getattr(bpy.context.active_object.data, self.datablock_name)[0].auto_update = True
-

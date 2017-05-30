@@ -44,9 +44,19 @@ class MaterialUtils():
         int_mat = MaterialUtils.build_default_mat('inside', (0.5, 1.0, 1.0))
         out_mat = MaterialUtils.build_default_mat('outside', (0.5, 1.0, 0.5))
         oth_mat = MaterialUtils.build_default_mat('cuts', (1.0, 0.2, 0.2))
+        alt1_mat = MaterialUtils.build_default_mat('wall_alternative1', (1.0, 0.2, 0.2))
+        alt2_mat = MaterialUtils.build_default_mat('wall_alternative2', (1.0, 0.2, 0.2))
+        alt3_mat = MaterialUtils.build_default_mat('wall_alternative3', (1.0, 0.2, 0.2))
+        alt4_mat = MaterialUtils.build_default_mat('wall_alternative4', (1.0, 0.2, 0.2))
+        alt5_mat = MaterialUtils.build_default_mat('wall_alternative5', (1.0, 0.2, 0.2))
         obj.data.materials.append(out_mat)
         obj.data.materials.append(int_mat)
         obj.data.materials.append(oth_mat)
+        obj.data.materials.append(alt1_mat)
+        obj.data.materials.append(alt2_mat)
+        obj.data.materials.append(alt3_mat)
+        obj.data.materials.append(alt4_mat)
+        obj.data.materials.append(alt5_mat)
 
     @staticmethod
     def add_stair_materials(obj):
@@ -92,7 +102,7 @@ class MaterialUtils():
         glass_mat = MaterialUtils.build_default_mat('glass', (0.2, 0.2, 0.2))
         metal_mat = MaterialUtils.build_default_mat('metal', (0.4, 0.4, 0.4))
         tablet_mat = MaterialUtils.build_default_mat('tablet', (0.2, 0.2, 0.2))
-        store_mat = MaterialUtils.build_default_mat('store', (0.2, 0.0, 0.0))
+        blind_mat = MaterialUtils.build_default_mat('blind', (0.2, 0.0, 0.0))
         glass_mat.use_transparency = True
         glass_mat.alpha = 0.5
         glass_mat.game_settings.alpha_blend = 'ADD'
@@ -101,4 +111,4 @@ class MaterialUtils():
         obj.data.materials.append(glass_mat)
         obj.data.materials.append(metal_mat)
         obj.data.materials.append(tablet_mat)
-        obj.data.materials.append(store_mat)
+        obj.data.materials.append(blind_mat)
