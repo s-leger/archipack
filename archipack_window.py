@@ -107,7 +107,7 @@ class archipack_window_panelrow(PropertyGroup):
             )
     height = FloatProperty(
             name="Height",
-            min=0.1, max=1000,
+            min=0.1,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -204,14 +204,16 @@ class archipack_window_panel(PropertyGroup):
             )
     frame_y = FloatProperty(
             name='Depth',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
             description='frame depth'
             )
     frame_x = FloatProperty(
             name='Width',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
             description='frame width'
             )
     curve_steps = IntProperty(
@@ -260,8 +262,9 @@ class archipack_window_panel(PropertyGroup):
             )
     handle_altitude = FloatProperty(
             name='handle altitude',
-            min=0, max=1000,
+            min=0,
             default=0.2, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
             description='handle altitude'
             )
     fixed = BoolProperty(
@@ -411,21 +414,21 @@ class archipack_window_panel(PropertyGroup):
 class archipack_window(Manipulable, PropertyGroup):
     x = FloatProperty(
             name='width',
-            min=0.25, max=10000,
+            min=0.25,
             default=100.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Width', update=update,
             )
     y = FloatProperty(
             name='depth',
-            min=0.1, max=10000,
+            min=0.1,
             default=0.20, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Depth', update=update,
             )
     z = FloatProperty(
             name='height',
-            min=0.1, max=10000,
+            min=0.1,
             default=1.2, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='height', update=update,
@@ -440,42 +443,40 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     radius = FloatProperty(
             name='radius',
-            min=0.1, max=10000,
+            min=0.1,
             default=2.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='radius', update=update,
             )
     elipsis_b = FloatProperty(
             name='ellipsis',
-            min=0.1, max=10000,
+            min=0.1,
             default=0.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='ellipsis vertical size', update=update,
             )
     altitude = FloatProperty(
             name='altitude',
-            min=-100, max=10000,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='altitude', update=update,
             )
     offset = FloatProperty(
             name='offset',
-            min=-100, max=100,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='offset', update=update,
             )
     frame_y = FloatProperty(
             name='Depth',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame depth', update=update,
             )
     frame_x = FloatProperty(
             name='Width',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
@@ -486,28 +487,28 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     out_frame_y = FloatProperty(
             name='Side depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame side depth', update=update,
             )
     out_frame_y2 = FloatProperty(
             name='Front depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame front depth', update=update,
             )
     out_frame_x = FloatProperty(
             name='Front Width',
-            min=0.0, max=100,
+            min=0.0,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width set to 0 disable front frame', update=update,
             )
     out_frame_offset = FloatProperty(
             name='offset',
-            min=0.0, max=100,
+            min=0.0,
             default=0.0, precision=3, step=0.1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame offset', update=update,
@@ -518,21 +519,21 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     out_tablet_x = FloatProperty(
             name='Width',
-            min=0.0, max=100,
+            min=0.0,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet width', update=update,
             )
     out_tablet_y = FloatProperty(
             name='Depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet depth', update=update,
             )
     out_tablet_z = FloatProperty(
             name='Height',
-            min=0.001, max=100,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
@@ -543,21 +544,21 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     in_tablet_x = FloatProperty(
             name='Width',
-            min=0.0, max=100,
+            min=0.0,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet width', update=update,
             )
     in_tablet_y = FloatProperty(
             name='Depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet depth', update=update,
             )
     in_tablet_z = FloatProperty(
             name='Height',
-            min=0.001, max=100,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
@@ -568,14 +569,14 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     blind_y = FloatProperty(
             name='Depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.002, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Store depth', update=update,
             )
     blind_z = FloatProperty(
             name='Height',
-            min=0.001, max=100,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Store height', update=update,
@@ -591,7 +592,7 @@ class archipack_window(Manipulable, PropertyGroup):
     n_rows = IntProperty(
             name="number of rows",
             min=1,
-            max=20,
+            max=32,
             default=1, update=update,
             )
     curve_steps = IntProperty(
@@ -641,14 +642,14 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     handle_altitude = FloatProperty(
             name="altitude",
-            min=0, max=100,
+            min=0,
             default=1.4, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='handle altitude', update=update_childs,
             )
     hole_margin = FloatProperty(
             name='hole margin',
-            min=0.0, max=10000,
+            min=0.0,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
@@ -1208,7 +1209,7 @@ class archipack_window(Manipulable, PropertyGroup):
                         frame_y=self.frame_y,
                         angle_y=self.angle_y,
                     )
-                    child = context.object
+                    child = context.active_object
                     # parenting at 0, 0, 0 before set object matrix_world
                     # so location remains local from frame
                     child.parent = o
@@ -1437,6 +1438,7 @@ class ARCHIPACK_PT_window(Panel):
     bl_label = "Window"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    # bl_context = 'object'
     bl_category = 'ArchiPack'
 
     # layout related
@@ -1448,7 +1450,7 @@ class ARCHIPACK_PT_window(Panel):
     )
 
     def draw(self, context):
-        o = context.object
+        o = context.active_object
         prop = ARCHIPACK_PT_window.params(o)
         if prop is None:
             return
@@ -1584,7 +1586,7 @@ class ARCHIPACK_PT_window(Panel):
 
     @classmethod
     def poll(cls, context):
-        o = context.object
+        o = context.active_object
         if o is None:
             return False
         return cls.filter(o)
@@ -1595,11 +1597,12 @@ class ARCHIPACK_PT_window_panel(Panel):
     bl_label = "Window panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    # bl_context = 'object'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
         """
-        o = context.object
+        o = context.active_object
         o, prop = ARCHIPACK_PT_window_panel.params(o)
         if prop is None:
             return
@@ -1636,7 +1639,7 @@ class ARCHIPACK_PT_window_panel(Panel):
 
     @classmethod
     def poll(cls, context):
-        o = context.object
+        o = context.active_object
         if o is None:
             return False
         return cls.filter(o)
@@ -1761,10 +1764,14 @@ class ARCHIPACK_OT_window(Operator):
                 o.select = True
                 for child in o.children:
                     if 'archipack_hole' in child or (child.data is not None and 'archipack_window_panel' in child.data):
+                        child.hide_select = False
                         child.select = True
         if len(context.selected_objects) > 0:
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True,
                 obdata=True, material=False, texture=False, animation=False)
+            for child in context.selected_objects:
+                if 'archipack_hole' in child:
+                    child.hide_select = True
 
     # -----------------------------------------------------
     # Execute
@@ -1949,21 +1956,10 @@ class ARCHIPACK_OT_window_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_window.filter(context.active_object)
 
-    def modal(self, context, event):
-        return self.d.manipulable_modal(context, event)
-
     def invoke(self, context, event):
-        if context.space_data.type == 'VIEW_3D':
-            o = context.active_object
-            self.d = o.data.archipack_window[0]
-            if self.d.manipulable_invoke(context):
-                context.window_manager.modal_handler_add(self)
-                return {'RUNNING_MODAL'}
-            else:
-                return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'}
+        o = context.active_object
+        o.data.archipack_window[0].manipulable_invoke(context)
+        return {'FINISHED'}
 
 
 # ------------------------------------------------------------------

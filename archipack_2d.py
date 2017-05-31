@@ -303,7 +303,7 @@ class Circle(Projection):
 
     def intersect(self, line):
         v = line.p - self.c
-        A = line.v2
+        A = line.v * line.v
         B = 2 * v * line.v
         C = v * v - self.r2
         d = B * B - 4 * A * C
@@ -477,7 +477,7 @@ class Arc(Circle):
             Rotate
             Should move center so we rotate arround start
         """
-        cs = cos(da) 
+        cs = cos(da)
         sn = sin(da)
         x, y = (self.p0 - self.c)
         self.c.x = x * cs - y * sn

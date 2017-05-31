@@ -1,4 +1,4 @@
-﻿# -*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 2, 2),
+    'version': (1, 2, 3),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -341,7 +341,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         # row = box.row(align=True)
         # row.operator("archipack.roof", icon='CURVE_DATA')
         row = box.row(align=True)
-        # row.operator("archipack.pad")
+        # row.operator("archipack.slab")
         row.operator("archipack.slab_from_curve", icon='CURVE_DATA')
 
         row = box.row(align=True)

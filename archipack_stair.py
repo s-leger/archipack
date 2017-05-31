@@ -1584,15 +1584,15 @@ class archipack_stair_part(PropertyGroup):
     length = FloatProperty(
             name="length",
             min=0.5,
-            max=100.0,
             default=2.0,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     radius = FloatProperty(
             name="radius",
             min=0.5,
-            max=100.0,
             default=0.7,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     da = FloatProperty(
@@ -1676,48 +1676,47 @@ class archipack_stair(Manipulable, PropertyGroup):
     step_depth = FloatProperty(
             name="Going",
             min=0.2,
-            max=2.0,
             default=0.25,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     width = FloatProperty(
             name="width",
             min=0.01,
-            max=100.0,
             default=1.2,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     height = FloatProperty(
             name="Height",
-            min=0.1, max=1000,
+            min=0.1,
             default=2.4, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     nose_y = FloatProperty(
             name="Depth",
-            min=0.0, max=1000,
+            min=0.0,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     x_offset = FloatProperty(
             name="x offset",
-            min=-1000, max=1000,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     nose_z = FloatProperty(
             name="Height",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     bottom_z = FloatProperty(
             name="Stair bottom",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -1725,8 +1724,8 @@ class archipack_stair(Manipulable, PropertyGroup):
     radius = FloatProperty(
             name="radius",
             min=0.5,
-            max=100.0,
             default=0.7,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     da = FloatProperty(
@@ -1812,35 +1811,35 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     post_spacing = FloatProperty(
             name="spacing",
-            min=0.1, max=1000,
+            min=0.1,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_x = FloatProperty(
             name="width",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_y = FloatProperty(
             name="length",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_z = FloatProperty(
             name="height",
-            min=0.001, max=1000,
+            min=0.001,
             default=1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
+            min=-100,
             default=0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -1884,35 +1883,35 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     subs_spacing = FloatProperty(
             name="spacing",
-            min=0.05, max=1000,
+            min=0.05,
             default=0.10, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_x = FloatProperty(
             name="width",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_y = FloatProperty(
             name="length",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_z = FloatProperty(
             name="height",
-            min=0.001, max=1000,
+            min=0.001,
             default=1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
+            min=-100,
             default=0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -1960,35 +1959,33 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     panel_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
             default=0.25, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_x = FloatProperty(
             name="width",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.01, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_z = FloatProperty(
             name="height",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.6, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_dist = FloatProperty(
             name="space",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.05, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_offset_x = FloatProperty(
             name="offset",
-            min=-100.0, max=100,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2025,7 +2022,7 @@ class archipack_stair(Manipulable, PropertyGroup):
                 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
             ],
             size=31,
-            min=0.001, max=1000,
+            min=0.001,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2039,7 +2036,7 @@ class archipack_stair(Manipulable, PropertyGroup):
                 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
             ],
             size=31,
-            min=0.001, max=1000,
+            min=0.001,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2053,7 +2050,6 @@ class archipack_stair(Manipulable, PropertyGroup):
                 0, 0, 0, 0, 0, 0, 0
             ],
             size=31,
-            min=-100, max=100,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2067,7 +2063,6 @@ class archipack_stair(Manipulable, PropertyGroup):
                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
             ],
             size=31,
-            min=-100, max=100,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2086,21 +2081,18 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     handrail_offset = FloatProperty(
             name="offset",
-            min=-100.0, max=100,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_extend = FloatProperty(
             name="extend",
-            min=-100, max=1000,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2127,21 +2119,21 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     handrail_x = FloatProperty(
             name="width",
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_y = FloatProperty(
             name="height",
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_radius = FloatProperty(
             name="radius",
-            min=0.001, max=100,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2159,28 +2151,25 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     string_x = FloatProperty(
             name="width",
-            min=-100.0, max=100,
+            min=-100.0,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     string_z = FloatProperty(
             name="height",
-            min=-100.0, max=100,
             default=0.3, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     string_offset = FloatProperty(
             name="offset",
-            min=-100.0, max=100,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     string_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
             default=-0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2557,10 +2546,11 @@ class ARCHIPACK_PT_stair(Panel):
     bl_label = "Stair"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    # bl_context = 'object'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
-        o = context.object
+        o = context.active_object
         scene = context.scene
         prop = ARCHIPACK_PT_stair.params(o)
         if prop is None:
@@ -2772,7 +2762,7 @@ class ARCHIPACK_PT_stair(Panel):
 
     @classmethod
     def poll(cls, context):
-        o = context.object
+        o = context.active_object
         if o is None:
             return False
         return cls.filter(o)
@@ -2852,21 +2842,10 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_stair.filter(context.active_object)
 
-    def modal(self, context, event):
-        return self.d.manipulable_modal(context, event)
-
     def invoke(self, context, event):
-        if context.space_data.type == 'VIEW_3D':
-            o = context.active_object
-            self.d = o.data.archipack_stair[0]
-            if self.d.manipulable_invoke(context):
-                context.window_manager.modal_handler_add(self)
-                return {'RUNNING_MODAL'}
-            else:
-                return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'}
+        o = context.active_object
+        o.data.archipack_stair[0].manipulable_invoke(context)
+        return {'FINISHED'}
 
 
 # ------------------------------------------------------------------

@@ -307,13 +307,11 @@ def get_splits(self):
 
 
 def update_type(self, context):
-    # self.update(context, update_manipulators=True)
-    # return
-    # TODO:
-    # use generator and rebuild current and next segment
 
     d = self.find_in_selection(context)
-    if d is not None:
+
+    if d is not None and d.auto_update:
+
         d.auto_update = False
         idx = 0
         for i, part in enumerate(d.parts):
@@ -413,7 +411,6 @@ class archipack_wall2_part(PropertyGroup):
     z = FloatVectorProperty(
             name="height",
             min=0,
-            max=10000,
             default=[
                 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0,
@@ -525,7 +522,7 @@ class archipack_wall2_child(PropertyGroup):
     def get_child(self, context):
         d = None
         child = context.scene.objects.get(self.child_name)
-        if child.data is not None:
+        if child is not None and child.data is not None:
             if 'archipack_window' in child.data:
                 d = child.data.archipack_window[0]
             elif 'archipack_door' in child.data:
@@ -687,22 +684,6 @@ class archipack_wall2(Manipulable, PropertyGroup):
             if ARCHIPACK_PT_wall2.params(o) == self:
                 return active, selected, o
         return active, selected, None
-
-    def from_lines(self, lines):
-        """
-            TODO:
-                look at fence implementation for this part
-        """
-        raise NotImplementedError
-
-        for i, line in enumerate(lines):
-            if type(line).__name__ == 'Line':
-                self.parts[i].a0 = line.angle
-                self.parts[i].length = line.length
-            else:
-                self.parts[i].radius = line.r
-                self.parts[i].a0 = line.a0
-                self.parts[i].da = line.da
 
     def get_generator(self):
         # print("get_generator")
@@ -1250,6 +1231,9 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # self.manipulable_release(context)
         self.manipulable_setup(context)
         self.manipulate_mode = True
+
+        self._manipulable_invoke(context)
+
         return True
 
 
@@ -1310,6 +1294,9 @@ class ARCHIPACK_PT_wall2(Panel):
     bl_label = "Wall"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    # bl_context = 'object'
+    # bl_space_type = 'VIEW_3D'
+    # bl_region_type = 'UI'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
@@ -1512,9 +1499,9 @@ class ARCHIPACK_OT_wall2_from_slab(Operator):
         o = context.scene.objects.active
         d = o.data.archipack_wall2[0]
         d.auto_update = False
-        d.closed = True
         d.parts.clear()
         d.n_parts = wd.n_parts
+        d.closed = True
         if not wd.closed:
             d.n_parts += 1
         for part in wd.parts:
@@ -1879,12 +1866,19 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_wall2.filter(context.active_object)
 
+    """
     def modal(self, context, event):
         return self.d.manipulable_modal(context, event)
+    """
 
     def invoke(self, context, event):
+        o = context.active_object
+        o.data.archipack_wall2[0].manipulable_invoke(context)
+        return {'FINISHED'}
+
         if context.space_data.type == 'VIEW_3D':
             o = context.active_object
+
             self.d = o.data.archipack_wall2[0]
             if self.d.manipulable_invoke(context):
                 context.window_manager.modal_handler_add(self)

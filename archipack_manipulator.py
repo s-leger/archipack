@@ -29,7 +29,7 @@ from math import atan2, pi
 from mathutils import Vector, Matrix
 from mathutils.geometry import intersect_line_plane, intersect_point_line, intersect_line_sphere
 from bpy_extras import view3d_utils
-from bpy.types import PropertyGroup
+from bpy.types import PropertyGroup, Operator
 from bpy.props import FloatVectorProperty, StringProperty, CollectionProperty, BoolProperty
 from bpy.app.handlers import persistent
 from .archipack_snap import snap_point
@@ -1950,6 +1950,31 @@ class archipack_manipulator(PropertyGroup):
 # Define Manipulable to make a PropertyGroup manipulable
 # ------------------------------------------------------------------
 
+class ArchipackStore:
+    scope = None
+
+
+class ARCHIPACK_OT_manipulate(Operator):
+    bl_idname = "archipack.manipulate"
+    bl_label = "Manipulate"
+    bl_description = "Manipulate"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(self, context):
+        return context.active_object is not None
+
+    def modal(self, context, event):
+        return ArchipackStore.scope.manipulable_modal(context, event)
+
+    def invoke(self, context, event):
+        if context.space_data.type == 'VIEW_3D':
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+        else:
+            self.report({'WARNING'}, "Active space must be a View3d")
+            return {'CANCELLED'}
+
 
 class Manipulable():
     """
@@ -2001,9 +2026,14 @@ class Manipulable():
         """
             disable gl draw handlers
         """
+        # prevent complex objects manipulators
+        # update while not manipulating to
+        # kill the stack
+        if self.manipulate_mode:
+            empty_stack()
+
         self.manipulate_mode = False
         self.select_mode = False
-        empty_stack()
 
         o = context.active_object
         if o is not None:
@@ -2018,9 +2048,33 @@ class Manipulable():
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
 
+    def _manipulable_invoke(self, context):
+        ArchipackStore.scope = self
+        # take care of context switching
+        # when called outside of 3d view
+        if context.space_data.type == 'VIEW_3D':
+            bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
+        else:
+            ctx = context.copy()
+            for window in bpy.context.window_manager.windows:
+                screen = window.screen
+                for area in screen.areas:
+                    if area.type == 'VIEW_3D':
+                        ctx['area'] = area
+                        for region in area.regions:
+                            if region.type == 'WINDOW':
+                                ctx['region'] = region
+                        break
+            if ctx is not None:
+                bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT')
+
     def manipulable_invoke(self, context):
         """
             call this in operator invoke()
+            NB:
+            if override dont forget to call:
+                _manipulable_invoke(context)
+
         """
         # print("self.manipulate_mode:%s" % (self.manipulate_mode))
         if self.manipulate_mode:
@@ -2028,8 +2082,13 @@ class Manipulable():
             return False
 
         self.manip_stack = []
+        # kills other's manipulators
+        self.manipulate_mode = True
         self.manipulable_setup(context)
         self.manipulate_mode = True
+
+        self._manipulable_invoke(context)
+
         return True
 
     def manipulable_modal(self, context, event):
@@ -2205,6 +2264,7 @@ def register():
     # register_manipulator('SNAP_POINT', SnapPointManipulator)
     # wall's line based object snap
     register_manipulator('WALL_SNAP', WallSnapManipulator)
+    bpy.utils.register_class(ARCHIPACK_OT_manipulate)
     bpy.utils.register_class(archipack_manipulator)
     bpy.app.handlers.load_pre.append(empty_stack)
 
@@ -2214,5 +2274,6 @@ def unregister():
     global manipulators_class_lookup
     del manipulators_class_lookup
     del manip_stack
+    bpy.utils.unregister_class(ARCHIPACK_OT_manipulate)
     bpy.utils.unregister_class(archipack_manipulator)
     bpy.app.handlers.load_pre.remove(empty_stack)
