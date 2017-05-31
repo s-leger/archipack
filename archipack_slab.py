@@ -485,6 +485,9 @@ class archipack_slab(Manipulable, PropertyGroup):
         # move after current one
         self.parts.move(len(self.parts) - 1, where + 1)
         self.n_parts += 1
+        for c in self.childs:
+            if c.idx > where:
+                c.idx += 1
         self.setup_parts_manipulators()
         self.auto_update = True
 
@@ -541,7 +544,13 @@ class archipack_slab(Manipulable, PropertyGroup):
 
         self.n_parts += 4
         self.setup_parts_manipulators()
+
+        for c in self.childs:
+            if c.idx > where:
+                c.idx += 4
+
         self.auto_update = True
+        g = self.get_generator()
 
         o = context.active_object
         bpy.ops.archipack.fence(auto_manipulate=False)
@@ -549,10 +558,14 @@ class archipack_slab(Manipulable, PropertyGroup):
         c.select = True
         c.data.archipack_fence[0].n_parts = 3
         c.select = False
+        # link to o
+        c.location = Vector((0, 0, 0))
+        c.parent = o
+        c.location = g.segs[where + 1].p0.to_3d()
+        self.add_child(c.name, where + 1)
+        # c.matrix_world.translation = g.segs[where].p1.to_3d()
         o.select = True
         context.scene.objects.active = o
-        self.add_child(c.name, where + 1)
-        g = self.get_generator()
         self.relocate_childs(context, o, g)
 
     def add_part(self, context, length):
@@ -577,24 +590,26 @@ class archipack_slab(Manipulable, PropertyGroup):
         """
         # print("setup_childs")
         self.childs.clear()
-        if o.parent is None:
-            wM = Matrix()
+        if o.parent is not None:
+            otM = o.parent.matrix_world
         else:
-            wM = o.parent.matrix_world
-        dmax = 0.1
-        witM = o.matrix_world.inverted()
-        itM = witM * wM
-        for child in o.children:
-            if (child.data and 'archipack_fence' in child.data):
-                pt = (itM * child.location).to_2d()
+            otM = Matrix()
+        itM = o.matrix_world.inverted() * otM
+
+        dmax = 0.2
+        for c in o.children:
+            if (c.data and 'archipack_fence' in c.data):
+                pt = (itM * c.matrix_world.translation).to_2d()
                 for idx, seg in enumerate(g.segs):
                     # may be optimized with a bound check
                     res, d, t = seg.point_sur_segment(pt)
                     #  p1
                     #  |-- x
                     #  p0
-                    if res and t > -0.1 and t < 0.1 and abs(d) < dmax:
-                        self.add_child(child.name, idx)
+                    dist = abs(t) * seg.length
+                    if dist < dmax and abs(d) < dmax:
+                        print("%s %s %s %s" % (idx, dist, d, c.name))
+                        self.add_child(c.name, idx)
 
     def relocate_childs(self, context, o, g):
         """
@@ -607,6 +622,7 @@ class archipack_slab(Manipulable, PropertyGroup):
         for child in self.childs:
             c, d = child.get_child(context)
             if c is None:
+                print("c is None")
                 continue
 
             a = g.segs[child.idx].angle
@@ -629,14 +645,15 @@ class archipack_slab(Manipulable, PropertyGroup):
                 d.parts[0].a0 = pi / 2
                 d.auto_update = True
                 c.select = False
-            context.scene.objects.active = o
-            # preTranslate
-            c.matrix_world = tM * Matrix([
-                [sa, ca, 0, x],
-                [-ca, sa, 0, y],
-                [0, 0, 1, 0],
-                [0, 0, 0, 1]
-            ])
+
+                context.scene.objects.active = o
+                # preTranslate
+                c.matrix_world = tM * Matrix([
+                    [sa, ca, 0, x],
+                    [-ca, sa, 0, y],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                ])
 
     def remove_part(self, context, where):
         self.manipulable_disable(context)
@@ -645,6 +662,7 @@ class archipack_slab(Manipulable, PropertyGroup):
         # preserve shape
         # using generator
         if where > 0:
+
             g = self.get_generator()
             w = g.segs[where - 1]
             dp = g.segs[where].p1 - w.p0
@@ -674,7 +692,9 @@ class archipack_slab(Manipulable, PropertyGroup):
                 a0 += 2 * pi
             # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
             part.a0 = a0
-
+        for c in self.childs:
+            if c.idx >= where:
+                c.idx -= 1
         self.parts.remove(where)
         self.n_parts -= 1
         # fix snap manipulators index
@@ -925,6 +945,28 @@ class archipack_slab(Manipulable, PropertyGroup):
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
+
+    def manipulable_invoke(self, context):
+        """
+            call this in operator invoke()
+        """
+        # print("manipulable_invoke")
+        if self.manipulate_mode:
+            self.manipulable_disable(context)
+            self.manipulate_mode = False
+            return False
+
+        self.manip_stack = []
+        o = context.active_object
+        g = self.get_generator()
+        # setup childs manipulators
+        self.setup_childs(o, g)
+        self.manipulable_setup(context)
+        self.manipulate_mode = True
+
+        self._manipulable_invoke(context)
+
+        return True
 
 
 class ARCHIPACK_PT_slab(Panel):
