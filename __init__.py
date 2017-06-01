@@ -58,6 +58,7 @@ if "bpy" in locals():
     # imp.reload(archipack_roof2d)
     imp.reload(archipack_slab)
     imp.reload(archipack_fence)
+    imp.reload(archipack_truss)
     imp.reload(archipack_rendering)
     try:
         imp.reload(archipack_polylib)
@@ -80,6 +81,7 @@ else:
     # from . import archipack_roof2d
     from . import archipack_slab
     from . import archipack_fence
+    from . import archipack_truss
     from . import archipack_rendering
     try:
         """
@@ -341,13 +343,15 @@ class TOOLS_PT_Archipack_Create(Panel):
         # row = box.row(align=True)
         # row.operator("archipack.roof", icon='CURVE_DATA')
         row = box.row(align=True)
+        row.operator("archipack.truss")
+        row = box.row(align=True)
         # row.operator("archipack.slab")
         row.operator("archipack.slab_from_curve", icon='CURVE_DATA')
 
         row = box.row(align=True)
         row.operator("archipack.wall2_from_slab")
         row.operator("archipack.slab_from_wall")
-
+        
 
 # ----------------------------------------------------
 # ALT + A menu
@@ -420,6 +424,7 @@ def register():
     # archipack_roof2d.register()
     archipack_slab.register()
     archipack_fence.register()
+    archipack_truss.register()
     archipack_rendering.register()
 
     if HAS_POLYLIB:
@@ -454,6 +459,7 @@ def unregister():
     # archipack_roof2d.unregister()
     archipack_slab.unregister()
     archipack_fence.unregister()
+    archipack_truss.unregister()
     archipack_rendering.unregister()
 
     if HAS_POLYLIB:
