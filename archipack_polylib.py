@@ -733,7 +733,7 @@ class Io():
         spline.use_cyclic_u = coords[0] == coords[-1]
         spline.points.add(len(coords) - 1)
         for i, coord in enumerate(coords):
-            x, y, z = coord
+            x, y, z = Vector(coord).to_3d()
             spline.points[i].co = (x, y, z, 1)
 
     @staticmethod
