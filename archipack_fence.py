@@ -56,18 +56,10 @@ class Fence():
 
     def set_offset(self, offset, last=None):
         """
-            Offset line and compute intersection point between
-            straight segments
-            TODO:
-            support for curved segments
+            Offset line and compute intersection point
+            between segments
         """
-        self.line = self.offset(offset)
-        if last is not None:
-            i, p, t = self.line.intersect(last)
-            if type(self).__name__ == 'StraightFence':
-                self.line.p0 = p
-            if type(last).__name__ == 'StraightFence':
-                last.line.p1 = p
+        self.line = self.make_offset(offset, last)
 
     @property
     def t_diff(self):
@@ -78,8 +70,7 @@ class Fence():
         return StraightFence(s.p, s.v)
 
     def curved_fence(self, a0, da, radius):
-        n = self.normal(1)
-        n.v = radius * n.v.normalized()
+        n = self.normal(1).rotate(a0).scale(radius)
         if da < 0:
             n.v = -n.v
         a0 = n.angle
@@ -204,14 +195,14 @@ class FenceGenerator():
 
             if type(f).__name__ == "StraightFence":
                 # segment length
-                manipulators[1].type = 'SIZE'
+                manipulators[1].type_key = 'SIZE'
                 manipulators[1].prop1_name = "length"
                 manipulators[1].set_pts([p0, p1, (1, 0, 0)])
             else:
                 # segment radius + angle
                 v0 = (f.p0 - f.c).to_3d()
                 v1 = (f.p1 - f.c).to_3d()
-                manipulators[1].type = 'ARC_ANGLE_RADIUS'
+                manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
                 manipulators[1].prop1_name = "da"
                 manipulators[1].prop2_name = "radius"
                 manipulators[1].set_pts([f.c.to_3d(), v0, v1])
@@ -271,9 +262,10 @@ class FenceGenerator():
 
         if self.user_defined_post is not None:
             x, y = -n.v.normalized()
+            p = n.p + sub_offset_x * n.v.normalized()
             tM = Matrix([
-                [x, y, 0, n.p.x],
-                [y, -x, 0, n.p.y],
+                [x, y, 0, p.x],
+                [y, -x, 0, p.y],
                 [0, 0, 1, zl + post_alt],
                 [0, 0, 0, 1]
             ])
@@ -433,15 +425,24 @@ class FenceGenerator():
                 while self.segs[i].t_end < t_cur:
                     i += 1
                 f = self.segs[i]
+                # 1st section
                 t = (t_cur - f.t_start) / f.t_diff
                 n = f.line.normal(t)
                 subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
-                # crossing sections
+                # crossing sections -> new segment
                 while i < segment.i_end:
                     f = self.segs[i]
                     if f.t_end < t_end:
-                        n = f.line.normal(1)
-                        subs.append((n, f.dz / f.length, f.z0 + f.dz))
+                        if type(f).__name__ == 'CurvedFence':
+                            n_s = int(max(1, abs(f.da) * (30 / segment.n_step) / pi - 1))
+                            for j in range(1, n_s + 1):
+                                t = j / n_s
+                                n = f.line.sized_normal(t, 1)
+                                # n.p = f.lerp(x_offset)
+                                subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
+                        else:
+                            n = f.line.normal(1)
+                            subs.append((n, f.dz / f.length, f.z0 + f.dz))
                     if f.t_start + f.t_diff >= t_end:
                         break
                     elif f.t_start < t_end:
@@ -449,9 +450,21 @@ class FenceGenerator():
 
                 f = self.segs[i]
                 # last section
-                t = (t_end - f.t_start) / f.t_diff
-                n = f.line.normal(t)
-                subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
+                if type(f).__name__ == 'CurvedFence':
+                    t0 = (t_cur - f.t_start) / f.t_diff
+                    t1 = (t_end - f.t_start) / f.t_diff
+                    n_s = int(max(1, abs(f.da) * (30 / segment.n_step) / pi - 1))
+                    dt = (t1 - t0) / n_s
+                    for j in range(1, n_s + 1):
+                        t = t0 + dt * j
+                        n = f.line.sized_normal(t, 1)
+                        # n.p = f.lerp(x_offset)
+                        subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
+                else:
+                    t = (t_end - f.t_start) / f.t_diff
+                    n = f.line.normal(t)
+                    subs.append((n, f.dz / f.length, f.z0 + f.dz * t))
+
                 self.get_panel(subs, altitude, x, z, sub_offset_x, idmat, verts, faces, matids, uvs)
                 s += 1
 
@@ -482,9 +495,17 @@ class FenceGenerator():
         sections.append((n, f.dz / f.length, f.z0))
 
         for s, f in enumerate(self.segs):
-            n = f.line.sized_normal(1, 1)
-            # n.p = f.lerp(x_offset)
-            sections.append((n, f.dz / f.length, f.z0 + f.dz))
+            if type(f).__name__ == 'CurvedFence':
+                n_s = int(max(1, abs(f.da) * 30 / pi - 1))
+                for i in range(1, n_s + 1):
+                    t = i / n_s
+                    n = f.line.sized_normal(t, 1)
+                    # n.p = f.lerp(x_offset)
+                    sections.append((n, f.dz / f.length, f.z0 + f.dz * t))
+            else:
+                n = f.line.sized_normal(1, 1)
+                # n.p = f.lerp(x_offset)
+                sections.append((n, f.dz / f.length, f.z0 + f.dz))
 
         if extend != 0:
             t = 1 + extend / self.segs[-1].line.length
@@ -548,6 +569,70 @@ def update_path(self, context):
     self.update_path(context)
 
 
+def update_type(self, context):
+
+    d = self.find_in_selection(context)
+
+    if d is not None and d.auto_update:
+
+        d.auto_update = False
+        # find part index
+        idx = 0
+        for i, part in enumerate(d.parts):
+            if part == self:
+                idx = i
+                break
+        part = d.parts[idx]
+        a0 = 0
+        if idx > 0:
+            g = d.get_generator()
+            w0 = g.segs[idx - 1]
+            a0 = w0.straight(1).angle
+            if "C_" in self.type:
+                w = w0.straight_fence(part.a0, part.length)
+            else:
+                w = w0.curved_fence(part.a0, part.da, part.radius)
+        else:
+            g = FenceGenerator(None)
+            if "C_" in self.type:
+                g.add_part("S_SEG", self.radius, self.a0, self.da, self.length, 0)
+            else:
+                g.add_part("C_SEG", self.radius, self.a0, self.da, self.length, 0)
+            w = g.segs[0]
+
+        # w0 - w - w1
+        dp = w.p1 - w.p0
+        if "C_" in self.type:
+            part.radius = 0.5 * dp.length
+            part.da = pi
+            a0 = atan2(dp.y, dp.x) - pi / 2 - a0
+        else:
+            part.length = dp.length
+            a0 = atan2(dp.y, dp.x) - a0
+
+        if a0 > pi:
+            a0 -= 2 * pi
+        if a0 < -pi:
+            a0 += 2 * pi
+        part.a0 = a0
+
+        if idx + 1 < d.n_parts:
+            # adjust rotation of next part
+            part1 = d.parts[idx + 1]
+            if "C_" in part.type:
+                a0 = part1.a0 - pi / 2
+            else:
+                a0 = part1.a0 + w.straight(1).angle - atan2(dp.y, dp.x)
+
+            if a0 > pi:
+                a0 -= 2 * pi
+            if a0 < -pi:
+                a0 += 2 * pi
+            part1.a0 = a0
+
+        d.auto_update = True
+
+
 materials_enum = (
             ('0', 'Ceiling', '', 0),
             ('1', 'White', '', 1),
@@ -592,7 +677,7 @@ class archipack_fence_part(PropertyGroup):
                 ('C_FENCE', 'Curved fence', '', 1),
                 ),
             default='S_FENCE',
-            update=update_manipulators
+            update=update_type
             )
     length = FloatProperty(
             name="length",
@@ -609,7 +694,7 @@ class archipack_fence_part(PropertyGroup):
             update=update
             )
     da = FloatProperty(
-            name="angle",
+            name="total angle",
             min=-pi,
             max=pi,
             default=pi / 2,
@@ -663,6 +748,7 @@ class archipack_fence_part(PropertyGroup):
         else:
             row = box.row()
             row.prop(self, "length")
+        row = box.row()
         row.prop(self, "a0")
 
 

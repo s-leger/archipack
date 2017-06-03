@@ -1432,24 +1432,24 @@ class ARCHIPACK_OT_wall2_from_curve(Operator):
 
     def create(self, context):
         curve = context.active_object
-        bpy.ops.archipack.wall2(auto_manipulate=False)
-        o = context.scene.objects.active
-        d = o.data.archipack_wall2[0]
-        spline = curve.data.splines[0]
-        d.from_spline(curve.matrix_world, 12, spline)
-        if spline.type == 'POLY':
-            pt = spline.points[0].co
-        elif spline.type == 'BEZIER':
-            pt = spline.bezier_points[0].co
-        else:
-            pt = Vector((0, 0, 0))
-        # pretranslate
-        o.matrix_world = curve.matrix_world * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
+        for spline in curve.data.splines:
+            bpy.ops.archipack.wall2(auto_manipulate=False)
+            o = context.scene.objects.active
+            d = o.data.archipack_wall2[0]
+            d.from_spline(curve.matrix_world, 12, spline)
+            if spline.type == 'POLY':
+                pt = spline.points[0].co
+            elif spline.type == 'BEZIER':
+                pt = spline.bezier_points[0].co
+            else:
+                pt = Vector((0, 0, 0))
+            # pretranslate
+            o.matrix_world = curve.matrix_world * Matrix([
+                [1, 0, 0, pt.x],
+                [0, 1, 0, pt.y],
+                [0, 0, 1, pt.z],
+                [0, 0, 0, 1]
+                ])
         return o
 
     # -----------------------------------------------------
@@ -1459,10 +1459,11 @@ class ARCHIPACK_OT_wall2_from_curve(Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            o.select = True
-            context.scene.objects.active = o
-            if self.auto_manipulate:
-                bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
+            if o is not None:
+                o.select = True
+                context.scene.objects.active = o
+                if self.auto_manipulate:
+                    bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -1866,28 +1867,11 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
     def poll(self, context):
         return ARCHIPACK_PT_wall2.filter(context.active_object)
 
-    """
-    def modal(self, context, event):
-        return self.d.manipulable_modal(context, event)
-    """
-
     def invoke(self, context, event):
         o = context.active_object
         o.data.archipack_wall2[0].manipulable_invoke(context)
         return {'FINISHED'}
 
-        if context.space_data.type == 'VIEW_3D':
-            o = context.active_object
-
-            self.d = o.data.archipack_wall2[0]
-            if self.d.manipulable_invoke(context):
-                context.window_manager.modal_handler_add(self)
-                return {'RUNNING_MODAL'}
-            else:
-                return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'}
 
     def execute(self, context):
         """
@@ -1899,7 +1883,6 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
             g = d.get_generator()
             d.setup_childs(o, g)
             d.update_childs(context, o, g)
-            d.manipulable_release(context)
             d.update(context)
             o.select = True
             context.scene.objects.active = o
