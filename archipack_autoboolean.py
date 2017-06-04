@@ -128,7 +128,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         hole.cycles_visibility.shadow = False
         hole.cycles_visibility.scatter = False
         hole.cycles_visibility.transmission = False
-    
+
     def _generate_holes(self, context, childs):
         # generate holes from archipack primitives
         holes = []
@@ -153,12 +153,12 @@ class ARCHIPACK_OT_auto_boolean(Operator):
                         hole = o.data.archipack_door[0].robust_hole(context, o.matrix_world)
                     holes.append(hole)
                     childs.append(o)
-                    
+
         # Select all holes here, fix issue #13
         for hole in holes:
             self._prepare_hole(hole)
         return holes
-        
+
     def _remove_boolean_modif(self, context, obj, modif):
         old = modif.object
         obj.modifiers.remove(modif)
@@ -195,13 +195,13 @@ class ARCHIPACK_OT_auto_boolean(Operator):
         n_holes = len(holes)
         self.quicksort(holes)
         holes = [o[0] for o in holes]
-        
+
         # remove modifiers
         for i in range(n_modifs, n_holes, -1):
             self._remove_boolean_modif(context, wall, modifs[i - 1])
-        
+
         print("h:%s m:%s holes:%s modifs:%s" % (n_holes, n_modifs, holes, modifs))
-        
+
         # add modifiers
         for i in range(n_holes):
             if i < n_modifs:

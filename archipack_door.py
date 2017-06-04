@@ -33,7 +33,7 @@ from bpy.props import (
     FloatProperty, IntProperty, CollectionProperty,
     EnumProperty, BoolProperty, StringProperty
     )
-from mathutils import Vector
+from mathutils import Vector, Matrix
 # door component objects (panels, handles ..)
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as DoorPanel
@@ -41,6 +41,8 @@ from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, door_handle_horizontal_01
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset
+from .archipack_gl import FeedbackPanel
+from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_origin_3d
 
 SPACING = 0.005
 BATTUE = 0.01
@@ -1697,6 +1699,104 @@ class ARCHIPACK_OT_door(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+
+class ARCHIPACK_OT_door_draw(Operator):
+    bl_idname = "archipack.door_draw"
+    bl_label = "Draw Doors"
+    bl_description = "Draw Doors over walls"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    feedback = None
+
+    def mouse_to_matrix(self, context, event):
+        """
+            convert mouse pos to 3d point over plane defined by origin and normal
+        """
+        region = context.region
+        rv3d = context.region_data
+        co2d = (event.mouse_region_x, event.mouse_region_y)
+        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
+        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
+        res, pt, y, i, o, tM = context.scene.ray_cast(
+            ray_origin_mouse,
+            view_vector_mouse)
+        if res and 'archipack_wall2' in o.data:
+            z = Vector((0, 0, 1))
+            d = o.data.archipack_wall2[0]
+            y = -y
+            pt += (0.5 * d.width) * y.normalized()
+            x = y.cross(z)
+            return True, Matrix([
+            [x.x, y.x, z.x, pt.x],
+            [x.y, y.y, z.y, pt.y],
+            [x.z, y.z, z.z, o.matrix_world.translation.z],
+            [0, 0, 0, 1]
+            ]), o
+        return False, Matrix(), None
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Use Properties panel (N) to define parms", icon='INFO')
+
+    def draw_callback(self, _self, context):
+        self.feedback.draw(context)
+
+    def modal(self, context, event):
+
+        context.area.tag_redraw()
+        # print("modal event %s %s" % (event.type, event.value))
+        # if event.type == 'NONE':
+        #    return {'PASS_THROUGH'}
+        res, tM, wall = self.mouse_to_matrix(context, event)
+        w = context.active_object
+        if res and ARCHIPACK_PT_door.filter(w):
+            w.matrix_world = tM
+
+        if event.value == 'PRESS':
+            if event.type in {'LEFTMOUSE', 'MOUSEMOVE'}:
+                if wall is not None:
+                    wall.select = True
+                    bpy.ops.archipack.auto_boolean()
+                    wall.select = False
+                    bpy.ops.archipack.door(auto_manipulate=False)
+                    context.active_object.matrix_world = tM
+
+        if event.value == 'RELEASE':
+
+            if event.type in {'ESC', 'RIGHTMOUSE'}:
+                bpy.ops.archipack.door(mode='DELETE')
+                self.feedback.disable()
+                bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+                return {'FINISHED'}
+
+        return {'PASS_THROUGH'}
+
+    def invoke(self, context, event):
+
+        if context.mode == "OBJECT":
+            bpy.ops.archipack.door(auto_manipulate=False)
+            self.feedback = FeedbackPanel()
+            self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
+                ('LEFTCLICK', 'Create a door'),
+                ('RIGHTCLICK or ESC', 'exit')
+                ])
+            self.feedback.enable()
+            args = (self, context)
+
+            self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+
 # ------------------------------------------------------------------
 # Define operator class to manipulate object
 # ------------------------------------------------------------------
@@ -1760,6 +1860,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_door)
     bpy.utils.register_class(ARCHIPACK_OT_door)
     bpy.utils.register_class(ARCHIPACK_OT_door_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_door_draw)
     bpy.utils.register_class(ARCHIPACK_OT_door_manipulate)
 
 
@@ -1775,4 +1876,5 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_door)
     bpy.utils.unregister_class(ARCHIPACK_OT_door)
     bpy.utils.unregister_class(ARCHIPACK_OT_door_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_door_draw)
     bpy.utils.unregister_class(ARCHIPACK_OT_door_manipulate)

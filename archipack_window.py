@@ -44,6 +44,7 @@ from .archipack_preset import ArchipackPreset
 from .archipack_gl import FeedbackPanel
 from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_origin_3d
 
+
 def update(self, context):
     self.update(context)
 
@@ -1796,16 +1797,16 @@ class ARCHIPACK_OT_window(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
-            
+
 class ARCHIPACK_OT_window_draw(Operator):
     bl_idname = "archipack.window_draw"
-    bl_label = "Draw a Window"
-    bl_description = "Draw a Window"
+    bl_label = "Draw Windows"
+    bl_description = "Draw Windows over walls"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
     feedback = None
-    
+
     def mouse_to_matrix(self, context, event):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
@@ -1816,7 +1817,7 @@ class ARCHIPACK_OT_window_draw(Operator):
         view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
         ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
         res, pt, y, i, o, tM = context.scene.ray_cast(
-            ray_origin_mouse, 
+            ray_origin_mouse,
             view_vector_mouse)
         if res and 'archipack_wall2' in o.data:
             z = Vector((0, 0, 1))
@@ -1851,20 +1852,21 @@ class ARCHIPACK_OT_window_draw(Operator):
         # if event.type == 'NONE':
         #    return {'PASS_THROUGH'}
         res, tM, wall = self.mouse_to_matrix(context, event)
-        
-        if res:
-            context.active_object.matrix_world = tM
-            
+        w = context.active_object
+        if res and ARCHIPACK_PT_window.filter(w):
+            w.matrix_world = tM
+
         if event.value == 'PRESS':
-            if event.type in {'LEFTMOUSE','MOUSEMOVE'}:
+            if event.type in {'LEFTMOUSE', 'MOUSEMOVE'}:
                 if wall is not None:
                     wall.select = True
                     bpy.ops.archipack.auto_boolean()
-                    bpy.ops.archipack.window()
+                    wall.select = False
+                    bpy.ops.archipack.window(auto_manipulate=False)
                     context.active_object.matrix_world = tM
-        
+
         if event.value == 'RELEASE':
-                    
+
             if event.type in {'ESC', 'RIGHTMOUSE'}:
                 bpy.ops.archipack.window(mode='DELETE')
                 self.feedback.disable()
@@ -1876,13 +1878,11 @@ class ARCHIPACK_OT_window_draw(Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
-            bpy.ops.archipack.window()
+            bpy.ops.archipack.window(auto_manipulate=False)
             self.feedback = FeedbackPanel()
-            self.feedback.instructions(context, "Draw a window", "Click & Drag to start", [
-                ('CTRL', 'Snap'),
-                ('MMBTN', 'Constraint to axis'),
-                ('X Y', 'Constraint to axis'),
-                ('RIGHTCLICK or ESC', 'exit without change')
+            self.feedback.instructions(context, "Draw a window", "Click & Drag over a wall", [
+                ('LEFTCLICK', 'Create a window'),
+                ('RIGHTCLICK or ESC', 'exit')
                 ])
             self.feedback.enable()
             args = (self, context)
@@ -1894,7 +1894,7 @@ class ARCHIPACK_OT_window_draw(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
-            
+
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------

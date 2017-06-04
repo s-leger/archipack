@@ -71,6 +71,11 @@ def empty_stack(dummy=None):
     manip_stack = {}
 
 
+def in_stack(key):
+    global manip_stack
+    return key in manip_stack.keys()
+
+
 def get_stack(key):
     """
         return reference to manipulator stack for given object
@@ -630,7 +635,7 @@ class WallSnapManipulator(Manipulator):
                         """
                         w.p1 = pt
                         dp = pt - w.p0
-                        
+
                         if idx > 1:
                             part.a0 = g.segs[idx - 2].delta_angle(w)
                         else:
@@ -641,14 +646,14 @@ class WallSnapManipulator(Manipulator):
                                 a0 += 2 * pi
                             # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
                             part.a0 = a0
-                        
+
                         if "C_" in part.type:
                             part.radius = w.r
                         else:
                             part.length = w.length
-                        
-                        """    
-                        
+
+                        """
+
                         dp = pt - w.p0
 
                         # adjust radius from distance between points..
@@ -668,26 +673,26 @@ class WallSnapManipulator(Manipulator):
                             a0 += 2 * pi
                         # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
                         part.a0 = a0
-                            
+
                     # adjust length of current segment
                     w = g.segs[idx]
                     part = d.parts[idx]
                     """
                     w.p0 = pt
-                    
+
                     if "C_" in part.type:
                         part.radius = w.r
                     else:
                         part.length = w.length
-                    
+
                     if idx > 0:
                         part.a0 = w.delta_angle(g.segs[idx - 1])
-                    
+
                     if idx + 1 < d.n_parts:
                         d.parts[idx + 1].a0 = w.delta_angle(g.segs[idx + 1])
                         g = d.get_generator()
-                    
-                    """    
+
+                    """
                     dp = w.p1 - pt
                     # adjust radius from distance between points..
                     # use p0-p1 distance and angle as reference
@@ -706,8 +711,7 @@ class WallSnapManipulator(Manipulator):
                         a0 += 2 * pi
                     # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
                     part.a0 = a0
-                    
-                    
+
                     # move object when point 0
                     if idx == 0:
                         self.o.location += sp.delta
@@ -726,8 +730,7 @@ class WallSnapManipulator(Manipulator):
 
                         # refresh wall data for next loop
                         g = d.get_generator()
-                    
-                        
+
                 idx += 1
 
             self.mouse_release(context, event)
@@ -765,11 +768,11 @@ class WallSnapManipulator(Manipulator):
         if gl_pts3d[0][2] and self.datablock.closed:
             placeholders[-1][1] = placeholders[0][0].copy()
             placeholders[-1][2] = True
-        
+
         # last one not visible when not closed
         if not self.datablock.closed:
             placeholders[-1][2] = False
-            
+
         for p0, p1, selected in placeholders:
             if selected:
                 self.placeholder_area.set_pos([p0, p1, Vector((p1.x, p1.y, p1.z + z)), Vector((p0.x, p0.y, p0.z + z))])
@@ -1937,7 +1940,7 @@ class archipack_manipulator(PropertyGroup):
             return tM * self.p0, tM * self.p1, self.p2, rM * self.normal
         else:
             return tM * self.p0, rM * self.p1, rM * self.p2, rM * self.normal
-    
+
     def get_prefs(self, context):
         global __name__
         global arrow_size
@@ -1950,16 +1953,16 @@ class archipack_manipulator(PropertyGroup):
             handle_size = prefs.handle_size
         except:
             pass
-        
+
     def setup(self, context, o, datablock, snap_callback=None):
         """
             Factory return a manipulator object or None
             o:         object
             datablock: datablock to modify
         """
-        
+
         self.get_prefs(context)
-        
+
         global manipulators_class_lookup
 
         if self.type_key not in manipulators_class_lookup.keys() or \
@@ -2129,6 +2132,7 @@ class Manipulable():
             as it provide all needed
             functionnality out of the box
         """
+        print("manipulable_modal")
         # setup again when manipulators type change
         if self.manipulable_refresh:
             self.manipulable_refresh = False
@@ -2142,6 +2146,11 @@ class Manipulable():
 
         if self.keymap.check(event, self.keymap.undo):
             # user feedback on undo by disabling manipulators
+            self.manipulable_disable(context)
+            return {'FINISHED'}
+
+        if not self.manipulate_mode:
+            # exit modal when not in manipulate mode
             self.manipulable_disable(context)
             return {'FINISHED'}
 

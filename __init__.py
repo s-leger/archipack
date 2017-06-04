@@ -258,7 +258,7 @@ class Archipack_Pref(AddonPreferences):
         col.label(text="Manipulators:")
         col.prop(self, "arrow_size")
         col.prop(self, "handle_size")
-        
+
 
 # ----------------------------------------------------
 # Archipack panels
@@ -418,14 +418,23 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
-        row.operator("archipack.window",
+        col = row.column()
+        subrow = col.row(align=True)
+        subrow.operator("archipack.window",
                     icon_value=icons_coll["window"].icon_id
                     ).mode = 'CREATE'
-        row.operator("archipack.window_draw",
-                    text="Draw", icon='GREASEPENCIL')
-        row.operator("archipack.door",
+        subrow.operator("archipack.window_draw",
+                    text="",
+                    icon='GREASEPENCIL')
+
+        col = row.column()
+        subrow = col.row(align=True)
+        subrow.operator("archipack.door",
                     icon_value=icons_coll["door"].icon_id
                     ).mode = 'CREATE'
+        subrow.operator("archipack.door_draw",
+                    text="",
+                    icon='GREASEPENCIL')
         row = box.row(align=True)
         row.operator("archipack.stair",
                     icon_value=icons_coll["stair"].icon_id
