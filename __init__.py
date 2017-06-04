@@ -107,9 +107,9 @@ from bpy.types import (
     AddonPreferences
     )
 from bpy.props import (
-    EnumProperty,
-    PointerProperty,
-    StringProperty
+    EnumProperty, PointerProperty,
+    StringProperty,
+    IntProperty, FloatProperty, FloatVectorProperty
     )
 from bpy.utils import previews
 icons_coll = {}
@@ -151,6 +151,83 @@ class Archipack_Pref(AddonPreferences):
         update=update_panel
     )
 
+    # Arrow sizes (world units)
+    arrow_size = FloatProperty(
+            name="Arrow",
+            description="Manipulators arrow size (blender units)",
+            default=0.05
+            )
+    # Handle area size (pixels)
+    handle_size = IntProperty(
+            name="Handle",
+            description="Manipulators handle sensitive area size (pixels)",
+            min=2,
+            default=10
+            )
+    # Font sizes and basic colour scheme
+    # kept outside of addon prefs until now
+    # as for a generic toolkit it is not appropriate
+    # we could provide a template for addon prefs
+    # matching those one
+    feedback_size_main = IntProperty(
+            name="Main",
+            description="Main title font size (pixels)",
+            min=2,
+            default=16
+            )
+    feedback_size_title = IntProperty(
+            name="Title",
+            description="Tool name font size (pixels)",
+            min=2,
+            default=14
+            )
+    feedback_size_shortcut = IntProperty(
+            name="Shortcut",
+            description="Shortcuts font size (pixels)",
+            min=2,
+            default=11
+            )
+    feedback_shortcut_area = FloatVectorProperty(
+            name="Background Shortcut",
+            description="Shortcut area background color",
+            subtype='COLOR_GAMMA',
+            default=(0, 0.4, 0.6, 0.2),
+            size=4,
+            min=0, max=1
+            )
+    feedback_title_area = FloatVectorProperty(
+            name="Background Main",
+            description="Title area background color",
+            subtype='COLOR_GAMMA',
+            default=(0, 0.4, 0.6, 0.5),
+            size=4,
+            min=0, max=1
+            )
+    feedback_colour_main = FloatVectorProperty(
+            name="Font Main",
+            description="Title color",
+            subtype='COLOR_GAMMA',
+            default=(0.95, 0.95, 0.95, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    feedback_colour_key = FloatVectorProperty(
+            name="Font Shortcut key",
+            description="KEY label color",
+            subtype='COLOR_GAMMA',
+            default=(0.67, 0.67, 0.67, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    feedback_colour_shortcut = FloatVectorProperty(
+            name="Font Shortcut hint",
+            description="Shortcuts text color",
+            subtype='COLOR_GAMMA',
+            default=(0.51, 0.51, 0.51, 1.0),
+            size=4,
+            min=0, max=1
+            )
+
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -158,7 +235,30 @@ class Archipack_Pref(AddonPreferences):
         col.label(text="Tab Category:")
         col.prop(self, "tools_category")
         col.prop(self, "create_category")
-
+        box = layout.box()
+        row = box.row()
+        split = row.split(percentage=0.5)
+        col = split.column()
+        col.label(text="Colors:")
+        row = col.row(align=True)
+        row.prop(self, "feedback_title_area")
+        row = col.row(align=True)
+        row.prop(self, "feedback_shortcut_area")
+        row = col.row(align=True)
+        row.prop(self, "feedback_colour_main")
+        row = col.row(align=True)
+        row.prop(self, "feedback_colour_key")
+        row = col.row(align=True)
+        row.prop(self, "feedback_colour_shortcut")
+        col = split.column()
+        col.label(text="Font size:")
+        col.prop(self, "feedback_size_main")
+        col.prop(self, "feedback_size_title")
+        col.prop(self, "feedback_size_shortcut")
+        col.label(text="Manipulators:")
+        col.prop(self, "arrow_size")
+        col.prop(self, "handle_size")
+        
 
 # ----------------------------------------------------
 # Archipack panels
@@ -340,8 +440,8 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons_coll["fence"].icon_id
                     )
         row.operator("archipack.fence_from_curve", text="", icon='CURVE_DATA')
-        # row = box.row(align=True)
-        # row.operator("archipack.roof", icon='CURVE_DATA')
+        row = box.row(align=True)
+        row.operator("archipack.roof", icon='CURVE_DATA')
         row = box.row(align=True)
         row.operator("archipack.truss")
         row = box.row(align=True)
@@ -351,7 +451,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         row = box.row(align=True)
         row.operator("archipack.wall2_from_slab")
         row.operator("archipack.slab_from_wall")
-        
+
 
 # ----------------------------------------------------
 # ALT + A menu

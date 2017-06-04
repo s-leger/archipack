@@ -749,7 +749,9 @@ class archipack_slab(Manipulable, PropertyGroup):
                 s.prop1_name = str(i + 1)
             p.manipulators[2].prop1_name = str(i)
             p.manipulators[3].prop1_name = str(i + 1)
-
+        
+        self.parts[-1].manipulators[0].type_key = 'DUMB_ANGLE'
+        
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
@@ -1258,9 +1260,7 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
         d.auto_update = False
         d.closed = True
         d.parts.clear()
-        d.n_parts = wd.n_parts
-        if not wd.closed:
-            d.n_parts += 1
+        d.n_parts = wd.n_parts + 1
         for part in wd.parts:
             p = d.parts.add()
             if "S_" in part.type:

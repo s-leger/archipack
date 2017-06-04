@@ -27,30 +27,118 @@
 
 import bgl
 import blf
+import bpy
 from math import sin, cos, atan2, pi
 from mathutils import Vector, Matrix
 from bpy_extras import view3d_utils, object_utils
+
 
 # ------------------------------------------------------------------
 # Define Gl Handle types
 # ------------------------------------------------------------------
 
-# Arrow sizes (world units)
-arrow_size = 0.05
-# Handle area size (pixels)
-handle_size = 10
 
-# Font sizes and basic colour scheme
-# kept outside of addon prefs until now
-# as for a generic toolkit it is not appropriate
-# we could provide a template for addon prefs
-# matching those one
-feedback_size_main = 16
-feedback_size_title = 14
-feedback_size_shortcut = 11
-feedback_colour_main = (0.95, 0.95, 0.95, 1.0)
-feedback_colour_key = (0.67, 0.67, 0.67, 1.0)
-feedback_colour_shortcut = (0.51, 0.51, 0.51, 1.0)
+class DefaultColorScheme:
+    """
+        Font sizes and basic colour scheme
+        default to this when not found in addon prefs
+        Colors are FloatVectorProperty of size 4 and type COLOR_GAMMA
+    """
+    feedback_size_main = 16
+    feedback_size_title = 14
+    feedback_size_shortcut = 11
+    feedback_colour_main = (0.95, 0.95, 0.95, 1.0)
+    feedback_colour_key = (0.67, 0.67, 0.67, 1.0)
+    feedback_colour_shortcut = (0.51, 0.51, 0.51, 1.0)
+    feedback_shortcut_area = (0, 0.4, 0.6, 0.2)
+    feedback_title_area = (0, 0.4, 0.6, 0.5)
+
+
+"""
+    # Addon prefs template
+
+    feedback_size_main = IntProperty(
+            name="Main",
+            description="Main title font size (pixels)",
+            min=2,
+            default=16
+            )
+    feedback_size_title = IntProperty(
+            name="Title",
+            description="Tool name font size (pixels)",
+            min=2,
+            default=14
+            )
+    feedback_size_shortcut = IntProperty(
+            name="Shortcut",
+            description="Shortcuts font size (pixels)",
+            min=2,
+            default=11
+            )
+    feedback_shortcut_area = FloatVectorProperty(
+            name="Background Shortcut",
+            description="Shortcut area background color",
+            subtype='COLOR_GAMMA',
+            default=(0, 0.4, 0.6, 0.2),
+            size=4,
+            min=0, max=1
+            )
+    feedback_title_area = FloatVectorProperty(
+            name="Background Main",
+            description="Title area background color",
+            subtype='COLOR_GAMMA',
+            default=(0, 0.4, 0.6, 0.5),
+            size=4,
+            min=0, max=1
+            )
+    feedback_colour_main = FloatVectorProperty(
+            name="Font Main",
+            description="Title color",
+            subtype='COLOR_GAMMA',
+            default=(0.95, 0.95, 0.95, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    feedback_colour_key = FloatVectorProperty(
+            name="Font Shortcut key",
+            description="KEY label color",
+            subtype='COLOR_GAMMA',
+            default=(0.67, 0.67, 0.67, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    feedback_colour_shortcut = FloatVectorProperty(
+            name="Font Shortcut hint",
+            description="Shortcuts text color",
+            subtype='COLOR_GAMMA',
+            default=(0.51, 0.51, 0.51, 1.0),
+            size=4,
+            min=0, max=1
+            )
+
+    def draw(self, context):
+        layout = self.layout
+        box = layout.box()
+        row = box.row()
+        split = row.split(percentage=0.5)
+        col = split.column()
+        col.label(text="Colors:")
+        row = col.row(align=True)
+        row.prop(self, "feedback_title_area")
+        row = col.row(align=True)
+        row.prop(self, "feedback_shortcut_area")
+        row = col.row(align=True)
+        row.prop(self, "feedback_colour_main")
+        row = col.row(align=True)
+        row.prop(self, "feedback_colour_key")
+        row = col.row(align=True)
+        row.prop(self, "feedback_colour_shortcut")
+        col = split.column()
+        col.label(text="Font size:")
+        col.prop(self, "feedback_size_main")
+        col.prop(self, "feedback_size_title")
+        col.prop(self, "feedback_size_shortcut")
+"""
 
 
 # @TODO:
@@ -83,23 +171,13 @@ class Gl():
             3 to convert pos from 3d
             2 to keep pos as 2d absolute screen position
     """
-    def __init__(self, d=3):
-        # flag output over render image
-        self.render = False
-        # default line width
-        self.width = 1
-        # default line style
-        self.style = bgl.GL_LINE
-        # allow closed lines
-        self.closed = False
+    def __init__(self,
+            d=3,
+            colour=(0.0, 0.0, 0.0, 1.0)):
         # nth dimensions of input coords 3=word coords 2=pixel screen coords
         self.d = d
         self.pos_2d = Vector((0, 0))
-        self.colour_active = (1.0, 0.0, 0.0, 1.0)
-        self.colour_hover = (1.0, 1.0, 0.0, 1.0)
-        self.colour_normal = (1.0, 1.0, 1.0, 1.0)
-        self.colour_inactive = (0.0, 0.0, 0.0, 1.0)
-        self.colour_selected = (0.0, 0.0, 0.7, 1.0)
+        self.colour_inactive = colour
 
     @property
     def colour(self):
@@ -133,84 +211,56 @@ class Gl():
         bgl.glDisable(bgl.GL_BLEND)
         bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
 
-    def _start_poly(self):
-        bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
-        bgl.glEnable(bgl.GL_BLEND)
-        if self.render:
-            # enable anti-alias on polygons
-            bgl.glEnable(bgl.GL_POLYGON_SMOOTH)
-        bgl.glColor4f(*self.colour)
-        bgl.glBegin(bgl.GL_POLYGON)
-
-    def _start_line(self):
-        bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
-        if self.style == bgl.GL_LINE_STIPPLE:
-            bgl.glLineStipple(1, 0x9999)
-        bgl.glEnable(self.style)
-        bgl.glEnable(bgl.GL_BLEND)
-        if self.render:
-            # enable anti-alias on lines
-            bgl.glEnable(bgl.GL_LINE_SMOOTH)
-        bgl.glColor4f(*self.colour)
-        bgl.glLineWidth(self.width)
-        if self.closed:
-            bgl.glBegin(bgl.GL_LINE_LOOP)
-        else:
-            bgl.glBegin(bgl.GL_LINE_STRIP)
-
-    def draw_text(self, context, x, y):
-        # dirty fast assignment
-        dpi, font_id = context.user_preferences.system.dpi, 0
-        bgl.glColor4f(*self.colour)
-        if self.angle != 0:
-            blf.enable(font_id, blf.ROTATION)
-            blf.rotation(font_id, self.angle)
-        blf.size(font_id, self.font_size, dpi)
-        blf.position(font_id, x, y, 0)
-        blf.draw(font_id, self.text)
-        if self.angle != 0:
-            blf.disable(font_id, blf.ROTATION)
-
-    def draw(self, context, render=False):
-        """
-            render flag when rendering
-        """
-        self.render = render
-        gl_type = type(self).__name__
-        if 'Handle' in gl_type or gl_type in ['GlPolygon']:
-            self._start_poly()
-        elif gl_type in ['GlArc', 'GlCircle', 'GlLine', 'GlPolyline']:
-            self._start_line()
-        if 'Text' in gl_type:
-            x, y = self.position_2d_from_coord(context, self.pts[0], render)
-            self.draw_text(context, x, y)
-        else:
-            for pt in self.pts:
-                x, y = self.position_2d_from_coord(context, pt, render)
-                bgl.glVertex2f(x, y)
-            self._end()
-
 
 class GlText(Gl):
 
-    def __init__(self, d=3, precision=2,
-                label="", unit_mode='AUTO', unit_type='SIZE',
-                dimension=1, font_size=12,
-                colour=(1, 1, 1, 1), z_axis=Vector((0, 0, 1))):
+    def __init__(self,
+            d=3,
+            label="",
+            value=None,
+            precision=2,
+            unit_mode='AUTO',
+            unit_type='SIZE',
+            dimension=1,
+            angle=0,
+            font_size=12,
+            colour=(1, 1, 1, 1),
+            z_axis=Vector((0, 0, 1))):
+        """
+            d: [2|3] coords type: 2 for coords in screen pixels, 3 for 3d world location
+            label : string label
+            value : float value (will add unit according following settings)
+            precision : integer rounding for values
+            dimension : [1 - 3] nth dimension of unit (single, square, cubic)
+            unit_mode : ['AUTO','METER','CENTIMETER','MILIMETER','FEET','INCH','RADIANS','DEGREE']
+                        unit type to use to postfix values
+                        auto use scene units setup
+            unit_type : ['SIZE','ANGLE']
+                        unit type to add to value
+            angle : angle to rotate text
+
+        """
         self.z_axis = z_axis
-        self.value = None
+        # text, add as prefix to value
+        self.label = label
+        # value with unit related
+        self.value = value
         self.precision = precision
         self.dimension = dimension
-        self.label = label
         self.unit_type = unit_type
         self.unit_mode = unit_mode
+
         self.font_size = font_size
-        self.angle = 0
+        self.angle = angle
         Gl.__init__(self, d)
         self.colour_inactive = colour
+        # store text with units
         self._text = ""
 
     def text_size(self, context):
+        """
+            overall on-screen size in pixels
+        """
         dpi, font_id = context.user_preferences.system.dpi, 0
         if self.angle != 0:
             blf.enable(font_id, blf.ROTATION)
@@ -231,13 +281,14 @@ class GlText(Gl):
         s = self.label + self._text
         return s.strip()
 
-    def as_text(self, context):
+    def add_units(self, context):
         if self.value is None:
             return ""
         if self.unit_type == 'ANGLE':
             scale = 1
         else:
             scale = context.scene.unit_settings.scale_length
+
         val = self.value * scale
         mode = self.unit_mode
         if mode == 'AUTO':
@@ -293,14 +344,67 @@ class GlText(Gl):
         self.pos_3d = pos_3d
         self.value = value
         self.angle = angle
-        self._text = self.as_text(context)
+        self._text = self.add_units(context)
+
+    def draw(self, context, render=False):
+        self.render = render
+        x, y = self.position_2d_from_coord(context, self.pts[0], render)
+        # dirty fast assignment
+        dpi, font_id = context.user_preferences.system.dpi, 0
+        bgl.glColor4f(*self.colour)
+        if self.angle != 0:
+            blf.enable(font_id, blf.ROTATION)
+            blf.rotation(font_id, self.angle)
+        blf.size(font_id, self.font_size, dpi)
+        blf.position(font_id, x, y, 0)
+        blf.draw(font_id, self.text)
+        if self.angle != 0:
+            blf.disable(font_id, blf.ROTATION)
 
 
-class GlLine(Gl):
+class GlBaseLine(Gl):
+
+    def __init__(self,
+            d=3,
+            width=1,
+            style=bgl.GL_LINE,
+            closed=False):
+        Gl.__init__(self, d)
+        # default line width
+        self.width = width
+        # default line style
+        self.style = style
+        # allow closed lines
+        self.closed = False
+        
+    def draw(self, context, render=False):
+        """
+            render flag when rendering
+        """
+        bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
+        if self.style == bgl.GL_LINE_STIPPLE:
+            bgl.glLineStipple(1, 0x9999)
+        bgl.glEnable(self.style)
+        bgl.glEnable(bgl.GL_BLEND)
+        if render:
+            # enable anti-alias on lines
+            bgl.glEnable(bgl.GL_LINE_SMOOTH)
+        bgl.glColor4f(*self.colour)
+        bgl.glLineWidth(self.width)
+        if self.closed:
+            bgl.glBegin(bgl.GL_LINE_LOOP)
+        else:
+            bgl.glBegin(bgl.GL_LINE_STRIP)
+
+        for pt in self.pts:
+            x, y = self.position_2d_from_coord(context, pt, render)
+            bgl.glVertex2f(x, y)
+        self._end()
+
+
+class GlLine(GlBaseLine):
     """
-        3d Line
-        mostly a gl enabled for future use in manipulators
-        coords are in world space
+        2d/3d Line
     """
     def __init__(self, d=3, p=None, v=None, p0=None, p1=None, z_axis=None):
         """
@@ -327,7 +431,7 @@ class GlLine(Gl):
             self.z_axis = z_axis
         else:
             self.z_axis = Vector((0, 0, 1))
-        Gl.__init__(self, d)
+        GlBaseLine.__init__(self, d)
 
     @property
     def p0(self):
@@ -415,7 +519,7 @@ class GlLine(Gl):
         self.p += offset * self.cross.normalized()
 
     def point_sur_segment(self, pt):
-        """ point_sur_segment
+        """ point_sur_segment (2d)
             point: Vector 3d
             t: param t de l'intersection sur le segment courant
             d: distance laterale perpendiculaire positif a droite
@@ -432,12 +536,18 @@ class GlLine(Gl):
         return [self.p0, self.p1]
 
 
-class GlCircle(Gl):
+class GlCircle(GlBaseLine):
 
-    def __init__(self, d=3, z_axis=Vector((0, 0, 1))):
-        self.r = 0
-        self.c = Vector((0, 0, 0))
+    def __init__(self,
+            d=3,
+            radius=0,
+            center=Vector((0, 0, 0)),
+            z_axis=Vector((0, 0, 1))):
+
+        self.r = radius
+        self.c = center
         z = z_axis
+
         if z.z < 1:
             x = z.cross(Vector((0, 0, 1)))
             y = x.cross(z)
@@ -453,9 +563,12 @@ class GlCircle(Gl):
         self.z_axis = z
         self.a0 = 0
         self.da = 2 * pi
-        Gl.__init__(self, d)
+        GlBaseLine.__init__(self, d)
 
     def lerp(self, t):
+        """
+            Linear interpolation
+        """
         a = self.a0 + t * self.da
         return self.c + self.rM * Vector((self.r * cos(a), self.r * sin(a), 0))
 
@@ -468,17 +581,23 @@ class GlCircle(Gl):
 
 class GlArc(GlCircle):
 
-    def __init__(self, d=3, z_axis=Vector((0, 0, 1))):
+    def __init__(self,
+            d=3,
+            radius=0,
+            center=Vector((0, 0, 0)),
+            z_axis=Vector((0, 0, 1)),
+            a0=0,
+            da=0):
         """
             a0 and da arguments are in radians
-            a0 = 0   on the right side
-            a0 = pi on the left side
+            a0 = 0   on the x+ axis side
+            a0 = pi  on the x- axis side
             da > 0 CCW contrary-clockwise
             da < 0 CW  clockwise
-            stored internally as radians
         """
-        GlCircle.__init__(self, d, z_axis)
-        self.da = 0
+        GlCircle.__init__(self, d, radius, center, z_axis)
+        self.da = da
+        self.a0 = a0
 
     @property
     def length(self):
@@ -486,9 +605,9 @@ class GlArc(GlCircle):
 
     def normal(self, t=0):
         """
-            always on the right side
+            perpendicular line always on the right side
         """
-        n = GlLine(z_axis=self.z_axis)
+        n = GlLine(d=self.d, z_axis=self.z_axis)
         n.p = self.lerp(t)
         if self.da < 0:
             n.v = self.c - n.p
@@ -497,7 +616,7 @@ class GlArc(GlCircle):
         return n
 
     def sized_normal(self, t, size):
-        n = GlLine(z_axis=self.z_axis)
+        n = GlLine(d=self.d, z_axis=self.z_axis)
         n.p = self.lerp(t)
         if self.da < 0:
             n.v = size * (self.c - n.p).normalized()
@@ -509,7 +628,7 @@ class GlArc(GlCircle):
         a = self.a0 + t * self.da
         ca = cos(a)
         sa = sin(a)
-        n = GlLine()
+        n = GlLine(d=self.d, z_axis=self.z_axis)
         n.p = self.c + self.rM * Vector((self.r * ca, self.r * sa, 0))
         n.v = self.rM * Vector((length * sa, -length * ca, 0))
         if self.da > 0:
@@ -524,14 +643,22 @@ class GlArc(GlCircle):
             radius = self.r + offset
         else:
             radius = self.r - offset
-        return GlArc(self.c, radius, self.a0, self.da, z_axis=self.z_axis)
+        return GlArc(d=self.d,
+            radius=radius,
+            center=self.c,
+            a0=self.a0,
+            da=self.da,
+            z_axis=self.z_axis)
 
 
 class GlPolygon(Gl):
-    def __init__(self, colour, d=3):
+
+    def __init__(self,
+            colour=(0.0, 0.0, 0.0, 1.0),
+            d=3):
+
         self.pts_3d = []
-        Gl.__init__(self, d)
-        self.colour_inactive = colour
+        Gl.__init__(self, d, colour)
 
     def set_pos(self, pts_3d):
         self.pts_3d = pts_3d
@@ -540,11 +667,29 @@ class GlPolygon(Gl):
     def pts(self):
         return self.pts_3d
 
+    def draw(self, context, render=False):
+        """
+            render flag when rendering
+        """
+        self.render = render
+        bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
+        bgl.glEnable(bgl.GL_BLEND)
+        if render:
+            # enable anti-alias on polygons
+            bgl.glEnable(bgl.GL_POLYGON_SMOOTH)
+        bgl.glColor4f(*self.colour)
+        bgl.glBegin(bgl.GL_POLYGON)
 
-class GlPolyline(Gl):
+        for pt in self.pts:
+            x, y = self.position_2d_from_coord(context, pt, render)
+            bgl.glVertex2f(x, y)
+        self._end()
+
+
+class GlPolyline(GlBaseLine):
     def __init__(self, colour, d=3):
         self.pts_3d = []
-        Gl.__init__(self, d=d)
+        GlBaseLine.__init__(self, d)
         self.colour_inactive = colour
 
     def set_pos(self, pts_3d):
@@ -556,14 +701,18 @@ class GlPolyline(Gl):
         return self.pts_3d
 
 
-class GlHandle(Gl):
+class GlHandle(GlPolygon):
 
     def __init__(self, sensor_size, size, draggable=False, selectable=False):
         """
             sensor_size : 2d size in pixels of sensor area
             size : 3d size of handle
         """
-        Gl.__init__(self)
+        GlPolygon.__init__(self)
+        self.colour_active = (1.0, 0.0, 0.0, 1.0)
+        self.colour_hover = (1.0, 1.0, 0.0, 1.0)
+        self.colour_normal = (1.0, 1.0, 1.0, 1.0)
+        self.colour_selected = (0.0, 0.0, 0.7, 1.0)
         self.size = size
         self.sensor_width = sensor_size
         self.sensor_height = sensor_size
@@ -656,15 +805,15 @@ class TriHandle(GlHandle):
 
 class EditableText(GlText, GlHandle):
     def __init__(self, sensor_size, size, draggable=False, selectable=False):
-        GlText.__init__(self, colour=(0, 0, 0, 1))
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
+        GlText.__init__(self, colour=(0, 0, 0, 1))
 
     def set_pos(self, context, value, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
         self.c_axis = self.up_axis.cross(normal)
         self.pos_3d = pos_3d
         self.value = value
-        self._text = self.as_text(context)
+        self._text = self.add_units(context)
         x, y = self.text_size(context)
         self.pos_2d = self.position_2d_from_coord(context, pos_3d)
         self.pos_2d.x += 0.5 * x
@@ -682,17 +831,33 @@ class FeedbackPanel():
     """
     def __init__(self, title='Archipack'):
 
-        self.main_title = GlText(d=2, label=title + " : ", font_size=feedback_size_main, colour=feedback_colour_main)
-        self.title = GlText(d=2, font_size=feedback_size_title, colour=feedback_colour_main)
-        self.spacing = Vector((0.5 * feedback_size_shortcut, 0.5 * feedback_size_shortcut))
+        prefs = self.get_prefs(bpy.context)
+
+        self.main_title = GlText(d=2,
+            label=title + " : ",
+            font_size=prefs.feedback_size_main,
+            colour=prefs.feedback_colour_main
+            )
+        self.title = GlText(d=2,
+            font_size=prefs.feedback_size_title,
+            colour=prefs.feedback_colour_main
+            )
+        self.spacing = Vector((
+            0.5 * prefs.feedback_size_shortcut,
+            0.5 * prefs.feedback_size_shortcut))
         self.margin = 50
-        self.explanation = GlText(d=2, font_size=feedback_size_shortcut, colour=feedback_colour_main)
-        self.shortcut_area = GlPolygon(colour=(0, 0.4, 0.6, 0.2), d=2)
-        self.title_area = GlPolygon(colour=(0, 0.4, 0.6, 0.5), d=2)
+        self.explanation = GlText(d=2,
+            font_size=prefs.feedback_size_shortcut,
+            colour=prefs.feedback_colour_main
+            )
+        self.shortcut_area = GlPolygon(colour=prefs.feedback_shortcut_area, d=2)
+        self.title_area = GlPolygon(colour=prefs.feedback_title_area, d=2)
         self.shortcuts = []
         self.on = False
         self.show_title = True
         self.show_main_title = True
+        # read only, when enabled, after draw() the top left coord of info box
+        self.top = Vector((0, 0))
 
     def disable(self):
         self.on = False
@@ -700,18 +865,35 @@ class FeedbackPanel():
     def enable(self):
         self.on = True
 
+    def get_prefs(self, context):
+        global __name__
+        try:
+            # retrieve addon name from imports
+            addon_name = __name__.split('.')[0]
+            prefs = context.user_preferences.addons[addon_name].preferences
+        except:
+            prefs = DefaultColorScheme
+            pass
+        return prefs
+
     def instructions(self, context, title, explanation, shortcuts):
         """
             position from bottom to top
         """
+        prefs = self.get_prefs(context)
+
         self.explanation.label = explanation
         self.title.label = title
 
         self.shortcuts = []
 
         for key, label in shortcuts:
-            key = GlText(d=2, label=key, font_size=feedback_size_shortcut, colour=feedback_colour_key)
-            label = GlText(d=2, label=' : ' + label, font_size=feedback_size_shortcut, colour=feedback_colour_shortcut)
+            key = GlText(d=2, label=key,
+                font_size=prefs.feedback_size_shortcut,
+                colour=prefs.feedback_colour_key)
+            label = GlText(d=2, label=' : ' + label,
+                font_size=prefs.feedback_size_shortcut,
+                colour=prefs.feedback_colour_shortcut)
             ks = key.text_size(context)
             ls = label.text_size(context)
             self.shortcuts.append([key, ks, label, ls])
@@ -723,6 +905,7 @@ class FeedbackPanel():
                 so we are able to always fit needs
             """
             system = context.user_preferences.system
+
             w = context.region.width
             x_min = self.margin
             x_max = w - self.margin
@@ -831,6 +1014,8 @@ class FeedbackPanel():
             self.explanation.draw(context)
             for s in shortcuts:
                 s.draw(context)
+
+            self.top = Vector((x_min, pos.y + main_title_size.y + self.spacing.y))
 
 
 class GlCursorFence():

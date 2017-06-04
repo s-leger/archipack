@@ -120,7 +120,7 @@ class FenceGenerator():
         self.user_defined_uvs = None
         self.user_defined_mat = None
 
-    def add_part(self, type, radius, a0, da, length):
+    def add_part(self, part):
 
         if len(self.segs) < 1:
             s = None
@@ -129,18 +129,18 @@ class FenceGenerator():
 
         # start a new fence
         if s is None:
-            if type == 'S_FENCE':
+            if part.type == 'S_FENCE':
                 p = Vector((0, 0))
-                v = length * Vector((cos(a0), sin(a0)))
+                v = part.length * Vector((cos(part.a0), sin(part.a0)))
                 s = StraightFence(p, v)
-            elif type == 'C_FENCE':
-                c = -radius * Vector((cos(a0), sin(a0)))
-                s = CurvedFence(c, radius, a0, da)
+            elif part.type == 'C_FENCE':
+                c = -part.radius * Vector((cos(part.a0), sin(part.a0)))
+                s = CurvedFence(c, part.radius, part.a0, part.da)
         else:
-            if type == 'S_FENCE':
-                s = s.straight_fence(a0, length)
-            elif type == 'C_FENCE':
-                s = s.curved_fence(a0, da, radius)
+            if part.type == 'S_FENCE':
+                s = s.straight_fence(part.a0, part.length)
+            elif part.type == 'C_FENCE':
+                s = s.curved_fence(part.a0, part.da, part.radius)
 
         s.dist = self.length
         self.length += s.length
@@ -355,7 +355,7 @@ class FenceGenerator():
         # self.set_offset(sub_offset_x)
 
         t_post = (0.5 * post_y - y) / self.length
-        t_spacing = sub_spacing / self.length
+        t_spacing = (sub_spacing + y) / self.length
 
         for segment in self.segments:
             t_step = segment.t_step
@@ -594,10 +594,7 @@ def update_type(self, context):
                 w = w0.curved_fence(part.a0, part.da, part.radius)
         else:
             g = FenceGenerator(None)
-            if "C_" in self.type:
-                g.add_part("S_SEG", self.radius, self.a0, self.da, self.length, 0)
-            else:
-                g.add_part("C_SEG", self.radius, self.a0, self.da, self.length, 0)
+            g.add_part(self)
             w = g.segs[0]
 
         # w0 - w - w1
@@ -759,6 +756,7 @@ class archipack_fence(Manipulable, PropertyGroup):
             name="user defined",
             update=update_path
             )
+    
     user_defined_resolution = IntProperty(
             name="resolution",
             min=1,
@@ -1262,7 +1260,7 @@ class archipack_fence(Manipulable, PropertyGroup):
         g = FenceGenerator(self.parts)
         for part in self.parts:
             # type, radius, da, length
-            g.add_part(part.type, part.radius, part.a0, part.da, part.length)
+            g.add_part(part)
 
         # param_t(da, part_length)
         g.param_t(self.angle_limit, self.post_spacing)

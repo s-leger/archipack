@@ -92,8 +92,8 @@ class Wall():
         self.p3d(verts, t)
         self.make_faces(i, f, faces)
 
-    def straight_wall(self, length, da, wall_z, z, t):
-        r = self.straight(length).rotate(da)
+    def straight_wall(self, a0, length, wall_z, z, t):
+        r = self.straight(length).rotate(a0)
         return StraightWall(self, r.p, r.v, wall_z, z, t, self.flip)
 
     def curved_wall(self, a0, da, radius, wall_z, z, t):
@@ -134,31 +134,31 @@ class WallGenerator():
         self.faces_type = 'NONE'
         self.closed = False
 
-    def add_part(self, type, radius, a0, da, length, wall_z, part_z, part_t, n_splits, flip):
+    def add_part(self, part, wall_z, flip):
 
         # TODO:
         # refactor this part (height manipulators)
         manip_index = []
         if len(self.segs) < 1:
             s = None
-            z = [part_z[0]]
+            z = [part.z[0]]
             manip_index.append(0)
         else:
             s = self.segs[-1]
             z = [s.z[-1]]
 
         t_cur = 0
-        z_last = n_splits - 1
+        z_last = part.n_splits - 1
         t = [0]
 
-        for i in range(n_splits):
-            t_try = t[-1] + part_t[i]
+        for i in range(part.n_splits):
+            t_try = t[-1] + part.t[i]
             if t_try == t_cur:
                 continue
             if t_try <= 1:
                 t_cur = t_try
                 t.append(t_cur)
-                z.append(part_z[i])
+                z.append(part.z[i])
                 manip_index.append(i)
             else:
                 z_last = i
@@ -167,25 +167,25 @@ class WallGenerator():
         if t_cur < 1:
             t.append(1)
             manip_index.append(z_last)
-            z.append(part_z[z_last])
+            z.append(part.z[z_last])
 
         # start a new wall
         if s is None:
-            if type == 'S_WALL':
+            if part.type == 'S_WALL':
                 p = Vector((0, 0))
-                v = length * Vector((cos(a0), sin(a0)))
+                v = part.length * Vector((cos(part.a0), sin(part.a0)))
                 s = StraightWall(s, p, v, wall_z, z, t, flip)
-            elif type == 'C_WALL':
-                c = -radius * Vector((cos(a0), sin(a0)))
-                s = CurvedWall(s, c, radius, a0, da, wall_z, z, t, flip)
+            elif part.type == 'C_WALL':
+                c = -part.radius * Vector((cos(part.a0), sin(part.a0)))
+                s = CurvedWall(s, c, part.radius, part.a0, part.da, wall_z, z, t, flip)
         else:
-            if type == 'S_WALL':
-                s = s.straight_wall(length, a0, wall_z, z, t)
-            elif type == 'C_WALL':
-                s = s.curved_wall(a0, da, radius, wall_z, z, t)
+            if part.type == 'S_WALL':
+                s = s.straight_wall(part.a0, part.length, wall_z, z, t)
+            elif part.type == 'C_WALL':
+                s = s.curved_wall(part.a0, part.da, part.radius, wall_z, z, t)
 
         self.segs.append(s)
-        self.last_type = type
+        self.last_type = part.type
 
         return manip_index
 
@@ -218,9 +218,9 @@ class WallGenerator():
 
         # Make last segment implicit closing one
 
-        nb_segs = len(self.segs)
+        nb_segs = len(self.segs) - 1
         if closed:
-            nb_segs -= 1
+            nb_segs += 1
 
         for i, wall in enumerate(self.segs):
 
@@ -232,7 +232,7 @@ class WallGenerator():
             # angle from last to current segment
             if i > 0:
 
-                if i < nb_segs:
+                if i < len(self.segs) - 1:
                     manipulators[0].type_key = 'ANGLE'
                 else:
                     manipulators[0].type_key = 'DUMB_ANGLE'
@@ -324,17 +324,12 @@ def update_type(self, context):
             w0 = g.segs[idx - 1]
             a0 = w0.straight(1).angle
             if "C_" in self.type:
-                w = w0.straight_wall(self.length, self.a0, d.z, self.z, self.t)
+                w = w0.straight_wall(self.a0, self.length, d.z, self.z, self.t)
             else:
                 w = w0.curved_wall(self.a0, self.da, self.radius, d.z, self.z, self.t)
         else:
             g = WallGenerator(None)
-            if "C_" in self.type:
-                g.add_part("S_WALL", self.radius, self.a0, self.da,
-                    self.length, d.z, self.z, self.t, self.n_splits, d.flip)
-            else:
-                g.add_part("C_WALL", self.radius, self.a0, self.da,
-                    self.length, d.z, self.z, self.t, self.n_splits, d.flip)
+            g.add_part(self, d.z, d.flip)
             w = g.segs[0]
         # w0 - w - w1
         dp = w.p1 - w.p0
@@ -626,10 +621,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.auto_update = False
         p = self.parts.add()
         p.length = length
+        self.parts.move(len(self.parts) - 1, self.n_parts)
         self.n_parts += 1
         self.setup_parts_manipulators()
         self.auto_update = True
-        return p
+        return self.parts[self.n_parts - 1]
 
     def remove_part(self, context, where):
         self.manipulable_disable(context)
@@ -689,8 +685,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # print("get_generator")
         g = WallGenerator(self.parts)
         for part in self.parts:
-            g.add_part(part.type, part.radius, part.a0, part.da, part.length,
-                self.z, part.z, part.t, part.n_splits, self.flip)
+            g.add_part(part, self.z, self.flip)
         g.close(self.closed)
         return g
 
@@ -701,12 +696,12 @@ class archipack_wall2(Manipulable, PropertyGroup):
         # n_parts+1
         # as last one is end point of last segment or closing one
         row_change = False
-        for i in range(len(self.parts), self.n_parts, -1):
+        for i in range(len(self.parts), self.n_parts + 1, -1):
             row_change = True
             self.parts.remove(i - 1)
 
         # add rows
-        for i in range(len(self.parts), self.n_parts):
+        for i in range(len(self.parts), self.n_parts + 1):
             row_change = True
             self.parts.add()
 
@@ -720,7 +715,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         return g
 
     def setup_parts_manipulators(self):
-        for i in range(self.n_parts):
+        for i in range(self.n_parts + 1):
             p = self.parts[i]
             n_manips = len(p.manipulators)
             if n_manips < 1:
@@ -783,8 +778,12 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 pts.append(pts[0])
 
         self.auto_update = False
-
+        
         self.n_parts = len(pts) - 1
+        
+        if spline.use_cyclic_u:
+            self.n_parts -= 1
+            
         self.update_parts(None)
 
         p0 = pts.pop(0)
@@ -802,7 +801,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
             p.a0 = da
             a0 += da
             p0 = p1
-        self.closed = True
+            
+        self.closed = spline.use_cyclic_u
         self.auto_update = True
 
     def update(self, context, manipulable_refresh=False, update_childs=False):
@@ -852,8 +852,8 @@ class archipack_wall2(Manipulable, PropertyGroup):
             ])
 
         # Parts COUNTER
-        self.manipulators[1].set_pts([g.segs[-1].lerp(1.1).to_3d(),
-            g.segs[-1].lerp(1.1 + 0.5 / g.segs[-1].length).to_3d(),
+        self.manipulators[1].set_pts([g.segs[-2].lerp(1.1).to_3d(),
+            g.segs[-2].lerp(1.1 + 0.5 / g.segs[-2].length).to_3d(),
             (-side, 0, 0)
             ])
 
@@ -1107,7 +1107,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
             setup child manipulators
         """
         # print("manipulate_childs")
-        for wall_idx in range(self.n_parts):
+        n_parts = self.n_parts
+        if self.closed:
+            n_parts += 1
+
+        for wall_idx in range(n_parts):
             for child in self.childs:
                 if child.wall_idx == wall_idx:
                     c, d = child.get_child(context)
@@ -1168,33 +1172,29 @@ class archipack_wall2(Manipulable, PropertyGroup):
 
         # setup childs manipulators
         self.manipulate_childs(context)
-        nb_segs = self.n_parts
+        n_parts = self.n_parts
         if self.closed:
-            nb_segs -= 1
+            n_parts += 1
 
         # update manipulators on version change
         self.setup_parts_manipulators()
 
         for i, part in enumerate(self.parts):
 
-            if i < self.n_parts:
+            if i < n_parts:
                 if i > 0:
                     # start angle
                     self.manip_stack.append(part.manipulators[0].setup(context, o, part))
 
                 # length / radius + angle
                 self.manip_stack.append(part.manipulators[1].setup(context, o, part))
+                # segment index
+                self.manip_stack.append(part.manipulators[3].setup(context, o, self))
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
 
-            # segment index
-            self.manip_stack.append(part.manipulators[3].setup(context, o, self))
-
         # height as per segment will be here when done
-
-        # TODO:
-        # add last segment snap manipulator at end of the segment
 
         # width + counter
         for m in self.manipulators:
@@ -1318,9 +1318,13 @@ class ARCHIPACK_PT_wall2(Panel):
         box.prop(prop, 'x_offset')
         row = layout.row()
         row.prop(prop, "closed")
+        n_parts = prop.n_parts
+        if prop.closed:
+            n_parts += 1
         for i, part in enumerate(prop.parts):
-            box = layout.box()
-            part.draw(box, context, i)
+            if i < n_parts:
+                box = layout.box()
+                part.draw(box, context, i)
 
     @classmethod
     def params(cls, o):
@@ -1501,10 +1505,8 @@ class ARCHIPACK_OT_wall2_from_slab(Operator):
         d = o.data.archipack_wall2[0]
         d.auto_update = False
         d.parts.clear()
-        d.n_parts = wd.n_parts
+        d.n_parts = wd.n_parts - 1
         d.closed = True
-        if not wd.closed:
-            d.n_parts += 1
         for part in wd.parts:
             p = d.parts.add()
             if "S_" in part.type:
@@ -1643,14 +1645,15 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 dp = sp.placeloc - o.location
                 if dp.length < 0.01:
                     d.closed = True
-                    state = 'CANCEL'
-                    # return
+                    self.state = 'CANCEL'
+                    return
+                    
                 part = d.add_part(context, delta.length)
 
             # print("self.o :%s" % o.name)
             rM = o.matrix_world.inverted().to_3x3()
             g = d.get_generator()
-            w = g.segs[-1]
+            w = g.segs[-2]
             dp = rM * delta
             da = atan2(dp.y, dp.x) - w.straight(1).angle
             a0 = part.a0 + da
@@ -1723,7 +1726,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                     context.scene.objects.active = o
                     d = o.data.archipack_wall2[0]
                     g = d.get_generator()
-                    takeloc = o.matrix_world * g.segs[-1].p1.to_3d()
+                    takeloc = o.matrix_world * g.segs[-2].p1.to_3d()
                     o.select = False
                 else:
                     takeloc = self.mouse_to_plane(context, event)
@@ -1871,7 +1874,6 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         o = context.active_object
         o.data.archipack_wall2[0].manipulable_invoke(context)
         return {'FINISHED'}
-
 
     def execute(self, context):
         """

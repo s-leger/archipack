@@ -355,7 +355,14 @@ class Line(Projection):
             d = last.v * c
             if d == 0:
                 return line
-            t = (c * (line.p - last.p)) / d
+            v = line.p - last.p
+            t = (c * v) / d
+            c2 = last.cross_z
+            u = (c2 * v) / d
+            # intersect past this segment end
+            # or before last segment start
+            if u > 1 or t < 0:
+                return line
             p = last.lerp(t)
             line.p0 = p
             last.p1 = p
