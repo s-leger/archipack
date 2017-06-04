@@ -440,17 +440,24 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons_coll["fence"].icon_id
                     )
         row.operator("archipack.fence_from_curve", text="", icon='CURVE_DATA')
+        # row = box.row(align=True)
+        # row.operator("archipack.roof", icon='CURVE_DATA')
         row = box.row(align=True)
-        row.operator("archipack.roof", icon='CURVE_DATA')
-        row = box.row(align=True)
-        row.operator("archipack.truss")
+        row.operator("archipack.truss",
+                    icon_value=icons_coll["truss"].icon_id
+                    )
         row = box.row(align=True)
         # row.operator("archipack.slab")
-        row.operator("archipack.slab_from_curve", icon='CURVE_DATA')
+        row.operator("archipack.slab_from_curve",
+                    icon_value=icons_coll["slab"].icon_id
+                    )
 
         row = box.row(align=True)
-        row.operator("archipack.wall2_from_slab")
-        row.operator("archipack.slab_from_wall")
+        row.operator("archipack.wall2_from_slab",
+                    icon_value=icons_coll["wall"].icon_id)
+        row.operator("archipack.slab_from_wall",
+                    icon_value=icons_coll["slab"].icon_id
+                    )
 
 
 # ----------------------------------------------------
@@ -481,6 +488,10 @@ def menu_func(self, context):
     layout.operator("archipack.fence",
                     text="Fence",
                     icon_value=icons_coll["fence"].icon_id
+                    )
+    layout.operator("archipack.truss",
+                    text="Truss",
+                    icon_value=icons_coll["truss"].icon_id
                     )
 
 
