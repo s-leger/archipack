@@ -952,7 +952,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.childs_manipulators.clear()
         if o.parent is None:
             return
-        wall_with_childs = [0 for i in range(self.n_parts)]
+        wall_with_childs = [0 for i in range(self.n_parts + 1)]
         relocate = []
         dmax = 2 * self.width
         witM = o.matrix_world.inverted()

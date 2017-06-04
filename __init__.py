@@ -421,6 +421,8 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.window",
                     icon_value=icons_coll["window"].icon_id
                     ).mode = 'CREATE'
+        row.operator("archipack.window_draw",
+                    text="Draw", icon='GREASEPENCIL')
         row.operator("archipack.door",
                     icon_value=icons_coll["door"].icon_id
                     ).mode = 'CREATE'
