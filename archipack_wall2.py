@@ -759,6 +759,14 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 for i in range(resolution):
                     pts.append(seg[i].to_3d())
 
+    def is_cw(self, pts):
+        p0 = pts[0]
+        d = 0
+        for p in pts[1:]:
+            d += (p.x * p0.y - p.y * p0.x)
+            p0 = p
+        return d > 0
+        
     def from_spline(self, wM, resolution, spline):
         pts = []
         if spline.type == 'POLY':
@@ -778,8 +786,11 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
 
+        if self.is_cw(pts):
+            pts = list(reversed(pts))
+            
         self.auto_update = False
-
+        
         self.n_parts = len(pts) - 1
 
         if spline.use_cyclic_u:

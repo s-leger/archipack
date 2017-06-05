@@ -50,7 +50,8 @@ class archipack_truss(Manipulable, PropertyGroup):
                 ('3', 'Prolyte H30', 'Prolyte H30', 2),
                 ('4', 'Prolyte H40', 'Prolyte H40', 3),
                 ('5', 'OPTI Trilite 100', 'OPTI Trilite 100', 4),
-                ('6', 'OPTI Trilite 200', 'OPTI Trilite 200', 5)
+                ('6', 'OPTI Trilite 200', 'OPTI Trilite 200', 5),
+                ('7', 'User defined', 'User defined', 6)
                 ),
             default='2',
             update=update
@@ -73,7 +74,25 @@ class archipack_truss(Manipulable, PropertyGroup):
             )
     master_count = IntProperty(
             name="Masters",
-            default=3, min=1,
+            default=3, min=2,
+            update=update
+            )
+    entre_axe = FloatProperty(
+            name="Distance",
+            default=0.239, min=0.001,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    master_radius = FloatProperty(
+            name="Radius",
+            default=0.02415, min=0.0001,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    slaves_radius = FloatProperty(
+            name="Subs radius",
+            default=0.01, min=0.0001,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     # Flag to prevent mesh update while making bulk changes over variables
@@ -107,16 +126,16 @@ class archipack_truss(Manipulable, PropertyGroup):
         else:
             cv = len(verts)
         for seg in range(segs):
-            seg_angle = seg * segs_step
+            seg_angle = pi / 4 + seg * segs_step
             tmpverts[seg] = radius * Vector((sin(seg_angle), -cos(seg_angle), 0))
-        
+
         if not add:
             for seg in range(segs):
                 verts.append(tM * tMb * tmpverts[seg])
-                
+
         for seg in range(segs):
             verts.append(tM * tMt * tmpverts[seg])
-            
+
         for seg in range(segs - 1):
             f = cv + seg
             faces.append((f + 1, f, f + segs, f + segs + 1))
@@ -154,7 +173,11 @@ class archipack_truss(Manipulable, PropertyGroup):
             EntreAxe = 0.200
             master_radius = 0.0254
             slaves_radius = 0.00635
-
+        elif self.truss_type == '7':
+            EntreAxe = self.entre_axe
+            master_radius = min(0.5 * self.entre_axe, self.master_radius)
+            slaves_radius = min(0.5 * self.entre_axe, self.master_radius, self.slaves_radius)
+            
         master_sepang = (pi * (self.master_count - 2) / self.master_count) / 2
         radius = (EntreAxe / 2) / cos(master_sepang)
         master_step = pi * 2 / self.master_count
@@ -250,7 +273,7 @@ class archipack_truss(Manipulable, PropertyGroup):
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=False)
         self.manipulators[0].set_pts([(0, 0, 0), (0, 0, self.z), (1, 0, 0)])
         bpy.ops.object.shade_smooth()
-        
+
         # restore context
         try:
             for o in selected:
@@ -263,7 +286,7 @@ class archipack_truss(Manipulable, PropertyGroup):
 
 
 class ARCHIPACK_PT_truss(Panel):
-    """Archipack Prolyte / Trilite"""
+    """Archipack Truss"""
     bl_idname = "ARCHIPACK_PT_truss"
     bl_label = "Truss"
     bl_space_type = 'VIEW_3D'
@@ -285,7 +308,11 @@ class ARCHIPACK_PT_truss(Panel):
         box.prop(prop, 'segs')
         box.prop(prop, 'master_segs')
         box.prop(prop, 'master_count')
-
+        if prop.truss_type == '7':
+            box.prop(prop, 'master_radius')
+            box.prop(prop, 'slaves_radius')
+            box.prop(prop, 'entre_axe')
+                
     @classmethod
     def params(cls, o):
         try:
