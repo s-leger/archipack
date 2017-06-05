@@ -30,6 +30,103 @@ from bpy.props import BoolProperty
 from mathutils import Vector
 
 
+class ARCHIPACK_OT_single_boolean(Operator):
+    bl_idname = "archipack.single_boolean"
+    bl_label = "SingleBoolean"
+    bl_description = "Add single boolean for doors and windows"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    """
+        Wall must be active object
+        window or door must be selected
+    """
+
+    @classmethod
+    def poll(cls, context):
+        w = context.active_object
+        return (w.data is not None and
+            "archipack_wall2" in w.data and
+            len(context.selected_objects) == 2
+            )
+
+    # -----------------------------------------------------
+    # Draw (create UI interface)
+    # -----------------------------------------------------
+    def draw(self, context):
+        pass
+
+    def autoboolean(self, context, wall, o):
+        # generate holes for crossing window and doors
+        hole = self._generate_hole(context, o)
+        if hole is None:
+            return
+        # update / remove / add  boolean modifier
+        modif = wall.modifiers.new('AutoBoolean', 'BOOLEAN')
+        modif.operation = 'DIFFERENCE'
+        modif.object = hole
+        # parenting childs to wall reference point
+        if wall.parent is None:
+            x, y, z = wall.bound_box[0]
+            context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
+            # fix issue #9
+            context.scene.objects.active = wall
+            bpy.ops.archipack.reference_point()
+        else:
+            context.scene.objects.active = wall.parent
+        bpy.ops.object.select_all(action='DESELECT')
+        wall.select = True
+        o.select = True
+        bpy.ops.archipack.parent_to_reference()
+
+    def _prepare_hole(self, hole):
+        hole.lock_location = (True, True, True)
+        hole.lock_rotation = (True, True, True)
+        hole.lock_scale = (True, True, True)
+        hole.draw_type = 'WIRE'
+        hole.hide_render = True
+        hole.hide_select = True
+        hole.select = True
+        hole.cycles_visibility.camera = False
+        hole.cycles_visibility.diffuse = False
+        hole.cycles_visibility.glossy = False
+        hole.cycles_visibility.shadow = False
+        hole.cycles_visibility.scatter = False
+        hole.cycles_visibility.transmission = False
+
+    def _generate_hole(self, context, o):
+        hole = None
+        # generate holes from archipack primitives
+        if o.data is not None:
+            # Keep separate as contains rules may vary from window to doors
+            if 'archipack_window' in o.data:
+                hole = o.data.archipack_window[0].interactive_hole(context, o)
+            elif 'archipack_door' in o.data:
+                hole = o.data.archipack_door[0].interactive_hole(context, o)
+
+        # Select all holes here, fix issue #13
+        if hole is not None:
+            self._prepare_hole(hole)
+        return hole
+
+    # -----------------------------------------------------
+    # Execute
+    # -----------------------------------------------------
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            wall = context.scene.objects.active
+            for o in context.selected_objects:
+                if o != wall:
+                    self.autoboolean(context, wall, o)
+                    break
+            o.select = False
+            wall.select = True
+            context.scene.objects.active = wall
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+
 class ARCHIPACK_OT_auto_boolean(Operator):
     bl_idname = "archipack.auto_boolean"
     bl_label = "AutoBoolean"
@@ -274,8 +371,10 @@ class ARCHIPACK_OT_auto_boolean(Operator):
 
 
 def register():
+    bpy.utils.register_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
 
 
 def unregister():
+    bpy.utils.unregister_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.unregister_class(ARCHIPACK_OT_auto_boolean)

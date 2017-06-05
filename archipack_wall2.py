@@ -25,6 +25,7 @@
 #
 # ----------------------------------------------------------
 import bpy
+# import time
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
     FloatProperty, BoolProperty, IntProperty, StringProperty,
@@ -778,12 +779,12 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 pts.append(pts[0])
 
         self.auto_update = False
-        
+
         self.n_parts = len(pts) - 1
-        
+
         if spline.use_cyclic_u:
             self.n_parts -= 1
-            
+
         self.update_parts(None)
 
         p0 = pts.pop(0)
@@ -801,7 +802,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             p.a0 = da
             a0 += da
             p0 = p1
-            
+
         self.closed = spline.use_cyclic_u
         self.auto_update = True
 
@@ -946,8 +947,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
             create manipulators
             call after a boolean oop
         """
-        # print("setup_childs")
-
+        # tim = time.time()
         self.childs.clear()
         self.childs_manipulators.clear()
         if o.parent is None:
@@ -990,6 +990,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                             (t * wall.length, d, (itM * child.location).z),
                             flip,
                             t))
+                        break
 
         self.sort_child(relocate)
         for child in relocate:
@@ -1000,13 +1001,14 @@ class archipack_wall2(Manipulable, PropertyGroup):
         for i in range(sum(wall_with_childs)):
             m = self.childs_manipulators.add()
             m.type_key = 'DUMB_SIZE'
+        # print("setup_childs:%1.4f" % (time.time()-tim))
 
     def relocate_childs(self, context, o, g):
         """
             Move and resize childs after wall edition
         """
         # print("relocate_childs")
-
+        # tim = time.time()
         w = -self.x_offset * self.width
         if self.flip:
             w = -w
@@ -1023,12 +1025,13 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 rx, ry = -rx, -ry
 
             if d is not None:
-                c.select = True
-                d.auto_update = False
-                d.flip = child.flip
-                d.y = self.width
-                d.auto_update = True
-                c.select = False
+                if d.y != self.width or d.flip != child.flip:
+                    c.select = True
+                    d.auto_update = False
+                    d.flip = child.flip
+                    d.y = self.width
+                    d.auto_update = True
+                    c.select = False
                 x, y = n.p - (0.5 * w * n.v.normalized())
             else:
                 x, y = n.p - (child.pos.y * n.v.normalized())
@@ -1041,6 +1044,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                 [0, 0, 1, child.pos.z],
                 [0, 0, 0, 1]
             ])
+        # print("relocate_childs:%1.4f" % (time.time()-tim))
 
     def update_childs(self, context, o, g):
         """
@@ -1229,6 +1233,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
         self.update_childs(context, o, g)
         # dont do anything ..
         # self.manipulable_release(context)
+        self.manipulate_mode = True
         self.manipulable_setup(context)
         self.manipulate_mode = True
 
@@ -1264,7 +1269,7 @@ class ARCHIPACK_OT_wall2_throttle_update(Operator):
                 d.relocate_childs(context, o, g)
                 # store gl points
                 d.update_childs(context, o, g)
-                self.cancel(context)
+                return self.cancel(context)
         return {'PASS_THROUGH'}
 
     def execute(self, context):
@@ -1647,7 +1652,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                     d.closed = True
                     self.state = 'CANCEL'
                     return
-                    
+
                 part = d.add_part(context, delta.length)
 
             # print("self.o :%s" % o.name)

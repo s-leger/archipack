@@ -426,7 +426,6 @@ class TOOLS_PT_Archipack_Create(Panel):
         subrow.operator("archipack.window_draw",
                     text="",
                     icon='GREASEPENCIL')
-
         col = row.column()
         subrow = col.row(align=True)
         subrow.operator("archipack.door",

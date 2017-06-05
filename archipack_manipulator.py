@@ -1985,7 +1985,7 @@ class archipack_manipulator(PropertyGroup):
 
 class ArchipackStore:
     # current manipulated object
-    scope = None
+    manipulable = None
 
 
 class ARCHIPACK_OT_manipulate(Operator):
@@ -1999,7 +1999,7 @@ class ARCHIPACK_OT_manipulate(Operator):
         return context.active_object is not None
 
     def modal(self, context, event):
-        return ArchipackStore.scope.manipulable_modal(context, event)
+        return ArchipackStore.manipulable.manipulable_modal(context, event)
 
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
@@ -2083,7 +2083,7 @@ class Manipulable():
             self.manip_stack.append(m.setup(context, o, self))
 
     def _manipulable_invoke(self, context):
-        ArchipackStore.scope = self
+        ArchipackStore.manipulable = self
         # take care of context switching
         # when call from outside of 3d view
         if context.space_data.type == 'VIEW_3D':
@@ -2132,9 +2132,9 @@ class Manipulable():
             as it provide all needed
             functionnality out of the box
         """
-        print("manipulable_modal")
         # setup again when manipulators type change
         if self.manipulable_refresh:
+            print("manipulable_refresh")
             self.manipulable_refresh = False
             self.manipulable_setup(context)
             self.manipulate_mode = True
@@ -2146,11 +2146,6 @@ class Manipulable():
 
         if self.keymap.check(event, self.keymap.undo):
             # user feedback on undo by disabling manipulators
-            self.manipulable_disable(context)
-            return {'FINISHED'}
-
-        if not self.manipulate_mode:
-            # exit modal when not in manipulate mode
             self.manipulable_disable(context)
             return {'FINISHED'}
 

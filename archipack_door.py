@@ -1761,8 +1761,9 @@ class ARCHIPACK_OT_door_draw(Operator):
         if event.value == 'PRESS':
             if event.type in {'LEFTMOUSE', 'MOUSEMOVE'}:
                 if wall is not None:
+                    context.scene.objects.active = wall
                     wall.select = True
-                    bpy.ops.archipack.auto_boolean()
+                    bpy.ops.archipack.single_boolean()
                     wall.select = False
                     bpy.ops.archipack.door(auto_manipulate=False)
                     context.active_object.matrix_world = tM
