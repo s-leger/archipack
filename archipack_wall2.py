@@ -1323,8 +1323,8 @@ class ARCHIPACK_PT_wall2(Panel):
         layout = self.layout
         row = layout.row(align=True)
         row.operator("archipack.wall2_manipulate", icon='HAND')
-        row = layout.row(align=True)
-        row.prop(prop, 'realtime')
+        # row = layout.row(align=True)
+        # row.prop(prop, 'realtime')
         box = layout.box()
         box.prop(prop, 'n_parts')
         box.prop(prop, 'step_angle')

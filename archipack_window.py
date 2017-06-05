@@ -1848,9 +1848,6 @@ class ARCHIPACK_OT_window_draw(Operator):
     def modal(self, context, event):
 
         context.area.tag_redraw()
-        # print("modal event %s %s" % (event.type, event.value))
-        # if event.type == 'NONE':
-        #    return {'PASS_THROUGH'}
         res, tM, wall = self.mouse_to_matrix(context, event)
         w = context.active_object
         if res and ARCHIPACK_PT_window.filter(w):
@@ -1861,11 +1858,13 @@ class ARCHIPACK_OT_window_draw(Operator):
                 if wall is not None:
                     context.scene.objects.active = wall
                     wall.select = True
-                    bpy.ops.archipack.single_boolean()
+                    if bpy.ops.archipack.single_boolean.poll():
+                        bpy.ops.archipack.single_boolean()
                     wall.select = False
                     bpy.ops.archipack.window(auto_manipulate=False)
                     context.active_object.matrix_world = tM
-
+                    return {'RUNNING_MODAL'}
+                    
         if event.value == 'RELEASE':
 
             if event.type in {'ESC', 'RIGHTMOUSE'}:
@@ -1879,6 +1878,9 @@ class ARCHIPACK_OT_window_draw(Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
+            # exit manipulate_mode if any
+            bpy.ops.archipack.disable_manipulate()
+            bpy.ops.object.select_all(action="DESELECT")
             bpy.ops.archipack.window(auto_manipulate=False)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a window", "Click & Drag over a wall", [

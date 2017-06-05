@@ -2009,6 +2009,24 @@ class ARCHIPACK_OT_manipulate(Operator):
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
 
+            
+class ARCHIPACK_OT_disable_manipulate(Operator):
+    bl_idname = "archipack.disable_manipulate"
+    bl_label = "Disable Manipulate"
+    bl_description = "Disable any active manipulate"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(self, context):
+        return True
+
+    def execute(self, context):
+        if ArchipackStore.manipulable is not None and ArchipackStore.manipulable.manipulate_mode:
+            ArchipackStore.manipulable.manipulable_disable(context)
+            return {'FINISHED'}
+        else:
+            return {'CANCELLED'}
+            
 
 class Manipulable():
     """
@@ -2134,7 +2152,7 @@ class Manipulable():
         """
         # setup again when manipulators type change
         if self.manipulable_refresh:
-            print("manipulable_refresh")
+            # print("manipulable_refresh")
             self.manipulable_refresh = False
             self.manipulable_setup(context)
             self.manipulate_mode = True
@@ -2300,6 +2318,7 @@ def register():
     # wall's line based object snap
     register_manipulator('WALL_SNAP', WallSnapManipulator)
     bpy.utils.register_class(ARCHIPACK_OT_manipulate)
+    bpy.utils.register_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.register_class(archipack_manipulator)
     bpy.app.handlers.load_pre.append(empty_stack)
 
@@ -2310,5 +2329,6 @@ def unregister():
     del manipulators_class_lookup
     del manip_stack
     bpy.utils.unregister_class(ARCHIPACK_OT_manipulate)
+    bpy.utils.unregister_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.unregister_class(archipack_manipulator)
     bpy.app.handlers.load_pre.remove(empty_stack)

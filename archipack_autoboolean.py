@@ -77,7 +77,13 @@ class ARCHIPACK_OT_single_boolean(Operator):
         wall.select = True
         o.select = True
         bpy.ops.archipack.parent_to_reference()
-
+        wall.select = True
+        context.scene.objects.active = wall
+        d = wall.data.archipack_wall2[0]
+        g = d.get_generator()
+        d.setup_childs(wall, g)
+        d.relocate_childs(context, wall, g)
+        
     def _prepare_hole(self, hole):
         hole.lock_location = (True, True, True)
         hole.lock_rotation = (True, True, True)

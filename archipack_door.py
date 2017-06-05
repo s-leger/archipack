@@ -1750,9 +1750,6 @@ class ARCHIPACK_OT_door_draw(Operator):
     def modal(self, context, event):
 
         context.area.tag_redraw()
-        # print("modal event %s %s" % (event.type, event.value))
-        # if event.type == 'NONE':
-        #    return {'PASS_THROUGH'}
         res, tM, wall = self.mouse_to_matrix(context, event)
         w = context.active_object
         if res and ARCHIPACK_PT_door.filter(w):
@@ -1767,6 +1764,7 @@ class ARCHIPACK_OT_door_draw(Operator):
                     wall.select = False
                     bpy.ops.archipack.door(auto_manipulate=False)
                     context.active_object.matrix_world = tM
+                    return {'RUNNING_MODAL'}
 
         if event.value == 'RELEASE':
 
@@ -1781,6 +1779,8 @@ class ARCHIPACK_OT_door_draw(Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
+            bpy.ops.archipack.disable_manipulate()
+            bpy.ops.object.select_all(action="DESELECT")
             bpy.ops.archipack.door(auto_manipulate=False)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
