@@ -1022,7 +1022,7 @@ class GlCursorFence():
     """
         Cursor crossing Fence
     """
-    def __init__(self, width=1, colour=(1.0, 1.0, 1.0, 0.5), style=bgl.GL_LINE_STIPPLE):
+    def __init__(self, width=1, colour=(1.0, 1.0, 1.0, 0.5), style=2852):
         self.line_x = GlLine(d=2)
         self.line_x.style = style
         self.line_x.width = width
@@ -1059,7 +1059,7 @@ class GlCursorArea():
                 width=1,
                 bordercolour=(1.0, 1.0, 1.0, 0.5),
                 areacolour=(0.5, 0.5, 0.5, 0.08),
-                style=bgl.GL_LINE_STIPPLE):
+                style=2852):
 
         self.border = GlPolyline(bordercolour, d=2)
         self.border.style = style
