@@ -2009,7 +2009,7 @@ class ARCHIPACK_OT_manipulate(Operator):
             self.report({'WARNING'}, "Active space must be a View3d")
             return {'CANCELLED'}
 
-            
+
 class ARCHIPACK_OT_disable_manipulate(Operator):
     bl_idname = "archipack.disable_manipulate"
     bl_label = "Disable Manipulate"
@@ -2026,7 +2026,7 @@ class ARCHIPACK_OT_disable_manipulate(Operator):
             return {'FINISHED'}
         else:
             return {'CANCELLED'}
-            
+
 
 class Manipulable():
     """
@@ -2036,6 +2036,7 @@ class Manipulable():
     """
     manipulators = CollectionProperty(
             type=archipack_manipulator,
+            # options={'SKIP_SAVE'},
             description="store 3d points to draw gl manipulators"
             )
     manipulable_refresh = BoolProperty(
@@ -2056,7 +2057,7 @@ class Manipulable():
     manipulable_selectable = BoolProperty(
             default=False,
             options={'SKIP_SAVE'},
-            description="Flag allow select mode"
+            description="Flag make manipulators selectable"
             )
     keymap = None
 
@@ -2065,6 +2066,13 @@ class Manipulable():
     manipulable_start_point = Vector((0, 0))
     manipulable_end_point = Vector((0, 0))
     manipulable_draw_handler = None
+
+    def setup_manipulators(self):
+        """
+            Must implement manipulators creation
+            TODO: call from update and manipulable_setup
+        """
+        raise NotImplementedError
 
     def manipulable_draw_callback(self, _self, context):
         self.manipulable_area.draw(context)
@@ -2097,10 +2105,13 @@ class Manipulable():
         """
         self.manipulable_disable(context)
         o = context.active_object
+        self.setup_manipulators()
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
 
     def _manipulable_invoke(self, context):
+
+        bpy.ops.archipack.disable_manipulate()
         ArchipackStore.manipulable = self
         # take care of context switching
         # when call from outside of 3d view

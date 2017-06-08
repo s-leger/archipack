@@ -55,11 +55,12 @@ if "bpy" in locals():
     imp.reload(archipack_stair)
     imp.reload(archipack_wall)
     imp.reload(archipack_wall2)
-    # imp.reload(archipack_roof2d)
+    imp.reload(archipack_roof2d)
     imp.reload(archipack_slab)
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
     imp.reload(archipack_rendering)
+    imp.reload(archipack_preset_menu)
     try:
         imp.reload(archipack_polylib)
         HAS_POLYLIB = True
@@ -78,11 +79,12 @@ else:
     from . import archipack_stair
     from . import archipack_wall
     from . import archipack_wall2
-    # from . import archipack_roof2d
+    from . import archipack_roof2d
     from . import archipack_slab
     from . import archipack_fence
     from . import archipack_truss
     from . import archipack_rendering
+    from . import archipack_preset_menu
     try:
         """
             polylib depends on shapely
@@ -111,8 +113,9 @@ from bpy.props import (
     StringProperty,
     IntProperty, FloatProperty, FloatVectorProperty
     )
+
 from bpy.utils import previews
-icons_coll = {}
+icons_collection = {}
 
 
 # ----------------------------------------------------
@@ -280,13 +283,15 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
                 (context.object is not None and context.object.type == 'CURVE'))
 
     def draw(self, context):
+        global icons_collection
+        icons = icons_collection["main"]
         layout = self.layout
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_detect",
-            icon_value=icons_coll["detect"].icon_id,
+            icon_value=icons["detect"].icon_id,
             text='Detect'
             ).extend = context.window_manager.archipack_polylib.extend
         row.prop(context.window_manager.archipack_polylib, "extend")
@@ -297,46 +302,46 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_polygons",
-            icon_value=icons_coll["selection"].icon_id,
+            icon_value=icons["selection"].icon_id,
             text='Select'
             ).action = 'select'
         row.operator(
             "archipack.polylib_pick_2d_polygons",
-            icon_value=icons_coll["union"].icon_id,
+            icon_value=icons["union"].icon_id,
             text='Union'
             ).action = 'union'
         row.operator(
             "archipack.polylib_output_polygons",
-            icon_value=icons_coll["polygons"].icon_id,
+            icon_value=icons["polygons"].icon_id,
             text='All')
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_polygons",
             text='Wall',
-            icon_value=icons_coll["wall"].icon_id).action = 'wall'
+            icon_value=icons["wall"].icon_id).action = 'wall'
         row.prop(context.window_manager.archipack_polylib, "solidify_thickness")
         row = box.row(align=True)
         row.operator("archipack.polylib_pick_2d_polygons",
             text='Window',
-            icon_value=icons_coll["window"].icon_id).action = 'window'
+            icon_value=icons["window"].icon_id).action = 'window'
         row.operator("archipack.polylib_pick_2d_polygons",
             text='Door',
-            icon_value=icons_coll["door"].icon_id).action = 'door'
+            icon_value=icons["door"].icon_id).action = 'door'
         row.operator("archipack.polylib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
         row = box.row(align=True)
         row.label(text="Lines")
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_lines",
-            icon_value=icons_coll["selection"].icon_id,
+            icon_value=icons["selection"].icon_id,
             text='Lines').action = 'select'
         row.operator(
             "archipack.polylib_pick_2d_lines",
-            icon_value=icons_coll["union"].icon_id,
+            icon_value=icons["union"].icon_id,
             text='Union').action = 'union'
         row.operator(
             "archipack.polylib_output_lines",
-            icon_value=icons_coll["polygons"].icon_id,
+            icon_value=icons["polygons"].icon_id,
             text='All')
         # row = layout.row(align=True)
         # box = row.box()
@@ -347,7 +352,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
         row = box.row(align=True)
         row.operator(
             "archipack.polylib_pick_2d_points",
-            icon_value=icons_coll["selection"].icon_id,
+            icon_value=icons["selection"].icon_id,
             text='Points').action = 'select'
         row = layout.row(align=True)
         box = row.box()
@@ -413,6 +418,8 @@ class TOOLS_PT_Archipack_Create(Panel):
         return True
 
     def draw(self, context):
+        global icons_collection
+        icons = icons_collection["main"]
         layout = self.layout
         row = layout.row(align=True)
         box = row.box()
@@ -420,88 +427,95 @@ class TOOLS_PT_Archipack_Create(Panel):
         row = box.row(align=True)
         col = row.column()
         subrow = col.row(align=True)
-        subrow.operator("archipack.window",
-                    icon_value=icons_coll["window"].icon_id
-                    ).mode = 'CREATE'
-        subrow.operator("archipack.window_draw",
+        subrow.operator("archipack.window_preset_menu",
+                    text="Window",
+                    icon_value=icons["window"].icon_id
+                    ).preset_operator = "archipack.window"
+        subrow.operator("archipack.window_preset_menu",
                     text="",
-                    icon='GREASEPENCIL')
+                    icon='GREASEPENCIL'
+                    ).preset_operator = "archipack.window_draw"
         col = row.column()
         subrow = col.row(align=True)
-        subrow.operator("archipack.door",
-                    icon_value=icons_coll["door"].icon_id
-                    ).mode = 'CREATE'
-        subrow.operator("archipack.door_draw",
+        subrow.operator("archipack.door_preset_menu",
+                    text="Door",
+                    icon_value=icons["door"].icon_id
+                    ).preset_operator = "archipack.door"
+        subrow.operator("archipack.door_preset_menu",
                     text="",
-                    icon='GREASEPENCIL')
+                    icon='GREASEPENCIL'
+                    ).preset_operator = "archipack.door_draw"
         row = box.row(align=True)
-        row.operator("archipack.stair",
-                    icon_value=icons_coll["stair"].icon_id
-                    )
+        row.operator("archipack.stair_preset_menu",
+                    text="Stair",
+                    icon_value=icons["stair"].icon_id
+                    ).preset_operator = "archipack.stair"
         row = box.row(align=True)
         row.operator("archipack.wall2",
-                    icon_value=icons_coll["wall"].icon_id
+                    icon_value=icons["wall"].icon_id
                     )
         row.operator("archipack.wall2_draw", text="Draw", icon='GREASEPENCIL')
         row.operator("archipack.wall2_from_curve", text="", icon='CURVE_DATA')
 
         row = box.row(align=True)
-        row.operator("archipack.fence",
-                    icon_value=icons_coll["fence"].icon_id
-                    )
+        row.operator("archipack.fence_preset_menu",
+                    text="Fence",
+                    icon_value=icons["fence"].icon_id
+                    ).preset_operator = "archipack.fence"
         row.operator("archipack.fence_from_curve", text="", icon='CURVE_DATA')
-        # row = box.row(align=True)
-        # row.operator("archipack.roof", icon='CURVE_DATA')
         row = box.row(align=True)
         row.operator("archipack.truss",
-                    icon_value=icons_coll["truss"].icon_id
+                    icon_value=icons["truss"].icon_id
                     )
         row = box.row(align=True)
-        # row.operator("archipack.slab")
         row.operator("archipack.slab_from_curve",
-                    icon_value=icons_coll["slab"].icon_id
+                    icon_value=icons["slab"].icon_id
                     )
 
         row = box.row(align=True)
         row.operator("archipack.wall2_from_slab",
-                    icon_value=icons_coll["wall"].icon_id)
+                    icon_value=icons["wall"].icon_id)
         row.operator("archipack.slab_from_wall",
-                    icon_value=icons_coll["slab"].icon_id
+                    icon_value=icons["slab"].icon_id
                     )
-
+        
+        # row = box.row(align=True)
+        # row.operator("archipack.roof", icon='CURVE_DATA')
 
 # ----------------------------------------------------
 # ALT + A menu
 # ----------------------------------------------------
 
-# Define "Archipack" menu
+
 def menu_func(self, context):
+    global icons_collection
+    icons = icons_collection["main"]
     layout = self.layout
     layout.separator()
     layout.operator_context = 'INVOKE_REGION_WIN'
     layout.operator("archipack.wall2",
                     text="Wall",
-                    icon_value=icons_coll["wall"].icon_id
+                    icon_value=icons["wall"].icon_id
                     )
     layout.operator("archipack.window",
                     text="Window",
-                    icon_value=icons_coll["window"].icon_id
+                    icon_value=icons["window"].icon_id
                     ).mode = 'CREATE'
     layout.operator("archipack.door",
                     text="Door",
-                    icon_value=icons_coll["door"].icon_id
+                    icon_value=icons["door"].icon_id
                     ).mode = 'CREATE'
     layout.operator("archipack.stair",
                     text="Stair",
-                    icon_value=icons_coll["stair"].icon_id
+                    icon_value=icons["stair"].icon_id
                     )
     layout.operator("archipack.fence",
                     text="Fence",
-                    icon_value=icons_coll["fence"].icon_id
+                    icon_value=icons["fence"].icon_id
                     )
     layout.operator("archipack.truss",
                     text="Truss",
-                    icon_value=icons_coll["truss"].icon_id
+                    icon_value=icons["truss"].icon_id
                     )
 
 
@@ -525,13 +539,13 @@ class archipack_data(PropertyGroup):
 
 
 def register():
-    global icons_coll
-
-    icons_coll = previews.new()
+    global icons_collection
+    icons = previews.new()
     icons_dir = os.path.join(os.path.dirname(__file__), "icons")
     for icon in os.listdir(icons_dir):
         name, ext = os.path.splitext(icon)
-        icons_coll.load(name, os.path.join(icons_dir, icon), 'IMAGE')
+        icons.load(name, os.path.join(icons_dir, icon), 'IMAGE')
+    icons_collection["main"] = icons
 
     archipack_snap.register()
     archipack_manipulator.register()
@@ -542,11 +556,12 @@ def register():
     archipack_stair.register()
     archipack_wall.register()
     archipack_wall2.register()
-    # archipack_roof2d.register()
+    archipack_roof2d.register()
     archipack_slab.register()
     archipack_fence.register()
     archipack_truss.register()
     archipack_rendering.register()
+    archipack_preset_menu.register()
 
     if HAS_POLYLIB:
         archipack_polylib.register()
@@ -560,7 +575,7 @@ def register():
 
 
 def unregister():
-    global icons_coll
+    global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
 
     bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
@@ -577,11 +592,12 @@ def unregister():
     archipack_stair.unregister()
     archipack_wall.unregister()
     archipack_wall2.unregister()
-    # archipack_roof2d.unregister()
+    archipack_roof2d.unregister()
     archipack_slab.unregister()
     archipack_fence.unregister()
     archipack_truss.unregister()
     archipack_rendering.unregister()
+    archipack_preset_menu.unregister()
 
     if HAS_POLYLIB:
         archipack_polylib.unregister()
@@ -589,9 +605,9 @@ def unregister():
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack
 
-    # icons_coll.close()
-    previews.remove(icons_coll)
-    del icons_coll
+    for icons in icons_collection.values():
+        previews.remove(icons)
+    icons_collection.clear()
     # bpy.utils.unregister_module(__name__)
 
 

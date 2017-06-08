@@ -28,7 +28,7 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
+from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
     FloatProperty, IntProperty, CollectionProperty,
     EnumProperty, BoolProperty, StringProperty
@@ -40,7 +40,8 @@ from .panel import Panel as DoorPanel
 from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, door_handle_horizontal_01
 from .archipack_manipulator import Manipulable
-from .archipack_preset import ArchipackPreset
+from .archipack_preset import ArchipackPreset, PresetMenuOperator
+from .archipack_object import ArchipackCreateTool, ArchipackObject
 from .archipack_gl import FeedbackPanel
 from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_origin_3d
 
@@ -829,7 +830,7 @@ class ARCHIPACK_OT_select_parent(Operator):
             return {'CANCELLED'}
 
 
-class archipack_door(Manipulable, PropertyGroup):
+class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
     """
         The frame is the door main object
         parent parametric object
@@ -1056,17 +1057,20 @@ class archipack_door(Manipulable, PropertyGroup):
         size = Vector((self.x, self.z, self.y))
         return self.frame.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            if ARCHIPACK_PT_door.params(o) == self:
-                return active, selected, o
-        return active, selected, None
+    def setup_manipulators(self):
+        if len(self.manipulators) == 3:
+            return
+        s = self.manipulators.add()
+        s.prop1_name = "x"
+        s.prop2_name = "x"
+        s.type_key = "SNAP_SIZE_LOC"
+        s = self.manipulators.add()
+        s.prop1_name = "y"
+        s.prop2_name = "y"
+        s.type_key = "SNAP_SIZE_LOC"
+        s = self.manipulators.add()
+        s.prop1_name = "z"
+        s.normal = Vector((0, 1, 0))
 
     def remove_childs(self, context, o, to_remove):
         for child in o.children:
@@ -1313,6 +1317,8 @@ class archipack_door(Manipulable, PropertyGroup):
         if o is None or not self.auto_update:
             return
 
+        self.setup_manipulators()
+
         if childs_only is False:
             bmed.buildmesh(context, o, self.verts, self.faces, self.matids, self.uvs)
 
@@ -1357,7 +1363,7 @@ class archipack_door(Manipulable, PropertyGroup):
             hole_obj['archipack_hole'] = True
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-            MaterialUtils.add_wall_materials(hole_obj)
+            MaterialUtils.add_wall2_materials(hole_obj)
         hole = self.hole
         v = Vector((0, 0, 0))
         offset = Vector((0, -0.001, 0))
@@ -1384,7 +1390,7 @@ class archipack_door(Manipulable, PropertyGroup):
         matids = hole.mat(16, 0, 1, path_type='RECTANGLE')
         uvs = hole.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs)
-        MaterialUtils.add_wall_materials(o)
+        MaterialUtils.add_wall2_materials(o)
         o.select = True
         context.scene.objects.active = o
         return o
@@ -1402,11 +1408,11 @@ class ARCHIPACK_PT_door(Panel):
 
     def draw(self, context):
         o = context.active_object
-        if not ARCHIPACK_PT_door.filter(o):
+        if not archipack_door.filter(o):
             return
         layout = self.layout
         layout.operator('archipack.door_manipulate', icon='HAND')
-        props = o.data.archipack_door[0]
+        props = archipack_door.datablock(o)
         row = layout.row(align=True)
         row.operator('archipack.door', text="Refresh", icon='FILE_REFRESH').mode = 'REFRESH'
         if o.data.users > 1:
@@ -1415,7 +1421,7 @@ class ARCHIPACK_PT_door(Panel):
         box = layout.box()
         # box.label(text="Styles")
         row = box.row(align=True)
-        row.menu("ARCHIPACK_MT_door_preset", text=bpy.types.ARCHIPACK_MT_door_preset.bl_label)
+        row.operator("archipack.door_preset_menu", text=bpy.types.ARCHIPACK_OT_door_preset_menu.bl_label)
         row.operator("archipack.door_preset", text="", icon='ZOOMIN')
         row.operator("archipack.door_preset", text="", icon='ZOOMOUT').remove_active = True
         row = layout.row()
@@ -1457,31 +1463,15 @@ class ARCHIPACK_PT_door(Panel):
             box.prop(props, 'chanfer')
 
     @classmethod
-    def params(cls, o):
-        if cls.filter(o):
-            return o.data.archipack_door[0]
-        return None
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            return bool('archipack_door' in o.data)
-        except:
-            return False
-
-    @classmethod
     def poll(cls, context):
-        o = context.active_object
-        if o is None:
-            return False
-        return cls.filter(o)
+        return archipack_door.filter(context.active_object)
 
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_door(Operator):
+class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
     bl_idname = "archipack.door"
     bl_label = "Door"
     bl_description = "Door"
@@ -1587,17 +1577,6 @@ class ARCHIPACK_OT_door(Operator):
             ),
             default='CREATE'
             )
-    auto_manipulate = BoolProperty(
-            default=True
-            )
-
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
 
     def create(self, context):
         """
@@ -1620,29 +1599,19 @@ class ARCHIPACK_OT_door(Operator):
         d.panels_x = self.panels_x
         d.panels_y = self.panels_y
         d.handle = self.handle
-        s = d.manipulators.add()
-        s.prop1_name = "x"
-        s.prop2_name = "x"
-        s.type_key = "SNAP_SIZE_LOC"
-        s = d.manipulators.add()
-        s.prop1_name = "y"
-        s.prop2_name = "y"
-        s.type_key = "SNAP_SIZE_LOC"
-        s = d.manipulators.add()
-        s.prop1_name = "z"
-        s.normal = Vector((0, 1, 0))
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
-        d.update(context)
-        MaterialUtils.add_door_materials(o)
+        self.load_preset(d)
+        self.add_material(o)
         o.select = True
         context.scene.objects.active = o
         return o
 
     def delete(self, context):
         o = context.active_object
-        if o.data is not None and 'archipack_door' in o.data:
+        if archipack_door.filter(o):
+            bpy.ops.archipack.disable_manipulate()
             for child in o.children:
                 if 'archipack_hole' in child:
                     context.scene.objects.unlink(child)
@@ -1659,14 +1628,19 @@ class ARCHIPACK_OT_door(Operator):
 
     def update(self, context):
         o = context.active_object
-        if o.data is not None and 'archipack_door' in o.data:
-            o.data.archipack_door[0].update(context)
+        d = archipack_door.datablock(o)
+        if d is not None:
+            d.update(context)
+            bpy.ops.object.select_linked(type='OBDATA')
+            for linked in context.selected_objects:
+                if linked != o:
+                    archipack_door.datablock(linked).update(context)
 
     def unique(self, context):
         sel = [o for o in context.selected_objects]
         bpy.ops.object.select_all(action="DESELECT")
         for o in sel:
-            if o.data is not None and 'archipack_door' in o.data:
+            if archipack_door.filter(o):
                 o.select = True
                 for child in o.children:
                     if 'archipack_hole' in child or (child.data is not None and
@@ -1686,8 +1660,9 @@ class ARCHIPACK_OT_door(Operator):
                 bpy.ops.object.select_all(action="DESELECT")
                 o = self.create(context)
                 o.location = bpy.context.scene.cursor_location
-                if self.auto_manipulate:
-                    bpy.ops.archipack.door_manipulate('INVOKE_DEFAULT')
+                o.select = True
+                context.scene.objects.active = o
+                self.manipulate()
             elif self.mode == 'DELETE':
                 self.delete(context)
             elif self.mode == 'REFRESH':
@@ -1708,6 +1683,7 @@ class ARCHIPACK_OT_door_draw(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     feedback = None
+    filepath = StringProperty(default="")
 
     def mouse_to_matrix(self, context, event):
         """
@@ -1747,24 +1723,47 @@ class ARCHIPACK_OT_door_draw(Operator):
     def draw_callback(self, _self, context):
         self.feedback.draw(context)
 
+    def add_object(self, context, event):
+
+        if event.shift and archipack_door.filter(context.active_object):
+            o = context.active_object
+            new_w = o.copy()
+            new_w.data = o.data
+            context.scene.objects.link(new_w)
+            # synch subs from parent instance
+            bpy.ops.archipack.door(mode="REFRESH")
+            bpy.ops.object.select_all(action="DESELECT")
+            new_w.select = True
+            context.scene.objects.active = new_w
+        else:
+            bpy.ops.archipack.door(auto_manipulate=False, filepath=self.filepath)
+
     def modal(self, context, event):
 
         context.area.tag_redraw()
         res, tM, wall = self.mouse_to_matrix(context, event)
         w = context.active_object
-        if res and ARCHIPACK_PT_door.filter(w):
+        if res and archipack_door.filter(w):
             w.matrix_world = tM
 
         if event.value == 'PRESS':
-            if event.type in {'LEFTMOUSE', 'MOUSEMOVE'}:
+            if event.type in {'LEFTMOUSE'}:
                 if wall is not None:
                     context.scene.objects.active = wall
                     wall.select = True
-                    bpy.ops.archipack.single_boolean()
+                    if bpy.ops.archipack.single_boolean.poll():
+                        bpy.ops.archipack.single_boolean()
                     wall.select = False
-                    bpy.ops.archipack.door(auto_manipulate=False)
-                    context.active_object.matrix_world = tM
+                    # w must be a door here
+                    if archipack_door.filter(w):
+                        context.scene.objects.active = w
+                        self.add_object(context, event)
+                        context.active_object.matrix_world = tM
                     return {'RUNNING_MODAL'}
+
+            # prevent selection of other object
+            if event.type in {'RIGHTMOUSE'}:
+                return {'RUNNING_MODAL'}
 
         if event.value == 'RELEASE':
 
@@ -1781,7 +1780,7 @@ class ARCHIPACK_OT_door_draw(Operator):
         if context.mode == "OBJECT":
             bpy.ops.archipack.disable_manipulate()
             bpy.ops.object.select_all(action="DESELECT")
-            bpy.ops.archipack.door(auto_manipulate=False)
+            self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
                 ('LEFTCLICK', 'Create a door'),
@@ -1811,11 +1810,11 @@ class ARCHIPACK_OT_door_manipulate(Operator):
 
     @classmethod
     def poll(self, context):
-        return ARCHIPACK_PT_door.filter(context.active_object)
+        return archipack_door.filter(context.active_object)
 
     def invoke(self, context, event):
-        o = context.active_object
-        o.data.archipack_door[0].manipulable_invoke(context)
+        d = archipack_door.datablock(context.active_object)
+        d.manipulable_invoke(context)
         return {'FINISHED'}
 
 
@@ -1824,29 +1823,22 @@ class ARCHIPACK_OT_door_manipulate(Operator):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_MT_door_preset(Menu):
+class ARCHIPACK_OT_door_preset_menu(PresetMenuOperator, Operator):
+    bl_idname = "archipack.door_preset_menu"
     bl_label = "Door Styles"
     preset_subdir = "archipack_door"
-    preset_operator = "script.execute_preset"
-    draw = Menu.draw_preset
 
 
 class ARCHIPACK_OT_door_preset(ArchipackPreset, Operator):
     """Add a Door Styles"""
     bl_idname = "archipack.door_preset"
     bl_label = "Add Door Style"
-    preset_menu = "ARCHIPACK_MT_door_preset"
-
-    datablock_name = StringProperty(
-        name="Datablock",
-        default='archipack_door',
-        maxlen=64,
-        options={'HIDDEN', 'SKIP_SAVE'},
-        )
+    preset_menu = "ARCHIPACK_OT_door_preset_menu"
 
     @property
     def blacklist(self):
-        return ['x', 'y', 'z', 'direction', 'manipulators']
+        # 'x', 'y', 'z', 'direction',
+        return ['manipulators']
 
 
 def register():
@@ -1857,7 +1849,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_select_parent)
     bpy.utils.register_class(archipack_door)
     Mesh.archipack_door = CollectionProperty(type=archipack_door)
-    bpy.utils.register_class(ARCHIPACK_MT_door_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_door_preset_menu)
     bpy.utils.register_class(ARCHIPACK_PT_door)
     bpy.utils.register_class(ARCHIPACK_OT_door)
     bpy.utils.register_class(ARCHIPACK_OT_door_preset)
@@ -1873,7 +1865,7 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_select_parent)
     bpy.utils.unregister_class(archipack_door)
     del Mesh.archipack_door
-    bpy.utils.unregister_class(ARCHIPACK_MT_door_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_door_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_PT_door)
     bpy.utils.unregister_class(ARCHIPACK_OT_door)
     bpy.utils.unregister_class(ARCHIPACK_OT_door_preset)

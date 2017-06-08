@@ -34,11 +34,11 @@ from bpy.props import (
     CollectionProperty
     )
 import bmesh
-from .materialutils import MaterialUtils
 from mathutils import Vector, Matrix
 from mathutils.geometry import interpolate_bezier
 from math import sin, cos, pi, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator
+from .archipack_object import ArchipackCreateTool, ArchipackObject
 from .archipack_2d import Line, Arc
 
 
@@ -211,7 +211,7 @@ class archipack_slab_material(PropertyGroup):
         """
         selected = [o for o in context.selected_objects]
         for o in selected:
-            props = ARCHIPACK_PT_slab.params(o)
+            props = archipack_slab.datablock(o)
             if props:
                 for part in props.rail_mat:
                     if part == self:
@@ -395,7 +395,7 @@ class archipack_slab_part(ArchipackSegment, PropertyGroup):
         """
         selected = [o for o in context.selected_objects]
         for o in selected:
-            props = ARCHIPACK_PT_slab.params(o)
+            props = archipack_slab.datablock(o)
             if props:
                 for part in props.parts:
                     if part == self:
@@ -403,7 +403,7 @@ class archipack_slab_part(ArchipackSegment, PropertyGroup):
         return None
 
 
-class archipack_slab(Manipulable, PropertyGroup):
+class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
     # boundary
     n_parts = IntProperty(
             name="parts",
@@ -447,18 +447,6 @@ class archipack_slab(Manipulable, PropertyGroup):
             update=update_manipulators
             )
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            if ARCHIPACK_PT_slab.params(o) == self:
-                return active, selected, o
-        return active, selected, None
-
     def get_generator(self):
         g = SlabGenerator(self.parts)
         for part in self.parts:
@@ -488,7 +476,7 @@ class archipack_slab(Manipulable, PropertyGroup):
         for c in self.childs:
             if c.idx > where:
                 c.idx += 1
-        self.setup_parts_manipulators()
+        self.setup_manipulators()
         self.auto_update = True
 
     def insert_balcony(self, context, where):
@@ -543,7 +531,7 @@ class archipack_slab(Manipulable, PropertyGroup):
         self.parts.move(len(self.parts) - 1, where + 4)
 
         self.n_parts += 4
-        self.setup_parts_manipulators()
+        self.setup_manipulators()
 
         for c in self.childs:
             if c.idx > where:
@@ -574,7 +562,7 @@ class archipack_slab(Manipulable, PropertyGroup):
         p = self.parts.add()
         p.length = length
         self.n_parts += 1
-        self.setup_parts_manipulators()
+        self.setup_manipulators()
         self.auto_update = True
         return p
 
@@ -698,7 +686,7 @@ class archipack_slab(Manipulable, PropertyGroup):
         self.parts.remove(where)
         self.n_parts -= 1
         # fix snap manipulators index
-        self.setup_parts_manipulators()
+        self.setup_manipulators()
         self.auto_update = True
 
     def update_parts(self, o, update_childs=False):
@@ -717,7 +705,7 @@ class archipack_slab(Manipulable, PropertyGroup):
             row_change = True
             self.parts.add()
 
-        self.setup_parts_manipulators()
+        self.setup_manipulators()
 
         g = self.get_generator()
 
@@ -726,7 +714,14 @@ class archipack_slab(Manipulable, PropertyGroup):
 
         return g
 
-    def setup_parts_manipulators(self):
+    def setup_manipulators(self):
+
+        if len(self.manipulators) < 1:
+            s = self.manipulators.add()
+            s.type_key = "SIZE"
+            s.prop1_name = "z"
+            s.normal = Vector((0, 1, 0))
+
         for i in range(self.n_parts):
             p = self.parts[i]
             n_manips = len(p.manipulators)
@@ -749,9 +744,9 @@ class archipack_slab(Manipulable, PropertyGroup):
                 s.prop1_name = str(i + 1)
             p.manipulators[2].prop1_name = str(i)
             p.manipulators[3].prop1_name = str(i + 1)
-        
+
         self.parts[-1].manipulators[0].type_key = 'DUMB_ANGLE'
-     
+
     def is_cw(self, pts):
         p0 = pts[0]
         d = 0
@@ -759,7 +754,7 @@ class archipack_slab(Manipulable, PropertyGroup):
             d += (p.x * p0.y - p.y * p0.x)
             p0 = p
         return d > 0
-    
+
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
@@ -799,10 +794,10 @@ class archipack_slab(Manipulable, PropertyGroup):
                 p1 = points[0]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
-        
+
         if self.is_cw(pts):
             pts = list(reversed(pts))
-            
+
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
@@ -838,26 +833,6 @@ class archipack_slab(Manipulable, PropertyGroup):
         bmesh.ops.contextual_create(bm, geom=bm.edges)
         bm.to_mesh(o.data)
         bm.free()
-
-        """
-        import bmesh
-        verts = [
-            Vector((0,0,0)),
-            Vector((1,0,0)),
-            Vector((1,1,0)),
-            Vector((0,1,0))
-        ]
-        bm = bmesh.new()
-        for v in verts:
-            bm.verts.new(v)
-        bm.verts.ensure_lookup_table()
-        for i in range(1, len(verts)):
-            bm.edges.new((bm.verts[i - 1], bm.verts[i]))
-        bm.edges.ensure_lookup_table()
-        bmesh.ops.contextual_create(bm, geom=bm.edges)
-        bm.to_mesh(o.data)
-        bm.free()
-        """
 
     def unwrap_uv(self, o):
         bm = bmesh.new()
@@ -940,6 +915,8 @@ class archipack_slab(Manipulable, PropertyGroup):
         o = context.active_object
         d = self
 
+        self.setup_manipulators()
+
         for i, part in enumerate(d.parts):
             if i >= d.n_parts:
                 break
@@ -991,9 +968,12 @@ class ARCHIPACK_PT_slab(Panel):
     # bl_context = 'object'
     bl_category = 'ArchiPack'
 
+    @classmethod
+    def poll(cls, context):
+        return archipack_slab.filter(context.active_object)
+
     def draw(self, context):
-        o = context.object
-        prop = ARCHIPACK_PT_slab.params(o)
+        prop = archipack_slab.datablock(context.active_object)
         if prop is None:
             return
         layout = self.layout
@@ -1013,32 +993,6 @@ class ARCHIPACK_PT_slab(Panel):
         else:
             row.prop(prop, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
 
-    @classmethod
-    def params(cls, o):
-        try:
-            if 'archipack_slab' not in o.data:
-                return False
-            else:
-                return o.data.archipack_slab[0]
-        except:
-            return False
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            if 'archipack_slab' not in o.data:
-                return False
-            else:
-                return True
-        except:
-            return False
-
-    @classmethod
-    def poll(cls, context):
-        o = context.object
-        if o is None:
-            return False
-        return cls.filter(o)
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -1053,15 +1007,9 @@ class ARCHIPACK_OT_slab_insert(Operator):
     bl_options = {'REGISTER', 'UNDO'}
     index = IntProperty(default=0)
 
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
-
     def execute(self, context):
         if context.mode == "OBJECT":
-            o = context.active_object
-            d = ARCHIPACK_PT_slab.params(o)
+            d = archipack_slab.datablock(context.active_object)
             if d is None:
                 return {'CANCELLED'}
             d.insert_part(context, self.index)
@@ -1079,15 +1027,9 @@ class ARCHIPACK_OT_slab_balcony(Operator):
     bl_options = {'REGISTER', 'UNDO'}
     index = IntProperty(default=0)
 
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
-
     def execute(self, context):
         if context.mode == "OBJECT":
-            o = context.active_object
-            d = ARCHIPACK_PT_slab.params(o)
+            d = archipack_slab.datablock(context.active_object)
             if d is None:
                 return {'CANCELLED'}
             d.insert_balcony(context, self.index)
@@ -1105,15 +1047,9 @@ class ARCHIPACK_OT_slab_remove(Operator):
     bl_options = {'REGISTER', 'UNDO'}
     index = IntProperty(default=0)
 
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
-
     def execute(self, context):
         if context.mode == "OBJECT":
-            o = context.active_object
-            d = ARCHIPACK_PT_slab.params(o)
+            d = archipack_slab.datablock(context.active_object)
             if d is None:
                 return {'CANCELLED'}
             d.remove_part(context, self.index)
@@ -1128,23 +1064,12 @@ class ARCHIPACK_OT_slab_remove(Operator):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_slab(Operator):
+class ARCHIPACK_OT_slab(ArchipackCreateTool, Operator):
     bl_idname = "archipack.slab"
     bl_label = "Slab"
     bl_description = "Slab"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-
-    auto_manipulate = BoolProperty(default=True)
-
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
 
     def create(self, context):
         m = bpy.data.meshes.new("Slab")
@@ -1152,14 +1077,11 @@ class ARCHIPACK_OT_slab(Operator):
         d = m.archipack_slab.add()
         # make manipulators selectable
         d.manipulable_selectable = True
-        s = d.manipulators.add()
-        s.prop1_name = "z"
-        s.normal = Vector((0, 1, 0))
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
-        d.update(context)
-        MaterialUtils.add_wall_materials(o)
+        self.load_preset(d)
+        self.add_material(o)
         return o
 
     # -----------------------------------------------------
@@ -1172,8 +1094,7 @@ class ARCHIPACK_OT_slab(Operator):
             o.location = bpy.context.scene.cursor_location
             o.select = True
             context.scene.objects.active = o
-            if self.auto_manipulate:
-                bpy.ops.archipack.slab_manipulate('INVOKE_DEFAULT')
+            self.manipulate()
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -1204,9 +1125,9 @@ class ARCHIPACK_OT_slab_from_curve(Operator):
 
     def create(self, context):
         curve = context.active_object
-        bpy.ops.archipack.slab(auto_manipulate=False)
+        bpy.ops.archipack.slab(auto_manipulate=self.auto_manipulate)
         o = context.scene.objects.active
-        d = o.data.archipack_slab[0]
+        d = archipack_slab.datablock(o)
         spline = curve.data.splines[0]
         d.from_spline(curve.matrix_world, 12, spline)
         if spline.type == 'POLY':
@@ -1231,8 +1152,6 @@ class ARCHIPACK_OT_slab_from_curve(Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             self.create(context)
-            if self.auto_manipulate:
-                bpy.ops.archipack.slab_manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -1252,22 +1171,13 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
     def poll(self, context):
         o = context.active_object
         return o is not None and o.data is not None and 'archipack_wall2' in o.data
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
 
     def create(self, context):
         wall = context.active_object
         wd = wall.data.archipack_wall2[0]
-        bpy.ops.archipack.slab(auto_manipulate=False)
+        bpy.ops.archipack.slab(auto_manipulate=self.auto_manipulate)
         o = context.scene.objects.active
-        d = o.data.archipack_slab[0]
+        d = archipack_slab.datablock(o)
         d.auto_update = False
         d.closed = True
         d.parts.clear()
@@ -1294,8 +1204,6 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             self.create(context)
-            if self.auto_manipulate:
-                bpy.ops.archipack.slab_manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -1315,26 +1223,11 @@ class ARCHIPACK_OT_slab_manipulate(Operator):
 
     @classmethod
     def poll(self, context):
-        return ARCHIPACK_PT_slab.filter(context.active_object)
-
-    def modal(self, context, event):
-        return self.d.manipulable_modal(context, event)
+        return archipack_slab.filter(context.active_object)
 
     def invoke(self, context, event):
-        o = context.active_object
-        o.data.archipack_slab[0].manipulable_invoke(context)
-        """
-        if context.space_data.type == 'VIEW_3D':
-            self.d =
-            if self.d:
-                context.window_manager.modal_handler_add(self)
-                return {'RUNNING_MODAL'}
-            else:
-                return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'}
-        """
+        d = archipack_slab.datablock(context.active_object)
+        d.manipulable_invoke(context)
         return {'FINISHED'}
 
 

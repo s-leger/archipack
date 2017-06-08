@@ -40,7 +40,7 @@ class MaterialUtils():
         return mat
 
     @staticmethod
-    def add_wall_materials(obj):
+    def add_wall2_materials(obj):
         int_mat = MaterialUtils.build_default_mat('inside', (0.5, 1.0, 1.0))
         out_mat = MaterialUtils.build_default_mat('outside', (0.5, 1.0, 0.5))
         oth_mat = MaterialUtils.build_default_mat('cuts', (1.0, 0.2, 0.2))
@@ -75,7 +75,19 @@ class MaterialUtils():
         obj.data.materials.append(wood_mat)
         obj.data.materials.append(metal_mat)
         obj.data.materials.append(glass_mat)
-
+        
+    @staticmethod
+    def add_fence_materials(obj):
+        wood_mat = MaterialUtils.build_default_mat('Fence_wood', (0.28, 0.2, 0.1))
+        metal_mat = MaterialUtils.build_default_mat('Fence_metal', (0.4, 0.4, 0.4))
+        glass_mat = MaterialUtils.build_default_mat('Fence_glass', (0.2, 0.2, 0.2))
+        glass_mat.use_transparency = True
+        glass_mat.alpha = 0.5
+        glass_mat.game_settings.alpha_blend = 'ADD'
+        obj.data.materials.append(wood_mat)
+        obj.data.materials.append(metal_mat)
+        obj.data.materials.append(glass_mat)
+                
     @staticmethod
     def add_handle_materials(obj):
         metal_mat = MaterialUtils.build_default_mat('metal', (0.4, 0.4, 0.4))

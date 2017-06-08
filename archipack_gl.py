@@ -376,7 +376,7 @@ class GlBaseLine(Gl):
         self.style = style
         # allow closed lines
         self.closed = False
-        
+
     def draw(self, context, render=False):
         """
             render flag when rendering
@@ -686,6 +686,70 @@ class GlPolygon(Gl):
         self._end()
 
 
+class GlRect(GlPolygon):
+    def __init__(self,
+            colour=(0.0, 0.0, 0.0, 1.0),
+            d=2):
+        GlPolygon.__init__(self, colour, d)
+
+    def draw(self, context, render=False):
+        self.render = render
+        bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
+        bgl.glEnable(bgl.GL_BLEND)
+        if render:
+            # enable anti-alias on polygons
+            bgl.glEnable(bgl.GL_POLYGON_SMOOTH)
+        bgl.glColor4f(*self.colour)
+        p0 = self.pts[0]
+        p1 = self.pts[1]
+        bgl.glRectf(p0.x, p0.y, p1.x, p1.y)
+        self._end()
+
+
+class GlImage(Gl):
+    def __init__(self,
+        d=2,
+        image=None):
+        self.image = image
+        self.colour_inactive = (1, 1, 1, 1)
+        Gl.__init__(self, d)
+
+    def set_pos(self, pts):
+        self.pts_2d = pts
+
+    @property
+    def pts(self):
+        return self.pts_2d
+
+    def draw(self, context, render=False):
+        bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
+        p0 = self.pts[0]
+        p1 = self.pts[1]
+        bgl.glEnable(bgl.GL_BLEND)
+        bgl.glColor4f(*self.colour)
+        bgl.glRectf(p0.x, p0.y, p1.x, p1.y)
+        self.image.gl_load()
+        bgl.glEnable(bgl.GL_BLEND)
+        bgl.glBindTexture(bgl.GL_TEXTURE_2D, self.image.bindcode[0])
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
+        bgl.glEnable(bgl.GL_TEXTURE_2D)
+        bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)        
+        # bgl.glColor4f(1, 1, 1, 1)
+        bgl.glBegin(bgl.GL_QUADS)
+        bgl.glTexCoord2d(0, 0)
+        bgl.glVertex2d(p0.x, p0.y)
+        bgl.glTexCoord2d(0, 1)
+        bgl.glVertex2d(p0.x, p1.y)
+        bgl.glTexCoord2d(1, 1)
+        bgl.glVertex2d(p1.x, p1.y)
+        bgl.glTexCoord2d(1,0)
+        bgl.glVertex2d(p1.x, p0.y)
+        bgl.glEnd()
+        self.image.gl_free()
+        bgl.glDisable(bgl.GL_TEXTURE_2D)
+        
+        
 class GlPolyline(GlBaseLine):
     def __init__(self, colour, d=3):
         self.pts_3d = []
@@ -703,12 +767,12 @@ class GlPolyline(GlBaseLine):
 
 class GlHandle(GlPolygon):
 
-    def __init__(self, sensor_size, size, draggable=False, selectable=False):
+    def __init__(self, sensor_size, size, draggable=False, selectable=False, d=3):
         """
             sensor_size : 2d size in pixels of sensor area
             size : 3d size of handle
         """
-        GlPolygon.__init__(self)
+        GlPolygon.__init__(self, d=d)
         self.colour_active = (1.0, 0.0, 0.0, 1.0)
         self.colour_hover = (1.0, 1.0, 0.0, 1.0)
         self.colour_normal = (1.0, 1.0, 1.0, 1.0)
@@ -824,6 +888,74 @@ class EditableText(GlText, GlHandle):
         return self.pos_3d
 
 
+class ThumbHandle(GlHandle):
+    
+    def __init__(self, size_2d, image, label, draggable=False, selectable=False, d=2):
+        GlHandle.__init__(self, size_2d, size_2d, draggable, selectable, d)
+        self.image = GlImage(image=image)
+        self.label = GlText(d=2, label=label.replace("_", " ").capitalize())
+        self.frame = GlPolyline((1, 1, 1, 1), d=2)
+        self.frame.closed = True
+        self.size_2d = size_2d
+        self.sensor_width = 0.5 * size_2d.x
+        self.sensor_height = 0.5 * size_2d.y
+        self.colour_normal = (0.715, 0.905, 1, 0.9)
+        self.colour_hover = (1, 1, 1, 1)
+    
+    def set_pos(self, context, pos_2d):
+        """
+            pos 2d is center !!
+        """
+        self.pos_2d = pos_2d
+        ts = self.label.text_size(context)
+        self.label.pos_3d = pos_2d + Vector((-0.5 * ts.x, ts.y - 0.5 * self.size_2d.y))
+        p0, p1 = self.pts
+        self.image.set_pos(self.pts)
+        self.frame.set_pos([p0, Vector((p1.x, p0.y)), p1, Vector((p0.x, p1.y))])
+
+    @property
+    def pts(self):
+        s = 0.5 * self.size_2d
+        return [self.pos_2d - s, self.pos_2d + s]
+
+    @property
+    def sensor_center(self):
+        return self.pos_2d + 0.5 * self.size_2d
+
+    def draw(self, context, render=False):
+        self.render = render
+        self.image.colour_inactive = self.colour
+        GlHandle.draw(self, context, render=False)
+        self.image.draw(context, render=False)
+        self.label.draw(context, render=False)
+        self.frame.draw(context, render=False)
+
+
+class Screen():
+    def __init__(self, margin):
+        self.margin = margin
+    
+    def size(self, context):
+    
+        system = context.user_preferences.system
+        w = context.region.width
+        h = context.region.height
+        y_min = self.margin
+        y_max = h - self.margin
+        x_min = self.margin
+        x_max = w - self.margin
+        if (system.use_region_overlap and
+                system.window_draw_method in {'TRIPLE_BUFFER', 'AUTOMATIC'}):
+            area = context.area
+            
+            for r in area.regions:
+                if r.type == 'TOOLS':
+                    x_min += r.width
+                elif r.type == 'UI':
+                    x_max -= r.width
+        return x_min, x_max, y_min, y_max
+        
+        
 class FeedbackPanel():
     """
         Feed-back panel
@@ -858,6 +990,7 @@ class FeedbackPanel():
         self.show_main_title = True
         # read only, when enabled, after draw() the top left coord of info box
         self.top = Vector((0, 0))
+        self.screen = Screen(self.margin)
 
     def disable(self):
         self.on = False
@@ -886,7 +1019,7 @@ class FeedbackPanel():
         self.title.label = title
 
         self.shortcuts = []
-
+        
         for key, label in shortcuts:
             key = GlText(d=2, label=key,
                 font_size=prefs.feedback_size_shortcut,
@@ -904,26 +1037,13 @@ class FeedbackPanel():
                 draw from bottom to top
                 so we are able to always fit needs
             """
-            system = context.user_preferences.system
-
-            w = context.region.width
-            x_min = self.margin
-            x_max = w - self.margin
-            if (system.use_region_overlap and
-                    system.window_draw_method in {'TRIPLE_BUFFER', 'AUTOMATIC'}):
-                area = context.area
-                for r in area.regions:
-                    if r.type == 'TOOLS':
-                        x_min += r.width
-                    elif r.type == 'UI':
-                        x_max -= r.width
-
+            x_min, x_max, y_min, y_max = self.screen.size(context)
             available_w = x_max - x_min - 2 * self.spacing.x
             main_title_size = self.main_title.text_size(context)
 
             # h = context.region.height
             # 0,0 = bottom left
-            pos = Vector((x_min + self.spacing.x, self.margin))
+            pos = Vector((x_min + self.spacing.x, y_min))
             shortcuts = []
 
             # sort by lines
