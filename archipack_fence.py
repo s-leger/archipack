@@ -1746,8 +1746,8 @@ class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
 
     @property
     def blacklist(self):
-        # 'n_parts', 'parts',
-        return ['manipulators', 'user_defined_path']
+        # 
+        return ['manipulators', 'n_parts', 'parts', 'user_defined_path']
 
 
 def register():
