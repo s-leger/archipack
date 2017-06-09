@@ -975,7 +975,7 @@ class archipack_wall2(Manipulable, PropertyGroup):
                     'archipack_hole' not in child):
                 tM = child.matrix_world.to_3x3()
                 pt = (itM * child.location).to_2d()
-                dir_y = (rM * tM * Vector((0, 1, 0))).to_2d()
+                dir_y = (rM * tM * Vector((0, -1, 0))).to_2d()
                 for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
                     res, d, t = wall.point_sur_segment(pt)
