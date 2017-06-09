@@ -60,7 +60,6 @@ if "bpy" in locals():
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
     imp.reload(archipack_rendering)
-    imp.reload(archipack_preset_menu)
     try:
         imp.reload(archipack_polylib)
         HAS_POLYLIB = True
@@ -84,7 +83,6 @@ else:
     from . import archipack_fence
     from . import archipack_truss
     from . import archipack_rendering
-    from . import archipack_preset_menu
     try:
         """
             polylib depends on shapely
@@ -561,7 +559,7 @@ def register():
     archipack_fence.register()
     archipack_truss.register()
     archipack_rendering.register()
-    archipack_preset_menu.register()
+    
 
     if HAS_POLYLIB:
         archipack_polylib.register()
@@ -597,7 +595,7 @@ def unregister():
     archipack_fence.unregister()
     archipack_truss.unregister()
     archipack_rendering.unregister()
-    archipack_preset_menu.unregister()
+    
 
     if HAS_POLYLIB:
         archipack_polylib.unregister()
