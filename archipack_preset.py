@@ -340,7 +340,7 @@ class PresetMenu():
             self.set_pos(context)
             
         for item in self.menuItems:
-            if item.mouse_press():
+            if item.enable and item.mouse_press():
                 # load item preset
                 return item.preset
         return None

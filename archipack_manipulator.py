@@ -2193,7 +2193,9 @@ class Manipulable():
             # to delete / duplicate / link duplicate / unlink of
             # a complete set of wall, doors and windows at once
             self.manipulable_disable(context)
-            bpy.ops.object.delete('INVOKE_DEFAULT', use_global=False)
+            
+            if bpy.ops.object.delete.poll():
+                bpy.ops.object.delete('INVOKE_DEFAULT', use_global=False)
 
             return {'FINISHED'}
 
