@@ -2111,10 +2111,7 @@ class Manipulable():
 
     def _manipulable_invoke(self, context):
         
-        if ArchipackStore.manipulable != self:
-            # dont kill ourself when remanipulate
-            bpy.ops.archipack.disable_manipulate()
-            ArchipackStore.manipulable = self
+        ArchipackStore.manipulable = self
         
         # take care of context switching
         # when call from outside of 3d view
@@ -2146,7 +2143,9 @@ class Manipulable():
         if self.manipulate_mode:
             self.manipulable_disable(context)
             return False
-
+        else:
+            bpy.ops.archipack.disable_manipulate()
+            
         self.manip_stack = []
         # kills other's manipulators
         self.manipulate_mode = True
