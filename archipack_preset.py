@@ -234,27 +234,26 @@ class PresetMenu():
             self.default_image = bpy.data.images[img_idx]
             self.imageList.append(self.default_image.filepath_raw)
             return
-        sub_path = "archipack" + os.path.sep + "presets" + os.path.sep + "missing.png"
-        for path in addons_paths:
-            filepath = os.path.join(path, sub_path)
-            if os.path.exists(filepath) and os.path.isfile(filepath):
-                self.default_image = bpy.data.images.load(filepath=filepath)
-                self.imageList.append(self.default_image.filepath_raw)
-                break
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        sub_path = "presets" + os.path.sep + "missing.png"
+        filepath = os.path.join(dir_path, sub_path)
+        if os.path.exists(filepath) and os.path.isfile(filepath):
+            self.default_image = bpy.data.images.load(filepath=filepath)
+            self.imageList.append(self.default_image.filepath_raw)
         if self.default_image is None:
             raise EnvironmentError("archipack/presets/missing.png not found")
 
     def scan_files(self, category):
         file_list = []
         # load default presets
-        sub_path = "archipack" + os.path.sep + "presets" + os.path.sep + category
-        for path in addons_paths:
-            presets_path = os.path.join(path, sub_path)
-            if os.path.exists(presets_path):
-                file_list += [presets_path + os.path.sep + f[:-3]
-                    for f in os.listdir(presets_path)
-                    if f.endswith('.py') and
-                    not f.startswith('.')]
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        sub_path = "presets" + os.path.sep + category
+        presets_path = os.path.join(dir_path, sub_path)
+        if os.path.exists(presets_path):
+            file_list += [presets_path + os.path.sep + f[:-3]
+                for f in os.listdir(presets_path)
+                if f.endswith('.py') and
+                not f.startswith('.')]
         # load user def presets
         for path in preset_paths:
             presets_path = os.path.join(path, category)
@@ -323,7 +322,7 @@ class PresetMenu():
                 x = x_min
                 y -= self.thumbsize.y + self.spacing.y
 
-        self.scroll_max = (n_rows - 1) * (self.thumbsize.y + self.spacing.y)
+        self.scroll_max = max(0, n_rows - 1) * (self.thumbsize.y + self.spacing.y)
 
     def draw(self, context):
         self.bg.draw(context)
