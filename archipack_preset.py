@@ -30,9 +30,139 @@ from bl_operators.presets import AddPresetBase
 from mathutils import Vector
 from bpy.props import StringProperty
 from .archipack_gl import (
-    ThumbHandle, Screen, GlRect
+    ThumbHandle, Screen, GlRect, 
+    GlPolyline, GlPolygon, GlText, GlHandle
 )
 
+
+class CruxHandle(GlHandle):
+
+    def __init__(self, sensor_size, depth):
+        GlHandle.__init__(self, sensor_size, 0, True, False)
+        self.branch_0 = GlPolygon((1, 1, 1 ,1), d=2)
+        self.branch_1 = GlPolygon((1, 1, 1 ,1), d=2)
+        self.branch_2 = GlPolygon((1, 1, 1 ,1), d=2)
+        self.branch_3 = GlPolygon((1, 1, 1 ,1), d=2)
+        self.depth = depth
+        
+    def set_pos(self, pos_2d):
+        self.pos_2d = pos_2d
+        o = pos_2d
+        w = 0.5 * self.sensor_width
+        d = self.depth
+        c = d / 1.4242
+        s = w - c
+        p0 = o + Vector((s, w))
+        p1 = o + Vector((w, s))
+        p2 = o + Vector((c, 0))
+        p3 = o + Vector((w, -s))
+        p4 = o + Vector((s, -w))
+        p5 = o + Vector((0, -c))
+        p6 = o + Vector((-s, -w))
+        p7 = o + Vector((-w, -s))
+        p8 = o + Vector((-c, 0))
+        p9 = o + Vector((-w, s))
+        p10 = o + Vector((-s, w))
+        p11 = o + Vector((0, c))        
+        self.branch_0.set_pos([p11, p0, p1, p2, o])
+        self.branch_1.set_pos([p2, p3, p4, p5, o])
+        self.branch_2.set_pos([p5, p6, p7, p8, o])
+        self.branch_3.set_pos([p8, p9, p10, p11, o])
+     
+    @property
+    def pts(self):
+        return [self.pos_2d]
+
+    @property
+    def sensor_center(self):
+        return self.pos_2d
+
+    def draw(self, context, render=False):
+        self.render = render
+        self.branch_0.colour_inactive = self.colour
+        self.branch_1.colour_inactive = self.colour
+        self.branch_2.colour_inactive = self.colour
+        self.branch_3.colour_inactive = self.colour
+        self.branch_0.draw(context)
+        self.branch_1.draw(context)
+        self.branch_2.draw(context)
+        self.branch_3.draw(context)
+        
+        
+class SeekBox(GlText, GlHandle):
+    """
+        Text input to filter items by label
+        TODO:
+            - add cross to empty text
+            - get text from keyboard
+    """
+    
+    def __init__(self):
+        GlHandle.__init__(self, 0, 0, True, False, d=2)
+        GlText.__init__(self, d=2)
+        self.sensor_width = 250
+        self.pos_3d = Vector((0, 0))
+        self.bg = GlRect(colour=(0, 0, 0, 0.7))
+        self.frame = GlPolyline((1, 1, 1 ,1), d=2)
+        self.frame.closed = True
+        self.cancel = CruxHandle(16, 4)
+        self.line_pos = 0
+    
+    @property
+    def pts(self):
+        return [self.pos_3d]
+    
+    def set_pos(self, context, pos_2d):
+        x, ty = self.text_size(context)
+        w = self.sensor_width
+        y = 12
+        pos_2d.y += y
+        pos_2d.x -= 0.5 * w
+        self.pos_2d = pos_2d.copy()
+        self.pos_3d = pos_2d.copy()
+        self.pos_3d.x += 6
+        self.sensor_height = y
+        p0 = pos_2d + Vector((w, -0.5 * y))
+        p1 = pos_2d + Vector((w, 1.5 * y))
+        p2 = pos_2d + Vector((0, 1.5 * y))
+        p3 = pos_2d + Vector((0, -0.5 * y))
+        self.bg.set_pos([p0, p2])
+        self.frame.set_pos([p0, p1, p2, p3])
+        self.cancel.set_pos(pos_2d + Vector((w + 15, 0.5 * y)))
+    		
+    def keyboard_entry(self, context, event):                
+        c = event.ascii
+        if c:
+            if c == ",":
+                c = "."
+            self.label = self.label[:self.line_pos] + c + self.label[self.line_pos:]
+            self.line_pos += 1
+
+        if self.label:
+            if event.type == 'BACK_SPACE':
+                self.label = self.label[:self.line_pos - 1] + self.label[self.line_pos:]
+                self.line_pos -= 1
+
+            elif event.type == 'DEL':
+                self.label = self.label[:self.line_pos] + self.label[self.line_pos + 1:]
+
+            elif event.type == 'LEFT_ARROW':
+                self.line_pos = (self.line_pos - 1) % (len(self.label) + 1)
+
+            elif event.type == 'RIGHT_ARROW':
+                self.line_pos = (self.line_pos + 1) % (len(self.label) + 1)
+  
+    def draw(self, context):
+        self.bg.draw(context)
+        self.frame.draw(context)
+        GlText.draw(self, context)
+        self.cancel.draw(context)
+        
+    @property
+    def sensor_center(self):
+        return self.pos_3d
+
+ 
 preset_paths = bpy.utils.script_paths("presets")
 addons_paths = bpy.utils.script_paths("addons")
 
@@ -43,7 +173,13 @@ class PresetMenuItem():
         self.preset = preset
         self.handle = ThumbHandle(thumbsize, image, name, draggable=True)
         self.enable = True
-
+    
+    def filter(self, keywords):
+        for key in keywords:
+            if key not in self.handle.label.label:
+                return False
+        return True
+        
     def set_pos(self, context, pos):
         self.handle.set_pos(context, pos)
 
@@ -63,6 +199,12 @@ class PresetMenuItem():
 
 
 class PresetMenu():
+    
+    keyboard_type = {
+            'BACK_SPACE', 'DEL',
+            'LEFT_ARROW', 'RIGHT_ARROW'
+            }
+    
     def __init__(self, context, category, thumbsize=Vector((150, 100))):
         self.imageList = []
         self.menuItems = []
@@ -78,7 +220,12 @@ class PresetMenu():
         self.spacing = Vector((25, 25))
         self.screen = Screen(self.margin)
         self.mouse_pos = Vector((0, 0))
-        self.bg = GlRect(colour=(0, 0, 0, 0.5))
+        self.bg = GlRect(colour=(0, 0, 0, 0.7))
+        self.border = GlPolyline((0.7, 0.7, 0.7, 1), d=2)
+        self.keywords = SeekBox()
+        self.keywords.colour_normal = (1, 1, 1, 1)
+        
+        self.border.closed = True
         self.set_pos(context)
 
     def load_default_image(self):
@@ -144,7 +291,9 @@ class PresetMenu():
     def set_pos(self, context):
 
         x_min, x_max, y_min, y_max = self.screen.size(context)
-        self.bg.set_pos([Vector((x_min, y_min)), Vector((x_max, y_max))])
+        p0, p1, p2, p3 = Vector((x_min, y_min)), Vector((x_min, y_max)), Vector((x_max, y_max)), Vector((x_max, y_min))
+        self.bg.set_pos([p0, p2])
+        self.border.set_pos([p0, p1, p2, p3])
         x_min += 0.5 * self.thumbsize.x + 0.5 * self.margin
         x_max -= 0.5 * self.thumbsize.x + 0.5 * self.margin
         y_max -= 0.5 * self.thumbsize.y + 0.5 * self.margin
@@ -152,27 +301,45 @@ class PresetMenu():
         x = x_min
         y = y_max + self.y_scroll
         n_rows = 0
+        
+        self.keywords.set_pos(context, p1  + 0.5 * (p2 - p1))
+        keywords = self.keywords.label.split(" ")
+        
         for item in self.menuItems:
             if y > y_max or y < y_min:
                 item.enable = False
             else:
                 item.enable = True
+            
+            # filter items by name
+            if len(keywords) > 0 and not item.filter(keywords):
+                item.enable = False
+                continue
+            
             item.set_pos(context, Vector((x, y)))
             x += self.thumbsize.x + self.spacing.x
             if x > x_max:
                 n_rows += 1
                 x = x_min
                 y -= self.thumbsize.y + self.spacing.y
-        
+
         self.scroll_max = (n_rows - 1) * (self.thumbsize.y + self.spacing.y)
-                
+
     def draw(self, context):
         self.bg.draw(context)
+        self.border.draw(context)
+        self.keywords.draw(context)
         for item in self.menuItems:
             item.draw(context)
 
     def mouse_press(self, context, event):
         self.mouse_position(event)
+        
+        if self.keywords.cancel.hover:
+            self.keywords.label = ""
+            self.keywords.line_pos = 0
+            self.set_pos(context)
+            
         for item in self.menuItems:
             if item.mouse_press():
                 # load item preset
@@ -184,18 +351,25 @@ class PresetMenu():
 
     def mouse_move(self, context, event):
         self.mouse_position(event)
+        self.keywords.check_hover(self.mouse_pos)
+        self.keywords.cancel.check_hover(self.mouse_pos)
         for item in self.menuItems:
             item.check_hover(self.mouse_pos)
-    
+
     def scroll_up(self, context, event):
         self.y_scroll = max(0, self.y_scroll - (self.thumbsize.y + self.spacing.y))
         self.set_pos(context)
-        print("scroll_up %s" % (self.y_scroll))
-        
+        # print("scroll_up %s" % (self.y_scroll))
+
     def scroll_down(self, context, event):
-        self.y_scroll = min( self.scroll_max, self.y_scroll + (self.thumbsize.y + self.spacing.y))
+        self.y_scroll = min(self.scroll_max, self.y_scroll + (self.thumbsize.y + self.spacing.y))
         self.set_pos(context)
-        print("scroll_down %s" % (self.y_scroll))
+        # print("scroll_down %s" % (self.y_scroll))
+    
+    def keyboard_entry(self, context, event):
+        self.keywords.keyboard_entry(context, event)
+        self.set_pos(context)
+                
         
 class PresetMenuOperator():
 
@@ -219,9 +393,11 @@ class PresetMenuOperator():
         context.area.tag_redraw()
         if event.type == 'MOUSEMOVE':
             self.menu.mouse_move(context, event)
-        elif event.type == 'WHEELUPMOUSE':
+        elif event.type == 'WHEELUPMOUSE' or \
+                (event.type == 'UP_ARROW' and event.value == 'PRESS'):
             self.menu.scroll_up(context, event)
-        elif event.type == 'WHEELDOWNMOUSE':
+        elif event.type == 'WHEELDOWNMOUSE' or \
+                (event.type == 'DOWN_ARROW' and event.value == 'PRESS'):
             self.menu.scroll_down(context, event)
         elif event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
             preset = self.menu.mouse_press(context, event)
@@ -245,7 +421,10 @@ class PresetMenuOperator():
                         print("Poll failed")
 
                 return {'FINISHED'}
-
+        elif event.ascii or (
+                event.type in self.menu.keyboard_type and
+                event.value == 'RELEASE'):
+            self.menu.keyboard_entry(context, event)
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             self.exit(context)
             return {'CANCELLED'}
@@ -334,16 +513,44 @@ class ArchipackPreset(AddPresetBase):
             # render thumb
             scene = context.scene
             render = scene.render
+            
+            # save render parame
+            resolution_x = render.resolution_x
+            resolution_y = render.resolution_y
+            resolution_percentage = render.resolution_percentage
+            old_filepath = render.filepath
+            use_file_extension = render.use_file_extension
+            use_overwrite = render.use_overwrite
+            use_compositing = render.use_compositing
+            use_sequencer = render.use_sequencer
+            file_format = render.image_settings.file_format
+            color_mode = render.image_settings.color_mode
+            color_depth = render.image_settings.color_depth
+            
             render.resolution_x = 150
             render.resolution_y = 100
             render.resolution_percentage = 100
             render.filepath = filepath
             render.use_file_extension = True
             render.use_overwrite = True
+            render.use_compositing = False
+            render.use_sequencer = False
             render.image_settings.file_format = 'PNG'
             render.image_settings.color_mode = 'RGBA'
             render.image_settings.color_depth = '8'
-            render.use_compositing = False
-            render.use_sequencer = False
             bpy.ops.render.render(animation=False, write_still=True, use_viewport=False)
+            
+            # restore render params
+            render.resolution_x = resolution_x
+            render.resolution_y = resolution_y
+            render.resolution_percentage = resolution_percentage
+            render.filepath = old_filepath
+            render.use_file_extension = use_file_extension
+            render.use_overwrite = use_overwrite
+            render.use_compositing = use_compositing
+            render.use_sequencer = use_sequencer
+            render.image_settings.file_format = file_format
+            render.image_settings.color_mode = color_mode
+            render.image_settings.color_depth = color_depth
+            
             return

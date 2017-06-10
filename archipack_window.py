@@ -969,16 +969,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 self.angle_y, 0, 0, self.frame_x, path_type='HORIZONTAL')
         return uvs
 
-    """
-    def find_in_selection(self, context):
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-
-        for o in selected:
-            if ARCHIPACK_PT_window.params(o) == self:
-                return active, selected, o
-        return active, selected, None
-    """
     def setup_manipulators(self):
         if len(self.manipulators) == 4:
             return
@@ -1579,7 +1569,7 @@ class ARCHIPACK_PT_window(Panel):
                     box = layout.box()
                     row = prop.rows[0]
                     row.draw(box, context, True)
-                    
+
         row = layout.row(align=True)
         if prop.display_materials:
             row.prop(prop, "display_materials", icon="TRIA_DOWN", icon_only=True, text="Materials", emboss=False)
@@ -1925,6 +1915,7 @@ class ARCHIPACK_OT_window_draw(Operator):
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a window", "Click & Drag over a wall", [
                 ('LEFTCLICK', 'Create a window'),
+                ('SHIFT', 'Make linked window'),
                 ('RIGHTCLICK or ESC', 'exit')
                 ])
             self.feedback.enable()

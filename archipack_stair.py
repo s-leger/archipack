@@ -2523,20 +2523,19 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         """
         self.manipulable_disable(context)
         o = context.active_object
-        d = self
-
+        
         self.setup_manipulators()
 
-        if d.presets is not 'STAIR_O':
-            for i, part in enumerate(d.parts):
-                if i >= d.n_parts:
+        if self.presets is not 'STAIR_O':
+            for i, part in enumerate(self.parts):
+                if i >= self.n_parts:
                     break
-                if "S_" in part.type or d.presets in ['STAIR_USER']:
+                if "S_" in part.type or self.presets in ['STAIR_USER']:
                     for j, m in enumerate(part.manipulators):
                         self.manip_stack.append(m.setup(context, o, part))
 
-        if d.presets in ['STAIR_U', 'STAIR_L']:
-            self.manip_stack.append(d.parts[1].manipulators[0].setup(context, o, d))
+        if self.presets in ['STAIR_U', 'STAIR_L']:
+            self.manip_stack.append(self.parts[1].manipulators[0].setup(context, o, self))
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))

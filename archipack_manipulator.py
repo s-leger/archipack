@@ -2110,9 +2110,12 @@ class Manipulable():
             self.manip_stack.append(m.setup(context, o, self))
 
     def _manipulable_invoke(self, context):
-
-        bpy.ops.archipack.disable_manipulate()
-        ArchipackStore.manipulable = self
+        
+        if ArchipackStore.manipulable != self:
+            # dont kill ourself when remanipulate
+            bpy.ops.archipack.disable_manipulate()
+            ArchipackStore.manipulable = self
+        
         # take care of context switching
         # when call from outside of 3d view
         if context.space_data.type == 'VIEW_3D':
@@ -2139,7 +2142,7 @@ class Manipulable():
                 _manipulable_invoke(context)
 
         """
-        # print("self.manipulate_mode:%s" % (self.manipulate_mode))
+        # print("manipulable_invoke self.manipulate_mode:%s" % (self.manipulate_mode))
         if self.manipulate_mode:
             self.manipulable_disable(context)
             return False
