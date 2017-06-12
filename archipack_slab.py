@@ -1160,13 +1160,14 @@ class ARCHIPACK_OT_slab_from_curve(Operator):
 
 class ARCHIPACK_OT_slab_from_wall(Operator):
     bl_idname = "archipack.slab_from_wall"
-    bl_label = "Wall -> Slab"
+    bl_label = "->Slab"
     bl_description = "Create a slab from a wall"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
     auto_manipulate = BoolProperty(default=True)
-
+    ceiling = BoolProperty(default=False)
+    
     @classmethod
     def poll(self, context):
         o = context.active_object
@@ -1194,7 +1195,15 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
             p.a0 = part.a0
         d.auto_update = True
         # pretranslate
-        o.matrix_world = wall.matrix_world.copy()
+        if self.ceiling:
+            o.matrix_world = Matrix([
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, wd.z + d.z],
+                [0, 0, 0, 1],
+                ]) * wall.matrix_world
+        else:
+            o.matrix_world = wall.matrix_world.copy()
         return o
 
     # -----------------------------------------------------
