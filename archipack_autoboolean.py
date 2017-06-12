@@ -440,7 +440,7 @@ class ArchipackBoolManager():
         self.itM = wall.matrix_world.inverted()
         d = self.datablock(o)
         hole = None
-        
+        hole_obj = None
         # default mode defined by __init__
         self.detect_mode(context, wall)
         
@@ -452,7 +452,9 @@ class ArchipackBoolManager():
         if hole is None:
             return
         self.prepare_hole(hole)
-
+        
+        bpy.ops.object.select_all(action='DESELECT')
+        
         if self.mode == 'INTERACTIVE':
             # update / remove / add  boolean modifier
             self.difference(wall, hole)
@@ -467,11 +469,12 @@ class ArchipackBoolManager():
 
             if m.object is None:
                 hole_obj = self.create_merge_basis(context, wall)
+                m.object = hole_obj
             else:
                 hole_obj = m.object
             
             self.union(hole_obj, hole)
-         
+            hole_obj.select = True
          
         # parenting childs to wall reference point
         if wall.parent is None:
@@ -482,7 +485,6 @@ class ArchipackBoolManager():
             bpy.ops.archipack.reference_point()
         else:
             context.scene.objects.active = wall.parent
-        bpy.ops.object.select_all(action='DESELECT')
         wall.select = True
         o.select = True
         bpy.ops.archipack.parent_to_reference()
@@ -492,7 +494,10 @@ class ArchipackBoolManager():
         g = d.get_generator()
         d.setup_childs(wall, g)
         d.relocate_childs(context, wall, g)
-        
+            
+        if hole_obj is not None:    
+            self.prepare_hole(hole_obj)
+            
 
 class ARCHIPACK_OT_single_boolean(Operator):
     bl_idname = "archipack.single_boolean"
@@ -536,7 +541,6 @@ class ARCHIPACK_OT_single_boolean(Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             wall = context.active_object
-            print("wall: %s" % (wall.name))
             manager = ArchipackBoolManager(mode=self.mode, solver_mode=self.solver_mode)
             for o in context.selected_objects:
                 if o != wall:
