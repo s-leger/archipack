@@ -393,8 +393,9 @@ class TOOLS_PT_Archipack_Tools(Panel):
         box = row.box()
         box.label("Auto boolean")
         row = box.row(align=True)
-        row.operator("archipack.auto_boolean", text="Robust", icon='HAND').interactive = False
-        row.operator("archipack.auto_boolean", text="Interactive", icon='AUTO').interactive = True
+        # row.operator("archipack.auto_boolean", text="Robust", icon='HAND').mode = 'ROBUST'
+        # row.operator("archipack.auto_boolean", text="Interactive", icon='AUTO').mode = 'INTERACTIVE'
+        row.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO').mode = 'HYBRID'
         row = layout.row(align=True)
         box = row.box()
         box.label("Rendering")
@@ -476,7 +477,10 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.slab_from_wall",
                     icon_value=icons["slab"].icon_id
                     )
-        
+        row.operator("archipack.slab_from_wall",
+                    text="->Ceiling",
+                    icon_value=icons["slab"].icon_id
+                    ).ceiling = True
         # row = box.row(align=True)
         # row.operator("archipack.roof", icon='CURVE_DATA')
 
@@ -495,22 +499,22 @@ def menu_func(self, context):
                     text="Wall",
                     icon_value=icons["wall"].icon_id
                     )
-    layout.operator("archipack.window",
+    layout.operator("archipack.window_preset_menu",
                     text="Window",
                     icon_value=icons["window"].icon_id
-                    ).mode = 'CREATE'
-    layout.operator("archipack.door",
+                    ).preset_operator = "archipack.window"
+    layout.operator("archipack.door_preset_menu",
                     text="Door",
                     icon_value=icons["door"].icon_id
-                    ).mode = 'CREATE'
-    layout.operator("archipack.stair",
+                    ).preset_operator = "archipack.door"
+    layout.operator("archipack.stair_preset_menu",
                     text="Stair",
                     icon_value=icons["stair"].icon_id
-                    )
-    layout.operator("archipack.fence",
+                    ).preset_operator = "archipack.stair"
+    layout.operator("archipack.fence_preset_menu",
                     text="Fence",
                     icon_value=icons["fence"].icon_id
-                    )
+                    ).preset_operator = "archipack.fence" 
     layout.operator("archipack.truss",
                     text="Truss",
                     icon_value=icons["truss"].icon_id

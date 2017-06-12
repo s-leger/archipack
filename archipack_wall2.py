@@ -973,7 +973,6 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                     'archipack_hole' not in child):
                 tM = child.matrix_world.to_3x3()
                 pt = (itM * child.location).to_2d()
-                dir_y = (rM * tM * Vector((0, 1, 0))).to_2d()
                 for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
                     res, d, t = wall.point_sur_segment(pt)
@@ -990,8 +989,9 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                         if child.data is not None and "archipack_window" in child.data:
                             flip = self.flip
                         else:
-                            # let door point where user want
-                            flip = (dir - dir_y).length > 0.5
+                            dir_y = (rM * tM * Vector((0, -1, 0))).to_2d()
+                            # let door orient where user want
+                            flip = (dir_y - dir).length > 0.5
                         # store z in wall space
                         relocate.append((
                             child.name,
@@ -1034,6 +1034,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 rx, ry = -rx, -ry
 
             if d is not None:
+                # print("change flip:%s width:%s" % (d.flip != child.flip, d.y != self.width))
                 if d.y != self.width or d.flip != child.flip:
                     c.select = True
                     d.auto_update = False
@@ -1435,7 +1436,7 @@ class ARCHIPACK_OT_wall2_from_curve(Operator):
 
 class ARCHIPACK_OT_wall2_from_slab(Operator):
     bl_idname = "archipack.wall2_from_slab"
-    bl_label = "Slab -> Wall"
+    bl_label = "->Wall"
     bl_description = "Create a wall from a slab"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
