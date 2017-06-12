@@ -437,9 +437,15 @@ class FenceGenerator():
                     f = self.segs[i]
                     if f.t_end < t_end:
                         if type(f).__name__ == 'CurvedFence':
+                            # cant end after segment
+                            t0 = (t_cur - f.t_start) / f.t_diff
+                            t1 = min(1, (t_end - f.t_start) / f.t_diff)
                             n_s = int(max(1, abs(f.da) * (30 / segment.n_step) / pi - 1))
+                            dt = (t1 - t0) / n_s
                             for j in range(1, n_s + 1):
-                                t = j / n_s
+                                # t here is wrong when segment is at intersection of line/curve
+                                # t = j / n_s
+                                t = t0 + dt * j
                                 n = f.line.sized_normal(t, 1)
                                 # n.p = f.lerp(x_offset)
                                 subs.append((n, f.dz / f.line.length, f.z0 + f.dz * t))
@@ -454,7 +460,8 @@ class FenceGenerator():
                 f = self.segs[i]
                 # last section
                 if type(f).__name__ == 'CurvedFence':
-                    t0 = (t_cur - f.t_start) / f.t_diff
+                    # cant start before segment
+                    t0 = max(0, (t_cur - f.t_start) / f.t_diff)
                     t1 = (t_end - f.t_start) / f.t_diff
                     n_s = int(max(1, abs(f.da) * (30 / segment.n_step) / pi - 1))
                     dt = (t1 - t0) / n_s

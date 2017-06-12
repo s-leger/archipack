@@ -788,13 +788,14 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                 p0 = points[i - 1]
                 p1 = points[i]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            pts.append(wM * points[-1].co)
             if spline.use_cyclic_u:
                 p0 = points[-1]
                 p1 = points[0]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
-
+            else:    
+                pts.append(wM * points[-1].co)
+            
         if self.is_cw(pts):
             pts = list(reversed(pts))
 
