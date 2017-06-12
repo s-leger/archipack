@@ -57,7 +57,16 @@ class MaterialUtils():
         obj.data.materials.append(alt3_mat)
         obj.data.materials.append(alt4_mat)
         obj.data.materials.append(alt5_mat)
-
+        
+    @staticmethod
+    def add_wall_materials(obj):
+        int_mat = MaterialUtils.build_default_mat('inside', (0.5, 1.0, 1.0))
+        out_mat = MaterialUtils.build_default_mat('outside', (0.5, 1.0, 0.5))
+        oth_mat = MaterialUtils.build_default_mat('cuts', (1.0, 0.2, 0.2))
+        obj.data.materials.append(out_mat)
+        obj.data.materials.append(int_mat)
+        obj.data.materials.append(oth_mat)
+        
     @staticmethod
     def add_stair_materials(obj):
         cei_mat = MaterialUtils.build_default_mat('Stair_ceiling', (0.5, 1.0, 1.0))
