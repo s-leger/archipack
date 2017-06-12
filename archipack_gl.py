@@ -713,6 +713,7 @@ class GlImage(Gl):
         self.image = image
         self.colour_inactive = (1, 1, 1, 1)
         Gl.__init__(self, d)
+        self.pts_2d = [Vector((0, 0)), Vector((10, 10))]
 
     def set_pos(self, pts):
         self.pts_2d = pts
@@ -858,10 +859,12 @@ class TriHandle(GlHandle):
     def pts(self):
         n = self.up_axis
         c = self.c_axis
-        if self.selected or self.hover or self.active:
-            scale = 1
-        else:
-            scale = 0.5
+        # does move sensitive area so disable for tri handle 
+        # may implement sensor_center property to fix this
+        # if self.selected or self.hover or self.active:
+        scale = 1
+        # else:
+        #    scale = 0.5
         x = n * self.size * 4 * scale
         y = c * self.size * scale
         return [self.pos_3d - x + y, self.pos_3d - x - y, self.pos_3d]

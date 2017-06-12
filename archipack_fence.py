@@ -1230,12 +1230,13 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 p0 = points[i - 1]
                 p1 = points[i]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            pts.append(wM * points[-1].co)
             if spline.use_cyclic_u:
                 p0 = points[-1]
                 p1 = points[0]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
+            else:
+                pts.append(wM * points[-1].co)
 
         self.auto_update = False
 
@@ -1336,7 +1337,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 x = 0.5 * self.rail_x[i]
                 y = self.rail_z[i]
                 rail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
-                g.make_profile(rail, int(self.rail_mat[i].index), self.rail_offset[i],
+                g.make_profile(rail, int(self.rail_mat[i].index), self.x_offset - self.rail_offset[i],
                         self.rail_alt[i], 0, verts, faces, matids, uvs)
 
         if self.handrail_profil == 'COMPLEX':
@@ -1739,14 +1740,14 @@ class ARCHIPACK_OT_fence_preset_menu(PresetMenuOperator, Operator):
 
 
 class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
-    """Add a Door Styles"""
+    """Add a Fence Preset"""
     bl_idname = "archipack.fence_preset"
     bl_label = "Add Fence Style"
     preset_menu = "ARCHIPACK_OT_fence_preset_menu"
 
     @property
     def blacklist(self):
-        # 
+        #
         return ['manipulators', 'n_parts', 'parts', 'user_defined_path']
 
 

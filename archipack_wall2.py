@@ -531,7 +531,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
     n_parts = IntProperty(
             name="parts",
             min=1,
-            max=32,
+            max=1024,
             default=1, update=update_manipulators
             )
     step_angle = FloatProperty(
@@ -669,7 +669,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         # fix snap manipulators index
         self.setup_manipulators()
         self.auto_update = True
-   
+
     def get_generator(self):
         # print("get_generator")
         g = WallGenerator(self.parts)
@@ -704,7 +704,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         return g
 
     def setup_manipulators(self):
-    
+
         if len(self.manipulators) == 0:
             # make manipulators selectable
             s = self.manipulators.add()
@@ -715,7 +715,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             s = self.manipulators.add()
             s.prop1_name = "z"
             s.normal = (0, 1, 0)
-            
+
         for i in range(self.n_parts + 1):
             p = self.parts[i]
             n_manips = len(p.manipulators)
@@ -764,7 +764,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             d += (p.x * p0.y - p.y * p0.x)
             p0 = p
         return d > 0
-        
+
     def from_spline(self, wM, resolution, spline):
         pts = []
         if spline.type == 'POLY':
@@ -777,18 +777,19 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 p0 = points[i - 1]
                 p1 = points[i]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            pts.append(wM * points[-1].co)
             if spline.use_cyclic_u:
                 p0 = points[-1]
                 p1 = points[0]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
+            else:
+                pts.append(wM * points[-1].co)
 
         if self.is_cw(pts):
             pts = list(reversed(pts))
-            
+
         self.auto_update = False
-        
+
         self.n_parts = len(pts) - 1
 
         if spline.use_cyclic_u:
@@ -805,6 +806,9 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 da -= 2 * pi
             if da < -pi:
                 da += 2 * pi
+            if i >= len(self.parts):
+                print("Too many pts for parts")
+                break
             p = self.parts[i]
             p.length = dp.to_2d().length
             p.dz = dp.z
@@ -1447,7 +1451,7 @@ class ARCHIPACK_OT_wall2_from_slab(Operator):
     def poll(self, context):
         o = context.active_object
         return o is not None and o.data is not None and 'archipack_slab' in o.data
-    
+
     def create(self, context):
         slab = context.active_object
         wd = slab.data.archipack_slab[0]
