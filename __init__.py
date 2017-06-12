@@ -476,7 +476,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["wall"].icon_id)
         row.operator("archipack.slab_from_wall",
                     icon_value=icons["slab"].icon_id
-                    )
+                    ).ceiling = False
         row.operator("archipack.slab_from_wall",
                     text="->Ceiling",
                     icon_value=icons["slab"].icon_id
