@@ -281,9 +281,10 @@ class ArchipackBoolManager():
 
         # mixed-> interactive
         for m in wall.modifiers:
-            if m.type == 'BOOLEAN' and 'archipack_hybriddhole' in m.object:
-                hole_obj = m.object
-                break
+            if m.type == 'BOOLEAN':
+                if m.object is not None and 'archipack_hybriddhole' in m.object:
+                    hole_obj = m.object
+                    break
 
         if hole_obj is not None:
             for m in hole_obj.modifiers:
