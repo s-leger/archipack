@@ -761,8 +761,8 @@ class ARCHIPACK_OT_door_panel(Operator):
             expose only basic params in operator
             use object property for other params
         """
-        m = bpy.data.meshes.new("Door")
-        o = bpy.data.objects.new("Door", m)
+        m = bpy.data.meshes.new("Panel")
+        o = bpy.data.objects.new("Panel", m)
         d = m.archipack_doorpanel.add()
         d.x = self.x
         d.y = self.y
@@ -1401,9 +1401,6 @@ class ARCHIPACK_PT_door(Panel):
     bl_label = "Door"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    # bl_context = 'object'
-    # bl_space_type = 'VIEW_3D'
-    # bl_region_type = 'UI'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
@@ -1583,8 +1580,8 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
             expose only basic params in operator
             use object property for other params
         """
-        m = bpy.data.meshes.new("Frame")
-        o = bpy.data.objects.new("Frame", m)
+        m = bpy.data.meshes.new("Door")
+        o = bpy.data.objects.new("Door", m)
         d = m.archipack_door.add()
         d.x = self.x
         d.y = self.y
@@ -1784,6 +1781,7 @@ class ARCHIPACK_OT_door_draw(Operator):
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
                 ('LEFTCLICK', 'Create a door'),
+                ('SHIFT', 'Make linked door'),
                 ('RIGHTCLICK or ESC', 'exit')
                 ])
             self.feedback.enable()
@@ -1830,7 +1828,7 @@ class ARCHIPACK_OT_door_preset_menu(PresetMenuOperator, Operator):
 
 
 class ARCHIPACK_OT_door_preset(ArchipackPreset, Operator):
-    """Add a Door Styles"""
+    """Add a Door Preset"""
     bl_idname = "archipack.door_preset"
     bl_label = "Add Door Style"
     preset_menu = "ARCHIPACK_OT_door_preset_menu"

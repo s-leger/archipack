@@ -60,6 +60,7 @@ if "bpy" in locals():
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
     imp.reload(archipack_rendering)
+    imp.reload(addon_updater_ops)
     try:
         imp.reload(archipack_polylib)
         HAS_POLYLIB = True
@@ -83,6 +84,7 @@ else:
     from . import archipack_fence
     from . import archipack_truss
     from . import archipack_rendering
+    from . import addon_updater_ops
     try:
         """
             polylib depends on shapely
@@ -97,6 +99,7 @@ else:
 
     # from . import archipack_polylib
 
+    
     print("archipack: ready")
 
 # noinspection PyUnresolvedReferences
@@ -108,7 +111,7 @@ from bpy.types import (
     )
 from bpy.props import (
     EnumProperty, PointerProperty,
-    StringProperty,
+    StringProperty, BoolProperty,
     IntProperty, FloatProperty, FloatVectorProperty
     )
 
@@ -228,6 +231,41 @@ class Archipack_Pref(AddonPreferences):
             size=4,
             min=0, max=1
             )
+    
+    # addon updater preferences
+
+    auto_check_update = BoolProperty(
+        name = "Auto-check for Update",
+        description = "If enabled, auto-check for updates using an interval",
+        default = False,
+        )
+    
+    updater_intrval_months = IntProperty(
+        name='Months',
+        description = "Number of months between checking for updates",
+        default=0,
+        min=0
+        )
+    updater_intrval_days = IntProperty(
+        name='Days',
+        description = "Number of days between checking for updates",
+        default=7,
+        min=0,
+        )
+    updater_intrval_hours = IntProperty(
+        name='Hours',
+        description = "Number of hours between checking for updates",
+        default=0,
+        min=0,
+        max=23
+        )
+    updater_intrval_minutes = IntProperty(
+        name='Minutes',
+        description = "Number of minutes between checking for updates",
+        default=0,
+        min=0,
+        max=59
+        )
 
     def draw(self, context):
         layout = self.layout
@@ -259,8 +297,9 @@ class Archipack_Pref(AddonPreferences):
         col.label(text="Manipulators:")
         col.prop(self, "arrow_size")
         col.prop(self, "handle_size")
-
-
+        addon_updater_ops.update_settings_ui(self, context)
+        
+        
 # ----------------------------------------------------
 # Archipack panels
 # ----------------------------------------------------
@@ -418,6 +457,8 @@ class TOOLS_PT_Archipack_Create(Panel):
 
     def draw(self, context):
         global icons_collection
+        addon_updater_ops.check_for_update_background(context)
+        
         icons = icons_collection["main"]
         layout = self.layout
         row = layout.row(align=True)
@@ -481,6 +522,8 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="->Ceiling",
                     icon_value=icons["slab"].icon_id
                     ).ceiling = True
+        
+        addon_updater_ops.update_notice_box_ui(self, context)
         # row = box.row(align=True)
         # row.operator("archipack.roof", icon='CURVE_DATA')
 
@@ -573,6 +616,8 @@ def register():
     WindowManager.archipack = PointerProperty(type=archipack_data)
     bpy.utils.register_class(Archipack_Pref)
     update_panel(None, bpy.context)
+    
+    addon_updater_ops.register(bl_info)
     # bpy.utils.register_module(__name__)
 
 
@@ -610,6 +655,9 @@ def unregister():
     for icons in icons_collection.values():
         previews.remove(icons)
     icons_collection.clear()
+    
+    addon_updater_ops.unregister(bl_info)
+    
     # bpy.utils.unregister_module(__name__)
 
 

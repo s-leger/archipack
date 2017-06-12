@@ -451,9 +451,8 @@ class ArchipackBoolManager():
                 hole = d.robust_hole(context, o.matrix_world)
         if hole is None:
             return
+            
         self.prepare_hole(hole)
-        
-        bpy.ops.object.select_all(action='DESELECT')
         
         if self.mode == 'INTERACTIVE':
             # update / remove / add  boolean modifier
@@ -472,9 +471,9 @@ class ArchipackBoolManager():
                 m.object = hole_obj
             else:
                 hole_obj = m.object
-            
             self.union(hole_obj, hole)
-            hole_obj.select = True
+            
+        bpy.ops.object.select_all(action='DESELECT')
          
         # parenting childs to wall reference point
         if wall.parent is None:
@@ -485,6 +484,10 @@ class ArchipackBoolManager():
             bpy.ops.archipack.reference_point()
         else:
             context.scene.objects.active = wall.parent
+        
+        if hole_obj is not None:
+            hole_obj.select = True
+        
         wall.select = True
         o.select = True
         bpy.ops.archipack.parent_to_reference()

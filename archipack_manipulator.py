@@ -1959,6 +1959,7 @@ class archipack_manipulator(PropertyGroup):
             Factory return a manipulator object or None
             o:         object
             datablock: datablock to modify
+            snap_callback: function call y
         """
 
         self.get_prefs(context)
@@ -2282,8 +2283,9 @@ class Manipulable():
                         manipulator.select(self.manipulable_area)
             # keep focus to prevent left select mouse to actually move object
             return {'RUNNING_MODAL'}
-
-        if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
+        
+        # event.alt here to prevent 3 button mouse emulation exit while zooming
+        if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS' and not event.alt:
             self.manipulable_disable(context)
             self.manipulable_exit(context)
             return {'FINISHED'}
