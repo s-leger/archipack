@@ -42,6 +42,40 @@ class archipack_reference_point(PropertyGroup):
         default=Vector((0, 0, 0))
         )
 
+    @classmethod
+    def filter(cls, o):
+        """
+            Filter object with this class in data
+            return
+            True when object contains this datablock
+            False otherwhise
+            usage:
+            class_name.filter(object) from outside world
+            self.__class__.filter(object) from instance
+        """
+        try:
+            return cls.__name__ in o
+        except:
+            pass
+        return False
+
+    @classmethod
+    def datablock(cls, o):
+        """
+            Retrieve datablock from base object
+            return
+                datablock when found
+                None when not found
+            usage:
+                class_name.datablock(object) from outside world
+                self.__class__.datablock(object) from instance
+        """
+        try:
+            return getattr(o, cls.__name__)[0]
+        except:
+            pass
+        return None
+
 
 class ARCHIPACK_PT_reference_point(Panel):
     bl_idname = "ARCHIPACK_PT_reference_point"
@@ -50,9 +84,13 @@ class ARCHIPACK_PT_reference_point(Panel):
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
 
+    @classmethod
+    def poll(cls, context):
+        return archipack_reference_point.filter(context.active_object)
+
     def draw(self, context):
-        o = context.object
-        props = ARCHIPACK_PT_reference_point.params(o)
+        o = context.active_object
+        props = archipack_reference_point.datablock(o)
         if props is None:
             return
         layout = self.layout
@@ -62,35 +100,9 @@ class ARCHIPACK_PT_reference_point(Panel):
         else:
             layout.operator('archipack.move_to_2d')
 
-    @classmethod
-    def params(cls, o):
-        try:
-            if 'archipack_reference_point' not in o:
-                return None
-            else:
-                return o.archipack_reference_point[0]
-        except:
-            return None
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            if 'archipack_reference_point' not in o:
-                return False
-            else:
-                return True
-        except:
-            return False
-
-    @classmethod
-    def poll(cls, context):
-        o = context.object
-        if o is None:
-            return False
-        return cls.filter(o)
-
 
 class ARCHIPACK_OT_reference_point(Operator):
+    """Add reference point"""
     bl_idname = "archipack.reference_point"
     bl_label = "Reference point"
     bl_description = "Add reference point"
@@ -115,11 +127,13 @@ class ARCHIPACK_OT_reference_point(Operator):
         if context.mode == "OBJECT":
             x, y, z = context.scene.cursor_location
             bpy.ops.object.empty_add(type='ARROWS', radius=0.5, location=Vector((x, y, 0)))
-            reference_point = context.active_object
-            reference_point.name = "Reference"
-            props = reference_point.archipack_reference_point.add()
+            o = context.active_object
+            o.name = "Reference"
+            props = o.archipack_reference_point.add()
             props.location_2d = Vector((x, y, 0))
             props.location_3d = self.location_3d
+            o.select = True
+            context.scene.objects.active = o
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -135,12 +149,12 @@ class ARCHIPACK_OT_move_to_3d(Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and ARCHIPACK_PT_reference_point.filter(context.active_object)
+        return archipack_reference_point.filter(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            props = ARCHIPACK_PT_reference_point.params(o)
+            props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
             o.location = props.location_3d
@@ -159,12 +173,12 @@ class ARCHIPACK_OT_move_to_2d(Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and ARCHIPACK_PT_reference_point.filter(context.active_object)
+        return archipack_reference_point.filter(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            props = ARCHIPACK_PT_reference_point.params(o)
+            props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
             props.location_3d = o.location
@@ -184,12 +198,12 @@ class ARCHIPACK_OT_store_2d_reference(Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and ARCHIPACK_PT_reference_point.filter(context.active_object)
+        return archipack_reference_point.filter(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            props = ARCHIPACK_PT_reference_point.params(o)
+            props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
             x, y, z = o.location
@@ -209,13 +223,12 @@ class ARCHIPACK_OT_move_2d_reference_to_cursor(Operator):
 
     @classmethod
     def poll(cls, context):
-        o = context.active_object
-        return o is not None and ARCHIPACK_PT_reference_point.filter(o)
+        return archipack_reference_point.filter(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            props = ARCHIPACK_PT_reference_point.params(o)
+            props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
             bpy.ops.object.select_all(action="DESELECT")
@@ -239,16 +252,15 @@ class ARCHIPACK_OT_parent_to_reference(Operator):
 
     @classmethod
     def poll(cls, context):
-        o = context.active_object
-        return o is not None and ARCHIPACK_PT_reference_point.filter(o)
+        return archipack_reference_point.filter(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            sel = [obj for obj in context.selected_objects if obj != o]
-            props = ARCHIPACK_PT_reference_point.params(o)
+            props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
+            sel = [obj for obj in context.selected_objects if obj != o]
             itM = o.matrix_world.inverted()
             for child in sel:
                 rs = child.matrix_world.to_3x3().to_4x4()

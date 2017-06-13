@@ -35,13 +35,14 @@ from .bmesh_utils import BmeshEdit as bmed
 from mathutils import Vector, Matrix
 from math import sin, cos, pi
 from .archipack_manipulator import Manipulable
+from .archipack_object import ArchipackCreateTool, ArchipackObject
 
 
 def update(self, context):
     self.update(context)
 
 
-class archipack_truss(Manipulable, PropertyGroup):
+class archipack_truss(ArchipackObject, Manipulable, PropertyGroup):
     truss_type = EnumProperty(
             name="Type",
             items=(
@@ -106,17 +107,12 @@ class archipack_truss(Manipulable, PropertyGroup):
             update=update
             )
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            if ARCHIPACK_PT_truss.params(o) == self:
-                return active, selected, o
-        return active, selected, None
+    def setup_manipulators(self):
+        if len(self.manipulators) < 1:
+            s = self.manipulators.add()
+            s.prop1_name = "z"
+            s.type_key = 'SIZE'
+            s.normal = Vector((0, 1, 0))
 
     def docylinder(self, faces, verts, radius, segs, tMt, tMb, tM, add=False):
         segs_step = 2 * pi / segs
@@ -149,6 +145,8 @@ class archipack_truss(Manipulable, PropertyGroup):
         if o is None or not self.auto_update:
             return
 
+        self.setup_manipulators()
+
         if self.truss_type == '1':
             EntreAxe = 0.19
             master_radius = 0.016
@@ -177,7 +175,7 @@ class archipack_truss(Manipulable, PropertyGroup):
             EntreAxe = self.entre_axe
             master_radius = min(0.5 * self.entre_axe, self.master_radius)
             slaves_radius = min(0.5 * self.entre_axe, self.master_radius, self.slaves_radius)
-            
+
         master_sepang = (pi * (self.master_count - 2) / self.master_count) / 2
         radius = (EntreAxe / 2) / cos(master_sepang)
         master_step = pi * 2 / self.master_count
@@ -291,12 +289,10 @@ class ARCHIPACK_PT_truss(Panel):
     bl_label = "Truss"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    # bl_context = 'object'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
-        o = context.object
-        prop = ARCHIPACK_PT_truss.params(o)
+        prop = archipack_truss.datablock(context.active_object)
         if prop is None:
             return
         layout = self.layout
@@ -312,52 +308,18 @@ class ARCHIPACK_PT_truss(Panel):
             box.prop(prop, 'master_radius')
             box.prop(prop, 'slaves_radius')
             box.prop(prop, 'entre_axe')
-                
-    @classmethod
-    def params(cls, o):
-        try:
-            if 'archipack_truss' not in o.data:
-                return False
-            else:
-                return o.data.archipack_truss[0]
-        except:
-            return False
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            if 'archipack_truss' not in o.data:
-                return False
-            else:
-                return True
-        except:
-            return False
 
     @classmethod
     def poll(cls, context):
-        o = context.active_object
-        if o is None:
-            return False
-        return cls.filter(o)
+        return archipack_truss.filter(context.active_object)
 
 
-class ARCHIPACK_OT_truss(Operator):
+class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
     bl_idname = "archipack.truss"
     bl_label = "Truss"
     bl_description = "Create Truss"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-
-    auto_manipulate = BoolProperty(default=True)
-
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
 
     def create(self, context):
         m = bpy.data.meshes.new("Truss")
@@ -365,14 +327,11 @@ class ARCHIPACK_OT_truss(Operator):
         d = m.archipack_truss.add()
         # make manipulators selectable
         # d.manipulable_selectable = True
-        s = d.manipulators.add()
-        s.prop1_name = "z"
-        s.type_key = 'SIZE'
-        s.normal = Vector((0, 1, 0))
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
-        d.update(context)
+        self.load_preset(d)
+        self.add_material(o)
         m.auto_smooth_angle = 1.15
         m.use_auto_smooth = True
         # MaterialUtils.add_wall_materials(o)
@@ -388,8 +347,7 @@ class ARCHIPACK_OT_truss(Operator):
             o.location = bpy.context.scene.cursor_location
             o.select = True
             context.scene.objects.active = o
-            if self.auto_manipulate:
-                bpy.ops.archipack.truss_manipulate('INVOKE_DEFAULT')
+            self.manipulate()
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -409,11 +367,11 @@ class ARCHIPACK_OT_truss_manipulate(Operator):
 
     @classmethod
     def poll(self, context):
-        return ARCHIPACK_PT_truss.filter(context.active_object)
+        return archipack_truss.filter(context.active_object)
 
     def invoke(self, context, event):
-        o = context.active_object
-        o.data.archipack_truss[0].manipulable_invoke(context)
+        d = archipack_truss.datablock(context.active_object)
+        d.manipulable_invoke(context)
         return {'FINISHED'}
 
 

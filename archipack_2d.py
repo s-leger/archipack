@@ -25,7 +25,7 @@
 #
 # ----------------------------------------------------------
 from mathutils import Vector, Matrix
-from math import sin, cos, pi, atan2, sqrt, acos, degrees
+from math import sin, cos, pi, atan2, sqrt, acos
 
 
 class Projection():
@@ -44,7 +44,7 @@ class Projection():
         hyp = (self.length * next.length)
         c = min(1, max(-1, adj / hyp))
         size = 1 / cos(0.5 * acos(c))
-        return direction.normalized(), size
+        return direction.normalized(), min(3, size)
 
     def proj_z(self, t, dz0, next=None, dz1=0):
         """
@@ -346,7 +346,6 @@ class Line(Projection):
                 # da is ccw
                 da = 2 * pi - da
             last.da = da
-            print("last.da %s" % (degrees(last.da)))
             line.p0 = p0
         else:
             # intersect line / line
@@ -361,6 +360,7 @@ class Line(Projection):
             u = (c2 * v) / d
             # intersect past this segment end
             # or before last segment start
+            # print("u:%s t:%s" % (u, t))
             if u > 1 or t < 0:
                 return line
             p = last.lerp(t)
