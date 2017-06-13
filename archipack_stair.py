@@ -27,19 +27,19 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
+from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
     FloatProperty, BoolProperty, IntProperty, CollectionProperty,
     StringProperty, EnumProperty, FloatVectorProperty
     )
 from .bmesh_utils import BmeshEdit as bmed
-from .materialutils import MaterialUtils
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, floor, acos
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
-from .archipack_preset import ArchipackPreset
+from .archipack_preset import ArchipackPreset, PresetMenuOperator
+from .archipack_object import ArchipackCreateTool, ArchipackObject
 
 
 class Stair():
@@ -1555,7 +1555,7 @@ class archipack_stair_material(PropertyGroup):
         """
         selected = [o for o in context.selected_objects]
         for o in selected:
-            props = ARCHIPACK_PT_stair.params(o)
+            props = archipack_stair.datablock(o)
             if props:
                 for part in props.rail_mat:
                     if part == self:
@@ -1584,15 +1584,15 @@ class archipack_stair_part(PropertyGroup):
     length = FloatProperty(
             name="length",
             min=0.5,
-            max=100.0,
             default=2.0,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     radius = FloatProperty(
             name="radius",
             min=0.5,
-            max=100.0,
             default=0.7,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     da = FloatProperty(
@@ -1628,7 +1628,7 @@ class archipack_stair_part(PropertyGroup):
         """
         selected = [o for o in context.selected_objects]
         for o in selected:
-            props = ARCHIPACK_PT_stair.params(o)
+            props = archipack_stair.datablock(o)
             if props:
                 for part in props.parts:
                     if part == self:
@@ -1664,7 +1664,7 @@ class archipack_stair_part(PropertyGroup):
                 row.prop(self, "length")
 
 
-class archipack_stair(Manipulable, PropertyGroup):
+class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
 
     parts = CollectionProperty(type=archipack_stair_part)
     n_parts = IntProperty(
@@ -1676,48 +1676,47 @@ class archipack_stair(Manipulable, PropertyGroup):
     step_depth = FloatProperty(
             name="Going",
             min=0.2,
-            max=2.0,
             default=0.25,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     width = FloatProperty(
             name="width",
             min=0.01,
-            max=100.0,
             default=1.2,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     height = FloatProperty(
             name="Height",
-            min=0.1, max=1000,
+            min=0.1,
             default=2.4, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     nose_y = FloatProperty(
             name="Depth",
-            min=0.0, max=1000,
+            min=0.0,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     x_offset = FloatProperty(
             name="x offset",
-            min=-1000, max=1000,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     nose_z = FloatProperty(
             name="Height",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     bottom_z = FloatProperty(
             name="Stair bottom",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -1725,8 +1724,8 @@ class archipack_stair(Manipulable, PropertyGroup):
     radius = FloatProperty(
             name="radius",
             min=0.5,
-            max=100.0,
             default=0.7,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     da = FloatProperty(
@@ -1812,35 +1811,35 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     post_spacing = FloatProperty(
             name="spacing",
-            min=0.1, max=1000,
+            min=0.1,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_x = FloatProperty(
             name="width",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_y = FloatProperty(
             name="length",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_z = FloatProperty(
             name="height",
-            min=0.001, max=1000,
+            min=0.001,
             default=1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     post_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
+            min=-100,
             default=0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -1884,35 +1883,35 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     subs_spacing = FloatProperty(
             name="spacing",
-            min=0.05, max=1000,
+            min=0.05,
             default=0.10, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_x = FloatProperty(
             name="width",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_y = FloatProperty(
             name="length",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_z = FloatProperty(
             name="height",
-            min=0.001, max=1000,
+            min=0.001,
             default=1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     subs_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
+            min=-100,
             default=0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -1960,35 +1959,33 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     panel_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
             default=0.25, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_x = FloatProperty(
             name="width",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.01, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_z = FloatProperty(
             name="height",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.6, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_dist = FloatProperty(
             name="space",
-            min=0.001, max=1000,
+            min=0.001,
             default=0.05, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     panel_offset_x = FloatProperty(
             name="offset",
-            min=-100.0, max=100,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2025,7 +2022,7 @@ class archipack_stair(Manipulable, PropertyGroup):
                 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
             ],
             size=31,
-            min=0.001, max=1000,
+            min=0.001,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2039,7 +2036,7 @@ class archipack_stair(Manipulable, PropertyGroup):
                 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05
             ],
             size=31,
-            min=0.001, max=1000,
+            min=0.001,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2053,7 +2050,6 @@ class archipack_stair(Manipulable, PropertyGroup):
                 0, 0, 0, 0, 0, 0, 0
             ],
             size=31,
-            min=-100, max=100,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2067,7 +2063,6 @@ class archipack_stair(Manipulable, PropertyGroup):
                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
             ],
             size=31,
-            min=-100, max=100,
             precision=2, step=1,
             unit='LENGTH',
             update=update
@@ -2086,21 +2081,18 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     handrail_offset = FloatProperty(
             name="offset",
-            min=-100.0, max=100,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_extend = FloatProperty(
             name="extend",
-            min=-100, max=1000,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2127,21 +2119,21 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     handrail_x = FloatProperty(
             name="width",
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_y = FloatProperty(
             name="height",
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     handrail_radius = FloatProperty(
             name="radius",
-            min=0.001, max=100,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2159,28 +2151,25 @@ class archipack_stair(Manipulable, PropertyGroup):
             )
     string_x = FloatProperty(
             name="width",
-            min=-100.0, max=100,
+            min=-100.0,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     string_z = FloatProperty(
             name="height",
-            min=-100.0, max=100,
             default=0.3, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     string_offset = FloatProperty(
             name="offset",
-            min=-100.0, max=100,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     string_alt = FloatProperty(
             name="altitude",
-            min=-100, max=1000,
             default=-0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -2264,28 +2253,28 @@ class archipack_stair(Manipulable, PropertyGroup):
             default=False
             )
 
-    # Flag to prevent mesh update while making bulk changes over variables
-    # use :
-    # .auto_update = False
-    # bulk changes
-    # .auto_update = True
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
             update=update_manipulators
             )
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            if ARCHIPACK_PT_stair.params(o) == self:
-                return active, selected, o
-        return active, selected, None
+    def setup_manipulators(self):
+
+        if len(self.manipulators) == 0:
+            s = self.manipulators.add()
+            s.prop1_name = "width"
+            s = self.manipulators.add()
+            s.prop1_name = "height"
+            s.normal = Vector((0, 1, 0))
+
+        for i in range(self.n_parts):
+            p = self.parts[i]
+            n_manips = len(p.manipulators)
+            if n_manips < 1:
+                m = p.manipulators.add()
+                m.type_key = 'SIZE'
+                m.prop1_name = 'length'
 
     def update_parts(self):
 
@@ -2303,10 +2292,9 @@ class archipack_stair(Manipulable, PropertyGroup):
 
         # add parts
         for i in range(len(self.parts), self.n_parts):
-            p = self.parts.add()
-            m = p.manipulators.add()
-            m.type_key = 'SIZE'
-            m.prop1_name = 'length'
+            self.parts.add()
+
+        self.setup_manipulators()
 
     def update(self, context, manipulable_refresh=False):
 
@@ -2535,18 +2523,19 @@ class archipack_stair(Manipulable, PropertyGroup):
         """
         self.manipulable_disable(context)
         o = context.active_object
-        d = self
 
-        if d.presets is not 'STAIR_O':
-            for i, part in enumerate(d.parts):
-                if i >= d.n_parts:
+        self.setup_manipulators()
+
+        if self.presets is not 'STAIR_O':
+            for i, part in enumerate(self.parts):
+                if i >= self.n_parts:
                     break
-                if "S_" in part.type or d.presets in ['STAIR_USER']:
+                if "S_" in part.type or self.presets in ['STAIR_USER']:
                     for j, m in enumerate(part.manipulators):
                         self.manip_stack.append(m.setup(context, o, part))
 
-        if d.presets in ['STAIR_U', 'STAIR_L']:
-            self.manip_stack.append(d.parts[1].manipulators[0].setup(context, o, d))
+        if self.presets in ['STAIR_U', 'STAIR_L']:
+            self.manip_stack.append(self.parts[1].manipulators[0].setup(context, o, self))
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
@@ -2557,23 +2546,24 @@ class ARCHIPACK_PT_stair(Panel):
     bl_label = "Stair"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    # bl_context = 'object'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
-        o = context.object
-        scene = context.scene
-        prop = ARCHIPACK_PT_stair.params(o)
+        prop = archipack_stair.datablock(context.active_object)
         if prop is None:
             return
+        scene = context.scene
         layout = self.layout
         row = layout.row(align=True)
         row.operator('archipack.stair_manipulate', icon='HAND')
         row = layout.row(align=True)
-        row.prop(prop, 'presets')
+        row.prop(prop, 'presets', text="")
         box = layout.box()
         # box.label(text="Styles")
         row = box.row(align=True)
-        row.menu("ARCHIPACK_MT_stair_preset", text=bpy.types.ARCHIPACK_MT_stair_preset.bl_label)
+        # row.menu("ARCHIPACK_MT_stair_preset", text=bpy.types.ARCHIPACK_MT_stair_preset.bl_label)
+        row.operator("archipack.stair_preset_menu", text=bpy.types.ARCHIPACK_OT_stair_preset_menu.bl_label)
         row.operator("archipack.stair_preset", text="", icon='ZOOMIN')
         row.operator("archipack.stair_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
@@ -2751,72 +2741,30 @@ class ARCHIPACK_PT_stair(Panel):
             row.prop(prop, 'idmats_expand', icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
 
     @classmethod
-    def params(cls, o):
-        try:
-            if 'archipack_stair' not in o.data:
-                return False
-            else:
-                return o.data.archipack_stair[0]
-        except:
-            return False
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            if 'archipack_stair' not in o.data:
-                return False
-            else:
-                return True
-        except:
-            return False
-
-    @classmethod
     def poll(cls, context):
-        o = context.object
-        if o is None:
-            return False
-        return cls.filter(o)
+        return archipack_stair.filter(context.active_object)
 
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_stair(Operator):
+class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
     bl_idname = "archipack.stair"
     bl_label = "Stair"
     bl_description = "Create a Stair"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
-    auto_manipulate = BoolProperty(default=True)
-
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
-
     def create(self, context):
         m = bpy.data.meshes.new("Stair")
         o = bpy.data.objects.new("Stair", m)
         d = m.archipack_stair.add()
-        s = d.manipulators.add()
-        s.prop1_name = "width"
-        s = d.manipulators.add()
-        s.prop1_name = "height"
-        s.normal = Vector((0, 1, 0))
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
-        d.update(context)
-        MaterialUtils.add_stair_materials(o)
-        o.location = bpy.context.scene.cursor_location
-        o.select = True
-        context.scene.objects.active = o
+        self.load_preset(d)
+        self.add_material(o)
         # auto smooth arround 12 deg fix Tynkatopi smoothing issue ;)
         m.auto_smooth_angle = 0.20944
         m.use_auto_smooth = True
@@ -2829,9 +2777,10 @@ class ARCHIPACK_OT_stair(Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            o.location = bpy.context.scene.cursor_location
-            if self.auto_manipulate:
-                bpy.ops.archipack.stair_manipulate('INVOKE_DEFAULT')
+            o.location = context.scene.cursor_location
+            o.select = True
+            context.scene.objects.active = o
+            self.manipulate()
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -2850,23 +2799,12 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
 
     @classmethod
     def poll(self, context):
-        return ARCHIPACK_PT_stair.filter(context.active_object)
-
-    def modal(self, context, event):
-        return self.d.manipulable_modal(context, event)
+        return archipack_stair.filter(context.active_object)
 
     def invoke(self, context, event):
-        if context.space_data.type == 'VIEW_3D':
-            o = context.active_object
-            self.d = o.data.archipack_stair[0]
-            if self.d.manipulable_invoke(context):
-                context.window_manager.modal_handler_add(self)
-                return {'RUNNING_MODAL'}
-            else:
-                return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'}
+        d = archipack_stair.datablock(context.active_object)
+        d.manipulable_invoke(context)
+        return {'FINISHED'}
 
 
 # ------------------------------------------------------------------
@@ -2874,30 +2812,26 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_MT_stair_preset(Menu):
-    bl_label = "Stair Styles"
+class ARCHIPACK_OT_stair_preset_menu(PresetMenuOperator, Operator):
+    bl_idname = "archipack.stair_preset_menu"
+    bl_label = "Stair style"
     preset_subdir = "archipack_stair"
-    preset_operator = "script.execute_preset"
-    draw = Menu.draw_preset
 
 
 class ARCHIPACK_OT_stair_preset(ArchipackPreset, Operator):
-    """Add a Fence Preset"""
+    """Add a Stair Preset"""
     bl_idname = "archipack.stair_preset"
     bl_label = "Add Stair Style"
-    preset_menu = "ARCHIPACK_MT_stair_preset"
-
-    datablock_name = StringProperty(
-        name="Datablock",
-        default='archipack_stair',
-        maxlen=64,
-        options={'HIDDEN', 'SKIP_SAVE'},
-        )
+    preset_menu = "ARCHIPACK_OT_stair_preset_menu"
 
     @property
     def blacklist(self):
-        return ['n_parts', 'parts', 'width', 'height', 'radius',
-            'total_angle', 'da', 'presets', 'manipulators']
+        return ['manipulators']
+
+        """
+        'presets', 'n_parts', 'parts', 'width', 'height', 'radius',
+            'total_angle', 'da',
+        """
 
 
 def register():
@@ -2905,9 +2839,10 @@ def register():
     bpy.utils.register_class(archipack_stair_part)
     bpy.utils.register_class(archipack_stair)
     Mesh.archipack_stair = CollectionProperty(type=archipack_stair)
-    bpy.utils.register_class(ARCHIPACK_MT_stair_preset)
+    # bpy.utils.register_class(ARCHIPACK_MT_stair_preset)
     bpy.utils.register_class(ARCHIPACK_PT_stair)
     bpy.utils.register_class(ARCHIPACK_OT_stair)
+    bpy.utils.register_class(ARCHIPACK_OT_stair_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_stair_preset)
     bpy.utils.register_class(ARCHIPACK_OT_stair_manipulate)
 
@@ -2917,8 +2852,9 @@ def unregister():
     bpy.utils.unregister_class(archipack_stair_part)
     bpy.utils.unregister_class(archipack_stair)
     del Mesh.archipack_stair
-    bpy.utils.unregister_class(ARCHIPACK_MT_stair_preset)
+    # bpy.utils.unregister_class(ARCHIPACK_MT_stair_preset)
     bpy.utils.unregister_class(ARCHIPACK_PT_stair)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair)
+    bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_manipulate)

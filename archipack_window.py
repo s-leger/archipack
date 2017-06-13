@@ -27,12 +27,12 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
+from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
     FloatProperty, IntProperty, BoolProperty, BoolVectorProperty,
     CollectionProperty, FloatVectorProperty, EnumProperty, StringProperty
 )
-from mathutils import Vector
+from mathutils import Vector, Matrix
 from math import tan, sqrt
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as WindowPanel
@@ -40,7 +40,10 @@ from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
 # from .archipack_door_panel import ARCHIPACK_OT_select_parent
 from .archipack_manipulator import Manipulable
-from .archipack_preset import ArchipackPreset
+from .archipack_preset import ArchipackPreset, PresetMenuOperator
+from .archipack_gl import FeedbackPanel
+from .archipack_object import ArchipackCreateTool, ArchipackObject
+from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_origin_3d
 
 
 def update(self, context):
@@ -107,7 +110,7 @@ class archipack_window_panelrow(PropertyGroup):
             )
     height = FloatProperty(
             name="Height",
-            min=0.1, max=1000,
+            min=0.1,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -204,14 +207,16 @@ class archipack_window_panel(PropertyGroup):
             )
     frame_y = FloatProperty(
             name='Depth',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
             description='frame depth'
             )
     frame_x = FloatProperty(
             name='Width',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
             description='frame width'
             )
     curve_steps = IntProperty(
@@ -260,8 +265,9 @@ class archipack_window_panel(PropertyGroup):
             )
     handle_altitude = FloatProperty(
             name='handle altitude',
-            min=0, max=1000,
+            min=0,
             default=0.2, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
             description='handle altitude'
             )
     fixed = BoolProperty(
@@ -408,24 +414,24 @@ class archipack_window_panel(PropertyGroup):
         context.scene.objects.active = active
 
 
-class archipack_window(Manipulable, PropertyGroup):
+class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
     x = FloatProperty(
             name='width',
-            min=0.25, max=10000,
+            min=0.25,
             default=100.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
-            description='Width', update=update,
+            description='Width', update=update
             )
     y = FloatProperty(
             name='depth',
-            min=0.1, max=10000,
+            min=0.1,
             default=0.20, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Depth', update=update,
             )
     z = FloatProperty(
             name='height',
-            min=0.1, max=10000,
+            min=0.1,
             default=1.2, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='height', update=update,
@@ -440,42 +446,40 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     radius = FloatProperty(
             name='radius',
-            min=0.1, max=10000,
+            min=0.1,
             default=2.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='radius', update=update,
             )
     elipsis_b = FloatProperty(
             name='ellipsis',
-            min=0.1, max=10000,
+            min=0.1,
             default=0.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='ellipsis vertical size', update=update,
             )
     altitude = FloatProperty(
             name='altitude',
-            min=-100, max=10000,
             default=1.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='altitude', update=update,
             )
     offset = FloatProperty(
             name='offset',
-            min=-100, max=100,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='offset', update=update,
             )
     frame_y = FloatProperty(
             name='Depth',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame depth', update=update,
             )
     frame_x = FloatProperty(
             name='Width',
-            min=0, max=100,
+            min=0,
             default=0.06, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
@@ -486,28 +490,28 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     out_frame_y = FloatProperty(
             name='Side depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame side depth', update=update,
             )
     out_frame_y2 = FloatProperty(
             name='Front depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.02, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame front depth', update=update,
             )
     out_frame_x = FloatProperty(
             name='Front Width',
-            min=0.0, max=100,
+            min=0.0,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width set to 0 disable front frame', update=update,
             )
     out_frame_offset = FloatProperty(
             name='offset',
-            min=0.0, max=100,
+            min=0.0,
             default=0.0, precision=3, step=0.1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame offset', update=update,
@@ -518,21 +522,21 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     out_tablet_x = FloatProperty(
             name='Width',
-            min=0.0, max=100,
+            min=0.0,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet width', update=update,
             )
     out_tablet_y = FloatProperty(
             name='Depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet depth', update=update,
             )
     out_tablet_z = FloatProperty(
             name='Height',
-            min=0.001, max=100,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
@@ -543,21 +547,21 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     in_tablet_x = FloatProperty(
             name='Width',
-            min=0.0, max=100,
+            min=0.0,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet width', update=update,
             )
     in_tablet_y = FloatProperty(
             name='Depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.04, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet depth', update=update,
             )
     in_tablet_z = FloatProperty(
             name='Height',
-            min=0.001, max=100,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
@@ -568,14 +572,14 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     blind_y = FloatProperty(
             name='Depth',
-            min=0.001, max=100,
+            min=0.001,
             default=0.002, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Store depth', update=update,
             )
     blind_z = FloatProperty(
             name='Height',
-            min=0.001, max=100,
+            min=0.001,
             default=0.03, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Store height', update=update,
@@ -591,7 +595,7 @@ class archipack_window(Manipulable, PropertyGroup):
     n_rows = IntProperty(
             name="number of rows",
             min=1,
-            max=20,
+            max=32,
             default=1, update=update,
             )
     curve_steps = IntProperty(
@@ -641,14 +645,14 @@ class archipack_window(Manipulable, PropertyGroup):
             )
     handle_altitude = FloatProperty(
             name="altitude",
-            min=0, max=100,
+            min=0,
             default=1.4, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='handle altitude', update=update_childs,
             )
     hole_margin = FloatProperty(
             name='hole margin',
-            min=0.0, max=10000,
+            min=0.0,
             default=0.1, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
@@ -657,11 +661,6 @@ class archipack_window(Manipulable, PropertyGroup):
             default=False,
             update=update,
             description='flip outside and outside material of hole'
-            )
-    auto_update = BoolProperty(
-            options={'SKIP_SAVE'},
-            default=True,
-            update=update
             )
     # layout related
     display_detail = BoolProperty(
@@ -675,6 +674,12 @@ class archipack_window(Manipulable, PropertyGroup):
     display_materials = BoolProperty(
             options={'SKIP_SAVE'},
             default=True
+            )
+
+    auto_update = BoolProperty(
+            options={'SKIP_SAVE'},
+            default=True,
+            update=update
             )
 
     @property
@@ -964,18 +969,23 @@ class archipack_window(Manipulable, PropertyGroup):
                 self.angle_y, 0, 0, self.frame_x, path_type='HORIZONTAL')
         return uvs
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-
-        for o in selected:
-            if ARCHIPACK_PT_window.params(o) == self:
-                return active, selected, o
-        return active, selected, None
+    def setup_manipulators(self):
+        if len(self.manipulators) == 4:
+            return
+        s = self.manipulators.add()
+        s.prop1_name = "x"
+        s.prop2_name = "x"
+        s.type_key = "SNAP_SIZE_LOC"
+        s = self.manipulators.add()
+        s.prop1_name = "y"
+        s.prop2_name = "y"
+        s.type_key = "SNAP_SIZE_LOC"
+        s = self.manipulators.add()
+        s.prop1_name = "z"
+        s.normal = Vector((0, 1, 0))
+        s = self.manipulators.add()
+        s.prop1_name = "altitude"
+        s.normal = Vector((0, 1, 0))
 
     def remove_childs(self, context, o, to_remove):
         for child in o.children:
@@ -1208,7 +1218,7 @@ class archipack_window(Manipulable, PropertyGroup):
                         frame_y=self.frame_y,
                         angle_y=self.angle_y,
                     )
-                    child = context.object
+                    child = context.active_object
                     # parenting at 0, 0, 0 before set object matrix_world
                     # so location remains local from frame
                     child.parent = o
@@ -1323,6 +1333,10 @@ class archipack_window(Manipulable, PropertyGroup):
         if o is None or not self.auto_update:
             return
 
+        # print("Window.update()")
+
+        self.setup_manipulators()
+
         if childs_only is False:
             bmed.buildmesh(context, o, self.verts, self.faces, self.matids, self.uvs)
 
@@ -1362,6 +1376,7 @@ class archipack_window(Manipulable, PropertyGroup):
 
     def interactive_hole(self, context, o):
         hole_obj = self.find_hole(o)
+
         if hole_obj is None:
             m = bpy.data.meshes.new("hole")
             hole_obj = bpy.data.objects.new("hole", m)
@@ -1369,7 +1384,7 @@ class archipack_window(Manipulable, PropertyGroup):
             hole_obj['archipack_hole'] = True
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-            MaterialUtils.add_wall_materials(hole_obj)
+            MaterialUtils.add_wall2_materials(hole_obj)
 
         hole = self.hole
         center, origin, size, radius = self.get_radius()
@@ -1426,7 +1441,7 @@ class archipack_window(Manipulable, PropertyGroup):
             self.angle_y, 0, 0, self.frame_x, path_type=self.shape)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs)
-        MaterialUtils.add_wall_materials(o)
+        MaterialUtils.add_wall2_materials(o)
         o.select = True
         context.scene.objects.active = o
         return o
@@ -1437,6 +1452,7 @@ class ARCHIPACK_PT_window(Panel):
     bl_label = "Window"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    # bl_context = 'object'
     bl_category = 'ArchiPack'
 
     # layout related
@@ -1448,8 +1464,9 @@ class ARCHIPACK_PT_window(Panel):
     )
 
     def draw(self, context):
-        o = context.object
-        prop = ARCHIPACK_PT_window.params(o)
+        o = context.active_object
+        prop = archipack_window.datablock(o)
+        # prop = ARCHIPACK_PT_window.params(o)
         if prop is None:
             return
         layout = self.layout
@@ -1462,7 +1479,7 @@ class ARCHIPACK_PT_window(Panel):
         box = layout.box()
         # box.label(text="Styles")
         row = box.row(align=True)
-        row.menu("ARCHIPACK_MT_window_preset", text=bpy.types.ARCHIPACK_MT_window_preset.bl_label)
+        row.operator("archipack.window_preset_menu", text=bpy.types.ARCHIPACK_OT_window_preset_menu.bl_label)
         row.operator("archipack.window_preset", text="", icon='ZOOMIN')
         row.operator("archipack.window_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
@@ -1535,7 +1552,7 @@ class ARCHIPACK_PT_window(Panel):
                     box.prop(prop, 'blind_open')
                     box.prop(prop, 'blind_y')
                     box.prop(prop, 'blind_z')
-        if prop.window_shape != 'CIRCLE' and prop.window_type != 'RAIL':
+        if prop.window_shape != 'CIRCLE':
             row = layout.row()
             if prop.display_panels:
                 row.prop(prop, "display_panels", icon="TRIA_DOWN", icon_only=True, text="Rows", emboss=False)
@@ -1543,13 +1560,18 @@ class ARCHIPACK_PT_window(Panel):
                 row.prop(prop, "display_panels", icon="TRIA_RIGHT", icon_only=True, text="Rows", emboss=False)
 
             if prop.display_panels:
-                row = layout.row()
-                row.prop(prop, 'n_rows')
-                last_row = prop.n_rows - 1
-                for i, row in enumerate(prop.rows):
+                if prop.window_type != 'RAIL':
+                    row = layout.row()
+                    row.prop(prop, 'n_rows')
+                    last_row = prop.n_rows - 1
+                    for i, row in enumerate(prop.rows):
+                        box = layout.box()
+                        box.label(text="Row " + str(i + 1))
+                        row.draw(box, context, i == last_row)
+                else:
                     box = layout.box()
-                    box.label(text="Row " + str(i + 1))
-                    row.draw(box, context, i == last_row)
+                    row = prop.rows[0]
+                    row.draw(box, context, True)
 
         row = layout.row(align=True)
         if prop.display_materials:
@@ -1564,6 +1586,7 @@ class ARCHIPACK_PT_window(Panel):
 
     @classmethod
     def params(cls, o):
+
         try:
             if 'archipack_window' not in o.data:
                 return False
@@ -1584,10 +1607,10 @@ class ARCHIPACK_PT_window(Panel):
 
     @classmethod
     def poll(cls, context):
-        o = context.object
+        o = context.active_object
         if o is None:
             return False
-        return cls.filter(o)
+        return archipack_window.filter(o)
 
 
 class ARCHIPACK_PT_window_panel(Panel):
@@ -1595,11 +1618,12 @@ class ARCHIPACK_PT_window_panel(Panel):
     bl_label = "Window panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
+    # bl_context = 'object'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
         """
-        o = context.object
+        o = context.active_object
         o, prop = ARCHIPACK_PT_window_panel.params(o)
         if prop is None:
             return
@@ -1636,7 +1660,7 @@ class ARCHIPACK_PT_window_panel(Panel):
 
     @classmethod
     def poll(cls, context):
-        o = context.object
+        o = context.active_object
         if o is None:
             return False
         return cls.filter(o)
@@ -1646,7 +1670,7 @@ class ARCHIPACK_PT_window_panel(Panel):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_window(Operator):
+class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
     bl_idname = "archipack.window"
     bl_label = "Window"
     bl_description = "Window"
@@ -1685,7 +1709,7 @@ class ARCHIPACK_OT_window(Operator):
         ),
         default='CREATE'
         )
-    auto_manipulate = BoolProperty(default=True)
+    # auto_manipulate = BoolProperty(default=True)
 
     def draw(self, context):
         layout = self.layout
@@ -1700,26 +1724,11 @@ class ARCHIPACK_OT_window(Operator):
         d.y = self.y
         d.z = self.z
         d.altitude = self.altitude
-        s = d.manipulators.add()
-        s.prop1_name = "x"
-        s.prop2_name = "x"
-        s.type_key = "SNAP_SIZE_LOC"
-        s = d.manipulators.add()
-        s.prop1_name = "y"
-        s.prop2_name = "y"
-        s.type_key = "SNAP_SIZE_LOC"
-        s = d.manipulators.add()
-        s.prop1_name = "z"
-        s.normal = Vector((0, 1, 0))
-        s = d.manipulators.add()
-        s.prop1_name = "altitude"
-        s.normal = Vector((0, 1, 0))
-
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
-        d.update(context)
-        MaterialUtils.add_window_materials(o)
+        self.load_preset(d)
+        self.add_material(o)
         # select frame
         o.select = True
         context.scene.objects.active = o
@@ -1727,7 +1736,8 @@ class ARCHIPACK_OT_window(Operator):
 
     def delete(self, context):
         o = context.active_object
-        if o.data is not None and 'archipack_window' in o.data:
+        if archipack_window.filter(o):
+            bpy.ops.archipack.disable_manipulate()
             for child in o.children:
                 if 'archipack_hole' in child:
                     context.scene.objects.unlink(child)
@@ -1744,12 +1754,13 @@ class ARCHIPACK_OT_window(Operator):
 
     def update(self, context):
         o = context.active_object
-        if o.data is not None and 'archipack_window' in o.data:
-            o.data.archipack_window[0].update(context)
+        d = archipack_window.datablock(o)
+        if d is not None:
+            d.update(context)
             bpy.ops.object.select_linked(type='OBDATA')
             for linked in context.selected_objects:
                 if linked != o:
-                    linked.data.archipack_window[0].update(context)
+                    archipack_window.datablock(linked).update(context)
         o.select = True
         context.scene.objects.active = o
 
@@ -1757,14 +1768,20 @@ class ARCHIPACK_OT_window(Operator):
         sel = [o for o in context.selected_objects]
         bpy.ops.object.select_all(action="DESELECT")
         for o in sel:
-            if o.data is not None and 'archipack_window' in o.data:
+            if archipack_window.filter(o):
                 o.select = True
                 for child in o.children:
-                    if 'archipack_hole' in child or (child.data is not None and 'archipack_window_panel' in child.data):
+                    if 'archipack_hole' in child or (
+                            child.data is not None and
+                            'archipack_window_panel' in child.data):
+                        child.hide_select = False
                         child.select = True
         if len(context.selected_objects) > 0:
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True,
                 obdata=True, material=False, texture=False, animation=False)
+            for child in context.selected_objects:
+                if 'archipack_hole' in child:
+                    child.hide_select = True
 
     # -----------------------------------------------------
     # Execute
@@ -1775,8 +1792,9 @@ class ARCHIPACK_OT_window(Operator):
                 bpy.ops.object.select_all(action="DESELECT")
                 o = self.create(context)
                 o.location = bpy.context.scene.cursor_location
-                if self.auto_manipulate:
-                    bpy.ops.archipack.window_manipulate('INVOKE_DEFAULT')
+                o.select = True
+                context.scene.objects.active = o
+                self.manipulate()
             elif self.mode == 'DELETE':
                 self.delete(context)
             elif self.mode == 'REFRESH':
@@ -1787,6 +1805,130 @@ class ARCHIPACK_OT_window(Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
+
+
+class ARCHIPACK_OT_window_draw(Operator):
+    bl_idname = "archipack.window_draw"
+    bl_label = "Draw Windows"
+    bl_description = "Draw Windows over walls"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    filepath = StringProperty(default="")
+
+    feedback = None
+
+    def mouse_to_matrix(self, context, event):
+        """
+            convert mouse pos to 3d point over plane defined by origin and normal
+        """
+        region = context.region
+        rv3d = context.region_data
+        co2d = (event.mouse_region_x, event.mouse_region_y)
+        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
+        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
+        res, pt, y, i, o, tM = context.scene.ray_cast(
+            ray_origin_mouse,
+            view_vector_mouse)
+        if res and 'archipack_wall2' in o.data:
+            z = Vector((0, 0, 1))
+            d = o.data.archipack_wall2[0]
+            y = -y
+            pt += (0.5 * d.width) * y.normalized()
+            x = y.cross(z)
+            return True, Matrix([
+            [x.x, y.x, z.x, pt.x],
+            [x.y, y.y, z.y, pt.y],
+            [x.z, y.z, z.z, o.matrix_world.translation.z],
+            [0, 0, 0, 1]
+            ]), o
+        return False, Matrix(), None
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Use Properties panel (N) to define parms", icon='INFO')
+
+    def draw_callback(self, _self, context):
+        self.feedback.draw(context)
+
+    def add_object(self, context, event):
+
+        if event.shift and archipack_window.filter(context.active_object):
+            o = context.active_object
+            new_w = o.copy()
+            new_w.data = o.data
+            context.scene.objects.link(new_w)
+            # synch subs from parent instance
+            bpy.ops.archipack.window(mode="REFRESH")
+            bpy.ops.object.select_all(action="DESELECT")
+            new_w.select = True
+            context.scene.objects.active = new_w
+        else:
+            bpy.ops.archipack.window(auto_manipulate=False, filepath=self.filepath)
+
+    def modal(self, context, event):
+
+        context.area.tag_redraw()
+        res, tM, wall = self.mouse_to_matrix(context, event)
+        w = context.active_object
+        if res and archipack_window.filter(w):
+            w.matrix_world = tM
+
+        if event.value == 'PRESS':
+            if event.type in {'LEFTMOUSE'}:
+                if wall is not None:
+                    context.scene.objects.active = wall
+                    wall.select = True
+                    if bpy.ops.archipack.single_boolean.poll():
+                        bpy.ops.archipack.single_boolean()
+                    wall.select = False
+                    # w must be a window here
+                    if archipack_window.filter(w):
+                        context.scene.objects.active = w
+                        self.add_object(context, event)
+                        context.active_object.matrix_world = tM
+                    return {'RUNNING_MODAL'}
+            # prevent selection of other object
+            if event.type in {'RIGHTMOUSE'}:
+                return {'RUNNING_MODAL'}
+
+        if event.value == 'RELEASE':
+            if event.type in {'ESC', 'RIGHTMOUSE'}:
+                bpy.ops.archipack.window(mode='DELETE')
+                self.feedback.disable()
+                bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+                return {'FINISHED'}
+
+        return {'PASS_THROUGH'}
+
+    def invoke(self, context, event):
+
+        if context.mode == "OBJECT":
+            # exit manipulate_mode if any
+            bpy.ops.archipack.disable_manipulate()
+            bpy.ops.object.select_all(action="DESELECT")
+            self.add_object(context, event)
+            self.feedback = FeedbackPanel()
+            self.feedback.instructions(context, "Draw a window", "Click & Drag over a wall", [
+                ('LEFTCLICK', 'Create a window'),
+                ('SHIFT', 'Make linked window'),
+                ('RIGHTCLICK or ESC', 'exit')
+                ])
+            self.feedback.enable()
+            args = (self, context)
+
+            self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -1947,53 +2089,34 @@ class ARCHIPACK_OT_window_manipulate(Operator):
 
     @classmethod
     def poll(self, context):
-        return ARCHIPACK_PT_window.filter(context.active_object)
-
-    def modal(self, context, event):
-        return self.d.manipulable_modal(context, event)
+        return archipack_window.filter(context.active_object)
 
     def invoke(self, context, event):
-        if context.space_data.type == 'VIEW_3D':
-            o = context.active_object
-            self.d = o.data.archipack_window[0]
-            if self.d.manipulable_invoke(context):
-                context.window_manager.modal_handler_add(self)
-                return {'RUNNING_MODAL'}
-            else:
-                return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Active space must be a View3d")
-            return {'CANCELLED'}
-
+        d = archipack_window.datablock(context.active_object)
+        d.manipulable_invoke(context)
+        return {'FINISHED'}
 
 # ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_MT_window_preset(Menu):
+class ARCHIPACK_OT_window_preset_menu(PresetMenuOperator, Operator):
+    bl_idname = "archipack.window_preset_menu"
     bl_label = "Window Styles"
     preset_subdir = "archipack_window"
-    preset_operator = "script.execute_preset"
-    draw = Menu.draw_preset
 
 
 class ARCHIPACK_OT_window_preset(ArchipackPreset, Operator):
-    """Add a Window Styles"""
+    """Add a Window Preset"""
     bl_idname = "archipack.window_preset"
     bl_label = "Add Window Style"
-    preset_menu = "ARCHIPACK_MT_window_preset"
-
-    datablock_name = StringProperty(
-        name="Datablock",
-        default='archipack_window',
-        maxlen=64,
-        options={'HIDDEN', 'SKIP_SAVE'},
-        )
+    preset_menu = "ARCHIPACK_OT_window_preset_menu"
 
     @property
     def blacklist(self):
-        return ['x', 'y', 'z', 'altitude', 'manipulators', 'window_shape']
+        # 'x', 'y', 'z', 'altitude', 'window_shape'
+        return ['manipulators']
 
 
 def register():
@@ -2004,10 +2127,11 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_window_panel)
     bpy.utils.register_class(archipack_window)
     Mesh.archipack_window = CollectionProperty(type=archipack_window)
-    bpy.utils.register_class(ARCHIPACK_MT_window_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_window_preset_menu)
     bpy.utils.register_class(ARCHIPACK_PT_window)
     bpy.utils.register_class(ARCHIPACK_OT_window)
     bpy.utils.register_class(ARCHIPACK_OT_window_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_window_draw)
     bpy.utils.register_class(ARCHIPACK_OT_window_manipulate)
 
 
@@ -2019,8 +2143,9 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_window_panel)
     bpy.utils.unregister_class(archipack_window)
     del Mesh.archipack_window
-    bpy.utils.unregister_class(ARCHIPACK_MT_window_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_window_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_PT_window)
     bpy.utils.unregister_class(ARCHIPACK_OT_window)
     bpy.utils.unregister_class(ARCHIPACK_OT_window_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_window_draw)
     bpy.utils.unregister_class(ARCHIPACK_OT_window_manipulate)

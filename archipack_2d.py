@@ -24,7 +24,7 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
-from mathutils import Vector
+from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt, acos
 
 
@@ -44,7 +44,7 @@ class Projection():
         hyp = (self.length * next.length)
         c = min(1, max(-1, adj / hyp))
         size = 1 / cos(0.5 * acos(c))
-        return direction.normalized(), size
+        return direction.normalized(), min(3, size)
 
     def proj_z(self, t, dz0, next=None, dz1=0):
         """
@@ -187,6 +187,21 @@ class Line(Projection):
     def pts(self):
         return [self.p0, self.p1]
 
+    def signed_angle(self, u, v):
+        """
+            signed angle between two vectors
+        """
+        return atan2(u.x * v.y - u.y * v.x, u.x * v.x + u.y * v.y)
+
+    def delta_angle(self, last):
+        """
+            signed delta angle between end of line and start of this one
+            this value is object's a0 for segment = self
+        """
+        if last is None:
+            return self.angle
+        return self.signed_angle(last.straight(1).v, self.straight(0).v)
+
     def normal(self, t=0):
         """
             2d Line perpendicular on plane xy
@@ -294,6 +309,66 @@ class Line(Projection):
         """
         return NotImplementedError
 
+    def make_offset(self, offset, last=None):
+        """
+            Return offset between last and self.
+            Adjust last and self start to match
+            intersection point
+        """
+        line = self.offset(offset)
+        if last is None:
+            return line
+
+        if type(last).__name__ == 'Arc':
+            res, d, t = line.point_sur_segment(last.c)
+            c = (last.r * last.r) - (d * d)
+            print("t:%s" % t)
+            if c <= 0:
+                # no intersection !
+                p0 = line.lerp(t)
+            else:
+                # center is past start of line
+                if t > 0:
+                    p0 = line.lerp(t) - line.v.normalized() * sqrt(c)
+                else:
+                    p0 = line.lerp(t) + line.v.normalized() * sqrt(c)
+            # compute da of arc
+            u = last.p0 - last.c
+            v = p0 - last.c
+            da = self.signed_angle(u, v)
+            # da is ccw
+            if last.ccw:
+                # da is cw
+                if da < 0:
+                    # so take inverse
+                    da = 2 * pi + da
+            elif da > 0:
+                # da is ccw
+                da = 2 * pi - da
+            last.da = da
+            line.p0 = p0
+        else:
+            # intersect line / line
+            # 1 line -> 2 line
+            c = line.cross_z
+            d = last.v * c
+            if d == 0:
+                return line
+            v = line.p - last.p
+            t = (c * v) / d
+            c2 = last.cross_z
+            u = (c2 * v) / d
+            # intersect past this segment end
+            # or before last segment start
+            # print("u:%s t:%s" % (u, t))
+            if u > 1 or t < 0:
+                return line
+            p = last.lerp(t)
+            line.p0 = p
+            last.p1 = p
+
+        return line
+
 
 class Circle(Projection):
     def __init__(self, c, radius):
@@ -303,11 +378,12 @@ class Circle(Projection):
 
     def intersect(self, line):
         v = line.p - self.c
-        A = line.v2
+        A = line.v * line.v
         B = 2 * v * line.v
         C = v * v - self.r2
         d = B * B - 4 * A * C
         if A <= 0.0000001 or d < 0:
+            # dosent intersect, find closest point of line
             res, d, t = line.point_sur_segment(self.c)
             return False, line.lerp(t), t
         elif d == 0:
@@ -350,6 +426,52 @@ class Arc(Circle):
         self.da = da
 
     @property
+    def angle(self):
+        """
+            angle of vector p0 p1
+        """
+        v = self.p1 - self.p0
+        return atan2(v.y, v.x)
+
+    @property
+    def ccw(self):
+        return self.da > 0
+
+    def signed_angle(self, u, v):
+        """
+            signed angle between two vectors
+        """
+        return atan2(u.x * v.y - u.y * v.x, u.x * v.x + u.y * v.y)
+
+    def delta_angle(self, last):
+        """
+            signed delta angle between end of line and start of this one
+            this value is object's a0 for segment = self
+        """
+        if last is None:
+            return self.a0
+        return self.signed_angle(last.straight(1).v, self.straight(0).v)
+
+    def rot_scale_matrix(self, u, v):
+        """
+            given vector u and v (from and to p0 p1)
+            apply scale factor to radius and
+            return a matrix to rotate and scale
+            the center around u origin so
+            arc fit v
+        """
+        # signed angle old new vectors (rotation)
+        a = self.signed_angle(u, v)
+        # scale factor
+        scale = v.length / u.length
+        ca = scale * cos(a)
+        sa = scale * sin(a)
+        return scale, Matrix([
+            [ca, sa],
+            [-sa, ca]
+            ])
+
+    @property
     def p0(self):
         """
             start point of arc
@@ -362,6 +484,36 @@ class Arc(Circle):
             end point of arc
         """
         return self.lerp(1)
+
+    @p0.setter
+    def p0(self, p0):
+        """
+            rotate and scale arc so it intersect p0 p1
+            da is not affected
+        """
+        u = self.p0 - self.p1
+        v = p0 - self.p1
+        scale, tM = self.rot_scale_matrix(u, v)
+        self.c = self.p1 + tM * (self.c - self.p1)
+        self.r *= scale
+        self.r2 = self.r * self.r
+        dp = self.p0 - self.c
+        self.a0 = atan2(dp.y, dp.x)
+
+    @p1.setter
+    def p1(self, p1):
+        """
+            rotate and scale arc so it intersect p0 p1
+            da is not affected
+        """
+        u = self.p1 - self.p0
+        v = p1 - self.p0
+        scale, tM = self.rot_scale_matrix(u, v)
+        self.c = self.p0 + tM * (self.c - self.p0)
+        self.r *= scale
+        self.r2 = self.r * self.r
+        dp = self.p0 - self.c
+        self.a0 = atan2(dp.y, dp.x)
 
     @property
     def length(self):
@@ -474,14 +626,15 @@ class Arc(Circle):
 
     def rotate(self, da):
         """
-            Rotate
-            Should move center so we rotate arround start
+            Rotate center so we rotate arround start
         """
-        cs = cos(da) 
+        cs = cos(da)
         sn = sin(da)
-        x, y = (self.p0 - self.c)
-        self.c.x = x * cs - y * sn
-        self.c.y = x * sn + y * cs
+        rM = Matrix([
+            [cs, sn],
+            [-sn, cs]
+            ])
+        self.c = rM * (self.p0 - self.c)
         return self
 
     def draw(self, context):
@@ -490,6 +643,90 @@ class Arc(Circle):
             aka: coords are in pixels
         """
         raise NotImplementedError
+
+    # make offset for line / arc, arc / arc
+    def make_offset(self, offset, last=None):
+
+        line = self.offset(offset)
+
+        if last is None:
+            return line
+
+        if type(last).__name__ == 'Line':
+            # intersect line / arc
+            # 1 line -> 2 arc
+            res, d, t = last.point_sur_segment(line.c)
+            c = line.r2 - (d * d)
+            if c <= 0:
+                # no intersection !
+                p0 = last.lerp(t)
+            else:
+
+                # center is past end of line
+                if t > 1:
+                    # Arc take precedence
+                    p0 = last.lerp(t) - last.v.normalized() * sqrt(c)
+                else:
+                    # line take precedence
+                    p0 = last.lerp(t) + last.v.normalized() * sqrt(c)
+
+            # compute a0 and da of arc
+            u = p0 - line.c
+            v = line.p1 - line.c
+            line.a0 = atan2(u.y, u.x)
+            da = self.signed_angle(u, v)
+            # da is ccw
+            if self.ccw:
+                # da is cw
+                if da < 0:
+                    # so take inverse
+                    da = 2 * pi + da
+            elif da > 0:
+                # da is ccw
+                da = 2 * pi - da
+            line.da = da
+            last.p1 = p0
+        else:
+            # intersect arc / arc x1 = self x0 = last
+            # rule to determine right side ->
+            # same side of d as p0 of self
+            dc = line.c - last.c
+            tmp = Line(last.c, dc)
+            res, d, t = tmp.point_sur_segment(self.p0)
+            r = line.r + last.r
+            dist = dc.length
+            if dist > r or \
+                dist < abs(last.r - self.r):
+                # no intersection
+                return line
+            if dist == r:
+                # 1 solution
+                p0 = dc * -last.r / r + self.c
+            else:
+                # 2 solutions
+                a = (last.r2 - line.r2 + dist * dist) / (2.0 * dist)
+                v2 = last.c + dc * a / dist
+                h = sqrt(last.r2 - a * a)
+                r = Vector((-dc.y, dc.x)) * (h / dist)
+                p0 = v2 + r
+                res, d1, t = tmp.point_sur_segment(p0)
+                # take other point if we are not on the same side
+                if d1 > 0:
+                    if d < 0:
+                        p0 = v2 - r
+                elif d > 0:
+                    p0 = v2 - r
+
+            # compute da of last
+            u = last.p0 - last.c
+            v = p0 - last.c
+            last.da = self.signed_angle(u, v)
+
+            # compute a0 and da of current
+            u, v = v, line.p1 - line.c
+            line.a0 = atan2(u.y, u.x)
+            line.da = self.signed_angle(u, v)
+        return line
 
 
 class Line3d(Line):
