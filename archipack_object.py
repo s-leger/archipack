@@ -37,13 +37,13 @@ class ArchipackObject():
         provide basic support for copy to selected
         and datablock access / filtering by object
     """
-    
+
     def iskindof(self, o, typ):
         """
             return true if object contains databloc of typ name
         """
         return o.data is not None and typ in o.data
-    
+
     @classmethod
     def filter(cls, o):
         """

@@ -735,7 +735,7 @@ class GlImage(Gl):
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
         bgl.glEnable(bgl.GL_TEXTURE_2D)
-        bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)        
+        bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
         # bgl.glColor4f(1, 1, 1, 1)
         bgl.glBegin(bgl.GL_QUADS)
         bgl.glTexCoord2d(0, 0)
@@ -744,13 +744,13 @@ class GlImage(Gl):
         bgl.glVertex2d(p0.x, p1.y)
         bgl.glTexCoord2d(1, 1)
         bgl.glVertex2d(p1.x, p1.y)
-        bgl.glTexCoord2d(1,0)
+        bgl.glTexCoord2d(1, 0)
         bgl.glVertex2d(p1.x, p0.y)
         bgl.glEnd()
         self.image.gl_free()
         bgl.glDisable(bgl.GL_TEXTURE_2D)
-        
-        
+
+
 class GlPolyline(GlBaseLine):
     def __init__(self, colour, d=3):
         self.pts_3d = []
@@ -859,7 +859,7 @@ class TriHandle(GlHandle):
     def pts(self):
         n = self.up_axis
         c = self.c_axis
-        # does move sensitive area so disable for tri handle 
+        # does move sensitive area so disable for tri handle
         # may implement sensor_center property to fix this
         # if self.selected or self.hover or self.active:
         scale = 1
@@ -892,7 +892,7 @@ class EditableText(GlText, GlHandle):
 
 
 class ThumbHandle(GlHandle):
-    
+
     def __init__(self, size_2d, image, label, draggable=False, selectable=False, d=2):
         GlHandle.__init__(self, size_2d, size_2d, draggable, selectable, d)
         self.image = GlImage(image=image)
@@ -904,7 +904,7 @@ class ThumbHandle(GlHandle):
         self.sensor_height = 0.5 * size_2d.y
         self.colour_normal = (0.715, 0.905, 1, 0.9)
         self.colour_hover = (1, 1, 1, 1)
-    
+
     def set_pos(self, context, pos_2d):
         """
             pos 2d is center !!
@@ -937,9 +937,9 @@ class ThumbHandle(GlHandle):
 class Screen():
     def __init__(self, margin):
         self.margin = margin
-    
+
     def size(self, context):
-    
+
         system = context.user_preferences.system
         w = context.region.width
         h = context.region.height
@@ -950,15 +950,15 @@ class Screen():
         if (system.use_region_overlap and
                 system.window_draw_method in {'TRIPLE_BUFFER', 'AUTOMATIC'}):
             area = context.area
-            
+
             for r in area.regions:
                 if r.type == 'TOOLS':
                     x_min += r.width
                 elif r.type == 'UI':
                     x_max -= r.width
         return x_min, x_max, y_min, y_max
-        
-        
+
+
 class FeedbackPanel():
     """
         Feed-back panel
@@ -1022,7 +1022,7 @@ class FeedbackPanel():
         self.title.label = title
 
         self.shortcuts = []
-        
+
         for key, label in shortcuts:
             key = GlText(d=2, label=key,
                 font_size=prefs.feedback_size_shortcut,

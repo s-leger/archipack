@@ -57,7 +57,7 @@ class MaterialUtils():
         obj.data.materials.append(alt3_mat)
         obj.data.materials.append(alt4_mat)
         obj.data.materials.append(alt5_mat)
-        
+
     @staticmethod
     def add_wall_materials(obj):
         int_mat = MaterialUtils.build_default_mat('inside', (0.5, 1.0, 1.0))
@@ -66,7 +66,16 @@ class MaterialUtils():
         obj.data.materials.append(out_mat)
         obj.data.materials.append(int_mat)
         obj.data.materials.append(oth_mat)
-        
+
+    @staticmethod
+    def add_slab_materials(obj):
+        out_mat = MaterialUtils.build_default_mat('Slab_bottom', (0.5, 1.0, 1.0))
+        int_mat = MaterialUtils.build_default_mat('Slab_top', (1.0, 0.2, 0.2))
+        oth_mat = MaterialUtils.build_default_mat('Slab_side', (0.5, 1.0, 0.5))
+        obj.data.materials.append(out_mat)
+        obj.data.materials.append(int_mat)
+        obj.data.materials.append(oth_mat)
+
     @staticmethod
     def add_stair_materials(obj):
         cei_mat = MaterialUtils.build_default_mat('Stair_ceiling', (0.5, 1.0, 1.0))
@@ -84,7 +93,7 @@ class MaterialUtils():
         obj.data.materials.append(wood_mat)
         obj.data.materials.append(metal_mat)
         obj.data.materials.append(glass_mat)
-        
+
     @staticmethod
     def add_fence_materials(obj):
         wood_mat = MaterialUtils.build_default_mat('Fence_wood', (0.28, 0.2, 0.1))
@@ -96,7 +105,7 @@ class MaterialUtils():
         obj.data.materials.append(wood_mat)
         obj.data.materials.append(metal_mat)
         obj.data.materials.append(glass_mat)
-                
+
     @staticmethod
     def add_handle_materials(obj):
         metal_mat = MaterialUtils.build_default_mat('metal', (0.4, 0.4, 0.4))

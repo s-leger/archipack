@@ -793,9 +793,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                 p1 = points[0]
                 self.interpolate_bezier(pts, wM, p0, p1, resolution)
                 pts.append(pts[0])
-            else:    
+            else:
                 pts.append(wM * points[-1].co)
-            
+
         if self.is_cw(pts):
             pts = list(reversed(pts))
 
@@ -878,6 +878,8 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
         modif.thickness = self.z
         modif.offset = 1.0
+        o.data.use_auto_smooth = True
+        bpy.ops.object.shade_smooth()
 
         # Height
         self.manipulators[0].set_pts([
@@ -1168,7 +1170,7 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
 
     auto_manipulate = BoolProperty(default=True)
     ceiling = BoolProperty(default=False)
-    
+
     @classmethod
     def poll(self, context):
         o = context.active_object

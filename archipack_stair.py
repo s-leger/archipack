@@ -2523,7 +2523,7 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         """
         self.manipulable_disable(context)
         o = context.active_object
-        
+
         self.setup_manipulators()
 
         if self.presets is not 'STAIR_O':
@@ -2819,7 +2819,7 @@ class ARCHIPACK_OT_stair_preset_menu(PresetMenuOperator, Operator):
 
 
 class ARCHIPACK_OT_stair_preset(ArchipackPreset, Operator):
-    """Add a Fence Preset"""
+    """Add a Stair Preset"""
     bl_idname = "archipack.stair_preset"
     bl_label = "Add Stair Style"
     preset_menu = "ARCHIPACK_OT_stair_preset_menu"

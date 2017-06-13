@@ -65,8 +65,8 @@ def set_cols(self, value):
 
 def get_cols(self):
     return self.n_cols
-    
-    
+
+
 class archipack_window_panelrow(PropertyGroup):
     width = FloatVectorProperty(
             name="width",
@@ -1329,12 +1329,12 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
     def update(self, context, childs_only=False):
         # support for "copy to selected"
         active, selected, o = self.find_in_selection(context)
-        
+
         if o is None or not self.auto_update:
             return
-        
+
         # print("Window.update()")
-        
+
         self.setup_manipulators()
 
         if childs_only is False:
@@ -1355,12 +1355,10 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])
         self.manipulators[2].set_pts([(x, -y, self.altitude), (x, -y, self.altitude + self.z), (-1, 0, 0)])
         self.manipulators[3].set_pts([(x, -y, 0), (x, -y, self.altitude), (-1, 0, 0)])
-        
-        
-        
+
         # restore context
         bpy.ops.object.select_all(action="DESELECT")
-        
+
         try:
             for o in selected:
                 o.select = True
@@ -1378,7 +1376,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
 
     def interactive_hole(self, context, o):
         hole_obj = self.find_hole(o)
-        
+
         if hole_obj is None:
             m = bpy.data.meshes.new("hole")
             hole_obj = bpy.data.objects.new("hole", m)
@@ -1614,7 +1612,7 @@ class ARCHIPACK_PT_window(Panel):
             return False
         return archipack_window.filter(o)
 
-        
+
 class ARCHIPACK_PT_window_panel(Panel):
     bl_idname = "ARCHIPACK_PT_window_panel"
     bl_label = "Window panel"

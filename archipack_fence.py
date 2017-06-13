@@ -162,11 +162,14 @@ class FenceGenerator():
             compute index of fences wich belong to each group of fences between corners
             compute t of each fence
         """
+        # segments are group of parts separated by limit angle
         self.segments = []
         i_start = 0
-        f0 = self.segs[0]
+        t_start = 0
+        dist_0 = 0
         z = 0
         self.length = 0
+        n_parts = len(self.parts) - 1
         for i, f in enumerate(self.segs):
             f.dist = self.length
             self.length += f.line.length
@@ -176,19 +179,21 @@ class FenceGenerator():
                 f.t_start = f.dist / self.length
             else:
                 f.t_start = 0
+
             f.t_end = (f.dist + f.line.length) / self.length
             dz = self.parts[i].dz
             f.z0 = z
             f.dz = dz
             z += dz
-            if i > 0 and abs(self.parts[i].a0) >= angle_limit:
-                l_seg = f.dist - f0.dist
-                t_seg = f.t_start - f0.t_start
+            if i < n_parts and abs(self.parts[i + 1].a0) >= angle_limit:
+                l_seg = f.dist + f.line.length - dist_0
+                t_seg = f.t_end - t_start
                 n_fences = max(1, int(l_seg / post_spacing))
                 t_fence = t_seg / n_fences
-                segment = FenceSegment(f0.t_start, f.t_start, n_fences, t_fence, i_start, i - 1)
+                segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, i)
+                dist_0 = f.dist + f.line.length
+                t_start = f.t_end
                 i_start = i
-                f0 = self.segs[i_start]
                 self.segments.append(segment)
 
             manipulators = self.parts[i].manipulators
@@ -218,11 +223,11 @@ class FenceGenerator():
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
 
         f = self.segs[-1]
-        l_seg = f.dist + f.line.length - f0.dist
-        t_seg = f.t_end - f0.t_start
+        l_seg = f.dist + f.line.length - dist_0
+        t_seg = f.t_end - t_start
         n_fences = max(1, int(l_seg / post_spacing))
         t_fence = t_seg / n_fences
-        segment = FenceSegment(f0.t_start, f.t_end, n_fences, t_fence, i_start, len(self.segs) - 1)
+        segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, len(self.segs) - 1)
         self.segments.append(segment)
 
     def setup_user_defined_post(self, o, post_x, post_y, post_z):
@@ -404,6 +409,7 @@ class FenceGenerator():
                 # self.get_post(post, x, y, z, altitude, x_offset, mat, verts, faces, matids, uvs)
                 self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
                 s += 1
+
             if segment.i_end + 1 == len(self.segs):
                 f = self.segs[segment.i_end]
                 n = f.line.normal(1)
@@ -425,7 +431,7 @@ class FenceGenerator():
                 t_cur = t_start + s * t_step + t_post
                 t_end = t_start + (s + 1) * t_step - t_post
                 # find first section
-                while self.segs[i].t_end < t_cur:
+                while self.segs[i].t_end < t_cur and i < segment.i_end:
                     i += 1
                 f = self.segs[i]
                 # 1st section
@@ -438,13 +444,11 @@ class FenceGenerator():
                     if f.t_end < t_end:
                         if type(f).__name__ == 'CurvedFence':
                             # cant end after segment
-                            t0 = (t_cur - f.t_start) / f.t_diff
+                            t0 = max(0, (t_cur - f.t_start) / f.t_diff)
                             t1 = min(1, (t_end - f.t_start) / f.t_diff)
-                            n_s = int(max(1, abs(f.da) * (30 / segment.n_step) / pi - 1))
+                            n_s = int(max(1, abs(f.da) * (5) / pi - 1))
                             dt = (t1 - t0) / n_s
                             for j in range(1, n_s + 1):
-                                # t here is wrong when segment is at intersection of line/curve
-                                # t = j / n_s
                                 t = t0 + dt * j
                                 n = f.line.sized_normal(t, 1)
                                 # n.p = f.lerp(x_offset)
@@ -452,7 +456,7 @@ class FenceGenerator():
                         else:
                             n = f.line.normal(1)
                             subs.append((n, f.dz / f.line.length, f.z0 + f.dz))
-                    if f.t_start + f.t_diff >= t_end:
+                    if f.t_end >= t_end:
                         break
                     elif f.t_start < t_end:
                         i += 1
@@ -462,8 +466,8 @@ class FenceGenerator():
                 if type(f).__name__ == 'CurvedFence':
                     # cant start before segment
                     t0 = max(0, (t_cur - f.t_start) / f.t_diff)
-                    t1 = (t_end - f.t_start) / f.t_diff
-                    n_s = int(max(1, abs(f.da) * (30 / segment.n_step) / pi - 1))
+                    t1 = min(1, (t_end - f.t_start) / f.t_diff)
+                    n_s = int(max(1, abs(f.da) * (5) / pi - 1))
                     dt = (t1 - t0) / n_s
                     for j in range(1, n_s + 1):
                         t = t0 + dt * j
@@ -1371,7 +1375,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
-
+        bpy.ops.object.shade_smooth()
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
@@ -1425,9 +1429,6 @@ class ARCHIPACK_PT_fence(Panel):
     bl_label = "Fence"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    # bl_context = 'object'
-    # bl_space_type = 'VIEW_3D'
-    # bl_region_type = 'UI'
     bl_category = 'ArchiPack'
 
     def draw(self, context):
@@ -1754,7 +1755,6 @@ class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
 
     @property
     def blacklist(self):
-        #
         return ['manipulators', 'n_parts', 'parts', 'user_defined_path']
 
 

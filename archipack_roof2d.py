@@ -30,7 +30,7 @@ import bpy
 from bpy.types import Operator, PropertyGroup, Mesh, Panel, Menu
 from bpy.props import (
     FloatProperty, BoolProperty, IntProperty,
-    StringProperty, EnumProperty, FloatVectorProperty,
+    StringProperty, EnumProperty,
     CollectionProperty, PointerProperty
     )
 from .bmesh_utils import BmeshEdit as bmed
@@ -64,7 +64,7 @@ class Roof():
         if last is not None:
             last = last.line
         self.line = self.make_offset(offset, last)
-        
+
     @property
     def t_diff(self):
         return self.t_end - self.t_start
@@ -112,7 +112,7 @@ class RoofGenerator():
         self.user_defined_mat = None
 
     def add_part(self, part, origin):
-        
+
         if len(self.segs) < 1:
             s = None
         else:
@@ -132,59 +132,24 @@ class RoofGenerator():
                 s = s.straight_roof(part.a0, part.length)
             elif part.type == 'C_SEG':
                 s = s.curved_roof(part.a0, part.da, part.radius)
-        
+
         self.segs.append(s)
         self.last_type = part.type
         if part == self.parts[-1] or part == self.parts[1]:
             s.set_offset(part.offset)
         else:
             s.set_offset(part.offset, last=last)
-        
+
     def close(self, closed):
         # Make last segment implicit closing one
         if closed:
-            part = self.parts[-1]
             w = self.segs[-1]
             # dp = self.segs[0].p0 - self.segs[-1].p0
             p1 = self.segs[0].line.p1
             self.segs[0].line = self.segs[0].make_offset(self.parts[0].offset, w.line)
             self.segs[0].line.p1 = p1
-            
             return
-            
-            if "C_" in part.type:
-                """
-                dw = (w.p1 - w.p0)
-                w.r = part.radius / dw.length * dp.length
-                # angle pt - p0        - angle p0 p1
-                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                a0 = w.a0 + da
-                if a0 > pi:
-                    a0 -= 2 * pi
-                if a0 < -pi:
-                    a0 += 2 * pi
-                w.a0 = a0
-                """
-            else:
-                w.v = dp
-                w.line = w.offset(part.offset)
-            
-            # wont work with arc
-            if len(self.segs) > 2:
-                i, p, t = self.segs[-2].line.intersect(w.line)
-                if i:
-                    if type(self.segs[-2]).__name__ == 'StraightRoof':
-                        self.segs[-2].line.p1 = p
-                    if type(w).__name__ == 'StraightRoof':
-                        w.line.p0 = p
-                    
-            i, p, t = self.segs[0].line.intersect(w.line)
-            if i:
-                if type(self.segs[0]).__name__ == 'StraightRoof':
-                    self.segs[0].line.p0 = p
-                if type(w).__name__ == 'StraightRoof':
-                    w.line.p1 = p
-            
+
     def param_t(self):
         """
             setup corners and roofs dz
@@ -192,7 +157,7 @@ class RoofGenerator():
             compute t of each roof
         """
         for i, f in enumerate(self.segs):
-            
+
             manipulators = self.parts[i].manipulators
             p0 = f.p0.to_3d()
             p1 = f.p1.to_3d()
@@ -220,14 +185,14 @@ class RoofGenerator():
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
             # dumb segment id
             manipulators[3].set_pts([p0, p1, (1, 0, 0)])
-            
+
             # offset
             manipulators[4].set_pts([
                 p0,
                 p0 + f.sized_normal(0, max(0.0001, self.parts[i].offset)).v.to_3d(),
                 (0.5, 0, 0)
             ])
-            
+
     def make_profile(self, profile, idmat,
             x_offset, z_offset, extend, verts, faces, matids, uvs):
 
@@ -307,7 +272,7 @@ class RoofGenerator():
             matids += lofter.mat(16, idmat, idmat, path_type='USER_DEFINED')
             v = Vector((0, 0))
             uvs += lofter.uv(16, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
-    
+
     def debug(self, verts):
         for s, roof in enumerate(self.segs):
             if s > 0 and s < len(self.segs) - 1:
@@ -327,7 +292,7 @@ def update_manipulators(self, context):
 def update_path(self, context):
     self.update_path(context)
 
-    
+
 def update_type(self, context):
 
     d = self.find_in_selection(context)
@@ -350,11 +315,10 @@ def update_type(self, context):
             else:
                 w = w0.curved_roof(self.a0, self.da, self.radius)
         else:
-            g = WallGenerator(None)
+            g = RoofGenerator(None)
             g.add_part(self)
             w = g.segs[0]
-        
-        
+
         # w0 - w - w1
         dp = w.p1 - w.p0
         if "C_" in self.type:
@@ -365,7 +329,6 @@ def update_type(self, context):
             self.length = dp.length
             a0 = atan2(dp.y, dp.x) - a0
 
-            
         if a0 > pi:
             a0 -= 2 * pi
         if a0 < -pi:
@@ -387,8 +350,8 @@ def update_type(self, context):
             part1.a0 = a0
 
         d.auto_update = True
-        
-        
+
+
 materials_enum = (
             ('0', 'Ceiling', '', 0),
             ('1', 'White', '', 1),
@@ -425,7 +388,7 @@ class archipack_roof_material(PropertyGroup):
         if props is not None:
             props.update(context)
 
-            
+
 class ArchipackSegment():
     type = EnumProperty(
             items=(
@@ -476,10 +439,10 @@ class ArchipackSegment():
             update=update
             )
     manipulators = CollectionProperty(type=archipack_manipulator)
-    
+
     def find_in_selection(self, context):
         raise NotImplementedError
-        
+
     def update(self, context, manipulable_refresh=False):
         props = self.find_in_selection(context)
         if props is not None:
@@ -505,7 +468,7 @@ class ArchipackSegment():
 
 class ArchipackLines():
     n_parts = IntProperty(
-        name="parts",
+            name="parts",
             min=3,
             default=3, update=update_manipulators
             )
@@ -513,12 +476,12 @@ class ArchipackLines():
     parts_expand = BoolProperty(
             default=False
             )
-   
+
     def update(self, context, manipulable_refresh=False):
         props = self.find_in_selection(context)
         if props is not None:
             props.update(context, manipulable_refresh)
- 
+
     def draw(self, layout, context):
         box = layout.box()
         row = box.row()
@@ -530,7 +493,7 @@ class ArchipackLines():
                 part.draw(layout, context, i)
         else:
             row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
-    
+
     def update_parts(self):
         # print("update_parts")
         # remove rows
@@ -538,7 +501,6 @@ class ArchipackLines():
         # n_parts+1
         # as last one is end point of last segment or closing one
         for i in range(len(self.parts), self.n_parts, -1):
-            row_change = True
             self.parts.remove(i - 1)
 
         # add rows
@@ -546,7 +508,7 @@ class ArchipackLines():
             self.parts.add()
 
         self.setup_parts_manipulators()
-          
+
     def setup_parts_manipulators(self):
         for i in range(self.n_parts):
             p = self.parts[i]
@@ -574,20 +536,20 @@ class ArchipackLines():
                 s.prop1_name = "offset"
             p.manipulators[2].prop1_name = str(i)
             p.manipulators[3].prop1_name = str(i + 1)
-    
+
     def get_generator(self, origin=Vector((0, 0))):
         g = RoofGenerator(self.parts)
         for part in self.parts:
             # type, radius, da, length
             g.add_part(part, origin)
 
-        g.close(self.closed)    
+        g.close(self.closed)
         g.param_t()
         return g
 
-    
+
 class archipack_roof_boundary_segment(ArchipackSegment, PropertyGroup):
-    
+
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -611,6 +573,7 @@ class archipack_roof_boundary(ArchipackLines, PropertyGroup):
             name="Close",
             update=update_manipulators
             )
+
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -625,7 +588,7 @@ class archipack_roof_boundary(ArchipackLines, PropertyGroup):
 
 
 class archipack_roof_axis_segment(ArchipackSegment, PropertyGroup):
-    
+
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -649,6 +612,7 @@ class archipack_roof_axis(ArchipackLines, PropertyGroup):
             name="Close",
             update=update_manipulators
             )
+
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -661,12 +625,12 @@ class archipack_roof_axis(ArchipackLines, PropertyGroup):
                     return props
         return None
 
-        
+
 class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
     # boundary
     boundary = PointerProperty(type=archipack_roof_boundary)
     axis = PointerProperty(type=archipack_roof_axis)
-    
+
     user_defined_path = StringProperty(
             name="user defined",
             update=update_path
@@ -708,7 +672,7 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
             subtype='ANGLE', unit='ROTATION',
             update=update_manipulators
             )
-    
+
     z = FloatProperty(
             name="z",
             default=0.01, precision=2, step=1,
@@ -721,7 +685,6 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
             update=update_manipulators
             )
 
-    
     # Flag to prevent mesh update while making bulk changes over variables
     # use :
     # .auto_update = False
@@ -740,7 +703,7 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
             s = self.manipulators.add()
             s.prop1_name = "height"
             s.normal = Vector((0, 1, 0))
-        
+
     def update_parts(self):
         # print("update_parts")
         # remove rows
@@ -750,7 +713,7 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
         self.boundary.update_parts()
         self.axis.update_parts()
         self.setup_manipulators()
-        
+
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
@@ -836,19 +799,18 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
         faces = []
         matids = []
         uvs = []
-        
+
         # NOTE:
         # first segment is explicit origin
         # and is not ment to be a part of result
         # both axis and boundary do share origin
-        
+
         g = self.boundary.get_generator()
         g.debug(verts)
-        
+
         g = self.axis.get_generator()
         g.debug(verts)
-        
-        
+
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=False)
 
         # enable manipulators rebuild
@@ -878,7 +840,7 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulable_disable(context)
         o = context.active_object
         d = self
-        
+
         self.setup_manipulators()
         self.axis.setup_parts_manipulators()
         self.boundary.setup_parts_manipulators()
@@ -897,10 +859,10 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
                 self.manip_stack.append(part.manipulators[4].setup(context, o, part))
                 # index
                 self.manip_stack.append(part.manipulators[3].setup(context, o, d.boundary))
-                
+
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, d.boundary))
-            
+
         for i, part in enumerate(d.axis.parts):
             if i >= d.axis.n_parts:
                 break
@@ -908,12 +870,12 @@ class archipack_roof(ArchipackObject, Manipulable, PropertyGroup):
             if i > 0 and i < d.axis.n_parts - 1:
                 # start angle
                 self.manip_stack.append(part.manipulators[0].setup(context, o, part))
-                
+
                 # length / radius + angle
                 self.manip_stack.append(part.manipulators[1].setup(context, o, part))
                 # index
                 self.manip_stack.append(part.manipulators[3].setup(context, o, d.axis))
-                
+
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, d.axis))
             # offset
@@ -929,10 +891,10 @@ class ARCHIPACK_PT_roof(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
-    
+
     @classmethod
     def poll(cls, context):
-       return archipack_roof.filter(context.active_object)
+        return archipack_roof.filter(context.active_object)
 
     def draw(self, context):
         prop = archipack_roof.datablock(context.active_object)
@@ -957,8 +919,8 @@ class ARCHIPACK_PT_roof(Panel):
         box.prop(prop, 'angle_limit')
         prop.boundary.draw(layout, context)
         prop.axis.draw(layout, context)
-       
-    
+
+
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------

@@ -237,7 +237,7 @@ class ArchipackBoolManager():
 
         # remove modifier and holes not found in new list
         self.remove_modif_and_object(context, wall, to_delete)
-        
+
         m = wall.modifiers.get("AutoMixedBoolean")
         if m is None:
             m = wall.modifiers.new('AutoMixedBoolean', 'BOOLEAN')
@@ -253,7 +253,7 @@ class ArchipackBoolManager():
         self.prepare_hole(hole_obj)
 
         to_delete = []
-        
+
         # mixed-> mixed
         for m in hole_obj.modifiers:
             h = m.object
@@ -342,7 +342,7 @@ class ArchipackBoolManager():
                     o = m.object
                     for m in o.modifiers:
                         to_delete.append([None, m.object])
-                    
+
         # remove modifier and holes
         self.remove_modif_and_object(context, wall, to_delete)
 
@@ -351,12 +351,12 @@ class ArchipackBoolManager():
             if len(context.selected_objects) > 1:
                 bpy.ops.object.join()
                 context.object['archipack_robusthole'] = True
-            
+
             hole = context.object
             hole.name = 'AutoBoolean'
-            
+
             childs.append(hole)
-            
+
             if modif is None:
                 self.difference(wall, hole)
             else:
@@ -396,7 +396,7 @@ class ArchipackBoolManager():
             self.update_robust(context, wall, childs)
         else:
             self.update_mixed(context, wall, childs, holes)
-        
+
         bpy.ops.object.select_all(action='DESELECT')
         # parenting childs to wall reference point
         if wall.parent is None:
@@ -408,19 +408,19 @@ class ArchipackBoolManager():
         else:
             wall.parent.select = True
             context.scene.objects.active = wall.parent
-        
+
         wall.select = True
         for o in childs:
             if 'archipack_robusthole' in o:
                 o.hide_select = False
             o.select = True
-            
+
         bpy.ops.archipack.parent_to_reference()
 
         for o in childs:
             if 'archipack_robusthole' in o:
                 o.hide_select = True
-        
+
     def detect_mode(self, context, wall):
         for m in wall.modifiers:
             if m.type == 'BOOLEAN' and m.object is not None:
@@ -430,7 +430,7 @@ class ArchipackBoolManager():
                     self.mode = 'HYBRID'
                 if 'archipack_robusthole' in m.object:
                     self.mode = 'ROBUST'
-        
+
     def singleboolean(self, context, wall, o):
         """
             Entry point for single boolean operations
@@ -443,7 +443,7 @@ class ArchipackBoolManager():
         hole_obj = None
         # default mode defined by __init__
         self.detect_mode(context, wall)
-        
+
         if d is not None:
             if self.mode != 'ROBUST':
                 hole = d.interactive_hole(context, o)
@@ -451,16 +451,16 @@ class ArchipackBoolManager():
                 hole = d.robust_hole(context, o.matrix_world)
         if hole is None:
             return
-            
+
         self.prepare_hole(hole)
-        
+
         if self.mode == 'INTERACTIVE':
             # update / remove / add  boolean modifier
             self.difference(wall, hole)
-            
+
         elif self.mode == 'HYBRID':
             m = wall.modifiers.get('AutoMixedBoolean')
-            
+
             if m is None:
                 m = wall.modifiers.new('AutoMixedBoolean', 'BOOLEAN')
                 m.operation = 'DIFFERENCE'
@@ -472,9 +472,9 @@ class ArchipackBoolManager():
             else:
                 hole_obj = m.object
             self.union(hole_obj, hole)
-            
+
         bpy.ops.object.select_all(action='DESELECT')
-         
+
         # parenting childs to wall reference point
         if wall.parent is None:
             x, y, z = wall.bound_box[0]
@@ -484,10 +484,10 @@ class ArchipackBoolManager():
             bpy.ops.archipack.reference_point()
         else:
             context.scene.objects.active = wall.parent
-        
+
         if hole_obj is not None:
             hole_obj.select = True
-        
+
         wall.select = True
         o.select = True
         bpy.ops.archipack.parent_to_reference()
@@ -497,10 +497,10 @@ class ArchipackBoolManager():
         g = d.get_generator()
         d.setup_childs(wall, g)
         d.relocate_childs(context, wall, g)
-            
-        if hole_obj is not None:    
+
+        if hole_obj is not None:
             self.prepare_hole(hole_obj)
-            
+
 
 class ARCHIPACK_OT_single_boolean(Operator):
     bl_idname = "archipack.single_boolean"
