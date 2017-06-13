@@ -43,6 +43,7 @@ from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_gl import FeedbackPanel
 from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_keymaps import Keymaps
 from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_origin_3d
 
 
@@ -1815,9 +1816,9 @@ class ARCHIPACK_OT_window_draw(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     filepath = StringProperty(default="")
-
     feedback = None
-
+    stack = []    
+    
     def mouse_to_matrix(self, context, event):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
@@ -1870,7 +1871,7 @@ class ARCHIPACK_OT_window_draw(Operator):
             context.scene.objects.active = new_w
         else:
             bpy.ops.archipack.window(auto_manipulate=False, filepath=self.filepath)
-
+            
     def modal(self, context, event):
 
         context.area.tag_redraw()
@@ -1880,7 +1881,7 @@ class ARCHIPACK_OT_window_draw(Operator):
             w.matrix_world = tM
 
         if event.value == 'PRESS':
-            if event.type in {'LEFTMOUSE'}:
+            if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
                     context.scene.objects.active = wall
                     wall.select = True
@@ -1890,14 +1891,27 @@ class ARCHIPACK_OT_window_draw(Operator):
                     # w must be a window here
                     if archipack_window.filter(w):
                         context.scene.objects.active = w
+                        self.stack.append(w)
                         self.add_object(context, event)
                         context.active_object.matrix_world = tM
                     return {'RUNNING_MODAL'}
             # prevent selection of other object
             if event.type in {'RIGHTMOUSE'}:
                 return {'RUNNING_MODAL'}
-
+                    
+        if self.keymap.check(event, self.keymap.undo) or (
+                event.type in {'BACK_SPACE'} and event.value == 'RELEASE'
+                ):
+            if len(self.stack) > 0:
+                o =  context.active_object
+                last = self.stack.pop()
+                context.scene.objects.active = last
+                bpy.ops.archipack.window(mode="DELETE")
+                context.scene.objects.active = o
+            return {'RUNNING_MODAL'}
+                
         if event.value == 'RELEASE':
+            
             if event.type in {'ESC', 'RIGHTMOUSE'}:
                 bpy.ops.archipack.window(mode='DELETE')
                 self.feedback.disable()
@@ -1909,6 +1923,8 @@ class ARCHIPACK_OT_window_draw(Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
+            self.stack = []
+            self.keymap = Keymaps(context)
             # exit manipulate_mode if any
             bpy.ops.archipack.disable_manipulate()
             bpy.ops.object.select_all(action="DESELECT")
