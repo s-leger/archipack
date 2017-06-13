@@ -1923,15 +1923,23 @@ class ARCHIPACK_OT_window_draw(Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
+            o = None
             self.stack = []
             self.keymap = Keymaps(context)
             # exit manipulate_mode if any
             bpy.ops.archipack.disable_manipulate()
+            # invoke with shift pressed will use current object as basis for linked copy
+            if event.shift and archipack_window.filter(context.active_object):
+                o = context.active_object
             bpy.ops.object.select_all(action="DESELECT")
+            if o is not None:
+                o.select = True
+                context.scene.objects.active = o
             self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a window", "Click & Drag over a wall", [
-                ('LEFTCLICK', 'Create a window'),
+                ('LEFTCLICK, RET, SPACE, ENTER', 'Create a window'),
+                ('BACKSPACE, CTRL+Z', 'undo last'),
                 ('SHIFT', 'Make linked window'),
                 ('RIGHTCLICK or ESC', 'exit')
                 ])

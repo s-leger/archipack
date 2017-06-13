@@ -1789,14 +1789,21 @@ class ARCHIPACK_OT_door_draw(Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
+            o = None
             self.stack = []
             self.keymap = Keymaps(context)
             bpy.ops.archipack.disable_manipulate()
+            if event.shift and archipack_door.filter(context.active_object):
+                o = context.active_object
             bpy.ops.object.select_all(action="DESELECT")
+            if o is not None:
+                o.select = True
+                context.scene.objects.active = o
             self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
-                ('LEFTCLICK', 'Create a door'),
+                ('LEFTCLICK, RET, SPACE, ENTER', 'Create a door'),
+                ('BACKSPACE, CTRL+Z', 'undo last'),
                 ('SHIFT', 'Make linked door'),
                 ('RIGHTCLICK or ESC', 'exit')
                 ])

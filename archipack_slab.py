@@ -47,6 +47,13 @@ class Slab():
     def __init__(self):
         pass
 
+    def set_offset(self, offset, last=None):
+        """
+            Offset line and compute intersection point
+            between segments
+        """
+        self.line = self.make_offset(offset, last)
+
     def straight_slab(self, a0, length):
         s = self.straight(length).rotate(a0)
         return StraightSlab(s.p, s.v)
@@ -80,50 +87,44 @@ class SlabGenerator():
         self.parts = parts
         self.segs = []
 
-    def add_part(self, type, radius, a0, da, length, offset):
+    def add_part(self, part):
 
         if len(self.segs) < 1:
             s = None
         else:
             s = self.segs[-1]
-
         # start a new slab
         if s is None:
-            if type == 'S_SEG':
+            if part.type == 'S_SEG':
                 p = Vector((0, 0))
-                v = length * Vector((cos(a0), sin(a0)))
+                v = part.length * Vector((cos(part.a0), sin(part.a0)))
                 s = StraightSlab(p, v)
-            elif type == 'C_SEG':
-                c = -radius * Vector((cos(a0), sin(a0)))
-                s = CurvedSlab(c, radius, a0, da)
+            elif part.type == 'C_SEG':
+                c = -part.radius * Vector((cos(part.a0), sin(part.a0)))
+                s = CurvedSlab(c, part.radius, part.a0, part.da)
         else:
-            if type == 'S_SEG':
-                s = s.straight_slab(a0, length)
-            elif type == 'C_SEG':
-                s = s.curved_slab(a0, da, radius)
+            if part.type == 'S_SEG':
+                s = s.straight_slab(part.a0, part.length)
+            elif part.type == 'C_SEG':
+                s = s.curved_slab(part.a0, part.da, part.radius)
 
         self.segs.append(s)
-        self.last_type = type
+        self.last_type = part.type
+        
+    def set_offset(self):
+        last = None
+        for i, seg in enumerate(self.segs):
+            seg.set_offset(self.parts[i].offset, last)
+            last = seg.line
 
     def close(self, closed):
         # Make last segment implicit closing one
         if closed:
-            part = self.parts[-1]
             w = self.segs[-1]
-            dp = self.segs[0].p0 - self.segs[-1].p0
-            if "C_" in part.type:
-                dw = (w.p1 - w.p0)
-                w.r = part.radius / dw.length * dp.length
-                # angle pt - p0        - angle p0 p1
-                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                a0 = w.a0 + da
-                if a0 > pi:
-                    a0 -= 2 * pi
-                if a0 < -pi:
-                    a0 += 2 * pi
-                w.a0 = a0
-            else:
-                w.v = dp
+            p1 = self.segs[0].line.p1
+            self.segs[0].line = self.segs[0].make_offset(self.parts[0].offset, w.line)
+            self.segs[0].line.p1 = p1
+            return
 
     def locate_manipulators(self):
         """
@@ -163,10 +164,10 @@ class SlabGenerator():
         for slab in self.segs:
             if "Curved" in type(slab).__name__:
                 for i in range(16):
-                    x, y = slab.lerp(i / 16)
+                    x, y = slab.line.lerp(i / 16)
                     verts.append((x, y, 0))
             else:
-                x, y = slab.p0
+                x, y = slab.line.p0
                 verts.append((x, y, 0))
             """
             for i in range(33):
@@ -265,10 +266,7 @@ def update_type(self, context):
                 w = w0.curved_slab(part.a0, part.da, part.radius)
         else:
             g = SlabGenerator(None)
-            if "C_" in self.type:
-                g.add_part("S_SEG", self.radius, self.a0, self.da, self.length, 0)
-            else:
-                g.add_part("C_SEG", self.radius, self.a0, self.da, self.length, 0)
+            g.add_part(self)
             w = g.segs[0]
 
         # w0 - w - w1
@@ -347,6 +345,19 @@ class ArchipackSegment():
             subtype='ANGLE', unit='ROTATION',
             update=update
             )
+    offset = FloatProperty(
+            name="Offset",
+            description="Add to current segment offset",
+            default=0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+
+    # @TODO:
+    # flag to handle wall's  x_offset
+    # when set add wall offset value to segment offset
+    # pay attention at allowing per wall segment offset
+
     manipulators = CollectionProperty(type=archipack_manipulator)
 
     def find_in_selection(self, context):
@@ -378,6 +389,8 @@ class ArchipackSegment():
             row.prop(self, "length")
         row = box.row()
         row.prop(self, "a0")
+        row = box.row()
+        row.prop(self, "offset")
 
 
 class archipack_slab_part(ArchipackSegment, PropertyGroup):
@@ -435,6 +448,11 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+    
+    # @TODO:
+    # Global slab offset
+    # will only affect slab parts sharing a wall
+    
     childs = CollectionProperty(type=archipack_slab_child)
     # Flag to prevent mesh update while making bulk changes over variables
     # use :
@@ -451,7 +469,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         g = SlabGenerator(self.parts)
         for part in self.parts:
             # type, radius, da, length
-            g.add_part(part.type, part.radius, part.a0, part.da, part.length, 0)
+            g.add_part(part)
+
+        g.set_offset()
 
         g.close(self.closed)
         g.locate_manipulators()
@@ -468,6 +488,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         part_1 = self.parts[len(self.parts) - 1]
         part_1.type = part_0.type
         part_1.length = part_0.length
+        part_1.offset = part_0.offset
         part_1.da = part_0.da
         part_1.a0 = 0
         # move after current one
@@ -525,6 +546,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         part_1.type = part_0.type
         part_1.length = part_0.length
         part_1.radius = part_0.radius
+        part_1.offset = part_0.offset
         part_1.da = part_0.da
         part_1.a0 = -pi / 2
         # move after current one

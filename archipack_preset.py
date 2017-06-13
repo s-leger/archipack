@@ -432,6 +432,16 @@ class PresetMenuOperator():
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
+            
+            # with shift pressed on invoke, will bypass menu operator and 
+            # call preset_operator
+            if event.shift:
+                po = self.preset_operator.split(".")
+                op = getattr(getattr(bpy.ops, po[0]), po[1])
+                if op.poll():
+                    op('INVOKE_DEFAULT')
+                return {'FINISHED'}
+                
             self.menu = PresetMenu(context, self.preset_subdir)
 
             # the arguments we pass the the callback
