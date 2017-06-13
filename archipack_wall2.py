@@ -535,6 +535,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             default=1, update=update_manipulators
             )
     step_angle = FloatProperty(
+            description="Curved parts segmentation",
             name="step angle",
             min=1 / 180 * pi,
             max=pi,
@@ -1628,6 +1629,53 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             self.state = state
             return
 
+    def ensure_ccw(self):
+        """
+            Wall to slab expect wall vertex order to be ccw
+            so reverse order here when needed    
+        """
+        d = archipack_wall2.datablock(self.o)
+        g = d.get_generator()
+        pts = [seg.p0.to_3d() for seg in g.segs]
+        
+        if d.closed:
+            pts.append(pts[0])
+        
+        if d.is_cw(pts):
+            d.x_offset = 1
+            pts = list(reversed(pts))
+            self.o.location += pts[0] - pts[-1] 
+        
+        d.auto_update = False
+
+        d.n_parts = len(pts) - 1
+
+        if d.closed:
+            d.n_parts -= 1
+
+        d.update_parts(None)
+
+        p0 = pts.pop(0)
+        a0 = 0
+        for i, p1 in enumerate(pts):
+            dp = p1 - p0
+            da = atan2(dp.y, dp.x) - a0
+            if da > pi:
+                da -= 2 * pi
+            if da < -pi:
+                da += 2 * pi
+            if i >= len(d.parts):
+                print("Too many pts for parts")
+                break
+            p = d.parts[i]
+            p.length = dp.to_2d().length
+            p.dz = dp.z
+            p.a0 = da
+            a0 += da
+            p0 = p1
+
+        d.auto_update = True
+         
     def modal(self, context, event):
 
         context.area.tag_redraw()
@@ -1706,6 +1754,9 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
             if self.o is not None:
+                self.o.select = True
+                context.scene.objects.active = self.o
+                self.ensure_ccw()
                 self.o.select = True
                 context.scene.objects.active = self.o
                 if bpy.ops.archipack.wall2_manipulate.poll():
