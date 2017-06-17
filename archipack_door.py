@@ -60,7 +60,7 @@ def update_childs(self, context):
     self.update(context, childs_only=True)
 
 
-class archipack_door_panel(PropertyGroup):
+class archipack_door_panel(ArchipackObject, PropertyGroup):
     x = FloatProperty(
             name='width',
             min=0.25,
@@ -538,19 +538,6 @@ class archipack_door_panel(PropertyGroup):
                         mat += back.mat(curve_steps, 0, 0, path_type=shape)
         return mat
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            c, props = ARCHIPACK_PT_door_panel.params(o)
-            if props == self:
-                return active, selected, o
-        return active, selected, None
-
     def find_handle(self, o):
         for child in o.children:
             if 'archipack_handle' in child:
@@ -577,7 +564,8 @@ class archipack_door_panel(PropertyGroup):
             bpy.data.objects.remove(handle, do_unlink=True)
 
     def update(self, context):
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context)
+        
         if o is None:
             return
 
@@ -588,9 +576,8 @@ class archipack_door_panel(PropertyGroup):
         else:
             self.update_handle(context, o)
 
-        active.select = True
-        context.scene.objects.active = active
-
+        self.restore_context(context)
+        
 
 class ARCHIPACK_PT_door_panel(Panel):
     bl_idname = "ARCHIPACK_PT_door_panel"
@@ -600,55 +587,15 @@ class ARCHIPACK_PT_door_panel(Panel):
     # bl_context = 'object'
     bl_category = 'ArchiPack'
 
-    def draw(self, context):
-        """
-        o = context.object
-        o, prop = ARCHIPACK_PT_door_panel.params(o)
-        if prop is None:
-            return
-        """
-        layout = self.layout
-        """
-        layout.prop(prop, 'direction')
-        layout.prop(prop, 'model')
-        layout.prop(prop, 'chanfer')
-        layout.prop(prop, 'panel_bottom')
-        layout.prop(prop, 'panel_spacing')
-        layout.prop(prop, 'panel_border')
-        layout.prop(prop, 'panels_x')
-        layout.prop(prop, 'panels_y')
-        layout.prop(prop, 'panels_distrib')
-        layout.label(text="Show properties")
-        """
-        layout.operator("archipack.select_parent")
-        return
-
-    @classmethod
-    def params(cls, o):
-        if cls.filter(o):
-            if 'archipack_doorpanel' in o.data:
-                return o, o.data.archipack_doorpanel[0]
-            else:
-                for child in o.children:
-                    o, props = cls.params(child)
-                    if props is not None:
-                        return o, props
-        return o, None
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            return bool('archipack_doorpanel' in o.data)
-        except:
-            return False
-
     @classmethod
     def poll(cls, context):
-        o = context.active_object
-        if o is None:
-            return False
-        return cls.filter(o)
-
+        return archipack_door_panel.filter(context.active_object)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("archipack.select_parent")
+    
+    
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
@@ -764,7 +711,7 @@ class ARCHIPACK_OT_door_panel(Operator):
         """
         m = bpy.data.meshes.new("Panel")
         o = bpy.data.objects.new("Panel", m)
-        d = m.archipack_doorpanel.add()
+        d = m.archipack_door_panel.add()
         d.x = self.x
         d.y = self.y
         d.z = self.z
@@ -791,8 +738,6 @@ class ARCHIPACK_OT_door_panel(Operator):
         context.scene.objects.active = o
         d.update(context)
         MaterialUtils.add_door_materials(o)
-        o.select = True
-        context.scene.objects.active = o
         o.lock_rotation[0] = True
         o.lock_rotation[1] = True
         return o
@@ -800,7 +745,9 @@ class ARCHIPACK_OT_door_panel(Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
-            self.create(context)
+            o = self.create(context)
+            o.select = True
+            context.scene.objects.active = o
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -1077,7 +1024,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         for child in o.children:
             if to_remove < 1:
                 return
-            if ARCHIPACK_PT_door_panel.filter(child):
+            if archipack_door_panel.filter(child):
                 self.remove_handle(context, child)
                 to_remove -= 1
                 context.scene.objects.unlink(child)
@@ -1093,7 +1040,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
 
         n_childs = 0
         for child in o.children:
-            if ARCHIPACK_PT_door_panel.filter(child):
+            if archipack_door_panel.filter(child):
                 n_childs += 1
 
         # remove child
@@ -1133,13 +1080,8 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         return None
 
     def get_childs_panels(self, context, o):
-        childs = []
-        for child in o.children:
-            c, props = ARCHIPACK_PT_door_panel.params(child)
-            if props is not None:
-                childs.append(c)
-        return childs
-
+        return [child for child in o.children if archipack_door_panel.filter(child)]
+        
     def _synch_childs(self, context, o, linked, childs):
         """
             sub synch childs nodes of linked object
@@ -1292,7 +1234,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
                 child = childs[child_n - 1]
                 child.select = True
                 context.scene.objects.active = child
-                c, props = ARCHIPACK_PT_door_panel.params(child)
+                props = archipack_door_panel.datablock(child)
                 if props is not None:
                     props.x = x
                     props.y = y
@@ -1313,9 +1255,9 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
     def update(self, context, childs_only=False):
 
         # support for "copy to selected"
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
 
         self.setup_manipulators()
@@ -1338,16 +1280,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.z), (-1, 0, 0)])
 
         # restore context
-        bpy.ops.object.select_all(action="DESELECT")
-
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
     def find_hole(self, o):
         for child in o.children:
@@ -1403,6 +1336,10 @@ class ARCHIPACK_PT_door(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
+    
+    @classmethod
+    def poll(cls, context):
+        return archipack_door.filter(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -1460,10 +1397,7 @@ class ARCHIPACK_PT_door(Panel):
             box.prop(props, 'panel_border')
             box.prop(props, 'chanfer')
 
-    @classmethod
-    def poll(cls, context):
-        return archipack_door.filter(context.active_object)
-
+    
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
@@ -1614,7 +1548,7 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                 if 'archipack_hole' in child:
                     context.scene.objects.unlink(child)
                     bpy.data.objects.remove(child, do_unlink=True)
-                elif child.data is not None and 'archipack_doorpanel' in child.data:
+                elif child.data is not None and 'archipack_door_panel' in child.data:
                     for handle in child.children:
                         if 'archipack_handle' in handle:
                             context.scene.objects.unlink(handle)
@@ -1642,7 +1576,7 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                 o.select = True
                 for child in o.children:
                     if 'archipack_hole' in child or (child.data is not None and
-                       'archipack_doorpanel' in child.data):
+                       'archipack_door_panel' in child.data):
                         child.hide_select = False
                         child.select = True
         if len(context.selected_objects) > 0:
@@ -1846,14 +1780,14 @@ class ARCHIPACK_OT_door_manipulate(Operator):
 
 class ARCHIPACK_OT_door_preset_menu(PresetMenuOperator, Operator):
     bl_idname = "archipack.door_preset_menu"
-    bl_label = "Door Styles"
+    bl_label = "Door Presets"
     preset_subdir = "archipack_door"
 
 
 class ARCHIPACK_OT_door_preset(ArchipackPreset, Operator):
     """Add a Door Preset"""
     bl_idname = "archipack.door_preset"
-    bl_label = "Add Door Style"
+    bl_label = "Add Door Preset"
     preset_menu = "ARCHIPACK_OT_door_preset_menu"
 
     @property
@@ -1864,7 +1798,7 @@ class ARCHIPACK_OT_door_preset(ArchipackPreset, Operator):
 
 def register():
     bpy.utils.register_class(archipack_door_panel)
-    Mesh.archipack_doorpanel = CollectionProperty(type=archipack_door_panel)
+    Mesh.archipack_door_panel = CollectionProperty(type=archipack_door_panel)
     bpy.utils.register_class(ARCHIPACK_PT_door_panel)
     bpy.utils.register_class(ARCHIPACK_OT_door_panel)
     bpy.utils.register_class(ARCHIPACK_OT_select_parent)
@@ -1880,7 +1814,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(archipack_door_panel)
-    del Mesh.archipack_doorpanel
+    del Mesh.archipack_door_panel
     bpy.utils.unregister_class(ARCHIPACK_PT_door_panel)
     bpy.utils.unregister_class(ARCHIPACK_OT_door_panel)
     bpy.utils.unregister_class(ARCHIPACK_OT_select_parent)

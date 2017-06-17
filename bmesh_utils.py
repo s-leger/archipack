@@ -47,6 +47,7 @@ class BmeshEdit():
         """
             private, end bmesh editing of active object
         """
+        bm.normal_update()
         bmesh.update_edit_mesh(o.data, True)
         bpy.ops.object.mode_set(mode='OBJECT')
         bm.free()
@@ -91,13 +92,16 @@ class BmeshEdit():
         if weld:
             bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001)
         BmeshEdit._end(bm, o)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
         if auto_smooth:
+            bpy.ops.mesh.faces_shade_smooth()
             o.data.use_auto_smooth = True
+        else:
+            bpy.ops.mesh.faces_shade_flat()
         if clean:
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.delete_loose()
-            bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
 
     @staticmethod
     def verts(context, o, verts):

@@ -200,7 +200,7 @@ class ARCHIPACK_OT_store_2d_reference(Operator):
     def poll(cls, context):
         return archipack_reference_point.filter(context.active_object)
 
-    def execute(self, context):
+def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
             props = archipack_reference_point.datablock(o)
@@ -260,8 +260,9 @@ class ARCHIPACK_OT_parent_to_reference(Operator):
             props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
-            sel = [obj for obj in context.selected_objects if obj != o]
+            sel = [obj for obj in context.selected_objects if obj != o and obj.parent != o]
             itM = o.matrix_world.inverted()
+            # print("parent_to_reference parenting:%s objects" % (len(sel)))
             for child in sel:
                 rs = child.matrix_world.to_3x3().to_4x4()
                 loc = itM * child.matrix_world.translation

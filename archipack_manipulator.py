@@ -619,118 +619,68 @@ class WallSnapManipulator(Manipulator):
 
             # rotation relative to object
             rM = self.o.matrix_world.inverted().to_3x3()
+            delta = (rM * sp.delta).to_2d()
+            x_axis = (rM * Vector((1, 0, 0))).to_2d()
+            
+            # update generator
             idx = 0
             for p0, p1, selected in gl_pts3d:
 
                 if selected:
 
-                    # new point in object space
-                    pt = g.segs[idx].lerp(0) + (rM * sp.delta).to_2d()
-                    da = 0
+                    # new location in object space
+                    pt = g.segs[idx].lerp(0) + delta
 
-                    # adjust size and rotation of segment before current
+                    # move last point of segment before current
+                    if idx > 0:
+                        g.segs[idx - 1].p1 = pt
+                        
+                    # move first point of current segment
+                    g.segs[idx].p0 = pt
+
+                idx += 1
+                
+            # update properties from generator
+            idx = 0
+            for p0, p1, selected in gl_pts3d:
+
+                if selected:
+
+                    # adjust segment before current
                     if idx > 0:
                         w = g.segs[idx - 1]
                         part = d.parts[idx - 1]
-                        """
-                        w.p1 = pt
-                        dp = pt - w.p0
 
                         if idx > 1:
-                            part.a0 = g.segs[idx - 2].delta_angle(w)
+                            part.a0 = w.delta_angle(g.segs[idx - 2])
                         else:
-                            a0 = part.a0 + w.signed_angle(w.straight(0).v, dp)
-                            if a0 > pi:
-                                a0 -= 2 * pi
-                            if a0 < -pi:
-                                a0 += 2 * pi
-                            # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-                            part.a0 = a0
-
+                            part.a0 = w.straight(1, 0).angle  
+                            
                         if "C_" in part.type:
                             part.radius = w.r
                         else:
                             part.length = w.length
 
-                        """
-
-                        dp = pt - w.p0
-
-                        # adjust radius from distance between points..
-                        # use p0-p1 distance as reference
-                        if "C_" in part.type:
-                            dw = (w.p1 - w.p0)
-                            part.radius = part.radius / dw.length * dp.length
-                            # angle pt - p0        - angle p0 p1
-                            da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                        else:
-                            part.length = dp.length
-                            da = atan2(dp.y, dp.x) - w.straight(1).angle
-                        a0 = part.a0 + da
-                        if a0 > pi:
-                            a0 -= 2 * pi
-                        if a0 < -pi:
-                            a0 += 2 * pi
-                        # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-                        part.a0 = a0
-
-                    # adjust length of current segment
+                    # adjust current segment
                     w = g.segs[idx]
                     part = d.parts[idx]
-                    """
-                    w.p0 = pt
-
+                    
+                    if idx > 0:
+                        part.a0 = w.delta_angle(g.segs[idx - 1])
+                    else:
+                        part.a0 = w.straight(1, 0).angle  
+                        # move object when point 0
+                        self.o.location += sp.delta
+                        
                     if "C_" in part.type:
                         part.radius = w.r
                     else:
                         part.length = w.length
-
-                    if idx > 0:
-                        part.a0 = w.delta_angle(g.segs[idx - 1])
-
+                    
+                    # adjust next one
                     if idx + 1 < d.n_parts:
-                        d.parts[idx + 1].a0 = w.delta_angle(g.segs[idx + 1])
-                        g = d.get_generator()
-
-                    """
-                    dp = w.p1 - pt
-                    # adjust radius from distance between points..
-                    # use p0-p1 distance and angle as reference
-                    if "C_" in part.type:
-                        dw = w.p1 - w.p0
-                        part.radius = part.radius / dw.length * dp.length
-                        da1 = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                    else:
-                        part.length = dp.length
-                        da1 = atan2(dp.y, dp.x) - w.straight(1).angle
-
-                    a0 = part.a0 + da1 - da
-                    if a0 > pi:
-                        a0 -= 2 * pi
-                    if a0 < -pi:
-                        a0 += 2 * pi
-                    # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-                    part.a0 = a0
-
-                    # move object when point 0
-                    if idx == 0:
-                        self.o.location += sp.delta
-                    """
-                    """
-                    # adjust rotation on both sides of next segment
-                    if idx + 1 < d.n_parts:
-
-                        part = d.parts[idx + 1]
-                        a0 = part.a0 - da1
-                        if a0 > pi:
-                            a0 -= 2 * pi
-                        if a0 < -pi:
-                            a0 += 2 * pi
-                        part.a0 = a0
-
-                        # refresh wall data for next loop
-                        g = d.get_generator()
-
+                        d.parts[idx + 1].a0 = g.segs[idx + 1].delta_angle(w)
+                    
                 idx += 1
 
             self.mouse_release(context, event)
@@ -2111,9 +2061,9 @@ class Manipulable():
             self.manip_stack.append(m.setup(context, o, self))
 
     def _manipulable_invoke(self, context):
-        
+
         ArchipackStore.manipulable = self
-        
+
         # take care of context switching
         # when call from outside of 3d view
         if context.space_data.type == 'VIEW_3D':
@@ -2146,7 +2096,7 @@ class Manipulable():
             return False
         else:
             bpy.ops.archipack.disable_manipulate()
-            
+
         self.manip_stack = []
         # kills other's manipulators
         self.manipulate_mode = True
@@ -2194,7 +2144,7 @@ class Manipulable():
             # to delete / duplicate / link duplicate / unlink of
             # a complete set of wall, doors and windows at once
             self.manipulable_disable(context)
-            
+
             if bpy.ops.object.delete.poll():
                 bpy.ops.object.delete('INVOKE_DEFAULT', use_global=False)
 
@@ -2283,7 +2233,7 @@ class Manipulable():
                         manipulator.select(self.manipulable_area)
             # keep focus to prevent left select mouse to actually move object
             return {'RUNNING_MODAL'}
-        
+
         # event.alt here to prevent 3 button mouse emulation exit while zooming
         if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS' and not event.alt:
             self.manipulable_disable(context)

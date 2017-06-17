@@ -149,14 +149,14 @@ class archipack_window_panelrow(PropertyGroup):
         for i in range(cols - 1):
             self.width[i] = width
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
         """
         selected = [o for o in context.selected_objects]
         for o in selected:
-            props = ARCHIPACK_PT_window.params(o)
+            props = archipack_window.datablock(o)
             if props:
                 for row in props.rows:
                     if row == self:
@@ -165,7 +165,7 @@ class archipack_window_panelrow(PropertyGroup):
 
     def update(self, context):
         if self.auto_update:
-            props = self.find_in_selection(context)
+            props = self.find_datablock_in_selection(context)
             if props is not None:
                 props.update(context, childs_only=False)
 
@@ -185,7 +185,7 @@ class archipack_window_panelrow(PropertyGroup):
         row.prop(self, "fixed", text="fixed", index=(self.cols - 1))
 
 
-class archipack_window_panel(PropertyGroup):
+class archipack_window_panel(ArchipackObject, PropertyGroup):
     center = FloatVectorProperty(
             subtype='XYZ'
             )
@@ -360,19 +360,6 @@ class archipack_window_panel(PropertyGroup):
         return self.window.uv(self.curve_steps, self.center, self.origin, self.size,
             self.radius, self.angle_y, self.pivot, 0, self.frame_x, path_type=self.shape)
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            c, props = ARCHIPACK_PT_window_panel.params(o)
-            if props == self:
-                return active, selected, o
-        return active, selected, None
-
     def find_handle(self, o):
         for child in o.children:
             if 'archipack_handle' in child:
@@ -399,7 +386,9 @@ class archipack_window_panel(PropertyGroup):
             bpy.data.objects.remove(handle, do_unlink=True)
 
     def update(self, context):
-        active, selected, o = self.find_in_selection(context)
+    
+        o = self.find_in_selection(context)
+        
         if o is None:
             return
 
@@ -411,8 +400,7 @@ class archipack_window_panel(PropertyGroup):
 
         bmed.buildmesh(context, o, self.verts, self.faces, self.matids, self.uvs)
 
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
 
 class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
@@ -992,7 +980,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         for child in o.children:
             if to_remove < 1:
                 return
-            if ARCHIPACK_PT_window_panel.filter(child):
+            if archipack_window_panel.filter(child):
                 to_remove -= 1
                 self.remove_handle(context, child)
                 context.scene.objects.unlink(child)
@@ -1030,13 +1018,8 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             self.remove_childs(context, o, n_childs - w_childs)
 
     def get_childs_panels(self, context, o):
-        childs = []
-        for child in o.children:
-            c, props = ARCHIPACK_PT_window_panel.params(child)
-            if props is not None:
-                childs.append(c)
-        return childs
-
+        return [child for child in o.children if archipack_window_panel.filter(child)]
+        
     def adjust_size_and_origin(self, size, origin, pivot, materials):
         if len(size) > 1:
             size[0].x += 0.5 * self.frame_x
@@ -1228,7 +1211,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                     child = childs[child_n - 1]
                     child.select = True
                     context.scene.objects.active = child
-                    c, props = ARCHIPACK_PT_window_panel.params(child)
+                    props = archipack_window_panel.datablock(child)
                     if props is not None:
                         props.origin = Vector((origin[panel].x, offset.y, 0))
                         props.center = center
@@ -1329,12 +1312,10 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
 
     def update(self, context, childs_only=False):
         # support for "copy to selected"
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
-
-        # print("Window.update()")
 
         self.setup_manipulators()
 
@@ -1358,16 +1339,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulators[3].set_pts([(x, -y, 0), (x, -y, self.altitude), (-1, 0, 0)])
 
         # restore context
-        bpy.ops.object.select_all(action="DESELECT")
-
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
     def find_hole(self, o):
         for child in o.children:
@@ -1463,11 +1435,14 @@ class ARCHIPACK_PT_window(Panel):
     display_panels = BoolProperty(
         default=True
     )
+    
+    @classmethod
+    def poll(cls, context):
+        return archipack_window.filter(context.active_object)
 
     def draw(self, context):
         o = context.active_object
         prop = archipack_window.datablock(o)
-        # prop = ARCHIPACK_PT_window.params(o)
         if prop is None:
             return
         layout = self.layout
@@ -1585,87 +1560,23 @@ class ARCHIPACK_PT_window(Panel):
             box.prop(prop, 'hole_inside_mat')
             box.prop(prop, 'hole_outside_mat')
 
-    @classmethod
-    def params(cls, o):
-
-        try:
-            if 'archipack_window' not in o.data:
-                return False
-            else:
-                return o.data.archipack_window[0]
-        except:
-            return False
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            if 'archipack_window' not in o.data:
-                return False
-            else:
-                return True
-        except:
-            return False
-
-    @classmethod
-    def poll(cls, context):
-        o = context.active_object
-        if o is None:
-            return False
-        return archipack_window.filter(o)
-
-
+    
 class ARCHIPACK_PT_window_panel(Panel):
     bl_idname = "ARCHIPACK_PT_window_panel"
     bl_label = "Window panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    # bl_context = 'object'
     bl_category = 'ArchiPack'
-
-    def draw(self, context):
-        """
-        o = context.active_object
-        o, prop = ARCHIPACK_PT_window_panel.params(o)
-        if prop is None:
-            return
-        """
-        layout = self.layout
-        layout.operator("archipack.select_parent")
-        """
-        layout.prop(prop, 'size', index=0)
-        layout.prop(prop, 'size', index=1)
-        layout.prop(prop, 'frame_x')
-        layout.prop(prop, 'frame_y')
-        layout.prop(prop, 'pivot')
-        layout.prop(prop, 'origin', index=0)
-        """
-
-    @classmethod
-    def params(cls, o):
-        if cls.filter(o):
-            if 'archipack_window_panel' in o.data:
-                return o, o.data.archipack_window_panel[0]
-            else:
-                for child in o.children:
-                    o, props = cls.params(child)
-                    if props is not None:
-                        return o, props
-        return o, None
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            return bool('archipack_window_panel' in o.data)
-        except:
-            return False
-
+    
     @classmethod
     def poll(cls, context):
-        o = context.active_object
-        if o is None:
-            return False
-        return cls.filter(o)
+        return archipack_window_panel.filter(context.active_object)
 
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("archipack.select_parent")
+    
+    
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
@@ -1783,7 +1694,10 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
             for child in context.selected_objects:
                 if 'archipack_hole' in child:
                     child.hide_select = True
-
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in sel:
+            o.select = True
+        
     # -----------------------------------------------------
     # Execute
     # -----------------------------------------------------
@@ -2127,14 +2041,14 @@ class ARCHIPACK_OT_window_manipulate(Operator):
 
 class ARCHIPACK_OT_window_preset_menu(PresetMenuOperator, Operator):
     bl_idname = "archipack.window_preset_menu"
-    bl_label = "Window Styles"
+    bl_label = "Window Presets"
     preset_subdir = "archipack_window"
 
 
 class ARCHIPACK_OT_window_preset(ArchipackPreset, Operator):
     """Add a Window Preset"""
     bl_idname = "archipack.window_preset"
-    bl_label = "Add Window Style"
+    bl_label = "Add Window Preset"
     preset_menu = "ARCHIPACK_OT_window_preset_menu"
 
     @property

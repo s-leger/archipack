@@ -54,7 +54,7 @@ from .archipack_keymaps import Keymaps
 
 
 class Wall():
-    def __init__(self, last, wall_z, z, t, flip):
+    def __init__(self, wall_z, z, t, flip):
         self.z = z
         self.wall_z = wall_z
         self.t = t
@@ -95,7 +95,7 @@ class Wall():
 
     def straight_wall(self, a0, length, wall_z, z, t):
         r = self.straight(length).rotate(a0)
-        return StraightWall(self, r.p, r.v, wall_z, z, t, self.flip)
+        return StraightWall(r.p, r.v, wall_z, z, t, self.flip)
 
     def curved_wall(self, a0, da, radius, wall_z, z, t):
         n = self.normal(1).rotate(a0).scale(radius)
@@ -103,13 +103,13 @@ class Wall():
             n.v = -n.v
         a0 = n.angle
         c = n.p - n.v
-        return CurvedWall(self, c, radius, a0, da, wall_z, z, t, self.flip)
+        return CurvedWall(c, radius, a0, da, wall_z, z, t, self.flip)
 
 
 class StraightWall(Wall, Line):
-    def __init__(self, last, p, v, wall_z, z, t, flip):
+    def __init__(self, p, v, wall_z, z, t, flip):
         Line.__init__(self, p, v)
-        Wall.__init__(self, last, wall_z, z, t, flip)
+        Wall.__init__(self, wall_z, z, t, flip)
 
     def param_t(self, step_angle):
         self.t_step = self.t
@@ -117,9 +117,9 @@ class StraightWall(Wall, Line):
 
 
 class CurvedWall(Wall, Arc):
-    def __init__(self, last, c, radius, a0, da, wall_z, z, t, flip):
+    def __init__(self, c, radius, a0, da, wall_z, z, t, flip):
         Arc.__init__(self, c, radius, a0, da)
-        Wall.__init__(self, last, wall_z, z, t, flip)
+        Wall.__init__(self, wall_z, z, t, flip)
 
     def param_t(self, step_angle):
         t_step, n_step = self.steps_by_angle(step_angle)
@@ -175,10 +175,10 @@ class WallGenerator():
             if part.type == 'S_WALL':
                 p = Vector((0, 0))
                 v = part.length * Vector((cos(part.a0), sin(part.a0)))
-                s = StraightWall(s, p, v, wall_z, z, t, flip)
+                s = StraightWall(p, v, wall_z, z, t, flip)
             elif part.type == 'C_WALL':
                 c = -part.radius * Vector((cos(part.a0), sin(part.a0)))
-                s = CurvedWall(s, c, part.radius, part.a0, part.da, wall_z, z, t, flip)
+                s = CurvedWall(c, part.radius, part.a0, part.da, wall_z, z, t, flip)
         else:
             if part.type == 'S_WALL':
                 s = s.straight_wall(part.a0, part.length, wall_z, z, t)
@@ -274,7 +274,38 @@ class WallGenerator():
                 for j in range(wall.n_step):
                     print("%s" % (wall.n_step))
                     # wall.make_wall(j, verts, faces)
-
+    
+    def rotate(self, idx_from, a):
+        """
+            apply rotation to all following segs
+        """
+        self.segs[idx_from].rotate(a)
+        ca = cos(a)
+        sa = sin(a)
+        rM = Matrix([
+            [ca, -sa],
+            [sa, ca]
+            ])
+        # rotation center
+        p0 = self.segs[idx_from].p0
+        for i in range(idx_from + 1, len(self.segs)):
+            seg = self.segs[i]
+            seg.rotate(a)
+            dp = rM * (seg.p0 - p0) 
+            seg.translate(dp)
+    
+    def translate(self, idx_from, dp):
+        """
+            apply translation to all following segs
+        """
+        self.segs[idx_from].p1 += dp
+        for i in range(idx_from + 1, len(self.segs)):
+            self.segs[i].translate(dp)
+            
+    def draw(self, context):
+        for seg in self.segs:
+            seg.draw(context, render=False)
+    
     def debug(self, verts):
         for wall in self.segs:
             for i in range(33):
@@ -309,7 +340,7 @@ def get_splits(self):
 
 def update_type(self, context):
 
-    d = self.find_in_selection(context)
+    d = self.find_datablock_in_selection(context)
 
     if d is not None and d.auto_update:
 
@@ -453,7 +484,7 @@ class archipack_wall2_part(PropertyGroup):
         for i in range(splits):
             self.t[i] = t
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
@@ -470,7 +501,7 @@ class archipack_wall2_part(PropertyGroup):
     def update(self, context, manipulable_refresh=False):
         if not self.auto_update:
             return
-        props = self.find_in_selection(context)
+        props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context, manipulable_refresh)
 
@@ -597,6 +628,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             )
     # dumb manipulators to show sizes between childs
     childs_manipulators = CollectionProperty(type=archipack_manipulator)
+    # store to manipulate windows and doors
     childs = CollectionProperty(type=archipack_wall2_child)
 
     def insert_part(self, context, where):
@@ -637,34 +669,23 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         if where > 0:
             g = self.get_generator()
             w = g.segs[where - 1]
-            dp = g.segs[where].p1 - w.p0
+            w.p1 = g.segs[where].p1
+            
             if where + 1 < self.n_parts:
-                a0 = g.segs[where + 1].straight(1).angle - atan2(dp.y, dp.x)
-                part = self.parts[where + 1]
-                if a0 > pi:
-                    a0 -= 2 * pi
-                if a0 < -pi:
-                    a0 += 2 * pi
-                part.a0 = a0
+                self.parts[where + 1].a0 = g.segs[where + 1].delta_angle(w)
+            
             part = self.parts[where - 1]
-            # adjust radius from distance between points..
-            # use p0-p1 distance as reference
+            
             if "C_" in part.type:
-                dw = (w.p1 - w.p0)
-                part.radius = part.radius / dw.length * dp.length
-                # angle pt - p0        - angle p0 p1
-                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+                part.radius = w.r
             else:
-                part.length = dp.length
-                da = atan2(dp.y, dp.x) - w.straight(1).angle
-            a0 = part.a0 + da
-            if a0 > pi:
-                a0 -= 2 * pi
-            if a0 < -pi:
-                a0 += 2 * pi
-            # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-            part.a0 = a0
-
+                part.length = w.length
+            
+            if where > 1:
+                part.a0 = w.delta_angle(g.segs[where - 2])
+            else:
+                part.a0 = w.straight(1, 0).angle
+        
         self.parts.remove(where)
         self.n_parts -= 1
         # fix snap manipulators index
@@ -786,6 +807,10 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             else:
                 pts.append(wM * points[-1].co)
 
+        self.from_points(pts, spline.use_cyclic_u)
+
+    def from_points(self, pts, closed):
+
         if self.is_cw(pts):
             pts = list(reversed(pts))
 
@@ -793,7 +818,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
         self.n_parts = len(pts) - 1
 
-        if spline.use_cyclic_u:
+        if closed:
             self.n_parts -= 1
 
         self.update_parts(None)
@@ -817,18 +842,12 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             a0 += da
             p0 = p1
 
-        self.closed = spline.use_cyclic_u
+        self.closed = closed
         self.auto_update = True
 
     def update(self, context, manipulable_refresh=False, update_childs=False):
-        # print("update manipulable_refresh:%s" % (manipulable_refresh))
-        """
-
-        """
-        if not self.auto_update:
-            return
-
-        active, selected, o = self.find_in_selection(context)
+        
+        o = self.find_in_selection(context, self.auto_update)
 
         if o is None:
             return
@@ -853,8 +872,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
         # print("buildmesh")
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=True)
-        bpy.ops.object.shade_smooth()
-
+        
         side = 1
         if self.flip:
             side = -1
@@ -902,16 +920,8 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             # print("manipulable_refresh=True")
             self.manipulable_refresh = True
 
-        # restore context
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
-
+        self.restore_context(context)
+        
     # manipulable children objects like windows and doors
     def child_partition(self, array, begin, end):
         pivot = begin
@@ -975,7 +985,8 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         for child in o.parent.children:
             if (child != o and
                     'archipack_robusthole' not in child and
-                    'archipack_hole' not in child):
+                    'archipack_hole' not in child and 
+                    child.data and 'archipack_slab' not in child.data):
                 tM = child.matrix_world.to_3x3()
                 pt = (itM * child.location).to_2d()
                 for wall_idx, wall in enumerate(g.segs):
@@ -1259,6 +1270,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
 # Update throttle (smell hack here)
 # use 2 globals to store a timer and state of update_action
+# NO MORE USING THIS PART, kept as it as it may be usefull in some cases 
 update_timer = None
 update_timer_updating = False
 
@@ -1366,12 +1378,12 @@ class ARCHIPACK_OT_wall2(ArchipackCreateTool, Operator):
         d.manipulable_selectable = True
         context.scene.objects.link(o)
         o.select = True
-        context.scene.objects.active = o
-        self.load_preset(d)
-        self.add_material(o)
         # around 12 degree
         m.auto_smooth_angle = 0.20944
         m.use_auto_smooth = True
+        context.scene.objects.active = o
+        self.load_preset(d)
+        self.add_material(o)
         return o
 
     def execute(self, context):
@@ -1478,6 +1490,22 @@ class ARCHIPACK_OT_wall2_from_slab(Operator):
         d.auto_update = True
         # pretranslate
         o.matrix_world = slab.matrix_world.copy()
+
+        bpy.ops.object.select_all(action='DESELECT')
+        # parenting childs to wall reference point
+        if o.parent is None:
+            x, y, z = o.bound_box[0]
+            context.scene.cursor_location = o.matrix_world * Vector((x, y, z))
+            # fix issue #9
+            context.scene.objects.active = o
+            bpy.ops.archipack.reference_point()
+        else:
+            o.parent.select = True
+            context.scene.objects.active = o.parent
+        o.select = True
+        slab.select = True
+        bpy.ops.archipack.parent_to_reference()
+        o.parent.select = False
         return o
 
     # -----------------------------------------------------
@@ -1517,7 +1545,9 @@ class ARCHIPACK_OT_wall2_draw(Operator):
     label = None
     feedback = None
     takeloc = Vector((0, 0, 0))
-
+    sel = []
+    act = None
+    
     def mouse_to_plane(self, context, event):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
@@ -1632,56 +1662,28 @@ class ARCHIPACK_OT_wall2_draw(Operator):
     def ensure_ccw(self):
         """
             Wall to slab expect wall vertex order to be ccw
-            so reverse order here when needed    
+            so reverse order here when needed
         """
         d = archipack_wall2.datablock(self.o)
         g = d.get_generator()
         pts = [seg.p0.to_3d() for seg in g.segs]
-        
+
         if d.closed:
             pts.append(pts[0])
-        
+
         if d.is_cw(pts):
             d.x_offset = 1
             pts = list(reversed(pts))
-            self.o.location += pts[0] - pts[-1] 
-        
-        d.auto_update = False
+            self.o.location += pts[0] - pts[-1]
 
-        d.n_parts = len(pts) - 1
+        d.from_points(pts, d.closed)
 
-        if d.closed:
-            d.n_parts -= 1
-
-        d.update_parts(None)
-
-        p0 = pts.pop(0)
-        a0 = 0
-        for i, p1 in enumerate(pts):
-            dp = p1 - p0
-            da = atan2(dp.y, dp.x) - a0
-            if da > pi:
-                da -= 2 * pi
-            if da < -pi:
-                da += 2 * pi
-            if i >= len(d.parts):
-                print("Too many pts for parts")
-                break
-            p = d.parts[i]
-            p.length = dp.to_2d().length
-            p.dz = dp.z
-            p.a0 = da
-            a0 += da
-            p0 = p1
-
-        d.auto_update = True
-         
     def modal(self, context, event):
 
         context.area.tag_redraw()
         # print("modal event %s %s" % (event.type, event.value))
-        # if event.type == 'NONE':
-        #    return {'PASS_THROUGH'}
+        if event.type == 'NONE':
+            return {'PASS_THROUGH'}
 
         if self.state == 'STARTING':
             takeloc = self.mouse_to_plane(context, event)
@@ -1722,12 +1724,23 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                     context.scene.objects.active = o
                     d = archipack_wall2.datablock(o)
                     g = d.get_generator()
-                    takeloc = o.matrix_world * g.segs[-2].p1.to_3d()
+                    p0 = g.segs[-2].p0
+                    p1 = g.segs[-2].p1
+                    dp = p1-p0
+                    takemat = o.matrix_world * Matrix([
+                        [dp.x, dp.y, 0, p1.x],
+                        [dp.y, -dp.x, 0, p1.y],
+                        [0, 0, 1, 0],
+                        [0, 0, 0, 1]
+                    ])
+                    takeloc = o.matrix_world * p1.to_3d()
                     o.select = False
                 else:
                     takeloc = self.mouse_to_plane(context, event)
-
+                    takemat = None
+                    
                 snap_point(takeloc=takeloc,
+                    takemat=takemat,
                     draw=self.sp_draw,
                     callback=self.sp_callback,
                     constraint_axis=(True, True, False),
@@ -1753,7 +1766,11 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             self.feedback.disable()
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
-            if self.o is not None:
+            if self.o is None:
+                context.scene.objects.active = self.act
+                for o in self.sel:
+                    o.select = True
+            else:
                 self.o.select = True
                 context.scene.objects.active = self.o
                 self.ensure_ccw()
@@ -1783,7 +1800,11 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 ])
             self.feedback.enable()
             args = (self, context)
-
+            
+            self.sel = [o for o in context.selected_objects]
+            self.act = context.active_object
+            bpy.ops.object.select_all(action="DESELECT")
+            
             self.state = 'STARTING'
 
             self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')

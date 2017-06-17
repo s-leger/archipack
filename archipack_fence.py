@@ -33,7 +33,6 @@ from bpy.props import (
     StringProperty, EnumProperty, FloatVectorProperty
     )
 from .bmesh_utils import BmeshEdit as bmed
-from .materialutils import MaterialUtils
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from mathutils.geometry import interpolate_bezier
@@ -590,7 +589,7 @@ def update_path(self, context):
 
 def update_type(self, context):
 
-    d = self.find_in_selection(context)
+    d = self.find_datablock_in_selection(context)
 
     if d is not None and d.auto_update:
 
@@ -663,7 +662,7 @@ class archipack_fence_material(PropertyGroup):
         update=update
         )
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
@@ -678,7 +677,7 @@ class archipack_fence_material(PropertyGroup):
         return None
 
     def update(self, context):
-        props = self.find_in_selection(context)
+        props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context)
 
@@ -730,7 +729,7 @@ class archipack_fence_part(PropertyGroup):
 
     manipulators = CollectionProperty(type=archipack_manipulator)
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
@@ -745,7 +744,7 @@ class archipack_fence_part(PropertyGroup):
         return None
 
     def update(self, context, manipulable_refresh=False):
-        props = self.find_in_selection(context)
+        props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context, manipulable_refresh)
 
@@ -1290,9 +1289,9 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
     def update(self, context, manipulable_refresh=False):
 
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
 
         # clean up manipulators before any data model change
@@ -1375,20 +1374,13 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
-        bpy.ops.object.shade_smooth()
+
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
 
         # restore context
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
     def manipulable_setup(self, context):
         """
@@ -1430,6 +1422,10 @@ class ARCHIPACK_PT_fence(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
+
+    @classmethod
+    def poll(cls, context):
+        return archipack_fence.filter(context.active_object)
 
     def draw(self, context):
         prop = archipack_fence.datablock(context.active_object)
@@ -1565,10 +1561,6 @@ class ARCHIPACK_PT_fence(Panel):
         else:
             row.prop(prop, 'idmats_expand', icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
 
-    @classmethod
-    def poll(cls, context):
-        return archipack_fence.filter(context.active_object)
-
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
@@ -1594,9 +1586,6 @@ class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):
         self.add_material(o)
         return o
 
-    # -----------------------------------------------------
-    # Execute
-    # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
@@ -1625,19 +1614,12 @@ class ARCHIPACK_OT_fence_curve_update(Operator):
     @classmethod
     def poll(self, context):
         return archipack_fence.filter(context.active_object)
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
 
     def draw(self, context):
         layout = self.layout
         row = layout.row()
         row.label("Use Properties panel (N) to define parms", icon='INFO')
 
-    # -----------------------------------------------------
-    # Execute
-    # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
             d = archipack_fence.datablock(context.active_object)
@@ -1648,22 +1630,16 @@ class ARCHIPACK_OT_fence_curve_update(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_fence_from_curve(Operator):
+class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
     bl_idname = "archipack.fence_from_curve"
     bl_label = "Fence curve"
     bl_description = "Create a fence from a curve"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
-    auto_manipulate = BoolProperty(default=True)
-
     @classmethod
     def poll(self, context):
         return context.active_object is not None and context.active_object.type == 'CURVE'
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
 
     def draw(self, context):
         layout = self.layout
@@ -1672,17 +1648,11 @@ class ARCHIPACK_OT_fence_from_curve(Operator):
 
     def create(self, context):
         curve = context.active_object
-        m = bpy.data.meshes.new("Fence")
-        o = bpy.data.objects.new("Fence", m)
-        d = m.archipack_fence.add()
-        # make manipulators selectable
-        d.manipulable_selectable = True
+        bpy.ops.archipack.fence('INVOKE_DEFAULT', auto_manipulate=False)
+        o = context.active_object
+        d = archipack_fence.datablock(o)
         d.user_defined_path = curve.name
-        context.scene.objects.link(o)
-        o.select = True
-        context.scene.objects.active = o
         d.update_path(context)
-        MaterialUtils.add_stair_materials(o)
         spline = curve.data.splines[0]
         if spline.type == 'POLY':
             pt = spline.points[0].co
@@ -1697,19 +1667,15 @@ class ARCHIPACK_OT_fence_from_curve(Operator):
             [0, 0, 1, pt.z],
             [0, 0, 0, 1]
             ])
-        o.select = True
-        context.scene.objects.active = o
         return o
 
-    # -----------------------------------------------------
-    # Execute
-    # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
-            self.create(context)
-            if self.auto_manipulate:
-                bpy.ops.archipack.fence_manipulate('INVOKE_DEFAULT')
+            o = self.create(context)
+            o.select = True
+            context.scene.objects.active = o
+            self.manipulate()
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
