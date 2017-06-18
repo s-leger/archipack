@@ -1796,6 +1796,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 ('CTRL', 'Snap'),
                 ('MMBTN', 'Constraint to axis'),
                 ('X Y', 'Constraint to axis'),
+                ('SHIFT+CTRL+TAB', 'Switch snap mode'),
                 ('RIGHTCLICK or ESC', 'exit without change')
                 ])
             self.feedback.enable()

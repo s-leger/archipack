@@ -36,7 +36,7 @@ from os import path
 def debug_using_gl(context, filename):
     context.scene.update()
     temp_path = "C:\\tmp\\"
-    context.scene.render.filepath = path.join(temp_path, filename + ".png")        
+    context.scene.render.filepath = path.join(temp_path, filename + ".png")
     bpy.ops.render.opengl(write_still=True)
 
 
@@ -142,14 +142,17 @@ class ArchipackBoolManager():
         d = self.datablock(o)
         hole = None
         if d is not None:
-            # Keep separate as contains rules may vary from window to doors
-            if ((self._contains(o.location) or
-                 self._contains(o.matrix_world * Vector((0, 0, 0.5 * d.z))))):
+            if (self.itM is not None and (
+                    self._contains(o.location) or
+                    self._contains(o.matrix_world * Vector((0, 0, 0.5 * d.z))))
+                    ):
                 if self.mode != 'ROBUST':
                     hole = d.interactive_hole(context, o)
                 else:
                     hole = d.robust_hole(context, o.matrix_world)
-                # print("_generate_hole Generate hole %s" % (hole.name))    
+                # print("_generate_hole Generate hole %s" % (hole.name))
+            else:
+                hole = d.interactive_hole(context, o)
         return hole
 
     def partition(self, array, begin, end):
@@ -278,7 +281,7 @@ class ArchipackBoolManager():
                 existing.append(h)
             else:
                 to_delete.append([m, h])
-        
+
         # remove modifier and holes not found in new list
         self.remove_modif_and_object(context, hole_obj, to_delete)
         # debug_using_gl(context, "276")
@@ -287,7 +290,7 @@ class ArchipackBoolManager():
             if h not in existing:
                 self.union(hole_obj, h)
         # debug_using_gl(context, "281")
-        
+
     # Interactive
     def update_interactive(self, context, wall, childs, holes):
 
@@ -407,7 +410,7 @@ class ArchipackBoolManager():
         for hole in holes:
             self.prepare_hole(hole)
         # debug_using_gl(context, "401")
-        
+
         # update / remove / add  boolean modifier
         if self.mode == 'INTERACTIVE':
             self.update_interactive(context, wall, childs, holes)
@@ -415,7 +418,7 @@ class ArchipackBoolManager():
             self.update_robust(context, wall, childs)
         else:
             self.update_hybrid(context, wall, childs, holes)
-        
+
         bpy.ops.object.select_all(action='DESELECT')
         # parenting childs to wall reference point
         if wall.parent is None:
@@ -434,15 +437,14 @@ class ArchipackBoolManager():
                 o.hide_select = False
             o.select = True
         # debug_using_gl(context, "428")
-        
+
         bpy.ops.archipack.parent_to_reference()
 
         for o in childs:
             if 'archipack_robusthole' in o:
                 o.hide_select = True
         # debug_using_gl(context, "435")
-        
-        
+
     def detect_mode(self, context, wall):
         for m in wall.modifiers:
             if m.type == 'BOOLEAN' and m.object is not None:
@@ -635,11 +637,42 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             return {'CANCELLED'}
 
 
+class ARCHIPACK_OT_generate_hole(Operator):
+    bl_idname = "archipack.generate_hole"
+    bl_label = "Generate hole"
+    bl_description = "Generate interactive hole for doors and windows"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            manager = ArchipackBoolManager(mode='HYBRID')
+            o = context.active_object
+            d = manager.datablock(o)
+            if d is None:
+                self.report({'WARNING'}, "Archipack: active object must be a door or a window")
+                return {'CANCELLED'}
+            bpy.ops.object.select_all(action='DESELECT')
+            o.select = True
+            context.scene.objects.active = o
+            hole = manager._generate_hole(context, o)
+            manager.prepare_hole(hole)
+            hole.select = False
+            o.select = True
+            context.scene.objects.active = o
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+
 def register():
+    bpy.utils.register_class(ARCHIPACK_OT_generate_hole)
     bpy.utils.register_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
 
 
 def unregister():
+    bpy.utils.unregister_class(ARCHIPACK_OT_generate_hole)
     bpy.utils.unregister_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.unregister_class(ARCHIPACK_OT_auto_boolean)

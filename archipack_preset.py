@@ -433,13 +433,20 @@ class PresetMenuOperator():
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
             
-            # with shift pressed on invoke, will bypass menu operator and 
+            # with alt pressed on invoke, will bypass menu operator and 
             # call preset_operator
-            if event.shift:
+            # allow start drawing linked copy of active object
+            if event.alt:
                 po = self.preset_operator.split(".")
                 op = getattr(getattr(bpy.ops, po[0]), po[1])
-                if op.poll():
+                d = context.active_object.data
+                
+                if d is not None and self.preset_subdir in d and op.poll():
                     op('INVOKE_DEFAULT')
+                else:
+                    self.report({'WARNING'}, "Active object must be a " + self.preset_subdir.split("_")[1].capitalize())
+                    return {'CANCELLED'}
+
                 return {'FINISHED'}
                 
             self.menu = PresetMenu(context, self.preset_subdir)
