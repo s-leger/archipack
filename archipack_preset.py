@@ -168,10 +168,10 @@ addons_paths = bpy.utils.script_paths("addons")
 
 
 class PresetMenuItem():
-    def __init__(self, thumbsize, image, preset):
+    def __init__(self, thumbsize, preset, image=None):
         name = bpy.path.display_name_from_filepath(preset)
         self.preset = preset
-        self.handle = ThumbHandle(thumbsize, image, name, draggable=True)
+        self.handle = ThumbHandle(thumbsize, name, image, draggable=True)
         self.enable = True
     
     def filter(self, keywords):
@@ -179,7 +179,7 @@ class PresetMenuItem():
             if key not in self.handle.label.label:
                 return False
         return True
-        
+                
     def set_pos(self, context, pos):
         self.handle.set_pos(context, pos)
 
@@ -274,6 +274,10 @@ class PresetMenu():
         self.imageList.clear()
 
     def make_menuitem(self, filepath):
+        """
+            @TODO:
+            Lazy load images
+        """
         image = None
         img_idx = bpy.data.images.find(os.path.basename(filepath) + '.png')
         if img_idx > -1:
@@ -284,7 +288,7 @@ class PresetMenu():
             self.imageList.append(image)
         if image is None:
             image = self.default_image
-        item = PresetMenuItem(self.thumbsize, image, filepath + '.py')
+        item = PresetMenuItem(self.thumbsize, filepath + '.py', image)
         self.menuItems.append(item)
 
     def set_pos(self, context):
@@ -314,7 +318,7 @@ class PresetMenu():
             if len(keywords) > 0 and not item.filter(keywords):
                 item.enable = False
                 continue
-            
+
             item.set_pos(context, Vector((x, y)))
             x += self.thumbsize.x + self.spacing.x
             if x > x_max:
@@ -389,6 +393,8 @@ class PresetMenuOperator():
         self.menu.draw(context)
 
     def modal(self, context, event):
+        if self.menu is None:
+            return {'FINISHED'}
         context.area.tag_redraw()
         if event.type == 'MOUSEMOVE':
             self.menu.mouse_move(context, event)
@@ -436,7 +442,7 @@ class PresetMenuOperator():
             # with alt pressed on invoke, will bypass menu operator and 
             # call preset_operator
             # allow start drawing linked copy of active object
-            if event.alt:
+            if event.alt or event.ctrl:
                 po = self.preset_operator.split(".")
                 op = getattr(getattr(bpy.ops, po[0]), po[1])
                 d = context.active_object.data
@@ -446,7 +452,6 @@ class PresetMenuOperator():
                 else:
                     self.report({'WARNING'}, "Active object must be a " + self.preset_subdir.split("_")[1].capitalize())
                     return {'CANCELLED'}
-
                 return {'FINISHED'}
                 
             self.menu = PresetMenu(context, self.preset_subdir)
