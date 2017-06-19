@@ -176,7 +176,7 @@ class archipack_myobject(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.z), (-1, 0, 0)])
 
         # always restore context
-        self.restore_context()
+        self.restore_context(context)
 
 
 class ARCHIPACK_PT_myobject(Panel):
