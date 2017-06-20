@@ -174,32 +174,37 @@ class FenceGenerator():
             self.length += f.line.length
         
         vz0 = Vector((1, 0))
-        
+        angle_z = 0
         for i, f in enumerate(self.segs):
+            dz = self.parts[i].dz
             if f.dist > 0:
                 f.t_start = f.dist / self.length
             else:
                 f.t_start = 0
 
             f.t_end = (f.dist + f.line.length) / self.length
-            dz = self.parts[i].dz
             f.z0 = z
             f.dz = dz
             z += dz
-            vz1 = Vector((f.length, f.dz))
-            angle_z = abs(vz0.angle_signed(vz1))
-            vz0 = vz1
-            if i < n_parts and (abs(self.parts[i + 1].a0) >= angle_limit or angle_z >= angle_limit):
-                l_seg = f.dist + f.line.length - dist_0
-                t_seg = f.t_end - t_start
-                n_fences = max(1, int(l_seg / post_spacing))
-                t_fence = t_seg / n_fences
-                segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, i)
-                dist_0 = f.dist + f.line.length
-                t_start = f.t_end
-                i_start = i
-                self.segments.append(segment)
-
+                
+            if i < n_parts:
+                
+                vz1 = Vector((self.segs[i + 1].length, self.parts[i + 1].dz))
+                angle_z = abs(vz0.angle_signed(vz1))
+                vz0 = vz1
+            
+                if (abs(self.parts[i + 1].a0) >= angle_limit or angle_z >= angle_limit):
+                    l_seg = f.dist + f.line.length - dist_0
+                    t_seg = f.t_end - t_start
+                    n_fences = max(1, int(l_seg / post_spacing))
+                    t_fence = t_seg / n_fences
+                    segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, i)
+                    dist_0 = f.dist + f.line.length
+                    t_start = f.t_end
+                    i_start = i
+                    self.segments.append(segment)
+                
+            
             manipulators = self.parts[i].manipulators
             p0 = f.line.p0.to_3d()
             p1 = f.line.p1.to_3d()
