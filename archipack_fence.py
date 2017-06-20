@@ -172,7 +172,9 @@ class FenceGenerator():
         for i, f in enumerate(self.segs):
             f.dist = self.length
             self.length += f.line.length
-
+        
+        vz0 = Vector((1, 0))
+        
         for i, f in enumerate(self.segs):
             if f.dist > 0:
                 f.t_start = f.dist / self.length
@@ -184,7 +186,10 @@ class FenceGenerator():
             f.z0 = z
             f.dz = dz
             z += dz
-            if i < n_parts and abs(self.parts[i + 1].a0) >= angle_limit:
+            vz1 = Vector((f.length, f.dz))
+            angle_z = abs(vz0.angle_signed(vz1))
+            vz0 = vz1
+            if i < n_parts and (abs(self.parts[i + 1].a0) >= angle_limit or angle_z >= angle_limit):
                 l_seg = f.dist + f.line.length - dist_0
                 t_seg = f.t_end - t_start
                 n_fences = max(1, int(l_seg / post_spacing))
