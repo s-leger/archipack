@@ -55,10 +55,12 @@ if "bpy" in locals():
     imp.reload(archipack_stair)
     imp.reload(archipack_wall)
     imp.reload(archipack_wall2)
-    imp.reload(archipack_roof2d)
+    # imp.reload(archipack_roof2d)
     imp.reload(archipack_slab)
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
+    # imp.reload(archipack_toolkit)
+    imp.reload(archipack_floor)
     imp.reload(archipack_rendering)
     imp.reload(addon_updater_ops)
     try:
@@ -79,10 +81,12 @@ else:
     from . import archipack_stair
     from . import archipack_wall
     from . import archipack_wall2
-    from . import archipack_roof2d
+    # from . import archipack_roof2d
     from . import archipack_slab
     from . import archipack_fence
     from . import archipack_truss
+    # from . import archipack_toolkit
+    from . import archipack_floor
     from . import archipack_rendering
     from . import addon_updater_ops
     try:
@@ -266,7 +270,8 @@ class Archipack_Pref(AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        row = layout.row()
+        box = layout.box()
+        row = box.row()
         col = row.column()
         col.label(text="Tab Category:")
         col.prop(self, "tools_category")
@@ -462,23 +467,24 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
-        col = row.column()
-        subrow = col.row(align=True)
-        subrow.operator("archipack.window_preset_menu",
+        # col = row.column()
+        # subrow = col.row(align=True)
+        row.operator("archipack.window_preset_menu",
                     text="Window",
                     icon_value=icons["window"].icon_id
                     ).preset_operator = "archipack.window"
-        subrow.operator("archipack.window_preset_menu",
+        row.operator("archipack.window_preset_menu",
                     text="",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.window_draw"
-        col = row.column()
-        subrow = col.row(align=True)
-        subrow.operator("archipack.door_preset_menu",
+        # col = row.column()
+        # subrow = col.row(align=True)
+        row = box.row(align=True)
+        row.operator("archipack.door_preset_menu",
                     text="Door",
                     icon_value=icons["door"].icon_id
                     ).preset_operator = "archipack.door"
-        subrow.operator("archipack.door_preset_menu",
+        row.operator("archipack.door_preset_menu",
                     text="",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.door_draw"
@@ -521,9 +527,20 @@ class TOOLS_PT_Archipack_Create(Panel):
                     ).ceiling = True
 
         addon_updater_ops.update_notice_box_ui(self, context)
+        
         # row = box.row(align=True)
         # row.operator("archipack.roof", icon='CURVE_DATA')
-
+        
+        # toolkit
+        # row = box.row(align=True)
+        # row.operator("archipack.myobject")
+        
+        row = box.row(align=True)
+        row.operator("archipack.floor_preset_menu",
+                    text="Floor",
+                    # icon_value=icons["floor"].icon_id
+                    ).preset_operator = "archipack.floor"
+        
 # ----------------------------------------------------
 # ALT + A menu
 # ----------------------------------------------------
@@ -558,6 +575,10 @@ def menu_func(self, context):
     layout.operator("archipack.truss",
                     text="Truss",
                     icon_value=icons["truss"].icon_id
+                    )
+    layout.operator("archipack.floor_preset_menu",
+                    text="Floor",
+                    # icon_value=icons["floor"].icon_id
                     )
 
 
@@ -598,10 +619,12 @@ def register():
     archipack_stair.register()
     archipack_wall.register()
     archipack_wall2.register()
-    archipack_roof2d.register()
+    # archipack_roof2d.register()
     archipack_slab.register()
     archipack_fence.register()
     archipack_truss.register()
+    # archipack_toolkit.register()
+    archipack_floor.register()
     archipack_rendering.register()
 
     if HAS_POLYLIB:
@@ -635,10 +658,12 @@ def unregister():
     archipack_stair.unregister()
     archipack_wall.unregister()
     archipack_wall2.unregister()
-    archipack_roof2d.unregister()
+    # archipack_roof2d.unregister()
     archipack_slab.unregister()
     archipack_fence.unregister()
     archipack_truss.unregister()
+    # archipack_toolkit.unregister()
+    archipack_floor.unregister()
     archipack_rendering.unregister()
 
     if HAS_POLYLIB:
@@ -651,7 +676,7 @@ def unregister():
         previews.remove(icons)
     icons_collection.clear()
 
-    addon_updater_ops.unregister(bl_info)
+    addon_updater_ops.unregister()
 
     # bpy.utils.unregister_module(__name__)
 

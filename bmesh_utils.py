@@ -104,6 +104,136 @@ class BmeshEdit():
         bpy.ops.object.mode_set(mode='OBJECT')
 
     @staticmethod
+    def addmesh(context, o, verts, faces, matids=None, uvs=None, weld=False, clean=False, auto_smooth=True):
+        bm = BmeshEdit._start(context, o)
+        nv = len(bm.verts)
+        nf = len(bm.faces)
+        
+        for v in verts:
+            bm.verts.new(v)
+        
+        bm.verts.ensure_lookup_table()
+        
+        for f in faces:
+            bm.faces.new([bm.verts[nv + i] for i in f])
+        
+        bm.faces.ensure_lookup_table()
+        
+        if matids is not None:
+            for i, matid in enumerate(matids):
+                bm.faces[nf + i].material_index = matid
+        
+        if uvs is not None:
+            layer = bm.loops.layers.uv.verify()
+            l_i = len(uvs)
+            for i, face in enumerate(bm.faces[nf:]):
+                l_j = len(uvs[i])
+                for j, loop in enumerate(face.loops):
+                    loop[layer].uv = uvs[i][j]
+
+        if weld:
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001)
+        BmeshEdit._end(bm, o)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        if auto_smooth:
+            bpy.ops.mesh.faces_shade_smooth()
+            o.data.use_auto_smooth = True
+        else:
+            bpy.ops.mesh.faces_shade_flat()
+        if clean:
+            bpy.ops.mesh.delete_loose()
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    """
+from archipack.bmesh_utils import BmeshEdit as bmed
+bmed.solidify(C, C.active_object, 0.1)
+bmed.bevel(C, C.active_object, 0.002)
+    """
+
+    @staticmethod
+    def bevel(context, o,
+            offset,
+            offset_type=0,
+            segments=1,
+            profile=0.5,
+            vertex_only=False,
+            clamp_overlap=True,
+            material=-1,
+            use_selection=True):
+        """
+        /* Bevel offset_type slot values */
+        enum {
+          BEVEL_AMT_OFFSET,
+          BEVEL_AMT_WIDTH,
+          BEVEL_AMT_DEPTH,
+          BEVEL_AMT_PERCENT
+        };
+        """
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bm.verts.ensure_lookup_table()
+        if use_selection:
+            geom = [v for v in bm.verts if v.select]
+            geom.extend([ed for ed in bm.edges if ed.select])
+        else:
+            geom = bm.verts[:]
+            geom.extend(bm.edges[:])
+
+        bmesh.ops.bevel(bm,
+            geom=geom,
+            offset=offset,
+            offset_type=offset_type,
+            segments=segments,
+            profile=profile,
+            vertex_only=vertex_only,
+            clamp_overlap=clamp_overlap,
+            material=material)
+
+        bm.to_mesh(o.data)
+        bm.free()
+    
+    @staticmethod
+    def bissect(context, o,
+            plane_co,
+            plane_no,
+            dist=0.001,
+            use_snap_center=False,
+            clear_outer=True,
+            clear_inner=False
+            ):
+        
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bm.verts.ensure_lookup_table()
+        geom = bm.verts[:]
+        geom.extend(bm.edges[:])
+        geom.extend(bm.faces[:])
+        
+        bmesh.ops.bisect_plane(bm,
+            geom=geom,
+            dist=dist,
+            plane_co=plane_co,
+            plane_no=plane_no,
+            use_snap_center=False,
+            clear_outer=clear_outer,
+            clear_inner=clear_inner
+            )
+
+        bm.to_mesh(o.data)
+        bm.free()
+    
+    @staticmethod
+    def solidify(context, o, amt):
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bm.verts.ensure_lookup_table()
+        geom = bm.faces[:]
+        bmesh.ops.solidify(bm, geom=geom, thickness=amt)
+        bm.to_mesh(o.data)
+        bm.free()
+        
+    @staticmethod
     def verts(context, o, verts):
         """
             update vertex position of active object
