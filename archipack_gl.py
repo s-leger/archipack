@@ -1044,7 +1044,7 @@ class FeedbackPanel():
             """
             x_min, x_max, y_min, y_max = self.screen.size(context)
             available_w = x_max - x_min - 2 * self.spacing.x
-            main_title_size = self.main_title.text_size(context)
+            main_title_size = self.main_title.text_size(context) + Vector((5, 0))
 
             # h = context.region.height
             # 0,0 = bottom left
