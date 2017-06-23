@@ -108,7 +108,7 @@ import bpy
 # noinspection PyUnresolvedReferences
 from bpy.types import (
     Panel, WindowManager, PropertyGroup,
-    AddonPreferences
+    AddonPreferences, Menu
     )
 from bpy.props import (
     EnumProperty, PointerProperty,
@@ -155,7 +155,11 @@ class Archipack_Pref(AddonPreferences):
         default="Create",
         update=update_panel
     )
-
+    create_submenu = BoolProperty(
+        name="Use Sub-menu",
+        description="Put Achipack's object into a sub menu (shift+a)",
+        default=True
+    )
     # Arrow sizes (world units)
     arrow_size = FloatProperty(
             name="Arrow",
@@ -276,6 +280,7 @@ class Archipack_Pref(AddonPreferences):
         col.label(text="Tab Category:")
         col.prop(self, "tools_category")
         col.prop(self, "create_category")
+        col.prop(self, "create_submenu")
         box = layout.box()
         row = box.row()
         split = row.split(percentage=0.5)
@@ -459,6 +464,8 @@ class TOOLS_PT_Archipack_Create(Panel):
 
     def draw(self, context):
         global icons_collection
+        
+        # is this running even when auto update not enabled ?
         addon_updater_ops.check_for_update_background(context)
 
         icons = icons_collection["main"]
@@ -538,7 +545,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         row = box.row(align=True)
         row.operator("archipack.floor_preset_menu",
                     text="Floor",
-                    # icon_value=icons["floor"].icon_id
+                    icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
         
 # ----------------------------------------------------
@@ -546,12 +553,12 @@ class TOOLS_PT_Archipack_Create(Panel):
 # ----------------------------------------------------
 
 
-def menu_func(self, context):
+def draw_menu(self, context):
     global icons_collection
     icons = icons_collection["main"]
     layout = self.layout
-    layout.separator()
     layout.operator_context = 'INVOKE_REGION_WIN'
+    
     layout.operator("archipack.wall2",
                     text="Wall",
                     icon_value=icons["wall"].icon_id
@@ -578,10 +585,33 @@ def menu_func(self, context):
                     )
     layout.operator("archipack.floor_preset_menu",
                     text="Floor",
-                    # icon_value=icons["floor"].icon_id
+                    icon_value=icons["floor"].icon_id
                     )
 
 
+class ARCHIPACK_create_menu(Menu):
+    bl_label = 'Archipack'
+    bl_idname = 'ARCHIPACK_create_menu'
+
+    def draw(self, context):
+        layout = self.layout
+        draw_menu(self, context)
+     
+    
+def menu_func(self, context):
+    layout = self.layout
+    layout.separator()
+    global icons_collection
+    icons = icons_collection["main"]
+    
+    # either draw sub menu or right at end of this one
+    if context.user_preferences.addons[__name__].preferences.create_submenu:
+        layout.operator_context = 'INVOKE_REGION_WIN'
+        layout.menu("ARCHIPACK_create_menu", icon_value=icons["archipack"].icon_id)
+    else:
+        draw_menu(self, context)
+
+    
 # ----------------------------------------------------
 # Datablock to store global addon variables
 # ----------------------------------------------------
@@ -630,12 +660,13 @@ def register():
     if HAS_POLYLIB:
         archipack_polylib.register()
 
-    bpy.types.INFO_MT_mesh_add.append(menu_func)
     bpy.utils.register_class(archipack_data)
     WindowManager.archipack = PointerProperty(type=archipack_data)
     bpy.utils.register_class(Archipack_Pref)
     update_panel(None, bpy.context)
-
+    bpy.utils.register_class(ARCHIPACK_create_menu)
+    bpy.types.INFO_MT_mesh_add.append(menu_func)
+    
     addon_updater_ops.register(bl_info)
     # bpy.utils.register_module(__name__)
 
@@ -643,7 +674,8 @@ def register():
 def unregister():
     global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
-
+    bpy.utils.unregister_class(ARCHIPACK_create_menu)
+    
     bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Tools)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)

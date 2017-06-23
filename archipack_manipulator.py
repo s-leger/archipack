@@ -58,8 +58,8 @@ handle_size = 10
 manip_stack = {}
 
 
-@persistent
-def empty_stack(dummy=None):
+
+def empty_stack():
     """
         Empty manipulators stack on file load
     """
@@ -621,7 +621,7 @@ class WallSnapManipulator(Manipulator):
             rM = self.o.matrix_world.inverted().to_3x3()
             delta = (rM * sp.delta).to_2d()
             x_axis = (rM * Vector((1, 0, 0))).to_2d()
-            
+
             # update generator
             idx = 0
             for p0, p1, selected in gl_pts3d:
@@ -634,12 +634,12 @@ class WallSnapManipulator(Manipulator):
                     # move last point of segment before current
                     if idx > 0:
                         g.segs[idx - 1].p1 = pt
-                        
+
                     # move first point of current segment
                     g.segs[idx].p0 = pt
 
                 idx += 1
-                
+
             # update properties from generator
             idx = 0
             for p0, p1, selected in gl_pts3d:
@@ -654,8 +654,8 @@ class WallSnapManipulator(Manipulator):
                         if idx > 1:
                             part.a0 = w.delta_angle(g.segs[idx - 2])
                         else:
-                            part.a0 = w.straight(1, 0).angle  
-                            
+                            part.a0 = w.straight(1, 0).angle
+
                         if "C_" in part.type:
                             part.radius = w.r
                         else:
@@ -664,23 +664,23 @@ class WallSnapManipulator(Manipulator):
                     # adjust current segment
                     w = g.segs[idx]
                     part = d.parts[idx]
-                    
+
                     if idx > 0:
                         part.a0 = w.delta_angle(g.segs[idx - 1])
                     else:
-                        part.a0 = w.straight(1, 0).angle  
+                        part.a0 = w.straight(1, 0).angle
                         # move object when point 0
                         self.o.location += sp.delta
-                        
+
                     if "C_" in part.type:
                         part.radius = w.r
                     else:
                         part.length = w.length
-                    
+
                     # adjust next one
                     if idx + 1 < d.n_parts:
                         d.parts[idx + 1].a0 = g.segs[idx + 1].delta_angle(w)
-                    
+
                 idx += 1
 
             self.mouse_release(context, event)
@@ -2120,7 +2120,11 @@ class Manipulable():
             self.manipulable_refresh = False
             self.manipulable_setup(context)
             self.manipulate_mode = True
-
+        
+        if context.area is None:
+            self.manipulable_disable(context)
+            return {'FINISHED'}
+            
         context.area.tag_redraw()
 
         if self.keymap is None:
@@ -2263,6 +2267,14 @@ class Manipulable():
         return
 
 
+@persistent
+def cleanup(dummy=None):
+    global ArchipackStore
+    if ArchipackStore.manipulable is not None and ArchipackStore.manipulable.manipulate_mode:
+        ArchipackStore.manipulable.manipulable_disable(bpy.context)
+    empty_stack()
+
+
 def register():
     # Register default manipulators
     global manip_stack
@@ -2287,7 +2299,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.register_class(archipack_manipulator)
-    bpy.app.handlers.load_pre.append(empty_stack)
+    bpy.app.handlers.load_pre.append(cleanup)
 
 
 def unregister():
@@ -2298,4 +2310,4 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.unregister_class(archipack_manipulator)
-    bpy.app.handlers.load_pre.remove(empty_stack)
+    bpy.app.handlers.load_pre.remove(cleanup)

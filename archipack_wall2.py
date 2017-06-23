@@ -324,6 +324,67 @@ def update_childs(self, context):
 def update_manipulators(self, context):
     self.update(context, manipulable_refresh=True)
 
+    
+def update_t_part(self, context):
+    """
+        TODO:
+        set a0 as delta angle between parent wall segment and child one
+        rotate the wall and set a0, so y axis points inside of parent
+    """
+    o = self.find_in_selection(context)    
+    if o is not None:
+        w = context.scene.objects.get(self.t_part)
+        d = archipack_wall2.datablock(w)
+        
+        if d is not None:
+            if w.parent is not None:
+                
+                dmax = 2 * d.width
+                witM = w.matrix_world.inverted()
+                itM = witM * w.parent.matrix_world
+                rM = itM.to_3x3()
+                tM = o.matrix_world.copy()
+                g = d.get_generator()
+                og = self.get_generator()
+                if o.parent is None:
+                    pt = (witM * o.location).to_2d()
+                    dir = (witM.to_3x3() * tM.to_3x3() * og.segs[0].straight(1, 0).v.to_3d()).to_2d()
+                else:
+                    pt = (itM * o.location).to_2d()
+                    dir = (rM * tM.to_3x3() * og.segs[0].straight(1, 0).v.to_3d()).to_2d()
+                   
+                for wall_idx, wall in enumerate(g.segs):
+                    # may be optimized with a bound check
+                    res, dist, t = wall.point_sur_segment(pt)
+                    # outside is on the right side of the wall
+                    #  p1
+                    #  |-- x
+                    #  p0
+                    if res and t > 0 and t < 1 and abs(dist) < dmax:
+                        x = wall.straight(1, t).v
+                        y = wall.normal(t).v.normalized()
+                        
+                        self.parts[0].a0 = dir.angle_signed(x)
+                        pos = tM.translation
+                        o.matrix_world = Matrix([
+                            [x.x, -y.x, 0, pos.x],
+                            [x.y, -y.y, 0, pos.y],
+                            [0, 0, 1, pos.z],
+                            [0, 0, 0, 1]
+                        ])
+                        break
+                    
+                bpy.ops.object.select_all(action="DESELECT")
+                context.scene.objects.active = w.parent
+                o.select = True
+                if bpy.ops.archipack.parent_to_reference.poll():
+                    bpy.ops.archipack.parent_to_reference('INVOKE_DEFAULT')
+            
+        elif self.t_part != "":
+            self.t_part = ""
+            
+    self.restore_context(context)
+       
 
 def set_splits(self, value):
     if self.n_splits != value:
@@ -556,7 +617,7 @@ class archipack_wall2_child(PropertyGroup):
                 d = child.data.archipack_door[0]
         return child, d
 
-
+        
 class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
     parts = CollectionProperty(type=archipack_wall2_part)
     n_parts = IntProperty(
@@ -630,7 +691,13 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
     childs_manipulators = CollectionProperty(type=archipack_manipulator)
     # store to manipulate windows and doors
     childs = CollectionProperty(type=archipack_wall2_child)
-
+    t_part = StringProperty(
+            name="Parent wall",
+            description="This part will follow parent when set",
+            default="",
+            update=update_t_part
+            )
+            
     def insert_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
@@ -983,26 +1050,38 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         itM = witM * o.parent.matrix_world
         rM = itM.to_3x3()
         for child in o.parent.children:
-            if (child != o and
-                    'archipack_robusthole' not in child and
-                    'archipack_hole' not in child and 
-                    child.data and 'archipack_slab' not in child.data):
+            # filter allowed childs
+            cd = child.data
+            if (child != o and cd and (
+                    'archipack_window' in cd or
+                    'archipack_door' in cd or (
+                        archipack_wall2.filter(child) and 
+                        o.name in cd.archipack_wall2[0].t_part
+                        ) 
+                    )):
+                    
+                # setup on T linked walls    
+                if archipack_wall2.filter(child):
+                    d = archipack_wall2.datablock(child)
+                    cg = d.get_generator()
+                    d.setup_childs(child, cg)
+                    
                 tM = child.matrix_world.to_3x3()
                 pt = (itM * child.location).to_2d()
                 for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
-                    res, d, t = wall.point_sur_segment(pt)
+                    res, dist, t = wall.point_sur_segment(pt)
                     # outside is on the right side of the wall
                     #  p1
                     #  |-- x
                     #  p0
-                    if res and t > 0 and t < 1 and abs(d) < dmax:
+                    if res and t > 0 and t < 1 and abs(dist) < dmax:
                         dir = wall.normal(t).v.normalized()
                         wall_with_childs[wall_idx] = 1
                         m = self.childs_manipulators.add()
                         m.type_key = 'DUMB_SIZE'
                         # always make window points outside
-                        if child.data is not None and "archipack_window" in child.data:
+                        if "archipack_window" in cd:
                             flip = self.flip
                         else:
                             dir_y = (rM * tM * Vector((0, -1, 0))).to_2d()
@@ -1012,7 +1091,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                         relocate.append((
                             child.name,
                             wall_idx,
-                            (t * wall.length, d, (itM * child.location).z),
+                            (t * wall.length, dist, (itM * child.location).z),
                             flip,
                             t))
                         break
@@ -1070,6 +1149,13 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 [0, 0, 1, child.pos.z],
                 [0, 0, 0, 1]
             ])
+            
+            # Update T linked wall's childs
+            if archipack_wall2.filter(c):
+                d = archipack_wall2.datablock(c)
+                cg = d.get_generator()
+                d.relocate_childs(context, c, cg)
+            
         # print("relocate_childs:%1.4f" % (time.time()-tim))
 
     def update_childs(self, context, o, g):
@@ -1346,6 +1432,8 @@ class ARCHIPACK_PT_wall2(Panel):
         box.prop(prop, 'x_offset')
         row = layout.row()
         row.prop(prop, "closed")
+        row = layout.row()
+        row.prop_search(prop, "t_part", context.scene, "objects", text="T link", icon='OBJECT_DATAMODE')
         n_parts = prop.n_parts
         if prop.closed:
             n_parts += 1
@@ -1353,7 +1441,7 @@ class ARCHIPACK_PT_wall2(Panel):
             if i < n_parts:
                 box = layout.box()
                 part.draw(box, context, i)
-
+        
     @classmethod
     def poll(cls, context):
         return archipack_wall2.filter(context.active_object)
@@ -1862,7 +1950,7 @@ class ARCHIPACK_OT_wall2_remove(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
-
+            
 # ------------------------------------------------------------------
 # Define operator class to manipulate object
 # ------------------------------------------------------------------

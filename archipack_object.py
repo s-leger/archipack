@@ -171,7 +171,7 @@ class ArchipackCreateTool():
                 print("Archipack bpy.ops.archipack.%s_manipulate not found" % (self.archipack_category))
                 pass
 
-
+              
 """
 d = archipack_window.datablock(o)
 archipack_window.filter(o)
