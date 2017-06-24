@@ -55,10 +55,12 @@ if "bpy" in locals():
     imp.reload(archipack_stair)
     imp.reload(archipack_wall)
     imp.reload(archipack_wall2)
-    imp.reload(archipack_roof2d)
+    # imp.reload(archipack_roof2d)
     imp.reload(archipack_slab)
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
+    # imp.reload(archipack_toolkit)
+    imp.reload(archipack_floor)
     imp.reload(archipack_rendering)
     imp.reload(addon_updater_ops)
     try:
@@ -79,10 +81,12 @@ else:
     from . import archipack_stair
     from . import archipack_wall
     from . import archipack_wall2
-    from . import archipack_roof2d
+    # from . import archipack_roof2d
     from . import archipack_slab
     from . import archipack_fence
     from . import archipack_truss
+    # from . import archipack_toolkit
+    from . import archipack_floor
     from . import archipack_rendering
     from . import addon_updater_ops
     try:
@@ -104,7 +108,7 @@ import bpy
 # noinspection PyUnresolvedReferences
 from bpy.types import (
     Panel, WindowManager, PropertyGroup,
-    AddonPreferences
+    AddonPreferences, Menu
     )
 from bpy.props import (
     EnumProperty, PointerProperty,
@@ -151,7 +155,11 @@ class Archipack_Pref(AddonPreferences):
         default="Create",
         update=update_panel
     )
-
+    create_submenu = BoolProperty(
+        name="Use Sub-menu",
+        description="Put Achipack's object into a sub menu (shift+a)",
+        default=True
+    )
     # Arrow sizes (world units)
     arrow_size = FloatProperty(
             name="Arrow",
@@ -266,11 +274,13 @@ class Archipack_Pref(AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        row = layout.row()
+        box = layout.box()
+        row = box.row()
         col = row.column()
         col.label(text="Tab Category:")
         col.prop(self, "tools_category")
         col.prop(self, "create_category")
+        col.prop(self, "create_submenu")
         box = layout.box()
         row = box.row()
         split = row.split(percentage=0.5)
@@ -454,6 +464,7 @@ class TOOLS_PT_Archipack_Create(Panel):
 
     def draw(self, context):
         global icons_collection
+        
         addon_updater_ops.check_for_update_background(context)
 
         icons = icons_collection["main"]
@@ -462,23 +473,24 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
-        col = row.column()
-        subrow = col.row(align=True)
-        subrow.operator("archipack.window_preset_menu",
+        # col = row.column()
+        # subrow = col.row(align=True)
+        row.operator("archipack.window_preset_menu",
                     text="Window",
                     icon_value=icons["window"].icon_id
                     ).preset_operator = "archipack.window"
-        subrow.operator("archipack.window_preset_menu",
+        row.operator("archipack.window_preset_menu",
                     text="",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.window_draw"
-        col = row.column()
-        subrow = col.row(align=True)
-        subrow.operator("archipack.door_preset_menu",
+        # col = row.column()
+        # subrow = col.row(align=True)
+        row = box.row(align=True)
+        row.operator("archipack.door_preset_menu",
                     text="Door",
                     icon_value=icons["door"].icon_id
                     ).preset_operator = "archipack.door"
-        subrow.operator("archipack.door_preset_menu",
+        row.operator("archipack.door_preset_menu",
                     text="",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.door_draw"
@@ -521,20 +533,31 @@ class TOOLS_PT_Archipack_Create(Panel):
                     ).ceiling = True
 
         addon_updater_ops.update_notice_box_ui(self, context)
+        
         # row = box.row(align=True)
         # row.operator("archipack.roof", icon='CURVE_DATA')
-
+        
+        # toolkit
+        # row = box.row(align=True)
+        # row.operator("archipack.myobject")
+        
+        row = box.row(align=True)
+        row.operator("archipack.floor_preset_menu",
+                    text="Floor",
+                    icon_value=icons["floor"].icon_id
+                    ).preset_operator = "archipack.floor"
+        
 # ----------------------------------------------------
 # ALT + A menu
 # ----------------------------------------------------
 
 
-def menu_func(self, context):
+def draw_menu(self, context):
     global icons_collection
     icons = icons_collection["main"]
     layout = self.layout
-    layout.separator()
     layout.operator_context = 'INVOKE_REGION_WIN'
+    
     layout.operator("archipack.wall2",
                     text="Wall",
                     icon_value=icons["wall"].icon_id
@@ -559,8 +582,35 @@ def menu_func(self, context):
                     text="Truss",
                     icon_value=icons["truss"].icon_id
                     )
+    layout.operator("archipack.floor_preset_menu",
+                    text="Floor",
+                    icon_value=icons["floor"].icon_id
+                    )
 
 
+class ARCHIPACK_create_menu(Menu):
+    bl_label = 'Archipack'
+    bl_idname = 'ARCHIPACK_create_menu'
+
+    def draw(self, context):
+        layout = self.layout
+        draw_menu(self, context)
+     
+    
+def menu_func(self, context):
+    layout = self.layout
+    layout.separator()
+    global icons_collection
+    icons = icons_collection["main"]
+    
+    # either draw sub menu or right at end of this one
+    if context.user_preferences.addons[__name__].preferences.create_submenu:
+        layout.operator_context = 'INVOKE_REGION_WIN'
+        layout.menu("ARCHIPACK_create_menu", icon_value=icons["archipack"].icon_id)
+    else:
+        draw_menu(self, context)
+
+    
 # ----------------------------------------------------
 # Datablock to store global addon variables
 # ----------------------------------------------------
@@ -598,21 +648,24 @@ def register():
     archipack_stair.register()
     archipack_wall.register()
     archipack_wall2.register()
-    archipack_roof2d.register()
+    # archipack_roof2d.register()
     archipack_slab.register()
     archipack_fence.register()
     archipack_truss.register()
+    # archipack_toolkit.register()
+    archipack_floor.register()
     archipack_rendering.register()
 
     if HAS_POLYLIB:
         archipack_polylib.register()
 
-    bpy.types.INFO_MT_mesh_add.append(menu_func)
     bpy.utils.register_class(archipack_data)
     WindowManager.archipack = PointerProperty(type=archipack_data)
     bpy.utils.register_class(Archipack_Pref)
     update_panel(None, bpy.context)
-
+    bpy.utils.register_class(ARCHIPACK_create_menu)
+    bpy.types.INFO_MT_mesh_add.append(menu_func)
+    
     addon_updater_ops.register(bl_info)
     # bpy.utils.register_module(__name__)
 
@@ -620,7 +673,8 @@ def register():
 def unregister():
     global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
-
+    bpy.utils.unregister_class(ARCHIPACK_create_menu)
+    
     bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Tools)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
@@ -635,10 +689,12 @@ def unregister():
     archipack_stair.unregister()
     archipack_wall.unregister()
     archipack_wall2.unregister()
-    archipack_roof2d.unregister()
+    # archipack_roof2d.unregister()
     archipack_slab.unregister()
     archipack_fence.unregister()
     archipack_truss.unregister()
+    # archipack_toolkit.unregister()
+    archipack_floor.unregister()
     archipack_rendering.unregister()
 
     if HAS_POLYLIB:
@@ -651,7 +707,7 @@ def unregister():
         previews.remove(icons)
     icons_collection.clear()
 
-    addon_updater_ops.unregister(bl_info)
+    addon_updater_ops.unregister()
 
     # bpy.utils.unregister_module(__name__)
 
