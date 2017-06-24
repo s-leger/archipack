@@ -723,6 +723,8 @@ class GlImage(Gl):
         return self.pts_2d
 
     def draw(self, context, render=False):
+        if self.image is None:
+            return
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         p0 = self.pts[0]
         p1 = self.pts[1]
@@ -893,7 +895,7 @@ class EditableText(GlText, GlHandle):
 
 class ThumbHandle(GlHandle):
 
-    def __init__(self, size_2d, image, label, draggable=False, selectable=False, d=2):
+    def __init__(self, size_2d, label, image=None, draggable=False, selectable=False, d=2):
         GlHandle.__init__(self, size_2d, size_2d, draggable, selectable, d)
         self.image = GlImage(image=image)
         self.label = GlText(d=2, label=label.replace("_", " ").capitalize())
@@ -1042,7 +1044,7 @@ class FeedbackPanel():
             """
             x_min, x_max, y_min, y_max = self.screen.size(context)
             available_w = x_max - x_min - 2 * self.spacing.x
-            main_title_size = self.main_title.text_size(context)
+            main_title_size = self.main_title.text_size(context) + Vector((5, 0))
 
             # h = context.region.height
             # 0,0 = bottom left

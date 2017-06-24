@@ -78,23 +78,42 @@ class ArchipackObject():
             pass
         return None
 
-    def find_in_selection(self, context):
+    def find_in_selection(self, context, auto_update=True):
         """
             find witch selected object this datablock instance belongs to
+            store context to be able to restore after oops
             provide support for "copy to selected"
             return
-            active: active_object
-            selected: selected_objects
             object or None when instance not found in selected objects
         """
+        if not auto_update:
+            return None
+
         active = context.active_object
         selected = [o for o in context.selected_objects]
 
         for o in selected:
             if self.__class__.datablock(o) == self:
-                return active, selected, o
+                self.previously_selected = selected
+                self.previously_active = active
+                return o
 
-        return active, selected, None
+        return None
+
+    def restore_context(self, context):
+        # restore context
+        bpy.ops.object.select_all(action="DESELECT")
+
+        try:
+            for o in self.previously_selected:
+                o.select = True
+        except:
+            pass
+
+        self.previously_active.select = True
+        context.scene.objects.active = self.previously_active
+        self.previously_selected = None
+        self.previously_active = None
 
 
 class ArchipackCreateTool():

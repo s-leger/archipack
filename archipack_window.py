@@ -43,6 +43,7 @@ from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_gl import FeedbackPanel
 from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_keymaps import Keymaps
 from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_origin_3d
 
 
@@ -148,14 +149,14 @@ class archipack_window_panelrow(PropertyGroup):
         for i in range(cols - 1):
             self.width[i] = width
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
         """
         selected = [o for o in context.selected_objects]
         for o in selected:
-            props = ARCHIPACK_PT_window.params(o)
+            props = archipack_window.datablock(o)
             if props:
                 for row in props.rows:
                     if row == self:
@@ -164,7 +165,7 @@ class archipack_window_panelrow(PropertyGroup):
 
     def update(self, context):
         if self.auto_update:
-            props = self.find_in_selection(context)
+            props = self.find_datablock_in_selection(context)
             if props is not None:
                 props.update(context, childs_only=False)
 
@@ -184,7 +185,7 @@ class archipack_window_panelrow(PropertyGroup):
         row.prop(self, "fixed", text="fixed", index=(self.cols - 1))
 
 
-class archipack_window_panel(PropertyGroup):
+class archipack_window_panel(ArchipackObject, PropertyGroup):
     center = FloatVectorProperty(
             subtype='XYZ'
             )
@@ -359,19 +360,6 @@ class archipack_window_panel(PropertyGroup):
         return self.window.uv(self.curve_steps, self.center, self.origin, self.size,
             self.radius, self.angle_y, self.pivot, 0, self.frame_x, path_type=self.shape)
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        active = context.active_object
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            c, props = ARCHIPACK_PT_window_panel.params(o)
-            if props == self:
-                return active, selected, o
-        return active, selected, None
-
     def find_handle(self, o):
         for child in o.children:
             if 'archipack_handle' in child:
@@ -398,7 +386,9 @@ class archipack_window_panel(PropertyGroup):
             bpy.data.objects.remove(handle, do_unlink=True)
 
     def update(self, context):
-        active, selected, o = self.find_in_selection(context)
+
+        o = self.find_in_selection(context)
+
         if o is None:
             return
 
@@ -410,8 +400,7 @@ class archipack_window_panel(PropertyGroup):
 
         bmed.buildmesh(context, o, self.verts, self.faces, self.matids, self.uvs)
 
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
 
 class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
@@ -991,7 +980,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         for child in o.children:
             if to_remove < 1:
                 return
-            if ARCHIPACK_PT_window_panel.filter(child):
+            if archipack_window_panel.filter(child):
                 to_remove -= 1
                 self.remove_handle(context, child)
                 context.scene.objects.unlink(child)
@@ -1029,12 +1018,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             self.remove_childs(context, o, n_childs - w_childs)
 
     def get_childs_panels(self, context, o):
-        childs = []
-        for child in o.children:
-            c, props = ARCHIPACK_PT_window_panel.params(child)
-            if props is not None:
-                childs.append(c)
-        return childs
+        return [child for child in o.children if archipack_window_panel.filter(child)]
 
     def adjust_size_and_origin(self, size, origin, pivot, materials):
         if len(size) > 1:
@@ -1227,7 +1211,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                     child = childs[child_n - 1]
                     child.select = True
                     context.scene.objects.active = child
-                    c, props = ARCHIPACK_PT_window_panel.params(child)
+                    props = archipack_window_panel.datablock(child)
                     if props is not None:
                         props.origin = Vector((origin[panel].x, offset.y, 0))
                         props.center = center
@@ -1328,12 +1312,10 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
 
     def update(self, context, childs_only=False):
         # support for "copy to selected"
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
-
-        # print("Window.update()")
 
         self.setup_manipulators()
 
@@ -1357,16 +1339,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulators[3].set_pts([(x, -y, 0), (x, -y, self.altitude), (-1, 0, 0)])
 
         # restore context
-        bpy.ops.object.select_all(action="DESELECT")
-
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
     def find_hole(self, o):
         for child in o.children:
@@ -1463,10 +1436,13 @@ class ARCHIPACK_PT_window(Panel):
         default=True
     )
 
+    @classmethod
+    def poll(cls, context):
+        return archipack_window.filter(context.active_object)
+
     def draw(self, context):
         o = context.active_object
         prop = archipack_window.datablock(o)
-        # prop = ARCHIPACK_PT_window.params(o)
         if prop is None:
             return
         layout = self.layout
@@ -1584,86 +1560,22 @@ class ARCHIPACK_PT_window(Panel):
             box.prop(prop, 'hole_inside_mat')
             box.prop(prop, 'hole_outside_mat')
 
-    @classmethod
-    def params(cls, o):
-
-        try:
-            if 'archipack_window' not in o.data:
-                return False
-            else:
-                return o.data.archipack_window[0]
-        except:
-            return False
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            if 'archipack_window' not in o.data:
-                return False
-            else:
-                return True
-        except:
-            return False
-
-    @classmethod
-    def poll(cls, context):
-        o = context.active_object
-        if o is None:
-            return False
-        return archipack_window.filter(o)
-
 
 class ARCHIPACK_PT_window_panel(Panel):
     bl_idname = "ARCHIPACK_PT_window_panel"
     bl_label = "Window panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    # bl_context = 'object'
     bl_category = 'ArchiPack'
-
-    def draw(self, context):
-        """
-        o = context.active_object
-        o, prop = ARCHIPACK_PT_window_panel.params(o)
-        if prop is None:
-            return
-        """
-        layout = self.layout
-        layout.operator("archipack.select_parent")
-        """
-        layout.prop(prop, 'size', index=0)
-        layout.prop(prop, 'size', index=1)
-        layout.prop(prop, 'frame_x')
-        layout.prop(prop, 'frame_y')
-        layout.prop(prop, 'pivot')
-        layout.prop(prop, 'origin', index=0)
-        """
-
-    @classmethod
-    def params(cls, o):
-        if cls.filter(o):
-            if 'archipack_window_panel' in o.data:
-                return o, o.data.archipack_window_panel[0]
-            else:
-                for child in o.children:
-                    o, props = cls.params(child)
-                    if props is not None:
-                        return o, props
-        return o, None
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            return bool('archipack_window_panel' in o.data)
-        except:
-            return False
 
     @classmethod
     def poll(cls, context):
-        o = context.active_object
-        if o is None:
-            return False
-        return cls.filter(o)
+        return archipack_window_panel.filter(context.active_object)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("archipack.select_parent")
+
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -1761,10 +1673,12 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
             for linked in context.selected_objects:
                 if linked != o:
                     archipack_window.datablock(linked).update(context)
+        bpy.ops.object.select_all(action="DESELECT")
         o.select = True
         context.scene.objects.active = o
 
     def unique(self, context):
+        act = context.active_object
         sel = [o for o in context.selected_objects]
         bpy.ops.object.select_all(action="DESELECT")
         for o in sel:
@@ -1782,6 +1696,10 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
             for child in context.selected_objects:
                 if 'archipack_hole' in child:
                     child.hide_select = True
+        bpy.ops.object.select_all(action="DESELECT")
+        context.scene.objects.active = act
+        for o in sel:
+            o.select = True
 
     # -----------------------------------------------------
     # Execute
@@ -1815,8 +1733,8 @@ class ARCHIPACK_OT_window_draw(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     filepath = StringProperty(default="")
-
     feedback = None
+    stack = []
 
     def mouse_to_matrix(self, context, event):
         """
@@ -1857,39 +1775,73 @@ class ARCHIPACK_OT_window_draw(Operator):
         self.feedback.draw(context)
 
     def add_object(self, context, event):
+        o = context.active_object
+        bpy.ops.object.select_all(action="DESELECT")
 
-        if event.shift and archipack_window.filter(context.active_object):
-            o = context.active_object
+        if archipack_window.filter(o):
+
+            o.select = True
+            context.scene.objects.active = o
+
+            if event.shift:
+                bpy.ops.archipack.window(mode="UNIQUE")
+
             new_w = o.copy()
             new_w.data = o.data
             context.scene.objects.link(new_w)
+
+            o = new_w
+            o.select = True
+            context.scene.objects.active = o
+
             # synch subs from parent instance
             bpy.ops.archipack.window(mode="REFRESH")
-            bpy.ops.object.select_all(action="DESELECT")
-            new_w.select = True
-            context.scene.objects.active = new_w
+
         else:
             bpy.ops.archipack.window(auto_manipulate=False, filepath=self.filepath)
+            o = context.active_object
+
+        bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
+        o.select = True
+        context.scene.objects.active = o
 
     def modal(self, context, event):
 
         context.area.tag_redraw()
+        o = context.active_object
+        d = archipack_window.datablock(o)
+        hole = None
+        if d is not None:
+            hole = d.find_hole(o)
+
+        # hide hole from raycast
+        if hole is not None:
+            o.hide = True
+            hole.hide = True
+
         res, tM, wall = self.mouse_to_matrix(context, event)
-        w = context.active_object
-        if res and archipack_window.filter(w):
-            w.matrix_world = tM
+
+        if hole is not None:
+            o.hide = False
+            hole.hide = False
+
+        if res and d is not None:
+            o.matrix_world = tM
+            if d.y != wall.data.archipack_wall2[0].width:
+                d.y = wall.data.archipack_wall2[0].width
 
         if event.value == 'PRESS':
-            if event.type in {'LEFTMOUSE'}:
+            if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
                     context.scene.objects.active = wall
                     wall.select = True
                     if bpy.ops.archipack.single_boolean.poll():
                         bpy.ops.archipack.single_boolean()
                     wall.select = False
-                    # w must be a window here
-                    if archipack_window.filter(w):
-                        context.scene.objects.active = w
+                    # o must be a window here
+                    if d is not None:
+                        context.scene.objects.active = o
+                        self.stack.append(o)
                         self.add_object(context, event)
                         context.active_object.matrix_world = tM
                     return {'RUNNING_MODAL'}
@@ -1897,7 +1849,18 @@ class ARCHIPACK_OT_window_draw(Operator):
             if event.type in {'RIGHTMOUSE'}:
                 return {'RUNNING_MODAL'}
 
+        if self.keymap.check(event, self.keymap.undo) or (
+                event.type in {'BACK_SPACE'} and event.value == 'RELEASE'
+                ):
+            if len(self.stack) > 0:
+                last = self.stack.pop()
+                context.scene.objects.active = last
+                bpy.ops.archipack.window(mode="DELETE")
+                context.scene.objects.active = o
+            return {'RUNNING_MODAL'}
+
         if event.value == 'RELEASE':
+
             if event.type in {'ESC', 'RIGHTMOUSE'}:
                 bpy.ops.archipack.window(mode='DELETE')
                 self.feedback.disable()
@@ -1909,14 +1872,25 @@ class ARCHIPACK_OT_window_draw(Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
+            o = None
+            self.stack = []
+            self.keymap = Keymaps(context)
             # exit manipulate_mode if any
             bpy.ops.archipack.disable_manipulate()
+            # invoke with shift pressed will use current object as basis for linked copy
+            if self.filepath == '' and archipack_window.filter(context.active_object):
+                o = context.active_object
+            context.scene.objects.active = None
             bpy.ops.object.select_all(action="DESELECT")
+            if o is not None:
+                o.select = True
+                context.scene.objects.active = o
             self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a window", "Click & Drag over a wall", [
-                ('LEFTCLICK', 'Create a window'),
-                ('SHIFT', 'Make linked window'),
+                ('LEFTCLICK, RET, SPACE, ENTER', 'Create a window'),
+                ('BACKSPACE, CTRL+Z', 'undo last'),
+                ('SHIFT', 'Make independant copy'),
                 ('RIGHTCLICK or ESC', 'exit')
                 ])
             self.feedback.enable()
@@ -2103,14 +2077,14 @@ class ARCHIPACK_OT_window_manipulate(Operator):
 
 class ARCHIPACK_OT_window_preset_menu(PresetMenuOperator, Operator):
     bl_idname = "archipack.window_preset_menu"
-    bl_label = "Window Styles"
+    bl_label = "Window Presets"
     preset_subdir = "archipack_window"
 
 
 class ARCHIPACK_OT_window_preset(ArchipackPreset, Operator):
     """Add a Window Preset"""
     bl_idname = "archipack.window_preset"
-    bl_label = "Add Window Style"
+    bl_label = "Add Window Preset"
     preset_menu = "ARCHIPACK_OT_window_preset_menu"
 
     @property

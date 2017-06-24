@@ -45,7 +45,15 @@ from .archipack_2d import Line, Arc
 class Slab():
 
     def __init__(self):
+        # self.colour_inactive = (1, 1, 1, 1)
         pass
+
+    def set_offset(self, offset, last=None):
+        """
+            Offset line and compute intersection point
+            between segments
+        """
+        self.line = self.make_offset(offset, last)
 
     def straight_slab(self, a0, length):
         s = self.straight(length).rotate(a0)
@@ -63,15 +71,15 @@ class Slab():
 class StraightSlab(Slab, Line):
 
     def __init__(self, p, v):
-        Slab.__init__(self)
         Line.__init__(self, p, v)
+        Slab.__init__(self)
 
 
 class CurvedSlab(Slab, Arc):
 
     def __init__(self, c, radius, a0, da):
-        Slab.__init__(self)
         Arc.__init__(self, c, radius, a0, da)
+        Slab.__init__(self)
 
 
 class SlabGenerator():
@@ -80,30 +88,42 @@ class SlabGenerator():
         self.parts = parts
         self.segs = []
 
-    def add_part(self, type, radius, a0, da, length, offset):
+    def add_part(self, part):
 
         if len(self.segs) < 1:
             s = None
         else:
             s = self.segs[-1]
-
         # start a new slab
         if s is None:
-            if type == 'S_SEG':
+            if part.type == 'S_SEG':
                 p = Vector((0, 0))
-                v = length * Vector((cos(a0), sin(a0)))
+                v = part.length * Vector((cos(part.a0), sin(part.a0)))
                 s = StraightSlab(p, v)
-            elif type == 'C_SEG':
-                c = -radius * Vector((cos(a0), sin(a0)))
-                s = CurvedSlab(c, radius, a0, da)
+            elif part.type == 'C_SEG':
+                c = -part.radius * Vector((cos(part.a0), sin(part.a0)))
+                s = CurvedSlab(c, part.radius, part.a0, part.da)
         else:
-            if type == 'S_SEG':
-                s = s.straight_slab(a0, length)
-            elif type == 'C_SEG':
-                s = s.curved_slab(a0, da, radius)
+            if part.type == 'S_SEG':
+                s = s.straight_slab(part.a0, part.length)
+            elif part.type == 'C_SEG':
+                s = s.curved_slab(part.a0, part.da, part.radius)
 
         self.segs.append(s)
-        self.last_type = type
+        self.last_type = part.type
+
+    def set_offset(self):
+        last = None
+        for i, seg in enumerate(self.segs):
+            seg.set_offset(self.parts[i].offset, last)
+            last = seg.line
+
+    """
+    def close(self, closed):
+        # Make last segment implicit closing one
+        if closed:
+            return
+    """
 
     def close(self, closed):
         # Make last segment implicit closing one
@@ -124,6 +144,14 @@ class SlabGenerator():
                 w.a0 = a0
             else:
                 w.v = dp
+
+            if len(self.segs) > 1:
+                w.line = w.make_offset(self.parts[-1].offset, self.segs[-2])
+
+            w = self.segs[-1]
+            p1 = self.segs[0].line.p1
+            self.segs[0].line = self.segs[0].make_offset(self.parts[0].offset, w.line)
+            self.segs[0].line.p1 = p1
 
     def locate_manipulators(self):
         """
@@ -163,16 +191,52 @@ class SlabGenerator():
         for slab in self.segs:
             if "Curved" in type(slab).__name__:
                 for i in range(16):
-                    x, y = slab.lerp(i / 16)
+                    x, y = slab.line.lerp(i / 16)
                     verts.append((x, y, 0))
             else:
-                x, y = slab.p0
+                x, y = slab.line.p0
                 verts.append((x, y, 0))
             """
             for i in range(33):
                 x, y = slab.line.lerp(i / 32)
                 verts.append((x, y, 0))
             """
+
+    def rotate(self, idx_from, a):
+        """
+            apply rotation to all following segs
+        """
+        self.segs[idx_from].rotate(a)
+        ca = cos(a)
+        sa = sin(a)
+        rM = Matrix([
+            [ca, -sa],
+            [sa, ca]
+            ])
+        # rotation center
+        p0 = self.segs[idx_from].p0
+        for i in range(idx_from + 1, len(self.segs)):
+            seg = self.segs[i]
+            # rotate seg
+            seg.rotate(a)
+            # rotate delta from rotation center to segment start
+            dp = rM * (seg.p0 - p0)
+            seg.translate(dp)
+
+    def translate(self, idx_from, dp):
+        """
+            apply translation to all following segs
+        """
+        self.segs[idx_from].p1 += dp
+        for i in range(idx_from + 1, len(self.segs)):
+            self.segs[i].translate(dp)
+
+    def draw(self, context):
+        """
+            draw generator using gl
+        """
+        for seg in self.segs:
+            seg.draw(context, render=False)
 
 
 def update(self, context):
@@ -253,6 +317,7 @@ def update_type(self, context):
             if part == self:
                 idx = i
                 break
+
         part = d.parts[idx]
         a0 = 0
         if idx > 0:
@@ -265,10 +330,7 @@ def update_type(self, context):
                 w = w0.curved_slab(part.a0, part.da, part.radius)
         else:
             g = SlabGenerator(None)
-            if "C_" in self.type:
-                g.add_part("S_SEG", self.radius, self.a0, self.da, self.length, 0)
-            else:
-                g.add_part("C_SEG", self.radius, self.a0, self.da, self.length, 0)
+            g.add_part(self)
             w = g.segs[0]
 
         # w0 - w - w1
@@ -347,6 +409,20 @@ class ArchipackSegment():
             subtype='ANGLE', unit='ROTATION',
             update=update
             )
+    offset = FloatProperty(
+            name="Offset",
+            description="Add to current segment offset",
+            default=0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    linked_idx = IntProperty(default=-1)
+
+    # @TODO:
+    # flag to handle wall's  x_offset
+    # when set add wall offset value to segment offset
+    # pay attention at allowing per wall segment offset
+
     manipulators = CollectionProperty(type=archipack_manipulator)
 
     def find_in_selection(self, context):
@@ -378,6 +454,9 @@ class ArchipackSegment():
             row.prop(self, "length")
         row = box.row()
         row.prop(self, "a0")
+        row = box.row()
+        row.prop(self, "offset")
+        # row.prop(self, "linked_idx")
 
 
 class archipack_slab_part(ArchipackSegment, PropertyGroup):
@@ -435,6 +514,16 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+    auto_synch = BoolProperty(
+            name="AutoSynch",
+            description="Keep wall in synch when editing",
+            default=True,
+            update=update_manipulators
+            )
+    # @TODO:
+    # Global slab offset
+    # will only affect slab parts sharing a wall
+
     childs = CollectionProperty(type=archipack_slab_child)
     # Flag to prevent mesh update while making bulk changes over variables
     # use :
@@ -451,7 +540,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         g = SlabGenerator(self.parts)
         for part in self.parts:
             # type, radius, da, length
-            g.add_part(part.type, part.radius, part.a0, part.da, part.length, 0)
+            g.add_part(part)
+
+        g.set_offset()
 
         g.close(self.closed)
         g.locate_manipulators()
@@ -468,6 +559,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         part_1 = self.parts[len(self.parts) - 1]
         part_1.type = part_0.type
         part_1.length = part_0.length
+        part_1.offset = part_0.offset
         part_1.da = part_0.da
         part_1.a0 = 0
         # move after current one
@@ -525,6 +617,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         part_1.type = part_0.type
         part_1.length = part_0.length
         part_1.radius = part_0.radius
+        part_1.offset = part_0.offset
         part_1.da = part_0.da
         part_1.a0 = -pi / 2
         # move after current one
@@ -578,11 +671,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         """
         # print("setup_childs")
         self.childs.clear()
-        if o.parent is not None:
-            otM = o.parent.matrix_world
-        else:
-            otM = Matrix()
-        itM = o.matrix_world.inverted() * otM
+        itM = o.matrix_world.inverted()
 
         dmax = 0.2
         for c in o.children:
@@ -596,8 +685,35 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                     #  p0
                     dist = abs(t) * seg.length
                     if dist < dmax and abs(d) < dmax:
-                        print("%s %s %s %s" % (idx, dist, d, c.name))
+                        # print("%s %s %s %s" % (idx, dist, d, c.name))
                         self.add_child(c.name, idx)
+
+        # synch wall
+        # store index of segments with p0 match
+        if self.auto_synch:
+
+            if o.parent is not None:
+
+                for i, part in enumerate(self.parts):
+                    part.linked_idx = -1
+
+                d = None
+                for c in o.parent.children:
+                    if c.data and "archipack_wall2" in c.data:
+                        d = c.data.archipack_wall2[0]
+                        break
+                if d is not None:
+                    og = d.get_generator()
+                    j = 0
+                    for i, part in enumerate(self.parts):
+                        ji = j
+                        while ji < d.n_parts + 1:
+                            if (g.segs[i].p0 - og.segs[ji].p0).length < 0.005:
+                                j = ji + 1
+                                part.linked_idx = ji
+                                # print("link: %s to %s" % (i, ji))
+                                break
+                            ji += 1
 
     def relocate_childs(self, context, o, g):
         """
@@ -605,12 +721,108 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         """
         # print("relocate_childs")
 
-        tM = o.matrix_world
+        # Wall child syncro
+        # must store - idx of shared segs
+        # -> store this in parts provide 1:1 map
+        # share type: full, start only, end only
+        # -> may compute on the fly with idx stored
+        # when full segment does match
+        #  -update type, radius, length, a0, and da
+        # when start only does match
+        #  -update type, radius, a0
+        # when end only does match
+        #  -compute length/radius
+        # @TODO:
+        # handle p0 and p1 changes right in Generator (archipack_2d)
+        # and retrieve params from there
+        if self.auto_synch:
+            if o.parent is not None:
+                wall = None
 
+                for child in o.parent.children:
+                    if child.data and "archipack_wall2" in child.data:
+                        wall = child
+                        break
+
+                if wall is not None:
+                    d = wall.data.archipack_wall2[0]
+                    d.auto_update = False
+                    w = d.get_generator()
+
+                    last_idx = -1
+
+                    # update og from g
+                    for i, part in enumerate(self.parts):
+                        idx = part.linked_idx
+                        seg = g.segs[i]
+
+                        if i + 1 < self.n_parts:
+                            next_idx = self.parts[i + 1].linked_idx
+                        elif d.closed:
+                            next_idx = self.parts[0].linked_idx
+                        else:
+                            next_idx = -1
+
+                        if idx > -1:
+
+                            # start and shared: update rotation
+                            a = seg.angle - w.segs[idx].angle
+                            if abs(a) > 0.00001:
+                                w.rotate(idx, a)
+
+                            if last_idx > -1:
+                                w.segs[last_idx].p1 = seg.p0
+
+                            if next_idx > -1:
+
+                                if idx + 1 == next_idx:
+                                    # shared: should move last point
+                                    # and apply to next segments
+                                    # this is overriden for common segs
+                                    # but translate non common ones
+                                    dp = seg.p1 - w.segs[idx].p1
+                                    w.translate(idx, dp)
+
+                                    # shared: transfert type too
+                                    if "C_" in part.type:
+                                        d.parts[idx].type = 'C_WALL'
+                                        w.segs[idx] = CurvedSlab(seg.c, seg.r, seg.a0, seg.da)
+                                    else:
+                                        d.parts[idx].type = 'S_WALL'
+                                        w.segs[idx] = StraightSlab(seg.p.copy(), seg.v.copy())
+                            last_idx = -1
+
+                        elif next_idx > -1:
+                            # only last is shared
+                            # note: on next run will be part of start
+                            last_idx = next_idx - 1
+
+                    # update d from og
+                    for i, seg in enumerate(w.segs):
+                        if i > 0:
+                            d.parts[i].a0 = seg.delta_angle(w.segs[i - 1])
+                        else:
+                            d.parts[i].a0 = seg.angle
+                        if "C_" in d.parts[i].type:
+                            d.parts[i].radius = seg.r
+                            d.parts[i].da = seg.da
+                        else:
+                            d.parts[i].length = max(0.01, seg.length)
+
+                    wall.select = True
+                    context.scene.objects.active = wall
+
+                    d.auto_update = True
+                    wall.select = False
+                    o.select = True
+                    context.scene.objects.active = o
+
+                    wall.matrix_world = o.matrix_world.copy()
+
+        tM = o.matrix_world
         for child in self.childs:
             c, d = child.get_child(context)
             if c is None:
-                print("c is None")
                 continue
 
             a = g.segs[child.idx].angle
@@ -653,33 +865,23 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
             g = self.get_generator()
             w = g.segs[where - 1]
-            dp = g.segs[where].p1 - w.p0
+            w.p1 = g.segs[where].p1
+
             if where + 1 < self.n_parts:
-                a0 = g.segs[where + 1].straight(1).angle - atan2(dp.y, dp.x)
-                part = self.parts[where + 1]
-                if a0 > pi:
-                    a0 -= 2 * pi
-                if a0 < -pi:
-                    a0 += 2 * pi
-                part.a0 = a0
+                self.parts[where + 1].a0 = g.segs[where + 1].delta_angle(w)
+
             part = self.parts[where - 1]
-            # adjust radius from distance between points..
-            # use p0-p1 distance as reference
+
             if "C_" in part.type:
-                dw = (w.p1 - w.p0)
-                part.radius = part.radius / dw.length * dp.length
-                # angle pt - p0        - angle p0 p1
-                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+                part.radius = w.r
             else:
-                part.length = dp.length
-                da = atan2(dp.y, dp.x) - w.straight(1).angle
-            a0 = part.a0 + da
-            if a0 > pi:
-                a0 -= 2 * pi
-            if a0 < -pi:
-                a0 += 2 * pi
-            # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-            part.a0 = a0
+                part.length = w.length
+
+            if where > 1:
+                part.a0 = w.delta_angle(g.segs[where - 2])
+            else:
+                part.a0 = w.straight(1, 0).angle
+
         for c in self.childs:
             if c.idx >= where:
                 c.idx -= 1
@@ -796,12 +998,17 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             else:
                 pts.append(wM * points[-1].co)
 
+        self.from_points(pts, spline.use_cyclic_u)
+
+    def from_points(self, pts, closed):
+
         if self.is_cw(pts):
             pts = list(reversed(pts))
 
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
+
         self.update_parts(None)
 
         p0 = pts.pop(0)
@@ -813,13 +1020,16 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                 da -= 2 * pi
             if da < -pi:
                 da += 2 * pi
+            if i >= len(self.parts):
+                break
             p = self.parts[i]
             p.length = dp.to_2d().length
             p.dz = dp.z
             p.a0 = da
             a0 += da
             p0 = p1
-        self.closed = True
+
+        self.closed = closed
         self.auto_update = True
 
     def make_surface(self, o, verts):
@@ -851,9 +1061,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
     def update(self, context, manipulable_refresh=False, update_childs=False):
 
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
 
         # clean up manipulators before any data model change
@@ -895,14 +1105,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             self.manipulable_refresh = True
 
         # restore context
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
     def manipulable_setup(self, context):
         """
@@ -985,6 +1188,8 @@ class ARCHIPACK_PT_slab(Panel):
         row.operator('archipack.slab_manipulate', icon='HAND')
         box = layout.box()
         box.prop(prop, 'z')
+        box = layout.box()
+        box.prop(prop, 'auto_synch')
         box = layout.box()
         row = box.row()
         if prop.parts_expand:
@@ -1179,7 +1384,7 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
     def create(self, context):
         wall = context.active_object
         wd = wall.data.archipack_wall2[0]
-        bpy.ops.archipack.slab(auto_manipulate=self.auto_manipulate)
+        bpy.ops.archipack.slab(auto_manipulate=False)
         o = context.scene.objects.active
         d = archipack_slab.datablock(o)
         d.auto_update = False
@@ -1207,6 +1412,22 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
                 ]) * wall.matrix_world
         else:
             o.matrix_world = wall.matrix_world.copy()
+            bpy.ops.object.select_all(action='DESELECT')
+            # parenting childs to wall reference point
+            if wall.parent is None:
+                x, y, z = wall.bound_box[0]
+                context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
+                # fix issue #9
+                context.scene.objects.active = wall
+                bpy.ops.archipack.reference_point()
+            else:
+                wall.parent.select = True
+                context.scene.objects.active = wall.parent
+            wall.select = True
+            o.select = True
+            bpy.ops.archipack.parent_to_reference()
+            wall.parent.select = False
+
         return o
 
     # -----------------------------------------------------
@@ -1215,7 +1436,11 @@ class ARCHIPACK_OT_slab_from_wall(Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
-            self.create(context)
+            o = self.create(context)
+            o.select = True
+            context.scene.objects.active = o
+            if self.auto_manipulate:
+                bpy.ops.archipack.slab_manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")

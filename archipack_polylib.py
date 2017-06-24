@@ -1277,6 +1277,8 @@ class SelectPoints(Selectable):
             ('A', 'All'),
             ('I', 'Inverse'),
             ('F', 'Create line around selection'),
+            # ('W', 'Create window using selection'),
+            # ('D', 'Create door using selection'),
             ('ALT+F', 'Create best fit rectangle'),
             ('R', 'Retrieve selection'),
             ('S', 'Store selection'),
@@ -1306,6 +1308,48 @@ class SelectPoints(Selectable):
         elif event.type in {'R'}:
             self.recall()
         elif event.type in {'F'}:
+            sel = [self.geoms[i] for i in self.ba.list]
+            if len(sel) > 0:
+                scene = context.scene
+                geom = ShapelyOps.union(sel)
+                if event.alt:
+                    tM, w, h, l_pts, w_pts = ShapelyOps.min_bounding_rect(geom)
+                    x0 = -w / 2.0
+                    y0 = -h / 2.0
+                    x1 = w / 2.0
+                    y1 = h / 2.0
+                    poly = shapely.geometry.LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
+                                                        (x0, y1, 0), (x0, y0, 0)])
+                    result = Io.to_curve(scene, self.coordsys, poly, 'points')
+                    result.matrix_world = self.coordsys.world * tM
+                    scene.objects.active = result
+                else:
+                    result = Io.to_curve(scene, self.coordsys, geom.convex_hull, 'points')
+                    scene.objects.active = result
+            self.ba.none()
+            self.complete(context)
+        elif event.type in {'W'}:
+            sel = [self.geoms[i] for i in self.ba.list]
+            if len(sel) > 0:
+                scene = context.scene
+                geom = ShapelyOps.union(sel)
+                if event.alt:
+                    tM, w, h, l_pts, w_pts = ShapelyOps.min_bounding_rect(geom)
+                    x0 = -w / 2.0
+                    y0 = -h / 2.0
+                    x1 = w / 2.0
+                    y1 = h / 2.0
+                    poly = shapely.geometry.LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
+                                                        (x0, y1, 0), (x0, y0, 0)])
+                    result = Io.to_curve(scene, self.coordsys, poly, 'points')
+                    result.matrix_world = self.coordsys.world * tM
+                    scene.objects.active = result
+                else:
+                    result = Io.to_curve(scene, self.coordsys, geom.convex_hull, 'points')
+                    scene.objects.active = result
+            self.ba.none()
+            self.complete(context)
+        elif event.type in {'D'}:
             sel = [self.geoms[i] for i in self.ba.list]
             if len(sel) > 0:
                 scene = context.scene

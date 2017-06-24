@@ -33,7 +33,6 @@ from bpy.props import (
     StringProperty, EnumProperty, FloatVectorProperty
     )
 from .bmesh_utils import BmeshEdit as bmed
-from .materialutils import MaterialUtils
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from mathutils.geometry import interpolate_bezier
@@ -174,27 +173,36 @@ class FenceGenerator():
             f.dist = self.length
             self.length += f.line.length
 
+        vz0 = Vector((1, 0))
+        angle_z = 0
         for i, f in enumerate(self.segs):
+            dz = self.parts[i].dz
             if f.dist > 0:
                 f.t_start = f.dist / self.length
             else:
                 f.t_start = 0
 
             f.t_end = (f.dist + f.line.length) / self.length
-            dz = self.parts[i].dz
             f.z0 = z
             f.dz = dz
             z += dz
-            if i < n_parts and abs(self.parts[i + 1].a0) >= angle_limit:
-                l_seg = f.dist + f.line.length - dist_0
-                t_seg = f.t_end - t_start
-                n_fences = max(1, int(l_seg / post_spacing))
-                t_fence = t_seg / n_fences
-                segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, i)
-                dist_0 = f.dist + f.line.length
-                t_start = f.t_end
-                i_start = i
-                self.segments.append(segment)
+
+            if i < n_parts:
+
+                vz1 = Vector((self.segs[i + 1].length, self.parts[i + 1].dz))
+                angle_z = abs(vz0.angle_signed(vz1))
+                vz0 = vz1
+
+                if (abs(self.parts[i + 1].a0) >= angle_limit or angle_z >= angle_limit):
+                    l_seg = f.dist + f.line.length - dist_0
+                    t_seg = f.t_end - t_start
+                    n_fences = max(1, int(l_seg / post_spacing))
+                    t_fence = t_seg / n_fences
+                    segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, i)
+                    dist_0 = f.dist + f.line.length
+                    t_start = f.t_end
+                    i_start = i
+                    self.segments.append(segment)
 
             manipulators = self.parts[i].manipulators
             p0 = f.line.p0.to_3d()
@@ -590,7 +598,7 @@ def update_path(self, context):
 
 def update_type(self, context):
 
-    d = self.find_in_selection(context)
+    d = self.find_datablock_in_selection(context)
 
     if d is not None and d.auto_update:
 
@@ -663,7 +671,7 @@ class archipack_fence_material(PropertyGroup):
         update=update
         )
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
@@ -678,7 +686,7 @@ class archipack_fence_material(PropertyGroup):
         return None
 
     def update(self, context):
-        props = self.find_in_selection(context)
+        props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context)
 
@@ -730,7 +738,7 @@ class archipack_fence_part(PropertyGroup):
 
     manipulators = CollectionProperty(type=archipack_manipulator)
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
@@ -745,7 +753,7 @@ class archipack_fence_part(PropertyGroup):
         return None
 
     def update(self, context, manipulable_refresh=False):
-        props = self.find_in_selection(context)
+        props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context, manipulable_refresh)
 
@@ -772,7 +780,12 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             name="user defined",
             update=update_path
             )
-
+    user_defined_spline = IntProperty(
+            name="Spline index",
+            min=0,
+            default=0,
+            update=update_path
+            )
     user_defined_resolution = IntProperty(
             name="resolution",
             min=1,
@@ -1229,13 +1242,25 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 for i in range(resolution):
                     pts.append(seg[i].to_3d())
 
-    def from_spline(self, wM, resolution, spline):
+    def from_spline(self, context, wM, resolution, spline):
+
+        o = self.find_in_selection(context)
+
+        if o is None:
+            return
+
+        tM = wM.copy()
+        tM.row[0].normalize()
+        tM.row[1].normalize()
+        tM.row[2].normalize()
         pts = []
         if spline.type == 'POLY':
+            pt = spline.points[0].co
             pts = [wM * p.co.to_3d() for p in spline.points]
             if spline.use_cyclic_u:
                 pts.append(pts[0])
         elif spline.type == 'BEZIER':
+            pt = spline.bezier_points[0].co
             points = spline.bezier_points
             for i in range(1, len(points)):
                 p0 = points[i - 1]
@@ -1272,10 +1297,23 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
         self.auto_update = True
 
+        o.matrix_world = tM * Matrix([
+            [1, 0, 0, pt.x],
+            [0, 1, 0, pt.y],
+            [0, 0, 1, pt.z],
+            [0, 0, 0, 1]
+            ])
+
     def update_path(self, context):
-        user_def_path = context.scene.objects.get(self.user_defined_path)
-        if user_def_path is not None and user_def_path.type == 'CURVE':
-            self.from_spline(user_def_path.matrix_world, self.user_defined_resolution, user_def_path.data.splines[0])
+        path = context.scene.objects.get(self.user_defined_path)
+        if path is not None and path.type == 'CURVE':
+            splines = path.data.splines
+            if len(splines) > self.user_defined_spline:
+                self.from_spline(
+                    context,
+                    path.matrix_world,
+                    self.user_defined_resolution,
+                    splines[self.user_defined_spline])
 
     def get_generator(self):
         g = FenceGenerator(self.parts)
@@ -1290,9 +1328,9 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
     def update(self, context, manipulable_refresh=False):
 
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
 
         # clean up manipulators before any data model change
@@ -1375,20 +1413,13 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
-        bpy.ops.object.shade_smooth()
+
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
 
         # restore context
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
     def manipulable_setup(self, context):
         """
@@ -1431,6 +1462,10 @@ class ARCHIPACK_PT_fence(Panel):
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
 
+    @classmethod
+    def poll(cls, context):
+        return archipack_fence.filter(context.active_object)
+
     def draw(self, context):
         prop = archipack_fence.datablock(context.active_object)
         if prop is None:
@@ -1449,10 +1484,11 @@ class ARCHIPACK_PT_fence(Panel):
         row = box.row(align=True)
         row.operator("archipack.fence_curve_update", text="", icon='FILE_REFRESH')
         row.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-
-        box.prop(prop, 'user_defined_resolution')
-        box.prop(prop, 'x_offset')
+        if prop.user_defined_path is not "":
+            box.prop(prop, 'user_defined_spline')
+            box.prop(prop, 'user_defined_resolution')
         box.prop(prop, 'angle_limit')
+        box.prop(prop, 'x_offset')
         box = layout.box()
         row = box.row()
         if prop.parts_expand:
@@ -1565,10 +1601,6 @@ class ARCHIPACK_PT_fence(Panel):
         else:
             row.prop(prop, 'idmats_expand', icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
 
-    @classmethod
-    def poll(cls, context):
-        return archipack_fence.filter(context.active_object)
-
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
@@ -1594,9 +1626,6 @@ class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):
         self.add_material(o)
         return o
 
-    # -----------------------------------------------------
-    # Execute
-    # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
@@ -1625,19 +1654,12 @@ class ARCHIPACK_OT_fence_curve_update(Operator):
     @classmethod
     def poll(self, context):
         return archipack_fence.filter(context.active_object)
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
 
     def draw(self, context):
         layout = self.layout
         row = layout.row()
         row.label("Use Properties panel (N) to define parms", icon='INFO')
 
-    # -----------------------------------------------------
-    # Execute
-    # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
             d = archipack_fence.datablock(context.active_object)
@@ -1648,22 +1670,16 @@ class ARCHIPACK_OT_fence_curve_update(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_fence_from_curve(Operator):
+class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
     bl_idname = "archipack.fence_from_curve"
     bl_label = "Fence curve"
     bl_description = "Create a fence from a curve"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
-    auto_manipulate = BoolProperty(default=True)
-
     @classmethod
     def poll(self, context):
         return context.active_object is not None and context.active_object.type == 'CURVE'
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
 
     def draw(self, context):
         layout = self.layout
@@ -1671,45 +1687,26 @@ class ARCHIPACK_OT_fence_from_curve(Operator):
         row.label("Use Properties panel (N) to define parms", icon='INFO')
 
     def create(self, context):
+        o = None
         curve = context.active_object
-        m = bpy.data.meshes.new("Fence")
-        o = bpy.data.objects.new("Fence", m)
-        d = m.archipack_fence.add()
-        # make manipulators selectable
-        d.manipulable_selectable = True
-        d.user_defined_path = curve.name
-        context.scene.objects.link(o)
-        o.select = True
-        context.scene.objects.active = o
-        d.update_path(context)
-        MaterialUtils.add_stair_materials(o)
-        spline = curve.data.splines[0]
-        if spline.type == 'POLY':
-            pt = spline.points[0].co
-        elif spline.type == 'BEZIER':
-            pt = spline.bezier_points[0].co
-        else:
-            pt = Vector((0, 0, 0))
-        # pretranslate
-        o.matrix_world = curve.matrix_world * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
-        o.select = True
-        context.scene.objects.active = o
+        for i, spline in enumerate(curve.data.splines):
+            bpy.ops.archipack.fence('INVOKE_DEFAULT', auto_manipulate=False)
+            o = context.active_object
+            d = archipack_fence.datablock(o)
+            d.auto_update = False
+            d.user_defined_spline = i
+            d.user_defined_path = curve.name
+            d.auto_update = True
         return o
 
-    # -----------------------------------------------------
-    # Execute
-    # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
-            self.create(context)
-            if self.auto_manipulate:
-                bpy.ops.archipack.fence_manipulate('INVOKE_DEFAULT')
+            o = self.create(context)
+            if o is not None:
+                o.select = True
+                context.scene.objects.active = o
+            # self.manipulate()
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -1755,7 +1752,7 @@ class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
 
     @property
     def blacklist(self):
-        return ['manipulators', 'n_parts', 'parts', 'user_defined_path']
+        return ['manipulators', 'n_parts', 'parts', 'user_defined_path', 'user_defined_spline']
 
 
 def register():

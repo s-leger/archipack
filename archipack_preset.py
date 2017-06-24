@@ -30,7 +30,7 @@ from bl_operators.presets import AddPresetBase
 from mathutils import Vector
 from bpy.props import StringProperty
 from .archipack_gl import (
-    ThumbHandle, Screen, GlRect, 
+    ThumbHandle, Screen, GlRect,
     GlPolyline, GlPolygon, GlText, GlHandle
 )
 
@@ -39,12 +39,12 @@ class CruxHandle(GlHandle):
 
     def __init__(self, sensor_size, depth):
         GlHandle.__init__(self, sensor_size, 0, True, False)
-        self.branch_0 = GlPolygon((1, 1, 1 ,1), d=2)
-        self.branch_1 = GlPolygon((1, 1, 1 ,1), d=2)
-        self.branch_2 = GlPolygon((1, 1, 1 ,1), d=2)
-        self.branch_3 = GlPolygon((1, 1, 1 ,1), d=2)
+        self.branch_0 = GlPolygon((1, 1, 1, 1), d=2)
+        self.branch_1 = GlPolygon((1, 1, 1, 1), d=2)
+        self.branch_2 = GlPolygon((1, 1, 1, 1), d=2)
+        self.branch_3 = GlPolygon((1, 1, 1, 1), d=2)
         self.depth = depth
-        
+
     def set_pos(self, pos_2d):
         self.pos_2d = pos_2d
         o = pos_2d
@@ -63,12 +63,12 @@ class CruxHandle(GlHandle):
         p8 = o + Vector((-c, 0))
         p9 = o + Vector((-w, s))
         p10 = o + Vector((-s, w))
-        p11 = o + Vector((0, c))        
+        p11 = o + Vector((0, c))
         self.branch_0.set_pos([p11, p0, p1, p2, o])
         self.branch_1.set_pos([p2, p3, p4, p5, o])
         self.branch_2.set_pos([p5, p6, p7, p8, o])
         self.branch_3.set_pos([p8, p9, p10, p11, o])
-     
+
     @property
     def pts(self):
         return [self.pos_2d]
@@ -87,8 +87,8 @@ class CruxHandle(GlHandle):
         self.branch_1.draw(context)
         self.branch_2.draw(context)
         self.branch_3.draw(context)
-        
-        
+
+
 class SeekBox(GlText, GlHandle):
     """
         Text input to filter items by label
@@ -96,22 +96,22 @@ class SeekBox(GlText, GlHandle):
             - add cross to empty text
             - get text from keyboard
     """
-    
+
     def __init__(self):
         GlHandle.__init__(self, 0, 0, True, False, d=2)
         GlText.__init__(self, d=2)
         self.sensor_width = 250
         self.pos_3d = Vector((0, 0))
         self.bg = GlRect(colour=(0, 0, 0, 0.7))
-        self.frame = GlPolyline((1, 1, 1 ,1), d=2)
+        self.frame = GlPolyline((1, 1, 1, 1), d=2)
         self.frame.closed = True
         self.cancel = CruxHandle(16, 4)
         self.line_pos = 0
-    
+
     @property
     def pts(self):
         return [self.pos_3d]
-    
+
     def set_pos(self, context, pos_2d):
         x, ty = self.text_size(context)
         w = self.sensor_width
@@ -129,8 +129,8 @@ class SeekBox(GlText, GlHandle):
         self.bg.set_pos([p0, p2])
         self.frame.set_pos([p0, p1, p2, p3])
         self.cancel.set_pos(pos_2d + Vector((w + 15, 0.5 * y)))
-    		
-    def keyboard_entry(self, context, event):                
+
+    def keyboard_entry(self, context, event):
         c = event.ascii
         if c:
             if c == ",":
@@ -151,35 +151,35 @@ class SeekBox(GlText, GlHandle):
 
             elif event.type == 'RIGHT_ARROW':
                 self.line_pos = (self.line_pos + 1) % (len(self.label) + 1)
-  
+
     def draw(self, context):
         self.bg.draw(context)
         self.frame.draw(context)
         GlText.draw(self, context)
         self.cancel.draw(context)
-        
+
     @property
     def sensor_center(self):
         return self.pos_3d
 
- 
+
 preset_paths = bpy.utils.script_paths("presets")
 addons_paths = bpy.utils.script_paths("addons")
 
 
 class PresetMenuItem():
-    def __init__(self, thumbsize, image, preset):
+    def __init__(self, thumbsize, preset, image=None):
         name = bpy.path.display_name_from_filepath(preset)
         self.preset = preset
-        self.handle = ThumbHandle(thumbsize, image, name, draggable=True)
+        self.handle = ThumbHandle(thumbsize, name, image, draggable=True)
         self.enable = True
-    
+
     def filter(self, keywords):
         for key in keywords:
             if key not in self.handle.label.label:
                 return False
         return True
-        
+
     def set_pos(self, context, pos):
         self.handle.set_pos(context, pos)
 
@@ -199,12 +199,12 @@ class PresetMenuItem():
 
 
 class PresetMenu():
-    
+
     keyboard_type = {
             'BACK_SPACE', 'DEL',
             'LEFT_ARROW', 'RIGHT_ARROW'
             }
-    
+
     def __init__(self, context, category, thumbsize=Vector((150, 100))):
         self.imageList = []
         self.menuItems = []
@@ -224,7 +224,7 @@ class PresetMenu():
         self.border = GlPolyline((0.7, 0.7, 0.7, 1), d=2)
         self.keywords = SeekBox()
         self.keywords.colour_normal = (1, 1, 1, 1)
-        
+
         self.border.closed = True
         self.set_pos(context)
 
@@ -274,6 +274,10 @@ class PresetMenu():
         self.imageList.clear()
 
     def make_menuitem(self, filepath):
+        """
+            @TODO:
+            Lazy load images
+        """
         image = None
         img_idx = bpy.data.images.find(os.path.basename(filepath) + '.png')
         if img_idx > -1:
@@ -284,7 +288,7 @@ class PresetMenu():
             self.imageList.append(image)
         if image is None:
             image = self.default_image
-        item = PresetMenuItem(self.thumbsize, image, filepath + '.py')
+        item = PresetMenuItem(self.thumbsize, filepath + '.py', image)
         self.menuItems.append(item)
 
     def set_pos(self, context):
@@ -300,21 +304,21 @@ class PresetMenu():
         x = x_min
         y = y_max + self.y_scroll
         n_rows = 0
-        
-        self.keywords.set_pos(context, p1  + 0.5 * (p2 - p1))
+
+        self.keywords.set_pos(context, p1 + 0.5 * (p2 - p1))
         keywords = self.keywords.label.split(" ")
-        
+
         for item in self.menuItems:
             if y > y_max or y < y_min:
                 item.enable = False
             else:
                 item.enable = True
-            
+
             # filter items by name
             if len(keywords) > 0 and not item.filter(keywords):
                 item.enable = False
                 continue
-            
+
             item.set_pos(context, Vector((x, y)))
             x += self.thumbsize.x + self.spacing.x
             if x > x_max:
@@ -333,12 +337,12 @@ class PresetMenu():
 
     def mouse_press(self, context, event):
         self.mouse_position(event)
-        
+
         if self.keywords.cancel.hover:
             self.keywords.label = ""
             self.keywords.line_pos = 0
             self.set_pos(context)
-            
+
         for item in self.menuItems:
             if item.enable and item.mouse_press():
                 # load item preset
@@ -364,12 +368,12 @@ class PresetMenu():
         self.y_scroll = min(self.scroll_max, self.y_scroll + (self.thumbsize.y + self.spacing.y))
         self.set_pos(context)
         # print("scroll_down %s" % (self.y_scroll))
-    
+
     def keyboard_entry(self, context, event):
         self.keywords.keyboard_entry(context, event)
         self.set_pos(context)
-                
-        
+
+
 class PresetMenuOperator():
 
     preset_operator = StringProperty(
@@ -389,6 +393,8 @@ class PresetMenuOperator():
         self.menu.draw(context)
 
     def modal(self, context, event):
+        if self.menu is None:
+            return {'FINISHED'}
         context.area.tag_redraw()
         if event.type == 'MOUSEMOVE':
             self.menu.mouse_move(context, event)
@@ -432,6 +438,22 @@ class PresetMenuOperator():
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
+
+            # with alt pressed on invoke, will bypass menu operator and
+            # call preset_operator
+            # allow start drawing linked copy of active object
+            if event.alt or event.ctrl:
+                po = self.preset_operator.split(".")
+                op = getattr(getattr(bpy.ops, po[0]), po[1])
+                d = context.active_object.data
+
+                if d is not None and self.preset_subdir in d and op.poll():
+                    op('INVOKE_DEFAULT')
+                else:
+                    self.report({'WARNING'}, "Active object must be a " + self.preset_subdir.split("_")[1].capitalize())
+                    return {'CANCELLED'}
+                return {'FINISHED'}
+
             self.menu = PresetMenu(context, self.preset_subdir)
 
             # the arguments we pass the the callback
@@ -512,7 +534,7 @@ class ArchipackPreset(AddPresetBase):
             # render thumb
             scene = context.scene
             render = scene.render
-            
+
             # save render parame
             resolution_x = render.resolution_x
             resolution_y = render.resolution_y
@@ -525,7 +547,7 @@ class ArchipackPreset(AddPresetBase):
             file_format = render.image_settings.file_format
             color_mode = render.image_settings.color_mode
             color_depth = render.image_settings.color_depth
-            
+
             render.resolution_x = 150
             render.resolution_y = 100
             render.resolution_percentage = 100
@@ -538,7 +560,7 @@ class ArchipackPreset(AddPresetBase):
             render.image_settings.color_mode = 'RGBA'
             render.image_settings.color_depth = '8'
             bpy.ops.render.render(animation=False, write_still=True, use_viewport=False)
-            
+
             # restore render params
             render.resolution_x = resolution_x
             render.resolution_y = resolution_y
@@ -551,5 +573,5 @@ class ArchipackPreset(AddPresetBase):
             render.image_settings.file_format = file_format
             render.image_settings.color_mode = color_mode
             render.image_settings.color_depth = color_depth
-            
+
             return

@@ -50,40 +50,86 @@ handle_size = 10
 
 # a global manipulator stack reference
 # prevent Blender "ACCESS_VIOLATION" crashes
-# use a dict to prevent potential
-# collisions between many objects being in
-# manipulate mode (at create time)
+# use a dict to prevent collisions
+# between many objects being in manipulate mode
 # use object names as loose keys
 # NOTE : use app.drivers to reset before file load
-manip_stack = {}
+manips = {}
 
 
-@persistent
-def empty_stack(dummy=None):
+class ArchipackActiveManip:
     """
-        Empty manipulators stack on file load
+        Store manipulated object
     """
-    global manip_stack
-    for key in manip_stack.keys():
-        for m in manip_stack[key]:
+    def __init__(self, object_name):
+        self.object_name = object_name
+        # manipulators stack for object
+        self.stack = []
+        # reference to object manipulable instance
+        self.manipulable = None
+
+    @property
+    def dirty(self):
+        return (
+            self.manipulable is None or
+            len(self.stack) < 1 or
+            bpy.data.objects.find(self.object_name) < 0
+            )
+
+    def exit(self):
+        for m in self.stack:
             if m is not None:
                 m.exit()
-    manip_stack = {}
+        if self.manipulable is not None:
+            self.manipulable.manipulate_mode = False
+            self.manipulable = None
+        self.object_name = ""
+        self.stack.clear()
 
 
-def in_stack(key):
-    global manip_stack
-    return key in manip_stack.keys()
+def remove_manipulable(key):
+    global manips
+    # print("remove_manipulable key:%s" % (key))
+    if key in manips.keys():
+        manips[key].exit()
+        manips.pop(key)
 
 
-def get_stack(key):
+def check_stack(key):
     """
-        return reference to manipulator stack for given object
+        check for stack item validity
+        use in modal to destroy invalid modals
+        return true when invalid / not found
+        false when valid
     """
-    global manip_stack
-    if key not in manip_stack.keys():
-        manip_stack[key] = []
-    return manip_stack[key]
+    global manips
+    if key not in manips.keys():
+        # print("check_stack : key not found %s" % (key))
+        return True
+    elif manips[key].dirty:
+        # print("check_stack : key.dirty %s" % (key))
+        remove_manipulable(key)
+        return True
+
+    return False
+
+
+def empty_stack():
+    # print("empty_stack()")
+    global manips
+    for key in manips.keys():
+        manips[key].exit()
+    manips.clear()
+
+
+def add_manipulable(key, manipulable):
+    global manips
+    if key not in manips.keys():
+        # print("add_manipulable() key:%s not found create new" % (key))
+        manips[key] = ArchipackActiveManip(key)
+
+    manips[key].manipulable = manipulable
+    return manips[key].stack
 
 
 # ------------------------------------------------------------------
@@ -549,7 +595,7 @@ class WallSnapManipulator(Manipulator):
 
     def mouse_press(self, context, event):
         global gl_pts3d
-        global manip_stack
+        global manips
         if self.handle.hover:
             self.active = True
             self.handle.active = True
@@ -558,7 +604,7 @@ class WallSnapManipulator(Manipulator):
 
             # get selected manipulators idx
             selection = []
-            for m in manip_stack[self.o.name]:
+            for m in manips[self.o.name].stack:
                 if m is not None and m.selected:
                     selection.append(int(m.manipulator.prop1_name))
 
@@ -619,117 +665,67 @@ class WallSnapManipulator(Manipulator):
 
             # rotation relative to object
             rM = self.o.matrix_world.inverted().to_3x3()
+            delta = (rM * sp.delta).to_2d()
+            # x_axis = (rM * Vector((1, 0, 0))).to_2d()
+
+            # update generator
             idx = 0
             for p0, p1, selected in gl_pts3d:
 
                 if selected:
 
-                    # new point in object space
-                    pt = g.segs[idx].lerp(0) + (rM * sp.delta).to_2d()
-                    da = 0
+                    # new location in object space
+                    pt = g.segs[idx].lerp(0) + delta
 
-                    # adjust size and rotation of segment before current
+                    # move last point of segment before current
+                    if idx > 0:
+                        g.segs[idx - 1].p1 = pt
+
+                    # move first point of current segment
+                    g.segs[idx].p0 = pt
+
+                idx += 1
+
+            # update properties from generator
+            idx = 0
+            for p0, p1, selected in gl_pts3d:
+
+                if selected:
+
+                    # adjust segment before current
                     if idx > 0:
                         w = g.segs[idx - 1]
                         part = d.parts[idx - 1]
-                        """
-                        w.p1 = pt
-                        dp = pt - w.p0
 
                         if idx > 1:
-                            part.a0 = g.segs[idx - 2].delta_angle(w)
+                            part.a0 = w.delta_angle(g.segs[idx - 2])
                         else:
-                            a0 = part.a0 + w.signed_angle(w.straight(0).v, dp)
-                            if a0 > pi:
-                                a0 -= 2 * pi
-                            if a0 < -pi:
-                                a0 += 2 * pi
-                            # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-                            part.a0 = a0
+                            part.a0 = w.straight(1, 0).angle
 
                         if "C_" in part.type:
                             part.radius = w.r
                         else:
                             part.length = w.length
 
-                        """
-
-                        dp = pt - w.p0
-
-                        # adjust radius from distance between points..
-                        # use p0-p1 distance as reference
-                        if "C_" in part.type:
-                            dw = (w.p1 - w.p0)
-                            part.radius = part.radius / dw.length * dp.length
-                            # angle pt - p0        - angle p0 p1
-                            da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                        else:
-                            part.length = dp.length
-                            da = atan2(dp.y, dp.x) - w.straight(1).angle
-                        a0 = part.a0 + da
-                        if a0 > pi:
-                            a0 -= 2 * pi
-                        if a0 < -pi:
-                            a0 += 2 * pi
-                        # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-                        part.a0 = a0
-
-                    # adjust length of current segment
+                    # adjust current segment
                     w = g.segs[idx]
                     part = d.parts[idx]
-                    """
-                    w.p0 = pt
+
+                    if idx > 0:
+                        part.a0 = w.delta_angle(g.segs[idx - 1])
+                    else:
+                        part.a0 = w.straight(1, 0).angle
+                        # move object when point 0
+                        self.o.location += sp.delta
 
                     if "C_" in part.type:
                         part.radius = w.r
                     else:
                         part.length = w.length
 
-                    if idx > 0:
-                        part.a0 = w.delta_angle(g.segs[idx - 1])
-
+                    # adjust next one
                     if idx + 1 < d.n_parts:
-                        d.parts[idx + 1].a0 = w.delta_angle(g.segs[idx + 1])
-                        g = d.get_generator()
-
-                    """
-                    dp = w.p1 - pt
-                    # adjust radius from distance between points..
-                    # use p0-p1 distance and angle as reference
-                    if "C_" in part.type:
-                        dw = w.p1 - w.p0
-                        part.radius = part.radius / dw.length * dp.length
-                        da1 = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                    else:
-                        part.length = dp.length
-                        da1 = atan2(dp.y, dp.x) - w.straight(1).angle
-
-                    a0 = part.a0 + da1 - da
-                    if a0 > pi:
-                        a0 -= 2 * pi
-                    if a0 < -pi:
-                        a0 += 2 * pi
-                    # print("a0:%.4f part.a0:%.4f da:%.4f" % (a0, part.a0, da))
-                    part.a0 = a0
-
-                    # move object when point 0
-                    if idx == 0:
-                        self.o.location += sp.delta
-                    """
-                    """
-                    # adjust rotation on both sides of next segment
-                    if idx + 1 < d.n_parts:
-
-                        part = d.parts[idx + 1]
-                        a0 = part.a0 - da1
-                        if a0 > pi:
-                            a0 -= 2 * pi
-                        if a0 < -pi:
-                            a0 += 2 * pi
-                        part.a0 = a0
-
-                        # refresh wall data for next loop
-                        g = d.get_generator()
+                        d.parts[idx + 1].a0 = g.segs[idx + 1].delta_angle(w)
 
                 idx += 1
 
@@ -1984,10 +1980,6 @@ class archipack_manipulator(PropertyGroup):
 # Define Manipulable to make a PropertyGroup manipulable
 # ------------------------------------------------------------------
 
-class ArchipackStore:
-    # current manipulated object
-    manipulable = None
-
 
 class ARCHIPACK_OT_manipulate(Operator):
     bl_idname = "archipack.manipulate"
@@ -1995,12 +1987,34 @@ class ARCHIPACK_OT_manipulate(Operator):
     bl_description = "Manipulate"
     bl_options = {'REGISTER', 'UNDO'}
 
+    object_name = StringProperty(default="")
+
     @classmethod
     def poll(self, context):
         return context.active_object is not None
 
     def modal(self, context, event):
-        return ArchipackStore.manipulable.manipulable_modal(context, event)
+        global manips
+        # Exit on stack change
+        # handle multiple object stack
+        # use object_name property to find manupulated object in stack
+        # select and make object active
+        # and exit when not found
+        key = self.object_name
+        if check_stack(key):
+            remove_manipulable(key)
+            # print("modal exit by check_stack(%s)" % (key))
+            if context.area is not None:
+                context.area.tag_redraw()
+            return {'FINISHED'}
+
+        res = manips[key].manipulable.manipulable_modal(context, event)
+        if 'FINISHED' in res:
+            # print("modal exit by {FINISHED}")
+            if context.area is not None:
+                context.area.tag_redraw()
+            remove_manipulable(key)
+        return res
 
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
@@ -2014,7 +2028,7 @@ class ARCHIPACK_OT_manipulate(Operator):
 class ARCHIPACK_OT_disable_manipulate(Operator):
     bl_idname = "archipack.disable_manipulate"
     bl_label = "Disable Manipulate"
-    bl_description = "Disable any active manipulate"
+    bl_description = "Disable any active manipulator"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -2022,11 +2036,8 @@ class ARCHIPACK_OT_disable_manipulate(Operator):
         return True
 
     def execute(self, context):
-        if ArchipackStore.manipulable is not None and ArchipackStore.manipulable.manipulate_mode:
-            ArchipackStore.manipulable.manipulable_disable(context)
-            return {'FINISHED'}
-        else:
-            return {'CANCELLED'}
+        empty_stack()
+        return {'FINISHED'}
 
 
 class Manipulable():
@@ -2078,27 +2089,17 @@ class Manipulable():
     def manipulable_draw_callback(self, _self, context):
         self.manipulable_area.draw(context)
 
-    def manipulable_getstack(self, context):
-        o = context.active_object
-        if o is not None:
-            self.manip_stack = get_stack(o.name)
-
     def manipulable_disable(self, context):
         """
             disable gl draw handlers
         """
-        # prevent complex objects manipulators
-        # update while not manipulating to
-        # kill the stack
-        if self.manipulate_mode:
-            empty_stack()
+        o = context.active_object
+        if o is not None:
+            remove_manipulable(o.name)
+            self.manip_stack = add_manipulable(o.name, self)
 
         self.manipulate_mode = False
         self.select_mode = False
-
-        o = context.active_object
-        if o is not None:
-            self.manip_stack = get_stack(o.name)
 
     def manipulable_setup(self, context):
         """
@@ -2111,13 +2112,16 @@ class Manipulable():
             self.manip_stack.append(m.setup(context, o, self))
 
     def _manipulable_invoke(self, context):
-        
-        ArchipackStore.manipulable = self
-        
+
+        object_name = context.active_object.name
+
+        # store a reference to self for operators
+        add_manipulable(object_name, self)
+
         # take care of context switching
         # when call from outside of 3d view
         if context.space_data.type == 'VIEW_3D':
-            bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
+            bpy.ops.archipack.manipulate('INVOKE_DEFAULT', object_name=object_name)
         else:
             ctx = context.copy()
             for window in bpy.context.window_manager.windows:
@@ -2130,7 +2134,7 @@ class Manipulable():
                                 ctx['region'] = region
                         break
             if ctx is not None:
-                bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT')
+                bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT', object_name=object_name)
 
     def manipulable_invoke(self, context):
         """
@@ -2141,15 +2145,16 @@ class Manipulable():
 
         """
         # print("manipulable_invoke self.manipulate_mode:%s" % (self.manipulate_mode))
+
         if self.manipulate_mode:
             self.manipulable_disable(context)
             return False
-        else:
-            bpy.ops.archipack.disable_manipulate()
-            
-        self.manip_stack = []
+        # else:
+        #    bpy.ops.archipack.disable_manipulate('INVOKE_DEFAULT')
+
+        # self.manip_stack = []
         # kills other's manipulators
-        self.manipulate_mode = True
+        # self.manipulate_mode = True
         self.manipulable_setup(context)
         self.manipulate_mode = True
 
@@ -2170,6 +2175,10 @@ class Manipulable():
             self.manipulable_refresh = False
             self.manipulable_setup(context)
             self.manipulate_mode = True
+
+        if context.area is None:
+            self.manipulable_disable(context)
+            return {'FINISHED'}
 
         context.area.tag_redraw()
 
@@ -2194,7 +2203,7 @@ class Manipulable():
             # to delete / duplicate / link duplicate / unlink of
             # a complete set of wall, doors and windows at once
             self.manipulable_disable(context)
-            
+
             if bpy.ops.object.delete.poll():
                 bpy.ops.object.delete('INVOKE_DEFAULT', use_global=False)
 
@@ -2283,7 +2292,7 @@ class Manipulable():
                         manipulator.select(self.manipulable_area)
             # keep focus to prevent left select mouse to actually move object
             return {'RUNNING_MODAL'}
-        
+
         # event.alt here to prevent 3 button mouse emulation exit while zooming
         if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS' and not event.alt:
             self.manipulable_disable(context)
@@ -2313,12 +2322,17 @@ class Manipulable():
         return
 
 
+@persistent
+def cleanup(dummy=None):
+    empty_stack()
+
+
 def register():
     # Register default manipulators
-    global manip_stack
+    global manips
     global manipulators_class_lookup
     manipulators_class_lookup = {}
-    manip_stack = {}
+    manips = {}
     register_manipulator('SIZE', SizeManipulator)
     register_manipulator('SIZE_LOC', SizeLocationManipulator)
     register_manipulator('ANGLE', AngleManipulator)
@@ -2337,15 +2351,17 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.register_class(archipack_manipulator)
-    bpy.app.handlers.load_pre.append(empty_stack)
+    bpy.app.handlers.load_pre.append(cleanup)
 
 
 def unregister():
-    global manip_stack
+    global manips
     global manipulators_class_lookup
+    empty_stack()
+    del manips
+    manipulators_class_lookup.clear()
     del manipulators_class_lookup
-    del manip_stack
     bpy.utils.unregister_class(ARCHIPACK_OT_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.unregister_class(archipack_manipulator)
-    bpy.app.handlers.load_pre.remove(empty_stack)
+    bpy.app.handlers.load_pre.remove(cleanup)

@@ -30,6 +30,15 @@ from bpy.props import EnumProperty
 from mathutils import Vector
 from .materialutils import MaterialUtils
 
+from os import path
+
+
+def debug_using_gl(context, filename):
+    context.scene.update()
+    temp_path = "C:\\tmp\\"
+    context.scene.render.filepath = path.join(temp_path, filename + ".png")
+    bpy.ops.render.opengl(write_still=True)
+
 
 class ArchipackBoolManager():
     """
@@ -127,18 +136,23 @@ class ArchipackBoolManager():
         if self.mode != 'ROBUST':
             hole = self.get_child_hole(o)
             if hole is not None:
+                # print("_generate_hole Use existing hole %s" % (hole.name))
                 return hole
         # generate single hole from archipack primitives
         d = self.datablock(o)
         hole = None
         if d is not None:
-            # Keep separate as contains rules may vary from window to doors
-            if ((self._contains(o.location) or
-                 self._contains(o.matrix_world * Vector((0, 0, 0.5 * d.z))))):
+            if (self.itM is not None and (
+                    self._contains(o.location) or
+                    self._contains(o.matrix_world * Vector((0, 0, 0.5 * d.z))))
+                    ):
                 if self.mode != 'ROBUST':
                     hole = d.interactive_hole(context, o)
                 else:
                     hole = d.robust_hole(context, o.matrix_world)
+                # print("_generate_hole Generate hole %s" % (hole.name))
+            else:
+                hole = d.interactive_hole(context, o)
         return hole
 
     def partition(self, array, begin, end):
@@ -173,6 +187,7 @@ class ArchipackBoolManager():
         return [o[0] for o in holes]
 
     def difference(self, basis, hole, solver=None):
+        # print("difference %s" % (hole.name))
         m = basis.modifiers.new('AutoBoolean', 'BOOLEAN')
         m.operation = 'DIFFERENCE'
         if solver is None:
@@ -182,14 +197,18 @@ class ArchipackBoolManager():
         m.object = hole
 
     def union(self, basis, hole):
+        # print("union %s" % (hole.name))
         m = basis.modifiers.new('AutoMerge', 'BOOLEAN')
         m.operation = 'UNION'
         m.solver = self.solver_mode
         m.object = hole
 
     def remove_modif_and_object(self, context, o, to_delete):
+        # print("remove_modif_and_object removed:%s" % (len(to_delete)))
         for m, h in to_delete:
             if m is not None:
+                if m.object is not None:
+                    m.object = None
                 o.modifiers.remove(m)
             if h is not None:
                 context.scene.objects.unlink(h)
@@ -197,17 +216,18 @@ class ArchipackBoolManager():
 
     # Mixed
     def create_merge_basis(self, context, wall):
+        # print("create_merge_basis")
         h = bpy.data.meshes.new("AutoBoolean")
         hole_obj = bpy.data.objects.new("AutoBoolean", h)
         context.scene.objects.link(hole_obj)
-        hole_obj['archipack_hybriddhole'] = True
+        hole_obj['archipack_hybridhole'] = True
         if wall.parent is not None:
             hole_obj.parent = wall.parent
         hole_obj.matrix_world = wall.matrix_world.copy()
         MaterialUtils.add_wall2_materials(hole_obj)
         return hole_obj
 
-    def update_mixed(self, context, wall, childs, holes):
+    def update_hybrid(self, context, wall, childs, holes):
         """
             Update all holes modifiers
             remove holes not found in childs
@@ -248,10 +268,10 @@ class ArchipackBoolManager():
             hole_obj = self.create_merge_basis(context, wall)
         else:
             hole_obj = m.object
-
+        # debug_using_gl(context, "260")
         m.object = hole_obj
         self.prepare_hole(hole_obj)
-
+        # debug_using_gl(context, "263")
         to_delete = []
 
         # mixed-> mixed
@@ -264,11 +284,12 @@ class ArchipackBoolManager():
 
         # remove modifier and holes not found in new list
         self.remove_modif_and_object(context, hole_obj, to_delete)
-
+        # debug_using_gl(context, "276")
         # add modifier and holes not found in existing
         for h in holes:
             if h not in existing:
                 self.union(hole_obj, h)
+        # debug_using_gl(context, "281")
 
     # Interactive
     def update_interactive(self, context, wall, childs, holes):
@@ -282,7 +303,7 @@ class ArchipackBoolManager():
         # mixed-> interactive
         for m in wall.modifiers:
             if m.type == 'BOOLEAN':
-                if m.object is not None and 'archipack_hybriddhole' in m.object:
+                if m.object is not None and 'archipack_hybridhole' in m.object:
                     hole_obj = m.object
                     break
 
@@ -337,7 +358,7 @@ class ArchipackBoolManager():
                     to_delete.append([None, m.object])
                 elif 'archipack_hole' in m.object:
                     to_delete.append([m, m.object])
-                elif 'archipack_hybriddhole' in m.object:
+                elif 'archipack_hybridhole' in m.object:
                     to_delete.append([m, m.object])
                     o = m.object
                     for m in o.modifiers:
@@ -382,12 +403,13 @@ class ArchipackBoolManager():
             if h is not None:
                 holes.append(h)
                 childs.append(o)
-
+        # debug_using_gl(context, "395")
         self.sort_holes(wall, holes)
 
         # hole(s) are selected and active after this one
         for hole in holes:
             self.prepare_hole(hole)
+        # debug_using_gl(context, "401")
 
         # update / remove / add  boolean modifier
         if self.mode == 'INTERACTIVE':
@@ -395,7 +417,7 @@ class ArchipackBoolManager():
         elif self.mode == 'ROBUST':
             self.update_robust(context, wall, childs)
         else:
-            self.update_mixed(context, wall, childs, holes)
+            self.update_hybrid(context, wall, childs, holes)
 
         bpy.ops.object.select_all(action='DESELECT')
         # parenting childs to wall reference point
@@ -408,25 +430,27 @@ class ArchipackBoolManager():
         else:
             wall.parent.select = True
             context.scene.objects.active = wall.parent
-
+        # debug_using_gl(context, "422")
         wall.select = True
         for o in childs:
             if 'archipack_robusthole' in o:
                 o.hide_select = False
             o.select = True
+        # debug_using_gl(context, "428")
 
         bpy.ops.archipack.parent_to_reference()
 
         for o in childs:
             if 'archipack_robusthole' in o:
                 o.hide_select = True
+        # debug_using_gl(context, "435")
 
     def detect_mode(self, context, wall):
         for m in wall.modifiers:
             if m.type == 'BOOLEAN' and m.object is not None:
                 if 'archipack_hole' in m.object:
                     self.mode = 'INTERACTIVE'
-                if 'archipack_hybriddhole' in m.object:
+                if 'archipack_hybridhole' in m.object:
                     self.mode = 'HYBRID'
                 if 'archipack_robusthole' in m.object:
                     self.mode = 'ROBUST'
@@ -435,6 +459,7 @@ class ArchipackBoolManager():
         """
             Entry point for single boolean operations
             in use in draw door and windows over wall
+            o is either a window or a door
         """
         # generate holes for crossing window and doors
         self.itM = wall.matrix_world.inverted()
@@ -596,6 +621,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             bpy.ops.object.select_all(action='DESELECT')
             for wall in walls:
                 manager.autoboolean(context, wall)
+                bpy.ops.object.select_all(action='DESELECT')
                 wall.select = True
                 context.scene.objects.active = wall
                 if wall.data is not None and 'archipack_wall2' in wall.data:
@@ -611,11 +637,42 @@ class ARCHIPACK_OT_auto_boolean(Operator):
             return {'CANCELLED'}
 
 
+class ARCHIPACK_OT_generate_hole(Operator):
+    bl_idname = "archipack.generate_hole"
+    bl_label = "Generate hole"
+    bl_description = "Generate interactive hole for doors and windows"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            manager = ArchipackBoolManager(mode='HYBRID')
+            o = context.active_object
+            d = manager.datablock(o)
+            if d is None:
+                self.report({'WARNING'}, "Archipack: active object must be a door or a window")
+                return {'CANCELLED'}
+            bpy.ops.object.select_all(action='DESELECT')
+            o.select = True
+            context.scene.objects.active = o
+            hole = manager._generate_hole(context, o)
+            manager.prepare_hole(hole)
+            hole.select = False
+            o.select = True
+            context.scene.objects.active = o
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+
 def register():
+    bpy.utils.register_class(ARCHIPACK_OT_generate_hole)
     bpy.utils.register_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
 
 
 def unregister():
+    bpy.utils.unregister_class(ARCHIPACK_OT_generate_hole)
     bpy.utils.unregister_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.unregister_class(ARCHIPACK_OT_auto_boolean)

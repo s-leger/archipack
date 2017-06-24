@@ -100,7 +100,6 @@ class ARCHIPACK_PT_reference_point(Panel):
         else:
             layout.operator('archipack.move_to_2d')
 
-
 class ARCHIPACK_OT_reference_point(Operator):
     """Add reference point"""
     bl_idname = "archipack.reference_point"
@@ -260,8 +259,9 @@ class ARCHIPACK_OT_parent_to_reference(Operator):
             props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
-            sel = [obj for obj in context.selected_objects if obj != o]
+            sel = [obj for obj in context.selected_objects if obj != o and obj.parent != o]
             itM = o.matrix_world.inverted()
+            # print("parent_to_reference parenting:%s objects" % (len(sel)))
             for child in sel:
                 rs = child.matrix_world.to_3x3().to_4x4()
                 loc = itM * child.matrix_world.translation

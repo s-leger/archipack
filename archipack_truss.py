@@ -140,9 +140,9 @@ class archipack_truss(ArchipackObject, Manipulable, PropertyGroup):
 
     def update(self, context):
 
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
 
         self.setup_manipulators()
@@ -270,17 +270,8 @@ class archipack_truss(ArchipackObject, Manipulable, PropertyGroup):
 
         bmed.buildmesh(context, o, verts, faces, matids=None, uvs=None, weld=False)
         self.manipulators[0].set_pts([(0, 0, 0), (0, 0, self.z), (1, 0, 0)])
-        bpy.ops.object.shade_smooth()
 
-        # restore context
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
 
 class ARCHIPACK_PT_truss(Panel):
@@ -290,6 +281,10 @@ class ARCHIPACK_PT_truss(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
+
+    @classmethod
+    def poll(cls, context):
+        return archipack_truss.filter(context.active_object)
 
     def draw(self, context):
         prop = archipack_truss.datablock(context.active_object)
@@ -308,10 +303,6 @@ class ARCHIPACK_PT_truss(Panel):
             box.prop(prop, 'master_radius')
             box.prop(prop, 'slaves_radius')
             box.prop(prop, 'entre_axe')
-
-    @classmethod
-    def poll(cls, context):
-        return archipack_truss.filter(context.active_object)
 
 
 class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
@@ -333,8 +324,6 @@ class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
         self.load_preset(d)
         self.add_material(o)
         m.auto_smooth_angle = 1.15
-        m.use_auto_smooth = True
-        # MaterialUtils.add_wall_materials(o)
         return o
 
     # -----------------------------------------------------

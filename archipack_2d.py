@@ -26,9 +26,16 @@
 # ----------------------------------------------------------
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt, acos
+import bpy
+# allow to draw parts with gl for debug puropses
+from .archipack_gl import GlBaseLine
 
 
-class Projection():
+class Projection(GlBaseLine):
+
+    def __init__(self):
+        GlBaseLine.__init__(self)
+
     def proj_xy(self, t, next=None):
         """
             length of projection of sections at crossing line / circle intersections
@@ -99,6 +106,7 @@ class Line(Projection):
             Will convert any into Vector 2d
             both optionnals
         """
+        Projection.__init__(self)
         if p is not None and v is not None:
             self.p = Vector(p).to_2d()
             self.v = Vector(v).to_2d()
@@ -183,13 +191,9 @@ class Line(Projection):
     def cross(self):
         return Vector((self.v.y, -self.v.x))
 
-    @property
-    def pts(self):
-        return [self.p0, self.p1]
-
     def signed_angle(self, u, v):
         """
-            signed angle between two vectors
+            signed angle between two vectors range [-pi, pi]
         """
         return atan2(u.x * v.y - u.y * v.x, u.x * v.x + u.y * v.y)
 
@@ -200,7 +204,7 @@ class Line(Projection):
         """
         if last is None:
             return self.angle
-        return self.signed_angle(last.straight(1).v, self.straight(0).v)
+        return self.signed_angle(last.straight(1, 1).v, self.straight(1, 0).v)
 
     def normal(self, t=0):
         """
@@ -287,12 +291,19 @@ class Line(Projection):
     def straight(self, length, t=1):
         return Line(self.lerp(t), self.v.normalized() * length)
 
-    def rotate(self, da):
-        cs = cos(da)
-        sn = sin(da)
-        x, y = self.v
-        self.v.x = x * cs - y * sn
-        self.v.y = x * sn + y * cs
+    def translate(self, dp):
+        self.p += dp
+
+    def rotate(self, a):
+        """
+            Rotate segment ccw arroud p0
+        """
+        ca = cos(a)
+        sa = sin(a)
+        self.v = Matrix([
+            [ca, -sa],
+            [sa, ca]
+            ]) * self.v
         return self
 
     def scale(self, length):
@@ -302,12 +313,12 @@ class Line(Projection):
     def tangeant_unit_vector(self, t):
         return self.v.normalized()
 
-    def draw(self, context):
+    def as_curve(self, context):
         """
             Draw Line with open gl in screen space
             aka: coords are in pixels
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def make_offset(self, offset, last=None):
         """
@@ -319,7 +330,7 @@ class Line(Projection):
         if last is None:
             return line
 
-        if type(last).__name__ == 'Arc':
+        if hasattr(last, "r"):
             res, d, t = line.point_sur_segment(last.c)
             c = (last.r * last.r) - (d * d)
             print("t:%s" % t)
@@ -369,9 +380,14 @@ class Line(Projection):
 
         return line
 
+    @property
+    def pts(self):
+        return [self.p0.to_3d(), self.p1.to_3d()]
+
 
 class Circle(Projection):
     def __init__(self, c, radius):
+        Projection.__init__(self)
         self.r = radius
         self.r2 = radius * radius
         self.c = c
@@ -398,6 +414,9 @@ class Circle(Projection):
                 return True, line.lerp(t0), t0
             else:
                 return True, line.lerp(t1), t1
+
+    def translate(self, dp):
+        self.c += dp
 
 
 class Arc(Circle):
@@ -450,9 +469,9 @@ class Arc(Circle):
         """
         if last is None:
             return self.a0
-        return self.signed_angle(last.straight(1).v, self.straight(0).v)
+        return self.signed_angle(last.straight(1, 1).v, self.straight(1, 0).v)
 
-    def rot_scale_matrix(self, u, v):
+    def scale_rot_matrix(self, u, v):
         """
             given vector u and v (from and to p0 p1)
             apply scale factor to radius and
@@ -467,8 +486,8 @@ class Arc(Circle):
         ca = scale * cos(a)
         sa = scale * sin(a)
         return scale, Matrix([
-            [ca, sa],
-            [-sa, ca]
+            [ca, -sa],
+            [sa, ca]
             ])
 
     @property
@@ -493,11 +512,11 @@ class Arc(Circle):
         """
         u = self.p0 - self.p1
         v = p0 - self.p1
-        scale, tM = self.rot_scale_matrix(u, v)
-        self.c = self.p1 + tM * (self.c - self.p1)
+        scale, rM = self.scale_rot_matrix(u, v)
+        self.c = self.p1 + rM * (self.c - self.p1)
         self.r *= scale
         self.r2 = self.r * self.r
-        dp = self.p0 - self.c
+        dp = p0 - self.c
         self.a0 = atan2(dp.y, dp.x)
 
     @p1.setter
@@ -506,13 +525,15 @@ class Arc(Circle):
             rotate and scale arc so it intersect p0 p1
             da is not affected
         """
-        u = self.p1 - self.p0
-        v = p1 - self.p0
-        scale, tM = self.rot_scale_matrix(u, v)
-        self.c = self.p0 + tM * (self.c - self.p0)
+        p0 = self.p0
+        u = self.p1 - p0
+        v = p1 - p0
+
+        scale, rM = self.scale_rot_matrix(u, v)
+        self.c = p0 + rM * (self.c - p0)
         self.r *= scale
         self.r2 = self.r * self.r
-        dp = self.p0 - self.c
+        dp = p0 - self.c
         self.a0 = atan2(dp.y, dp.x)
 
     @property
@@ -607,8 +628,7 @@ class Arc(Circle):
             Return a tangeant Line
             Counterpart on Line also return a Line
         """
-        s = self.tangeant(t, length)
-        return s
+        return self.tangeant(t, length)
 
     def point_sur_segment(self, pt):
         """
@@ -624,25 +644,21 @@ class Arc(Circle):
         t = (a - self.a0) / self.da
         return t > 0 and t < 1, d, t
 
-    def rotate(self, da):
+    def rotate(self, a):
         """
-            Rotate center so we rotate arround start
+            Rotate center so we rotate ccw arround p0
         """
-        cs = cos(da)
-        sn = sin(da)
+        ca = cos(a)
+        sa = sin(a)
         rM = Matrix([
-            [cs, sn],
-            [-sn, cs]
+            [ca, -sa],
+            [sa, ca]
             ])
-        self.c = rM * (self.p0 - self.c)
+        p0 = self.p0
+        self.c = p0 + rM * (self.c - p0)
+        dp = p0 - self.c
+        self.a0 = atan2(dp.y, dp.x)
         return self
-
-    def draw(self, context):
-        """
-            Draw 2d arc with open gl in screen space
-            aka: coords are in pixels
-        """
-        raise NotImplementedError
 
     # make offset for line / arc, arc / arc
     def make_offset(self, offset, last=None):
@@ -652,7 +668,7 @@ class Arc(Circle):
         if last is None:
             return line
 
-        if type(last).__name__ == 'Line':
+        if hasattr(last, "v"):
             # intersect line / arc
             # 1 line -> 2 arc
             res, d, t = last.point_sur_segment(line.c)
@@ -727,6 +743,32 @@ class Arc(Circle):
             line.a0 = atan2(u.y, u.x)
             line.da = self.signed_angle(u, v)
         return line
+
+    # DEBUG
+    @property
+    def pts(self):
+        n_pts = max(1, int(round(abs(self.da) / pi * 30, 0)))
+        t_step = 1 / n_pts
+        return [self.lerp(i * t_step).to_3d() for i in range(n_pts + 1)]
+
+    def as_curve(self, context):
+        """
+            Draw 2d arc with open gl in screen space
+            aka: coords are in pixels
+        """
+        curve = bpy.data.curves.new('ARC', type='CURVE')
+        curve.dimensions = '2D'
+        spline = curve.splines.new('POLY')
+        spline.use_endpoint_u = False
+        spline.use_cyclic_u = False
+        pts = self.pts
+        spline.points.add(len(pts) - 1)
+        for i, p in enumerate(pts):
+            x, y = p
+            spline.points[i].co = (x, y, 0, 1)
+        curve_obj = bpy.data.objects.new('ARC', curve)
+        context.scene.objects.link(curve_obj)
+        curve_obj.select = True
 
 
 class Line3d(Line):

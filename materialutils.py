@@ -107,6 +107,31 @@ class MaterialUtils():
         obj.data.materials.append(glass_mat)
 
     @staticmethod
+    def add_floor_materials(obj):
+        con_mat = MaterialUtils.build_default_mat('Floor_grout', (0.5, 0.5, 0.5))
+        alt1_mat = MaterialUtils.build_default_mat('Floor_alt1', (0.5, 1.0, 1.0))
+        alt2_mat = MaterialUtils.build_default_mat('Floor_alt2', (1.0, 1.0, 1.0))
+        alt3_mat = MaterialUtils.build_default_mat('Floor_alt3', (0.28, 0.2, 0.1))
+        alt4_mat = MaterialUtils.build_default_mat('Floor_alt4', (0.5, 1.0, 1.0))
+        alt5_mat = MaterialUtils.build_default_mat('Floor_alt5', (1.0, 1.0, 0.5))
+        alt6_mat = MaterialUtils.build_default_mat('Floor_alt6', (0.28, 0.5, 0.1))
+        alt7_mat = MaterialUtils.build_default_mat('Floor_alt7', (0.5, 1.0, 0.5))
+        alt8_mat = MaterialUtils.build_default_mat('Floor_alt8', (1.0, 0.2, 1.0))
+        alt9_mat = MaterialUtils.build_default_mat('Floor_alt9', (0.28, 0.2, 0.5))
+        alt10_mat = MaterialUtils.build_default_mat('Floor_alt10', (0.5, 0.2, 0.1))
+        obj.data.materials.append(con_mat)
+        obj.data.materials.append(alt1_mat)
+        obj.data.materials.append(alt2_mat)
+        obj.data.materials.append(alt3_mat)
+        obj.data.materials.append(alt4_mat)
+        obj.data.materials.append(alt5_mat)
+        obj.data.materials.append(alt6_mat)
+        obj.data.materials.append(alt7_mat)
+        obj.data.materials.append(alt8_mat)
+        obj.data.materials.append(alt9_mat)
+        obj.data.materials.append(alt10_mat)
+
+    @staticmethod
     def add_handle_materials(obj):
         metal_mat = MaterialUtils.build_default_mat('metal', (0.4, 0.4, 0.4))
         obj.data.materials.append(metal_mat)

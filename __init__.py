@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 2, 4),
+    'version': (1, 2, 5),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -464,7 +464,7 @@ class TOOLS_PT_Archipack_Create(Panel):
 
     def draw(self, context):
         global icons_collection
-        
+
         addon_updater_ops.check_for_update_background(context)
 
         icons = icons_collection["main"]
@@ -533,20 +533,20 @@ class TOOLS_PT_Archipack_Create(Panel):
                     ).ceiling = True
 
         addon_updater_ops.update_notice_box_ui(self, context)
-        
+
         # row = box.row(align=True)
         # row.operator("archipack.roof", icon='CURVE_DATA')
-        
+
         # toolkit
         # row = box.row(align=True)
         # row.operator("archipack.myobject")
-        
+
         row = box.row(align=True)
         row.operator("archipack.floor_preset_menu",
                     text="Floor",
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
-        
+
 # ----------------------------------------------------
 # ALT + A menu
 # ----------------------------------------------------
@@ -557,7 +557,7 @@ def draw_menu(self, context):
     icons = icons_collection["main"]
     layout = self.layout
     layout.operator_context = 'INVOKE_REGION_WIN'
-    
+
     layout.operator("archipack.wall2",
                     text="Wall",
                     icon_value=icons["wall"].icon_id
@@ -593,16 +593,15 @@ class ARCHIPACK_create_menu(Menu):
     bl_idname = 'ARCHIPACK_create_menu'
 
     def draw(self, context):
-        layout = self.layout
         draw_menu(self, context)
-     
-    
+
+
 def menu_func(self, context):
     layout = self.layout
     layout.separator()
     global icons_collection
     icons = icons_collection["main"]
-    
+
     # either draw sub menu or right at end of this one
     if context.user_preferences.addons[__name__].preferences.create_submenu:
         layout.operator_context = 'INVOKE_REGION_WIN'
@@ -610,7 +609,7 @@ def menu_func(self, context):
     else:
         draw_menu(self, context)
 
-    
+
 # ----------------------------------------------------
 # Datablock to store global addon variables
 # ----------------------------------------------------
@@ -665,7 +664,7 @@ def register():
     update_panel(None, bpy.context)
     bpy.utils.register_class(ARCHIPACK_create_menu)
     bpy.types.INFO_MT_mesh_add.append(menu_func)
-    
+
     addon_updater_ops.register(bl_info)
     # bpy.utils.register_module(__name__)
 
@@ -674,7 +673,7 @@ def unregister():
     global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
     bpy.utils.unregister_class(ARCHIPACK_create_menu)
-    
+
     bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Tools)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
@@ -714,3 +713,4 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+

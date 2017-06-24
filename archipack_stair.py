@@ -1548,7 +1548,7 @@ class archipack_stair_material(PropertyGroup):
         update=update
         )
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
@@ -1563,7 +1563,7 @@ class archipack_stair_material(PropertyGroup):
         return None
 
     def update(self, context):
-        props = self.find_in_selection(context)
+        props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context)
 
@@ -1621,7 +1621,7 @@ class archipack_stair_part(PropertyGroup):
             )
     manipulators = CollectionProperty(type=archipack_manipulator)
 
-    def find_in_selection(self, context):
+    def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
             provide support for "copy to selected"
@@ -1636,7 +1636,7 @@ class archipack_stair_part(PropertyGroup):
         return None
 
     def update(self, context, manipulable_refresh=False):
-        props = self.find_in_selection(context)
+        props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context, manipulable_refresh)
 
@@ -2298,9 +2298,9 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
 
     def update(self, context, manipulable_refresh=False):
 
-        active, selected, o = self.find_in_selection(context)
+        o = self.find_in_selection(context, self.auto_update)
 
-        if o is None or not self.auto_update:
+        if o is None:
             return
 
         # clean up manipulators before any data model change
@@ -2492,24 +2492,12 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
                 self.string_alt, 0, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
-        bpy.ops.object.shade_smooth()
 
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
 
-        # bpy.ops.mesh.select_linked()
-        # bpy.ops.mesh.faces_shade_smooth()
-
-        # restore context
-        try:
-            for o in selected:
-                o.select = True
-        except:
-            pass
-
-        active.select = True
-        context.scene.objects.active = active
+        self.restore_context(context)
 
     def manipulable_setup(self, context):
         """
@@ -2548,6 +2536,10 @@ class ARCHIPACK_PT_stair(Panel):
     bl_region_type = 'UI'
     # bl_context = 'object'
     bl_category = 'ArchiPack'
+
+    @classmethod
+    def poll(cls, context):
+        return archipack_stair.filter(context.active_object)
 
     def draw(self, context):
         prop = archipack_stair.datablock(context.active_object)
@@ -2740,9 +2732,6 @@ class ARCHIPACK_PT_stair(Panel):
         else:
             row.prop(prop, 'idmats_expand', icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
 
-    @classmethod
-    def poll(cls, context):
-        return archipack_stair.filter(context.active_object)
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -2765,9 +2754,7 @@ class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
         context.scene.objects.active = o
         self.load_preset(d)
         self.add_material(o)
-        # auto smooth arround 12 deg fix Tynkatopi smoothing issue ;)
         m.auto_smooth_angle = 0.20944
-        m.use_auto_smooth = True
         return o
 
     # -----------------------------------------------------
@@ -2839,7 +2826,6 @@ def register():
     bpy.utils.register_class(archipack_stair_part)
     bpy.utils.register_class(archipack_stair)
     Mesh.archipack_stair = CollectionProperty(type=archipack_stair)
-    # bpy.utils.register_class(ARCHIPACK_MT_stair_preset)
     bpy.utils.register_class(ARCHIPACK_PT_stair)
     bpy.utils.register_class(ARCHIPACK_OT_stair)
     bpy.utils.register_class(ARCHIPACK_OT_stair_preset_menu)
@@ -2852,7 +2838,6 @@ def unregister():
     bpy.utils.unregister_class(archipack_stair_part)
     bpy.utils.unregister_class(archipack_stair)
     del Mesh.archipack_stair
-    # bpy.utils.unregister_class(ARCHIPACK_MT_stair_preset)
     bpy.utils.unregister_class(ARCHIPACK_PT_stair)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset_menu)

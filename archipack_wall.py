@@ -28,13 +28,14 @@ import bpy
 import bmesh
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import FloatProperty, CollectionProperty
+from .archipack_object import ArchipackObject
 
 
 def update_wall(self, context):
     self.update(context)
 
 
-class archipack_wall(PropertyGroup):
+class archipack_wall(ArchipackObject, PropertyGroup):
     z = FloatProperty(
             name='height',
             min=0.1, max=10000,
@@ -47,7 +48,7 @@ class archipack_wall(PropertyGroup):
         # this should be the rule for other simple objects
         # as long as there is no topologic changes
         o = context.active_object
-        if ARCHIPACK_PT_wall.params(o) != self:
+        if archipack_wall.datablock(o) != self:
             return
         bpy.ops.object.mode_set(mode='EDIT')
         me = o.data
@@ -71,40 +72,18 @@ class ARCHIPACK_PT_wall(Panel):
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
 
-    def draw(self, context):
-        o = context.object
-        if not ARCHIPACK_PT_wall.filter(o):
-            return
-        layout = self.layout
-        prop = o.data.archipack_wall[0]
-        layout.prop(prop, 'z')
-
-    @classmethod
-    def params(cls, o):
-        try:
-            if 'archipack_wall' not in o.data:
-                return False
-            else:
-                return o.data.archipack_wall[0]
-        except:
-            return False
-
-    @classmethod
-    def filter(cls, o):
-        try:
-            if 'archipack_wall' not in o.data:
-                return False
-            else:
-                return True
-        except:
-            return False
-
     @classmethod
     def poll(cls, context):
-        o = context.object
-        if o is None:
-            return False
-        return cls.filter(o)
+        return archipack_wall.filter(context.active_object)
+
+    def draw(self, context):
+
+        prop = archipack_wall.datablock(context.active_object)
+        if prop is None:
+            return
+        layout = self.layout
+        layout.prop(prop, 'z')
+
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -134,7 +113,7 @@ class ARCHIPACK_OT_wall(Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            if ARCHIPACK_PT_wall.filter(o):
+            if archipack_wall.filter(o):
                 return {'CANCELLED'}
             params = o.data.archipack_wall.add()
             params.z = self.z
