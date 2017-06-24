@@ -100,7 +100,6 @@ class ARCHIPACK_PT_reference_point(Panel):
         else:
             layout.operator('archipack.move_to_2d')
 
-
 class ARCHIPACK_OT_reference_point(Operator):
     """Add reference point"""
     bl_idname = "archipack.reference_point"
@@ -200,7 +199,7 @@ class ARCHIPACK_OT_store_2d_reference(Operator):
     def poll(cls, context):
         return archipack_reference_point.filter(context.active_object)
 
-def execute(self, context):
+    def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
             props = archipack_reference_point.datablock(o)

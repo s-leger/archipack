@@ -50,40 +50,86 @@ handle_size = 10
 
 # a global manipulator stack reference
 # prevent Blender "ACCESS_VIOLATION" crashes
-# use a dict to prevent potential
-# collisions between many objects being in
-# manipulate mode (at create time)
+# use a dict to prevent collisions
+# between many objects being in manipulate mode
 # use object names as loose keys
 # NOTE : use app.drivers to reset before file load
-manip_stack = {}
+manips = {}
 
+
+class ArchipackActiveManip:
+    """
+        Store manipulated object
+    """
+    def __init__(self, object_name):
+        self.object_name = object_name
+        # manipulators stack for object
+        self.stack = []
+        # reference to object manipulable instance
+        self.manipulable = None
+
+    @property
+    def dirty(self):
+        return (
+            self.manipulable is None or
+            len(self.stack) < 1 or
+            bpy.data.objects.find(self.object_name) < 0
+            )
+
+    def exit(self):
+        for m in self.stack:
+            if m is not None:
+                m.exit()
+        if self.manipulable is not None:
+            self.manipulable.manipulate_mode = False
+            self.manipulable = None
+        self.object_name = ""
+        self.stack.clear()
+
+
+def remove_manipulable(key):
+    global manips
+    # print("remove_manipulable key:%s" % (key))
+    if key in manips.keys():
+        manips[key].exit()
+        manips.pop(key)
+
+
+def check_stack(key):
+    """
+        check for stack item validity
+        use in modal to destroy invalid modals
+        return true when invalid / not found
+        false when valid
+    """
+    global manips
+    if key not in manips.keys():
+        # print("check_stack : key not found %s" % (key))
+        return True
+    elif manips[key].dirty:
+        # print("check_stack : key.dirty %s" % (key))
+        remove_manipulable(key)
+        return True
+
+    return False
 
 
 def empty_stack():
-    """
-        Empty manipulators stack on file load
-    """
-    global manip_stack
-    for key in manip_stack.keys():
-        for m in manip_stack[key]:
-            if m is not None:
-                m.exit()
-    manip_stack = {}
+    # print("empty_stack()")
+    global manips
+    for key in manips.keys():
+        manips[key].exit()
+    manips.clear()
 
 
-def in_stack(key):
-    global manip_stack
-    return key in manip_stack.keys()
+def add_manipulable(key, manipulable):
+    global manips
+    if key not in manips.keys():
+        # print("add_manipulable() key:%s not found create new" % (key))
+        manips[key] = ArchipackActiveManip(key)
 
-
-def get_stack(key):
-    """
-        return reference to manipulator stack for given object
-    """
-    global manip_stack
-    if key not in manip_stack.keys():
-        manip_stack[key] = []
-    return manip_stack[key]
+    manips[key].manipulable = manipulable
+    return manips[key].stack
 
 
 # ------------------------------------------------------------------
@@ -549,7 +595,7 @@ class WallSnapManipulator(Manipulator):
 
     def mouse_press(self, context, event):
         global gl_pts3d
-        global manip_stack
+        global manips
         if self.handle.hover:
             self.active = True
             self.handle.active = True
@@ -558,7 +604,7 @@ class WallSnapManipulator(Manipulator):
 
             # get selected manipulators idx
             selection = []
-            for m in manip_stack[self.o.name]:
+            for m in manips[self.o.name].stack:
                 if m is not None and m.selected:
                     selection.append(int(m.manipulator.prop1_name))
 
@@ -620,7 +666,7 @@ class WallSnapManipulator(Manipulator):
             # rotation relative to object
             rM = self.o.matrix_world.inverted().to_3x3()
             delta = (rM * sp.delta).to_2d()
-            x_axis = (rM * Vector((1, 0, 0))).to_2d()
+            # x_axis = (rM * Vector((1, 0, 0))).to_2d()
 
             # update generator
             idx = 0
@@ -1934,10 +1980,6 @@ class archipack_manipulator(PropertyGroup):
 # Define Manipulable to make a PropertyGroup manipulable
 # ------------------------------------------------------------------
 
-class ArchipackStore:
-    # current manipulated object
-    manipulable = None
-
 
 class ARCHIPACK_OT_manipulate(Operator):
     bl_idname = "archipack.manipulate"
@@ -1945,12 +1987,34 @@ class ARCHIPACK_OT_manipulate(Operator):
     bl_description = "Manipulate"
     bl_options = {'REGISTER', 'UNDO'}
 
+    object_name = StringProperty(default="")
+
     @classmethod
     def poll(self, context):
         return context.active_object is not None
 
     def modal(self, context, event):
-        return ArchipackStore.manipulable.manipulable_modal(context, event)
+        global manips
+        # Exit on stack change
+        # handle multiple object stack
+        # use object_name property to find manupulated object in stack
+        # select and make object active
+        # and exit when not found
+        key = self.object_name
+        if check_stack(key):
+            remove_manipulable(key)
+            # print("modal exit by check_stack(%s)" % (key))
+            if context.area is not None:
+                context.area.tag_redraw()
+            return {'FINISHED'}
+
+        res = manips[key].manipulable.manipulable_modal(context, event)
+        if 'FINISHED' in res:
+            # print("modal exit by {FINISHED}")
+            if context.area is not None:
+                context.area.tag_redraw()
+            remove_manipulable(key)
+        return res
 
     def invoke(self, context, event):
         if context.space_data.type == 'VIEW_3D':
@@ -1964,7 +2028,7 @@ class ARCHIPACK_OT_manipulate(Operator):
 class ARCHIPACK_OT_disable_manipulate(Operator):
     bl_idname = "archipack.disable_manipulate"
     bl_label = "Disable Manipulate"
-    bl_description = "Disable any active manipulate"
+    bl_description = "Disable any active manipulator"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -1972,11 +2036,8 @@ class ARCHIPACK_OT_disable_manipulate(Operator):
         return True
 
     def execute(self, context):
-        if ArchipackStore.manipulable is not None and ArchipackStore.manipulable.manipulate_mode:
-            ArchipackStore.manipulable.manipulable_disable(context)
-            return {'FINISHED'}
-        else:
-            return {'CANCELLED'}
+        empty_stack()
+        return {'FINISHED'}
 
 
 class Manipulable():
@@ -2028,27 +2089,17 @@ class Manipulable():
     def manipulable_draw_callback(self, _self, context):
         self.manipulable_area.draw(context)
 
-    def manipulable_getstack(self, context):
-        o = context.active_object
-        if o is not None:
-            self.manip_stack = get_stack(o.name)
-
     def manipulable_disable(self, context):
         """
             disable gl draw handlers
         """
-        # prevent complex objects manipulators
-        # update while not manipulating to
-        # kill the stack
-        if self.manipulate_mode:
-            empty_stack()
+        o = context.active_object
+        if o is not None:
+            remove_manipulable(o.name)
+            self.manip_stack = add_manipulable(o.name, self)
 
         self.manipulate_mode = False
         self.select_mode = False
-
-        o = context.active_object
-        if o is not None:
-            self.manip_stack = get_stack(o.name)
 
     def manipulable_setup(self, context):
         """
@@ -2062,12 +2113,15 @@ class Manipulable():
 
     def _manipulable_invoke(self, context):
 
-        ArchipackStore.manipulable = self
+        object_name = context.active_object.name
+
+        # store a reference to self for operators
+        add_manipulable(object_name, self)
 
         # take care of context switching
         # when call from outside of 3d view
         if context.space_data.type == 'VIEW_3D':
-            bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
+            bpy.ops.archipack.manipulate('INVOKE_DEFAULT', object_name=object_name)
         else:
             ctx = context.copy()
             for window in bpy.context.window_manager.windows:
@@ -2080,7 +2134,7 @@ class Manipulable():
                                 ctx['region'] = region
                         break
             if ctx is not None:
-                bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT')
+                bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT', object_name=object_name)
 
     def manipulable_invoke(self, context):
         """
@@ -2091,15 +2145,16 @@ class Manipulable():
 
         """
         # print("manipulable_invoke self.manipulate_mode:%s" % (self.manipulate_mode))
+
         if self.manipulate_mode:
             self.manipulable_disable(context)
             return False
-        else:
-            bpy.ops.archipack.disable_manipulate()
+        # else:
+        #    bpy.ops.archipack.disable_manipulate('INVOKE_DEFAULT')
 
-        self.manip_stack = []
+        # self.manip_stack = []
         # kills other's manipulators
-        self.manipulate_mode = True
+        # self.manipulate_mode = True
         self.manipulable_setup(context)
         self.manipulate_mode = True
 
@@ -2120,11 +2175,11 @@ class Manipulable():
             self.manipulable_refresh = False
             self.manipulable_setup(context)
             self.manipulate_mode = True
-        
+
         if context.area is None:
             self.manipulable_disable(context)
             return {'FINISHED'}
-            
+
         context.area.tag_redraw()
 
         if self.keymap is None:
@@ -2269,18 +2324,15 @@ class Manipulable():
 
 @persistent
 def cleanup(dummy=None):
-    global ArchipackStore
-    if ArchipackStore.manipulable is not None and ArchipackStore.manipulable.manipulate_mode:
-        ArchipackStore.manipulable.manipulable_disable(bpy.context)
     empty_stack()
 
 
 def register():
     # Register default manipulators
-    global manip_stack
+    global manips
     global manipulators_class_lookup
     manipulators_class_lookup = {}
-    manip_stack = {}
+    manips = {}
     register_manipulator('SIZE', SizeManipulator)
     register_manipulator('SIZE_LOC', SizeLocationManipulator)
     register_manipulator('ANGLE', AngleManipulator)
@@ -2303,10 +2355,12 @@ def register():
 
 
 def unregister():
-    global manip_stack
+    global manips
     global manipulators_class_lookup
+    empty_stack()
+    del manips
+    manipulators_class_lookup.clear()
     del manipulators_class_lookup
-    del manip_stack
     bpy.utils.unregister_class(ARCHIPACK_OT_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.unregister_class(archipack_manipulator)
