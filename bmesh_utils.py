@@ -108,26 +108,24 @@ class BmeshEdit():
         bm = BmeshEdit._start(context, o)
         nv = len(bm.verts)
         nf = len(bm.faces)
-        
+
         for v in verts:
             bm.verts.new(v)
-        
+
         bm.verts.ensure_lookup_table()
-        
+
         for f in faces:
             bm.faces.new([bm.verts[nv + i] for i in f])
-        
+
         bm.faces.ensure_lookup_table()
-        
+
         if matids is not None:
             for i, matid in enumerate(matids):
                 bm.faces[nf + i].material_index = matid
-        
+
         if uvs is not None:
             layer = bm.loops.layers.uv.verify()
-            l_i = len(uvs)
             for i, face in enumerate(bm.faces[nf:]):
-                l_j = len(uvs[i])
                 for j, loop in enumerate(face.loops):
                     loop[layer].uv = uvs[i][j]
 
@@ -144,12 +142,6 @@ class BmeshEdit():
         if clean:
             bpy.ops.mesh.delete_loose()
         bpy.ops.object.mode_set(mode='OBJECT')
-
-    """
-from archipack.bmesh_utils import BmeshEdit as bmed
-bmed.solidify(C, C.active_object, 0.1)
-bmed.bevel(C, C.active_object, 0.002)
-    """
 
     @staticmethod
     def bevel(context, o,
@@ -192,7 +184,7 @@ bmed.bevel(C, C.active_object, 0.002)
 
         bm.to_mesh(o.data)
         bm.free()
-    
+
     @staticmethod
     def bissect(context, o,
             plane_co,
@@ -202,14 +194,14 @@ bmed.bevel(C, C.active_object, 0.002)
             clear_outer=True,
             clear_inner=False
             ):
-        
+
         bm = bmesh.new()
         bm.from_mesh(o.data)
         bm.verts.ensure_lookup_table()
         geom = bm.verts[:]
         geom.extend(bm.edges[:])
         geom.extend(bm.faces[:])
-        
+
         bmesh.ops.bisect_plane(bm,
             geom=geom,
             dist=dist,
@@ -222,17 +214,21 @@ bmed.bevel(C, C.active_object, 0.002)
 
         bm.to_mesh(o.data)
         bm.free()
-    
+
     @staticmethod
-    def solidify(context, o, amt):
+    def solidify(context, o, amt, floor_bottom=False, altitude=0):
         bm = bmesh.new()
         bm.from_mesh(o.data)
         bm.verts.ensure_lookup_table()
         geom = bm.faces[:]
         bmesh.ops.solidify(bm, geom=geom, thickness=amt)
+        if floor_bottom:
+            for v in bm.verts:
+                if not v.select:
+                    v.co.z = altitude
         bm.to_mesh(o.data)
         bm.free()
-        
+
     @staticmethod
     def verts(context, o, verts):
         """

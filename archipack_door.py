@@ -1593,7 +1593,7 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
         context.scene.objects.active = act
         for o in sel:
             o.select = True
-            
+
     def execute(self, context):
         if context.mode == "OBJECT":
             if self.mode == 'CREATE':
@@ -1667,26 +1667,26 @@ class ARCHIPACK_OT_door_draw(Operator):
     def add_object(self, context, event):
         o = context.active_object
         bpy.ops.object.select_all(action="DESELECT")
-        
+
         if archipack_door.filter(o):
-            
+
             o.select = True
             context.scene.objects.active = o
 
             if event.shift:
                 bpy.ops.archipack.door(mode="UNIQUE")
-            
+
             new_w = o.copy()
             new_w.data = o.data
             context.scene.objects.link(new_w)
-            
+
             o = new_w
             o.select = True
             context.scene.objects.active = o
-            
+
             # synch subs from parent instance
             bpy.ops.archipack.door(mode="REFRESH")
-        
+
         else:
             bpy.ops.archipack.door(auto_manipulate=False, filepath=self.filepath)
             o = context.active_object
@@ -1694,24 +1694,24 @@ class ARCHIPACK_OT_door_draw(Operator):
         bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
         o.select = True
         context.scene.objects.active = o
-            
+
     def modal(self, context, event):
 
         context.area.tag_redraw()
         o = context.active_object
         d = archipack_door.datablock(o)
         hole = None
-        
+
         if d is not None:
             hole = d.find_hole(o)
-            
+
         # hide hole from raycast
         if hole is not None:
             o.hide = True
             hole.hide = True
 
         res, tM, wall = self.mouse_to_matrix(context, event)
-        
+
         if hole is not None:
             o.hide = False
             hole.hide = False
@@ -1823,6 +1823,7 @@ class ARCHIPACK_OT_door_manipulate(Operator):
 
 
 class ARCHIPACK_OT_door_preset_menu(PresetMenuOperator, Operator):
+    bl_description = "Show Doors presets"
     bl_idname = "archipack.door_preset_menu"
     bl_label = "Door Presets"
     preset_subdir = "archipack_door"

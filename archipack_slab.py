@@ -685,7 +685,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                     #  p0
                     dist = abs(t) * seg.length
                     if dist < dmax and abs(d) < dmax:
-                        print("%s %s %s %s" % (idx, dist, d, c.name))
+                        # print("%s %s %s %s" % (idx, dist, d, c.name))
                         self.add_child(c.name, idx)
 
         # synch wall
@@ -711,7 +711,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                             if (g.segs[i].p0 - og.segs[ji].p0).length < 0.005:
                                 j = ji + 1
                                 part.linked_idx = ji
-                                print("link: %s to %s" % (i, ji))
+                                # print("link: %s to %s" % (i, ji))
                                 break
                             ji += 1
 

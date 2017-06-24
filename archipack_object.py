@@ -88,22 +88,22 @@ class ArchipackObject():
         """
         if not auto_update:
             return None
-            
+
         active = context.active_object
         selected = [o for o in context.selected_objects]
-        
+
         for o in selected:
             if self.__class__.datablock(o) == self:
                 self.previously_selected = selected
                 self.previously_active = active
                 return o
-        
+
         return None
-    
+
     def restore_context(self, context):
         # restore context
         bpy.ops.object.select_all(action="DESELECT")
-        
+
         try:
             for o in self.previously_selected:
                 o.select = True
@@ -114,8 +114,8 @@ class ArchipackObject():
         context.scene.objects.active = self.previously_active
         self.previously_selected = None
         self.previously_active = None
-        
-        
+
+
 class ArchipackCreateTool():
     """
         Shared property of archipack's create tool Operator
@@ -171,7 +171,7 @@ class ArchipackCreateTool():
                 print("Archipack bpy.ops.archipack.%s_manipulate not found" % (self.archipack_category))
                 pass
 
-              
+
 """
 d = archipack_window.datablock(o)
 archipack_window.filter(o)

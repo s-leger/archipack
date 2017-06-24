@@ -105,7 +105,7 @@ class MaterialUtils():
         obj.data.materials.append(wood_mat)
         obj.data.materials.append(metal_mat)
         obj.data.materials.append(glass_mat)
-        
+
     @staticmethod
     def add_floor_materials(obj):
         con_mat = MaterialUtils.build_default_mat('Floor_grout', (0.5, 0.5, 0.5))
@@ -130,7 +130,7 @@ class MaterialUtils():
         obj.data.materials.append(alt8_mat)
         obj.data.materials.append(alt9_mat)
         obj.data.materials.append(alt10_mat)
-                
+
     @staticmethod
     def add_handle_materials(obj):
         metal_mat = MaterialUtils.build_default_mat('metal', (0.4, 0.4, 0.4))

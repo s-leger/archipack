@@ -352,10 +352,10 @@ def update_t_part(self, context):
             # 4 o and w share same parent allready
             # 5 o and w dosent share parent
             link_to_parent = False
-            
+
             # when both walls do have a reference point, we may delete one of them
             to_delete = None
-            
+
             # select childs and make parent reference point active
             if w.parent is None:
                 # Either link to o.parent or create new parent
@@ -416,10 +416,10 @@ def update_t_part(self, context):
                 #  p1
                 #  |-- x
                 #  p0
-                
+
                 # NOTE:
                 # rotation here is wrong when w has not parent while o has parent
-                
+
                 if res and t > 0 and t < 1 and abs(dist) < dmax:
                     x = wrM * wall.straight(1, t).v
                     y = wrM * wall.normal(t).v.normalized()
@@ -439,12 +439,12 @@ def update_t_part(self, context):
             # use this to relocate windows on wall after reparenting
             g = self.get_generator()
             self.relocate_childs(context, o, g)
-            
+
             # hide holes from select
             for c in parent.children:
                 if "archipack_hybridhole" in c:
                     c.hide_select = True
-            
+
             # delete unneeded reference point
             if to_delete is not None:
                 bpy.ops.object.select_all(action="DESELECT")
@@ -452,7 +452,7 @@ def update_t_part(self, context):
                 context.scene.objects.active = to_delete
                 if bpy.ops.object.delete.poll():
                     bpy.ops.object.delete(use_global=False)
-            
+
         elif self.t_part != "":
             self.t_part = ""
 

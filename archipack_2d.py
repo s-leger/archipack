@@ -27,15 +27,15 @@
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt, acos
 import bpy
-# allow to draw parts with gl for debug puropses 
+# allow to draw parts with gl for debug puropses
 from .archipack_gl import GlBaseLine
 
 
 class Projection(GlBaseLine):
-    
+
     def __init__(self):
         GlBaseLine.__init__(self)
-        
+
     def proj_xy(self, t, next=None):
         """
             length of projection of sections at crossing line / circle intersections
@@ -384,7 +384,7 @@ class Line(Projection):
     def pts(self):
         return [self.p0.to_3d(), self.p1.to_3d()]
 
-    
+
 class Circle(Projection):
     def __init__(self, c, radius):
         Projection.__init__(self)
@@ -769,13 +769,7 @@ class Arc(Circle):
         curve_obj = bpy.data.objects.new('ARC', curve)
         context.scene.objects.link(curve_obj)
         curve_obj.select = True
-    
-"""
-from archipack.archipack_2d import Arc
-a = Arc(Vector((0, 0)), 5, 0, 1.5)
-a.draw(C)
-a.rotate(0.5).draw(C)
-"""
+
 
 class Line3d(Line):
     """

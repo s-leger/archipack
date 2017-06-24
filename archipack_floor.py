@@ -1,17 +1,30 @@
-# This file is part of JARCH Vis
+# -*- coding:utf-8 -*-
+
+# ##### BEGIN GPL LICENSE BLOCK #####
 #
-# JARCH Vis is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
 #
-# JARCH Vis is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with JARCH Vis.  If not, see <http://www.gnu.org/licenses/>.
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110- 1301, USA.
+#
+# ##### END GPL LICENSE BLOCK #####
+
+# <pep8 compliant>
+
+# ----------------------------------------------------------
+# Base code inspired by JARCH Vis
+# Original Author: Jacob Morris
+# Author : Stephen Leger (s-leger)
+# ----------------------------------------------------------
 
 import bpy
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
@@ -544,7 +557,7 @@ def wood_regular(ow, ol, bw, bl, s_l, s_w,
 
             if is_r_h:
                 v = z * 0.5 * (r_h / 100)
-                z = uniform(z / 2 - v, z  / 2 + v)
+                z = uniform(z / 2 - v, z / 2 + v)
 
             bl2 = bl
 
@@ -553,11 +566,11 @@ def wood_regular(ow, ol, bw, bl, s_l, s_w,
                     bl2 = ol
                 else:
                     v = bl * (length_vary / 100) * 0.5
-                    bl2 = uniform(bl / 2 - v, bl / 2  + v)
+                    bl2 = uniform(bl / 2 - v, bl / 2 + v)
 
             y0 = max(0, y)
             y1 = min(y + bl2, ol)
-            
+
             if y1 > y0:
                 p = len(verts)
 
@@ -690,6 +703,10 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
                 max=100.0,
                 default=50.0,
                 subtype="PERCENTAGE",
+                update=update)
+    is_floor_bottom = BoolProperty(
+                name="Floor bottom",
+                default=True,
                 update=update)
     t_width = FloatProperty(
                 name="Tile Width",
@@ -884,7 +901,13 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
                        auto_smooth=False)
 
         # cut hexa and herringbone wood
-        if self.tile_types in ('4', '23', '24'):
+        # disable when boolean modifier is found
+        enable_bissect = True
+        for m in o.modifiers:
+            if m.type == 'BOOLEAN':
+                enable_bissect = False
+
+        if enable_bissect and self.tile_types in ('4', '23', '24'):
             bmed.bissect(context, o, Vector((0, 0, 0)), Vector((0, -1, 0)))
             # Up
             bmed.bissect(context, o, Vector((0, self.over_length, 0)), Vector((0, 1, 0)))
@@ -900,13 +923,22 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
 
         if self.is_grout:
             th = min(self.grout_depth + bevel, self.thickness - 0.001)
+            bottom = th
         else:
             th = self.thickness
+            bottom = 0
 
-        bmed.solidify(context, o, th)
+        bmed.solidify(context,
+                        o,
+                        th,
+                        floor_bottom=(
+                            self.is_floor_bottom and
+                            self.is_ran_thickness and
+                            self.tile_types in ('21')
+                            ),
+                        altitude=bottom)
 
         # bevel mesh
-
         if self.is_bevel:
             bmed.bevel(context, o, self.bevel_amo, segments=self.bevel_res)
 
@@ -1023,14 +1055,9 @@ class ARCHIPACK_PT_floor(Panel):
             layout.prop(props, "is_ran_thickness", icon="RNDCURVE")
             if props.is_ran_thickness:
                 layout.prop(props, "ran_thickness")
+                layout.prop(props, "is_floor_bottom", icon="MOVE_DOWN_VEC")
         else:
             layout.prop(props, "spacing")
-
-        # Grout
-        layout.separator()
-        layout.prop(props, "is_grout", icon="OBJECT_DATA")
-        if props.is_grout:
-            layout.prop(props, "grout_depth")
 
         # Planks and tiles
         if type in (1, 21):
@@ -1049,45 +1076,17 @@ class ARCHIPACK_PT_floor(Panel):
         if props.is_bevel:
             layout.prop(props, "bevel_res", icon="OUTLINER_DATA_CURVE")
             layout.prop(props, "bevel_amo")
-            layout.separator()
+
+        # Grout
+        layout.separator()
+        layout.prop(props, "is_grout", icon="OBJECT_DATA")
+        if props.is_grout:
+            layout.prop(props, "grout_depth")
 
         layout.separator()
         layout.prop(props, "is_mat_vary", icon="MATERIAL")
         if props.is_mat_vary:
             layout.prop(props, "mat_vary")
-
-        """
-        layout.prop(props, "is_unwrap", icon="GROUP_UVS")
-        if props.is_unwrap:
-            layout.prop(props, "is_random_uv", icon="RNDCURVE")
-        layout.separator()
-
-        if context.scene.render.engine == "CYCLES":
-            layout.prop(props, "is_material", icon="MATERIAL")
-        else:
-            layout.label("Materials Only Supported With Cycles", icon="POTATO")
-
-        if props.is_material and context.scene.render.engine == "CYCLES":
-            layout.separator()
-            layout.prop(props, "col_image", icon="COLOR")
-            layout.prop(props, "is_bump", icon="SMOOTHCURVE")
-
-            if props.is_bump:
-                layout.prop(props, "norm_image", icon="TEXTURE")
-                layout.prop(props, "bump_amo")
-            layout.prop(props, "im_scale", icon="MAN_SCALE")
-            layout.prop(props, "is_rotate", icon="MAN_ROT")
-
-            if props.flooring_types == "2":
-                layout.separator()
-                layout.prop(props, "mortar_color", icon="COLOR")
-                layout.prop(props, "mortar_bump")
-
-            layout.separator()
-            layout.operator("mesh.flooring_materials", icon="MATERIAL")
-            layout.separator()
-            layout.prop(props, "is_preview", icon="SCENE")
-        """
 
 
 class ARCHIPACK_OT_floor(ArchipackCreateTool, Operator):

@@ -172,7 +172,7 @@ class FenceGenerator():
         for i, f in enumerate(self.segs):
             f.dist = self.length
             self.length += f.line.length
-        
+
         vz0 = Vector((1, 0))
         angle_z = 0
         for i, f in enumerate(self.segs):
@@ -186,13 +186,13 @@ class FenceGenerator():
             f.z0 = z
             f.dz = dz
             z += dz
-                
+
             if i < n_parts:
-                
+
                 vz1 = Vector((self.segs[i + 1].length, self.parts[i + 1].dz))
                 angle_z = abs(vz0.angle_signed(vz1))
                 vz0 = vz1
-            
+
                 if (abs(self.parts[i + 1].a0) >= angle_limit or angle_z >= angle_limit):
                     l_seg = f.dist + f.line.length - dist_0
                     t_seg = f.t_end - t_start
@@ -203,8 +203,7 @@ class FenceGenerator():
                     t_start = f.t_end
                     i_start = i
                     self.segments.append(segment)
-                
-            
+
             manipulators = self.parts[i].manipulators
             p0 = f.line.p0.to_3d()
             p1 = f.line.p1.to_3d()
@@ -1274,7 +1273,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 pts.append(pts[0])
             else:
                 pts.append(wM * points[-1].co)
-        
+
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
@@ -1297,20 +1296,24 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             p0 = p1
 
         self.auto_update = True
-        
+
         o.matrix_world = tM * Matrix([
             [1, 0, 0, pt.x],
             [0, 1, 0, pt.y],
             [0, 0, 1, pt.z],
             [0, 0, 0, 1]
             ])
-                
+
     def update_path(self, context):
         path = context.scene.objects.get(self.user_defined_path)
         if path is not None and path.type == 'CURVE':
             splines = path.data.splines
             if len(splines) > self.user_defined_spline:
-                self.from_spline(context, path.matrix_world, self.user_defined_resolution, splines[self.user_defined_spline])
+                self.from_spline(
+                    context,
+                    path.matrix_world,
+                    self.user_defined_resolution,
+                    splines[self.user_defined_spline])
 
     def get_generator(self):
         g = FenceGenerator(self.parts)
