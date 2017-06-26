@@ -34,12 +34,7 @@ from bpy.props import (
 from .bmesh_utils import BmeshEdit as bmed
 from mathutils import Vector, Matrix
 from mathutils.geometry import (
-    intersect_line_plane,
     interpolate_bezier
-    )
-from bpy_extras.view3d_utils import (
-    region_2d_to_origin_3d,
-    region_2d_to_vector_3d
     )
 from math import sin, cos, pi, atan2
 from .archipack_manipulator import (
@@ -47,7 +42,7 @@ from .archipack_manipulator import (
     GlPolygon, GlPolyline,
     GlLine, GlText, FeedbackPanel
     )
-from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchpackDrawTool
 from .archipack_2d import Line, Arc
 from .archipack_snap import snap_point
 from .archipack_keymaps import Keymaps
@@ -1735,7 +1730,7 @@ class ARCHIPACK_OT_wall2_from_slab(Operator):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_wall2_draw(Operator):
+class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
     bl_idname = "archipack.wall2_draw"
     bl_label = "Draw a Wall"
     bl_description = "Draw a Wall"
@@ -1754,24 +1749,11 @@ class ARCHIPACK_OT_wall2_draw(Operator):
     takeloc = Vector((0, 0, 0))
     sel = []
     act = None
-
-    def mouse_to_plane(self, context, event):
-        """
-            convert mouse pos to 3d point over plane defined by origin and normal
-        """
-        region = context.region
-        rv3d = context.region_data
-        co2d = (event.mouse_region_x, event.mouse_region_y)
-        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
-        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
-        pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
-            Vector((0, 0, 0)), Vector((0, 0, 1)), False)
-        # fix issue with parallel plane
-        if pt is None:
-            pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
-                Vector((0, 0, 0)), view_vector_mouse, False)
-        return pt
-
+    
+    # constraint to other wall and make a T child
+    parent = None
+    takemat = None
+    
     @classmethod
     def poll(cls, context):
         return True
@@ -1859,8 +1841,22 @@ class ARCHIPACK_OT_wall2_draw(Operator):
     def sp_init(self, context, event, state, sp):
         # print("sp_init event %s %s %s" % (event.type, event.value, state))
         if state == 'SUCCESS':
+            # point placed, check if a wall was under mouse
+            res, tM, wall, y = self.mouse_hover_wall(context, event)
+            if res:
+                d = archipack_wall2.datablock(wall)
+                if event.ctrl:
+                    # user snap, use direction as constraint
+                    tM.translation = sp.placeloc.copy()
+                else:
+                    # without snap, use wall's bottom 
+                    tM.translation -= y.normalized() * (0.5 * d.width)
+                self.takeloc = tM.translation
+                self.parent = wall.name
+                self.takemat = tM
+            else:    
+                self.takeloc = sp.placeloc.copy()
             self.state = 'RUNNING'
-            self.takeloc = sp.placeloc.copy()
             # print("feedback.on:%s" % self.feedback.on)
         elif state == 'CANCEL':
             self.state = state
@@ -1906,6 +1902,7 @@ class ARCHIPACK_OT_wall2_draw(Operator):
             self.state = 'CREATE'
             snap_point(takeloc=self.takeloc,
                 draw=self.sp_draw,
+                takemat=self.takemat,
                 callback=self.sp_callback,
                 constraint_axis=(True, True, False),
                 release_confirm=True)
@@ -1983,6 +1980,11 @@ class ARCHIPACK_OT_wall2_draw(Operator):
                 # self.ensure_ccw()
                 self.o.select = True
                 context.scene.objects.active = self.o
+                # make T child 
+                if self.parent is not None:
+                    d = archipack_wall2.datablock(self.o)
+                    d.t_part = self.parent
+                
                 if bpy.ops.archipack.wall2_manipulate.poll():
                     bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
 
