@@ -1273,7 +1273,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 pts.append(pts[0])
             else:
                 pts.append(wM * points[-1].co)
-
+        auto_update = self.auto_update
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
@@ -1295,7 +1295,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             a0 += da
             p0 = p1
 
-        self.auto_update = True
+        self.auto_update = auto_update
 
         o.matrix_world = tM * Matrix([
             [1, 0, 0, pt.x],

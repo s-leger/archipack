@@ -32,7 +32,7 @@ from bpy.props import (
     FloatProperty, IntProperty, BoolProperty, BoolVectorProperty,
     CollectionProperty, FloatVectorProperty, EnumProperty, StringProperty
 )
-from mathutils import Vector, Matrix
+from mathutils import Vector
 from math import tan, sqrt
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as WindowPanel

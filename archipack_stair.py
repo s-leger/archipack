@@ -1503,6 +1503,7 @@ def update_manipulators(self, context):
 
 
 def update_preset(self, context):
+    auto_update = self.auto_update
     self.auto_update = False
     if self.presets == 'STAIR_I':
         self.n_parts = 1
@@ -1528,7 +1529,9 @@ def update_preset(self, context):
         self.parts[0].type = 'D_STAIR'
         self.parts[1].type = 'D_STAIR'
         self.da = pi
-    self.auto_update = True
+    # keep auto_update state same
+    # prevent unwanted load_preset update
+    self.auto_update = auto_update
 
 
 materials_enum = (
@@ -1644,7 +1647,7 @@ class archipack_stair_part(PropertyGroup):
         if user_mode:
             box = layout.box()
             row = box.row()
-            row.prop(self, "type", text="")
+            row.prop(self, "type", text=str(index + 1))
             if self.type in ['C_STAIR', 'C_LANDING', 'D_STAIR', 'D_LANDING']:
                 row = box.row()
                 row.prop(self, "radius")

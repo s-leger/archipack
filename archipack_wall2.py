@@ -1582,7 +1582,6 @@ class ARCHIPACK_OT_wall2(ArchipackCreateTool, Operator):
         o.select = True
         # around 12 degree
         m.auto_smooth_angle = 0.20944
-        m.use_auto_smooth = True
         context.scene.objects.active = o
         self.load_preset(d)
         self.add_material(o)
@@ -1749,11 +1748,11 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
     takeloc = Vector((0, 0, 0))
     sel = []
     act = None
-    
+
     # constraint to other wall and make a T child
     parent = None
     takemat = None
-    
+
     @classmethod
     def poll(cls, context):
         return True
@@ -1849,13 +1848,14 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                     # user snap, use direction as constraint
                     tM.translation = sp.placeloc.copy()
                 else:
-                    # without snap, use wall's bottom 
+                    # without snap, use wall's bottom
                     tM.translation -= y.normalized() * (0.5 * d.width)
                 self.takeloc = tM.translation
                 self.parent = wall.name
                 self.takemat = tM
-            else:    
+            else:
                 self.takeloc = sp.placeloc.copy()
+
             self.state = 'RUNNING'
             # print("feedback.on:%s" % self.feedback.on)
         elif state == 'CANCEL':
@@ -1980,11 +1980,11 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                 # self.ensure_ccw()
                 self.o.select = True
                 context.scene.objects.active = self.o
-                # make T child 
+                # make T child
                 if self.parent is not None:
                     d = archipack_wall2.datablock(self.o)
                     d.t_part = self.parent
-                
+
                 if bpy.ops.archipack.wall2_manipulate.poll():
                     bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
 

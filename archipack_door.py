@@ -33,7 +33,7 @@ from bpy.props import (
     FloatProperty, IntProperty, CollectionProperty,
     EnumProperty, BoolProperty, StringProperty
     )
-from mathutils import Vector, Matrix
+from mathutils import Vector
 # door component objects (panels, handles ..)
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as DoorPanel

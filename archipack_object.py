@@ -94,7 +94,7 @@ class ArchipackObject():
             return
             object or None when instance not found in selected objects
         """
-        if not auto_update:
+        if auto_update is False:
             return None
 
         active = context.active_object
@@ -156,7 +156,9 @@ class ArchipackCreateTool():
         d.auto_update = False
         if self.filepath != "":
             try:
+                # print("Archipack loading preset: %s" % d.auto_update)
                 bpy.ops.script.python_file_run(filepath=self.filepath)
+                # print("Archipack preset loaded auto_update: %s" % d.auto_update)
             except:
                 print("Archipack unable to load preset file : %s" % (self.filepath))
                 pass
@@ -181,7 +183,9 @@ class ArchipackCreateTool():
 
 
 class ArchpackDrawTool():
-
+    """
+        Draw tools
+    """
     def mouse_to_plane(self, context, event, origin=Vector((0, 0, 0)), normal=Vector((0, 0, 1))):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
@@ -212,7 +216,7 @@ class ArchpackDrawTool():
             ray_origin_mouse,
             view_vector_mouse)
         return res, pos, normal, face_index, object, matrix_world
-    
+
     def mouse_hover_wall(self, context, event):
         """
             convert mouse pos to matrix at bottom of surrounded wall, y oriented outside wall
@@ -231,9 +235,3 @@ class ArchpackDrawTool():
                 [0, 0, 0, 1]
                 ]), o, y
         return False, Matrix(), None, Vector()
-
-
-"""
-d = archipack_window.datablock(o)
-archipack_window.filter(o)
-"""

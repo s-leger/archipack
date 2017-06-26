@@ -1534,7 +1534,7 @@ class AngleManipulator(Manipulator):
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.active:
-            print("AngleManipulator.mouse_move")
+            # print("AngleManipulator.mouse_move")
             self.update(context, event)
             return True
         else:
@@ -2052,7 +2052,16 @@ class ARCHIPACK_OT_manipulate(Operator):
     @classmethod
     def poll(self, context):
         return context.active_object is not None
-
+    
+    def exit_selectmode(self, context, key):
+        """
+            Hide select area on exit
+        """
+        global manips
+        if key in manips.keys():
+            if manips[key].manipulable is not None:
+                manips[key].manipulable.manipulable_exit_selectmode(context)
+                
     def modal(self, context, event):
         global manips
         # Exit on stack change
@@ -2062,8 +2071,9 @@ class ARCHIPACK_OT_manipulate(Operator):
         # and exit when not found
         key = self.object_name
         if check_stack(key):
+            self.exit_selectmode(context, key)
             remove_manipulable(key)
-            print("modal exit by check_stack(%s)" % (key))
+            # print("modal exit by check_stack(%s)" % (key))
             if context.area is not None:
                 context.area.tag_redraw()
             return {'FINISHED'}
@@ -2071,7 +2081,9 @@ class ARCHIPACK_OT_manipulate(Operator):
         res = manips[key].manipulable.manipulable_modal(context, event)
         
         if 'FINISHED' in res:
-            print("modal exit by {FINISHED}")
+            self.exit_selectmode(context, key)
+            
+            # print("modal exit by {FINISHED}")
             if context.area is not None:
                 context.area.tag_redraw()
             remove_manipulable(key)
@@ -2110,6 +2122,7 @@ class Manipulable():
     manipulators = CollectionProperty(
             type=archipack_manipulator,
             # options={'SKIP_SAVE'},
+            # options={'HIDDEN'},
             description="store 3d points to draw gl manipulators"
             )
     manipulable_refresh = BoolProperty(
@@ -2156,12 +2169,23 @@ class Manipulable():
         """
         o = context.active_object
         if o is not None:
+            self.manipulable_exit_selectmode(context)
             remove_manipulable(o.name)
             self.manip_stack = add_manipulable(o.name, self)
 
         self.manipulate_mode = False
         self.select_mode = False
 
+    def manipulable_exit_selectmode(self, context):
+        self.manipulable_area.disable()
+        self.select_mode = False
+        # remove select draw handler
+        if self.manipulable_draw_handler is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(
+                self.manipulable_draw_handler,
+                'WINDOW')
+        self.manipulable_draw_handler = None
+        
     def manipulable_setup(self, context):
         """
             TODO: Implement the setup part as per parent object basis
@@ -2207,7 +2231,8 @@ class Manipulable():
 
         """
         # print("manipulable_invoke self.manipulate_mode:%s" % (self.manipulate_mode))
-
+        
+            
         if self.manipulate_mode:
             self.manipulable_disable(context)
             return False
@@ -2318,12 +2343,7 @@ class Manipulable():
                 if self.select_mode:
                     # confirm selection
 
-                    self.manipulable_area.disable()
-                    self.select_mode = False
-                    # remove select draw handler
-                    bpy.types.SpaceView3D.draw_handler_remove(
-                        self.manipulable_draw_handler,
-                        'WINDOW')
+                    self.manipulable_exit_selectmode(context)
 
                     # keep focus
                     # return {'RUNNING_MODAL'}

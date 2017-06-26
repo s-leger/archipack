@@ -416,7 +416,9 @@ class PresetMenuOperator():
                     d = getattr(bpy.types, self.preset_subdir).datablock(context.active_object)
                     if d is not None:
                         d.auto_update = False
-                        op(filepath=preset, menu_idname=self.bl_idname)
+                        # print("Archipack execute_preset loading auto_update:%s" % d.auto_update)
+                        op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
+                        # print("Archipack execute_preset loaded  auto_update: %s" % d.auto_update)
                         d.auto_update = True
                 else:
                     # call draw operator
@@ -424,7 +426,6 @@ class PresetMenuOperator():
                         op('INVOKE_DEFAULT', filepath=preset)
                     else:
                         print("Poll failed")
-
                 return {'FINISHED'}
         elif event.ascii or (
                 event.type in self.menu.keyboard_type and
