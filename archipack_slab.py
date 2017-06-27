@@ -697,11 +697,13 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                 for i, part in enumerate(self.parts):
                     part.linked_idx = -1
 
+                # find first child wall
                 d = None
                 for c in o.parent.children:
                     if c.data and "archipack_wall2" in c.data:
                         d = c.data.archipack_wall2[0]
                         break
+
                 if d is not None:
                     og = d.get_generator()
                     j = 0
@@ -814,6 +816,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
                     d.auto_update = True
                     wall.select = False
+
                     o.select = True
                     context.scene.objects.active = o
 
@@ -832,6 +835,11 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
             if d is not None:
                 c.select = True
+
+                # auto_update need object to be active to
+                # setup manipulators on the right object
+                context.scene.objects.active = c
+
                 d.auto_update = False
                 for i, part in enumerate(d.parts):
                     if "C_" in self.parts[i + child.idx].type:
@@ -1109,22 +1117,19 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
     def manipulable_setup(self, context):
         """
-            TODO: Implement the setup part as per parent object basis
-
-            self.manipulable_disable(context)
-            o = context.active_object
-            for m in self.manipulators:
-                self.manip_stack.append(m.setup(context, o, self))
-
+            NOTE:
+            this one assume context.active_object is the instance this
+            data belongs to, failing to do so will result in wrong
+            manipulators set on active object
         """
         self.manipulable_disable(context)
+
         o = context.active_object
-        d = self
 
         self.setup_manipulators()
 
-        for i, part in enumerate(d.parts):
-            if i >= d.n_parts:
+        for i, part in enumerate(self.parts):
+            if i >= self.n_parts:
                 break
 
             if i > 0:
@@ -1135,9 +1140,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             self.manip_stack.append(part.manipulators[1].setup(context, o, part))
 
             # snap point
-            self.manip_stack.append(part.manipulators[2].setup(context, o, d))
+            self.manip_stack.append(part.manipulators[2].setup(context, o, self))
             # index
-            self.manip_stack.append(part.manipulators[3].setup(context, o, d))
+            self.manip_stack.append(part.manipulators[3].setup(context, o, self))
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
@@ -1149,10 +1154,8 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         # print("manipulable_invoke")
         if self.manipulate_mode:
             self.manipulable_disable(context)
-            self.manipulate_mode = False
             return False
 
-        self.manip_stack = []
         o = context.active_object
         g = self.get_generator()
         # setup childs manipulators

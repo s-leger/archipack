@@ -26,8 +26,17 @@
 # ----------------------------------------------------------
 import bpy
 from bpy.types import Operator, PropertyGroup, Object, Panel
-from bpy.props import FloatVectorProperty, CollectionProperty
+from bpy.props import (
+    FloatVectorProperty,
+    CollectionProperty,
+    FloatProperty
+    )
 from mathutils import Vector
+from .bmesh_utils import BmeshEdit as bmed
+
+
+def update(self, context):
+    self.update(context)
 
 
 class archipack_reference_point(PropertyGroup):
@@ -41,6 +50,11 @@ class archipack_reference_point(PropertyGroup):
         name="position 3d",
         default=Vector((0, 0, 0))
         )
+    symbol_scale = FloatProperty(
+        name="Screen scale",
+        default=1,
+        min=0.01,
+        update=update)
 
     @classmethod
     def filter(cls, o):
@@ -76,6 +90,47 @@ class archipack_reference_point(PropertyGroup):
             pass
         return None
 
+    def update(self, context):
+
+        o = context.active_object
+
+        if self.datablock(o) != self:
+            return
+
+        s = self.symbol_scale
+        verts = [(s * x, s * y, s * z) for x, y, z in [
+            (-0.25, 0.25, 0.0), (0.25, 0.25, 0.0), (-0.25, -0.25, 0.0), (0.25, -0.25, 0.0),
+            (0.0, 0.0, 0.487), (-0.107, 0.107, 0.216), (0.108, 0.107, 0.216), (-0.107, -0.107, 0.216),
+            (0.108, -0.107, 0.216), (-0.05, 0.05, 0.5), (0.05, 0.05, 0.5), (0.05, -0.05, 0.5),
+            (-0.05, -0.05, 0.5), (-0.193, 0.193, 0.0), (0.193, 0.193, 0.0), (0.193, -0.193, 0.0),
+            (-0.193, -0.193, 0.0), (0.0, 0.0, 0.8), (0.0, 0.8, -0.0), (0.0, 0.0, -0.0),
+            (0.0, 0.0, 0.0), (0.05, 0.05, 0.674), (-0.05, 0.674, -0.05), (0.0, 0.8, -0.0),
+            (-0.05, -0.05, 0.674), (-0.05, 0.674, 0.05), (0.05, 0.674, -0.05), (-0.129, 0.129, 0.162),
+            (0.129, 0.129, 0.162), (-0.129, -0.129, 0.162), (0.129, -0.129, 0.162), (0.0, 0.0, 0.8),
+            (-0.05, 0.05, 0.674), (0.05, -0.05, 0.674), (0.05, 0.674, 0.05), (0.8, -0.0, -0.0),
+            (0.0, -0.0, -0.0), (0.674, 0.05, -0.05), (0.8, -0.0, -0.0), (0.674, 0.05, 0.05),
+            (0.674, -0.05, -0.05), (0.674, -0.05, 0.05)]]
+
+        edges = [(1, 0), (0, 9), (9, 10), (10, 1), (3, 1), (10, 11),
+            (11, 3), (2, 3), (11, 12), (12, 2), (0, 2), (12, 9),
+            (6, 5), (8, 6), (7, 8), (5, 7), (17, 24), (17, 20),
+            (18, 25), (18, 19), (13, 14), (14, 15), (15, 16), (16, 13),
+            (4, 6), (15, 30), (17, 21), (26, 22), (23, 22), (23, 34),
+            (18, 26), (28, 27), (30, 28), (29, 30), (27, 29), (14, 28),
+            (13, 27), (16, 29), (4, 7), (4, 8), (4, 5), (31, 33),
+            (31, 32), (21, 32), (24, 32), (24, 33), (21, 33), (25, 22),
+            (25, 34), (26, 34), (35, 39), (35, 36), (40, 37), (38, 37),
+            (38, 41), (35, 40), (39, 37), (39, 41), (40, 41)]
+
+        bm = bmed._start(context, o)
+        bm.clear()
+        for v in verts:
+            bm.verts.new(v)
+        bm.verts.ensure_lookup_table()
+        for ed in edges:
+            bm.edges.new((bm.verts[ed[0]], bm.verts[ed[1]]))
+        bmed._end(bm, o)
+
 
 class ARCHIPACK_PT_reference_point(Panel):
     bl_idname = "ARCHIPACK_PT_reference_point"
@@ -100,6 +155,9 @@ class ARCHIPACK_PT_reference_point(Panel):
         else:
             layout.operator('archipack.move_to_2d')
 
+        layout.prop(props, 'symbol_scale')
+
+
 class ARCHIPACK_OT_reference_point(Operator):
     """Add reference point"""
     bl_idname = "archipack.reference_point"
@@ -122,15 +180,24 @@ class ARCHIPACK_OT_reference_point(Operator):
         row = layout.row()
         row.label("Use Properties panel (N) to define parms", icon='INFO')
 
+    def create(self, context):
+        x, y, z = context.scene.cursor_location
+        # bpy.ops.object.empty_add(type='ARROWS', radius=0.5, location=Vector((x, y, 0)))
+        m = bpy.data.meshes.new(name="Reference")
+        o = bpy.data.objects.new("Reference", m)
+        o.location = Vector((x, y, 0))
+        context.scene.objects.link(o)
+        d = o.archipack_reference_point.add()
+        d.location_2d = Vector((x, y, 0))
+        d.location_3d = self.location_3d
+        o.select = True
+        context.scene.objects.active = o
+        d.update(context)
+        return o
+
     def execute(self, context):
         if context.mode == "OBJECT":
-            x, y, z = context.scene.cursor_location
-            bpy.ops.object.empty_add(type='ARROWS', radius=0.5, location=Vector((x, y, 0)))
-            o = context.active_object
-            o.name = "Reference"
-            props = o.archipack_reference_point.add()
-            props.location_2d = Vector((x, y, 0))
-            props.location_3d = self.location_3d
+            o = self.create(context)
             o.select = True
             context.scene.objects.active = o
             return {'FINISHED'}

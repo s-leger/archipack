@@ -45,14 +45,14 @@ from .archipack_gl import (
 # NOTE:
 # Snap aware manipulators use a dirty hack :
 # draw() as a callback to update values in realtime
-# as transform.translate in use to allow snap 
-# does catch all events. 
+# as transform.translate in use to allow snap
+# does catch all events.
 # This however has a wanted side effect:
 # the manipulator take precedence over allready running
-# ones, and prevent select mode to start. 
+# ones, and prevent select mode to start.
 #
 # TODO:
-# Other manipulators should use same technique to take 
+# Other manipulators should use same technique to take
 # precedence over allready running ones when active
 #
 # NOTE:
@@ -63,7 +63,7 @@ from .archipack_gl import (
 #
 # TODO:
 # First run a separate modal dedicated to select mode.
-# Selecting in whole manips stack when required 
+# Selecting in whole manips stack when required
 # (manips[key].manipulable.manip_stack)
 # Must investigate for a way to handle unselect after drag done.
 
@@ -72,7 +72,7 @@ from .archipack_gl import (
     Last modal running wins.
     Manipulateurs without snap and thus not running own modal,
     may loose events events caught by select mode of last
-    manipulable enabled 
+    manipulable enabled
 """
 
 # Arrow sizes (world units)
@@ -554,7 +554,7 @@ class Manipulator():
         """
         self._move(self.o, axis, value)
 
-    
+
 # OUT OF ORDER
 class SnapPointManipulator(Manipulator):
     """
@@ -2052,7 +2052,7 @@ class ARCHIPACK_OT_manipulate(Operator):
     @classmethod
     def poll(self, context):
         return context.active_object is not None
-    
+
     def exit_selectmode(self, context, key):
         """
             Hide select area on exit
@@ -2061,7 +2061,7 @@ class ARCHIPACK_OT_manipulate(Operator):
         if key in manips.keys():
             if manips[key].manipulable is not None:
                 manips[key].manipulable.manipulable_exit_selectmode(context)
-                
+
     def modal(self, context, event):
         global manips
         # Exit on stack change
@@ -2069,24 +2069,22 @@ class ARCHIPACK_OT_manipulate(Operator):
         # use object_name property to find manupulated object in stack
         # select and make object active
         # and exit when not found
+        if context.area is not None:
+            context.area.tag_redraw()
         key = self.object_name
         if check_stack(key):
             self.exit_selectmode(context, key)
             remove_manipulable(key)
             # print("modal exit by check_stack(%s)" % (key))
-            if context.area is not None:
-                context.area.tag_redraw()
             return {'FINISHED'}
-        
+
         res = manips[key].manipulable.manipulable_modal(context, event)
-        
+
         if 'FINISHED' in res:
             self.exit_selectmode(context, key)
-            
-            # print("modal exit by {FINISHED}")
-            if context.area is not None:
-                context.area.tag_redraw()
             remove_manipulable(key)
+            # print("modal exit by {FINISHED}")
+
         return res
 
     def invoke(self, context, event):
@@ -2185,7 +2183,7 @@ class Manipulable():
                 self.manipulable_draw_handler,
                 'WINDOW')
         self.manipulable_draw_handler = None
-        
+
     def manipulable_setup(self, context):
         """
             TODO: Implement the setup part as per parent object basis
@@ -2202,11 +2200,11 @@ class Manipulable():
 
         # store a reference to self for operators
         add_manipulable(object_name, self)
-        
-        # copy context so manipulator always use 
+
+        # copy context so manipulator always use
         # invoke time context
         ctx = context.copy()
-            
+
         # take care of context switching
         # when call from outside of 3d view
         if context.space_data.type != 'VIEW_3D':
@@ -2231,8 +2229,7 @@ class Manipulable():
 
         """
         # print("manipulable_invoke self.manipulate_mode:%s" % (self.manipulate_mode))
-        
-            
+
         if self.manipulate_mode:
             self.manipulable_disable(context)
             return False

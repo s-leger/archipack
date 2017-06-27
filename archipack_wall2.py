@@ -549,7 +549,7 @@ class archipack_wall2_part(PropertyGroup):
             update=update
             )
     a0 = FloatProperty(
-            name="angle depart",
+            name="start angle",
             min=-pi,
             max=pi,
             default=pi / 2,
@@ -767,7 +767,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             update=update_t_part
             )
 
-    def insert_part(self, context, where):
+    def insert_part(self, context, o, where):
         self.manipulable_disable(context)
         self.auto_update = False
         # the part we do split
@@ -783,6 +783,10 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         # move after current one
         self.parts.move(len(self.parts) - 1, where + 1)
         self.n_parts += 1
+        # re-eval childs location
+        g = self.get_generator()
+        self.setup_childs(o, g)
+
         self.setup_manipulators()
         self.auto_update = True
 
@@ -797,7 +801,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         self.auto_update = True
         return self.parts[self.n_parts - 1]
 
-    def remove_part(self, context, where):
+    def remove_part(self, context, o, where):
         self.manipulable_disable(context)
         self.auto_update = False
         # preserve shape
@@ -824,6 +828,11 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
         self.parts.remove(where)
         self.n_parts -= 1
+
+        # re-eval child location
+        g = self.get_generator()
+        self.setup_childs(o, g)
+
         # fix snap manipulators index
         self.setup_manipulators()
         self.auto_update = True
@@ -873,6 +882,11 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             s = self.manipulators.add()
             s.prop1_name = "z"
             s.normal = (0, 1, 0)
+
+        if self.t_part != "" and len(self.manipulators) < 4:
+            s = self.manipulators.add()
+            s.prop1_name = "x"
+            s.type_key = 'DELTA_LOC'
 
         for i in range(self.n_parts + 1):
             p = self.parts[i]
@@ -1062,6 +1076,14 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             (0, 0, self.z),
             (-1, 0, 0)
             ], normal=g.segs[0].straight(side, 0).v.to_3d())
+
+        if self.t_part != "":
+            t = 0.3 / g.segs[0].length
+            self.manipulators[3].set_pts([
+                g.segs[0].sized_normal(t, 0.1).p1.to_3d(),
+                g.segs[0].sized_normal(t, -0.1).p1.to_3d(),
+                (1, 0, 0)
+                ])
 
         if self.realtime:
             # update child location and size
@@ -1354,9 +1376,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         found = False
         if o.parent is not None:
             for c in o.parent.children:
-                if (c.data is not None and
-                        'archipack_wall2' in c.data and
-                        c.data.archipack_wall2[0] == self):
+                if (archipack_wall2.datablock(c) == self):
                     context.scene.objects.active = c
                     found = True
                     break
@@ -1386,6 +1406,19 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                     child.pos = (t * wall.length, d, child.pos.z)
             # update childs manipulators
             self.update_childs(context, o, g)
+
+    def manipulable_move_t_part(self, context, o=None, manipulator=None):
+        type_name = type(manipulator).__name__
+        # print("manipulable_manipulate %s" % (type_name))
+        if type_name in [
+                'DeltaLocationManipulator'
+                ]:
+            # update manipulators pos of childs
+            if archipack_wall2.datablock(o) != self:
+                return
+            g = self.get_generator()
+            # update childs
+            self.relocate_childs(context, o, g)
 
     def manipulable_release(self, context):
         """
@@ -1427,7 +1460,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
         # width + counter
         for m in self.manipulators:
-            self.manip_stack.append(m.setup(context, o, self))
+            self.manip_stack.append(m.setup(context, o, self, self.manipulable_move_t_part))
 
         # dumb between childs
         for m in self.childs_manipulators:
@@ -2044,7 +2077,7 @@ class ARCHIPACK_OT_wall2_insert(Operator):
             d = archipack_wall2.datablock(o)
             if d is None:
                 return {'CANCELLED'}
-            d.insert_part(context, self.index)
+            d.insert_part(context, o, self.index)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -2065,7 +2098,7 @@ class ARCHIPACK_OT_wall2_remove(Operator):
             d = archipack_wall2.datablock(o)
             if d is None:
                 return {'CANCELLED'}
-            d.remove_part(context, self.index)
+            d.remove_part(context, o, self.index)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
