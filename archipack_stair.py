@@ -946,28 +946,29 @@ class StairGenerator():
     def make_stair(self, height, step_depth, verts, faces, matids, uvs, nose_y=0):
         n_steps = self.n_steps(step_depth)
         self.set_height(height / n_steps)
-
+        
         for s, stair in enumerate(self.stairs):
-            manipulator = self.parts[s].manipulators[0]
-            # Store Gl Points for manipulators
-            if 'Curved' in type(stair).__name__:
-                c = stair.c
-                p0 = (stair.p0 - c).to_3d()
-                p1 = (stair.p1 - c).to_3d()
-                manipulator.set_pts([(c.x, c.y, stair.top), p0, p1])
-                manipulator.type_key = 'ARC_ANGLE_RADIUS'
-                manipulator.prop1_name = 'da'
-                manipulator.prop2_name = 'radius'
-            else:
-                if self.sum_da > 0:
-                    side = 1
+            if s < len(self.parts):
+                manipulator = self.parts[s].manipulators[0]
+                # Store Gl Points for manipulators
+                if 'Curved' in type(stair).__name__:
+                    c = stair.c
+                    p0 = (stair.p0 - c).to_3d()
+                    p1 = (stair.p1 - c).to_3d()
+                    manipulator.set_pts([(c.x, c.y, stair.top), p0, p1])
+                    manipulator.type_key = 'ARC_ANGLE_RADIUS'
+                    manipulator.prop1_name = 'da'
+                    manipulator.prop2_name = 'radius'
                 else:
-                    side = -1
-                v0 = stair.p0
-                v1 = stair.p1
-                manipulator.set_pts([(v0.x, v0.y, stair.top), (v1.x, v1.y, stair.top), (side, 0, 0)])
-                manipulator.type_key = 'SIZE'
-                manipulator.prop1_name = 'length'
+                    if self.sum_da > 0:
+                        side = 1
+                    else:
+                        side = -1
+                    v0 = stair.p0
+                    v1 = stair.p1
+                    manipulator.set_pts([(v0.x, v0.y, stair.top), (v1.x, v1.y, stair.top), (side, 0, 0)])
+                    manipulator.type_key = 'SIZE'
+                    manipulator.prop1_name = 'length'
 
             for i in range(stair.n_step):
                 stair.make_step(i, verts, faces, matids, uvs, nose_y=nose_y)
