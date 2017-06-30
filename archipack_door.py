@@ -33,7 +33,7 @@ from bpy.props import (
     FloatProperty, IntProperty, CollectionProperty,
     EnumProperty, BoolProperty, StringProperty
     )
-from mathutils import Vector, Matrix
+from mathutils import Vector
 # door component objects (panels, handles ..)
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as DoorPanel
@@ -41,10 +41,10 @@ from .materialutils import MaterialUtils
 from .archipack_handle import create_handle, door_handle_horizontal_01
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
-from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchpackDrawTool
 from .archipack_gl import FeedbackPanel
 from .archipack_keymaps import Keymaps
-from bpy_extras.view3d_utils import region_2d_to_vector_3d, region_2d_to_origin_3d
+
 
 SPACING = 0.005
 BATTUE = 0.01
@@ -1615,7 +1615,7 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_door_draw(Operator):
+class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
     bl_idname = "archipack.door_draw"
     bl_label = "Draw Doors"
     bl_description = "Draw Doors over walls"
@@ -1625,32 +1625,6 @@ class ARCHIPACK_OT_door_draw(Operator):
     filepath = StringProperty(default="")
     feedback = None
     stack = []
-
-    def mouse_to_matrix(self, context, event):
-        """
-            convert mouse pos to 3d point over plane defined by origin and normal
-        """
-        region = context.region
-        rv3d = context.region_data
-        co2d = (event.mouse_region_x, event.mouse_region_y)
-        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
-        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
-        res, pt, y, i, o, tM = context.scene.ray_cast(
-            ray_origin_mouse,
-            view_vector_mouse)
-        if res and 'archipack_wall2' in o.data:
-            z = Vector((0, 0, 1))
-            d = o.data.archipack_wall2[0]
-            y = -y
-            pt += (0.5 * d.width) * y.normalized()
-            x = y.cross(z)
-            return True, Matrix([
-            [x.x, y.x, z.x, pt.x],
-            [x.y, y.y, z.y, pt.y],
-            [x.z, y.z, z.z, o.matrix_world.translation.z],
-            [0, 0, 0, 1]
-            ]), o
-        return False, Matrix(), None
 
     @classmethod
     def poll(cls, context):
@@ -1710,7 +1684,7 @@ class ARCHIPACK_OT_door_draw(Operator):
             o.hide = True
             hole.hide = True
 
-        res, tM, wall = self.mouse_to_matrix(context, event)
+        res, tM, wall, y = self.mouse_hover_wall(context, event)
 
         if hole is not None:
             o.hide = False

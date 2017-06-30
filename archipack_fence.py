@@ -509,7 +509,7 @@ class FenceGenerator():
         f = self.segs[0]
 
         # first step
-        if extend != 0:
+        if extend != 0 and f.p_line.length != 0:
             t = -extend / self.segs[0].p_line.length
             n = f.p_line.sized_normal(t, 1)
             # n.p = f.lerp(x_offset)
@@ -521,6 +521,8 @@ class FenceGenerator():
         sections.append((n, f.dz / f.p_line.length, f.z0))
 
         for s, f in enumerate(self.segs):
+            if f.p_line.length == 0:
+                continue
             if type(f).__name__ == 'CurvedFence':
                 n_s = int(max(1, abs(f.da) * 30 / pi - 1))
                 for i in range(1, n_s + 1):
@@ -533,7 +535,7 @@ class FenceGenerator():
                 # n.p = f.lerp(x_offset)
                 sections.append((n, f.dz / f.p_line.length, f.z0 + f.dz))
 
-        if extend != 0:
+        if extend != 0 and f.p_line.length != 0:
             t = 1 + extend / self.segs[-1].p_line.length
             n = f.p_line.sized_normal(t, 1)
             # n.p = f.lerp(x_offset)
@@ -1273,7 +1275,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 pts.append(pts[0])
             else:
                 pts.append(wM * points[-1].co)
-
+        auto_update = self.auto_update
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
@@ -1295,7 +1297,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             a0 += da
             p0 = p1
 
-        self.auto_update = True
+        self.auto_update = auto_update
 
         o.matrix_world = tM * Matrix([
             [1, 0, 0, pt.x],
@@ -1423,22 +1425,19 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
     def manipulable_setup(self, context):
         """
-            TODO: Implement the setup part as per parent object basis
-
-            self.manipulable_disable(context)
-            o = context.active_object
-            for m in self.manipulators:
-                self.manip_stack.append(m.setup(context, o, self))
-
+            NOTE:
+            this one assume context.active_object is the instance this
+            data belongs to, failing to do so will result in wrong
+            manipulators set on active object
         """
         self.manipulable_disable(context)
+
         o = context.active_object
-        d = self
 
         self.setup_manipulators()
 
-        for i, part in enumerate(d.parts):
-            if i >= d.n_parts:
+        for i, part in enumerate(self.parts):
+            if i >= self.n_parts:
                 break
 
             if i > 0:

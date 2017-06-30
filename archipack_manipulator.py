@@ -42,6 +42,39 @@ from .archipack_gl import (
 )
 
 
+# NOTE:
+# Snap aware manipulators use a dirty hack :
+# draw() as a callback to update values in realtime
+# as transform.translate in use to allow snap
+# does catch all events.
+# This however has a wanted side effect:
+# the manipulator take precedence over allready running
+# ones, and prevent select mode to start.
+#
+# TODO:
+# Other manipulators should use same technique to take
+# precedence over allready running ones when active
+#
+# NOTE:
+# Select mode does suffer from this stack effect:
+# the last running wins. The point is left mouse select mode
+# requiring left drag to be RUNNING_MODAL to prevent real
+# objects select and move during manipulators selection.
+#
+# TODO:
+# First run a separate modal dedicated to select mode.
+# Selecting in whole manips stack when required
+# (manips[key].manipulable.manip_stack)
+# Must investigate for a way to handle unselect after drag done.
+
+"""
+    @TODO:
+    Last modal running wins.
+    Manipulateurs without snap and thus not running own modal,
+    may loose events events caught by select mode of last
+    manipulable enabled
+"""
+
 # Arrow sizes (world units)
 arrow_size = 0.05
 # Handle area size (pixels)
@@ -60,6 +93,9 @@ manips = {}
 class ArchipackActiveManip:
     """
         Store manipulated object
+        - object_name: manipulated object name
+        - stack: array of Manipulators instances
+        - manipulable: Manipulable instance
     """
     def __init__(self, object_name):
         self.object_name = object_name
@@ -70,13 +106,23 @@ class ArchipackActiveManip:
 
     @property
     def dirty(self):
+        """
+            Check for manipulable validity
+            to disable modal when required
+        """
         return (
             self.manipulable is None or
-            len(self.stack) < 1 or
             bpy.data.objects.find(self.object_name) < 0
             )
 
     def exit(self):
+        """
+            Exit manipulation mode
+            - exit from all running manipulators
+            - empty manipulators stack
+            - set manipulable.manipulate_mode to False
+            - remove reference to manipulable
+        """
         for m in self.stack:
             if m is not None:
                 m.exit()
@@ -88,6 +134,9 @@ class ArchipackActiveManip:
 
 
 def remove_manipulable(key):
+    """
+        disable and remove a manipulable from stack
+    """
     global manips
     # print("remove_manipulable key:%s" % (key))
     if key in manips.keys():
@@ -116,6 +165,10 @@ def check_stack(key):
 
 def empty_stack():
     # print("empty_stack()")
+    """
+        kill every manipulators in stack
+        and cleanup stack
+    """
     global manips
     for key in manips.keys():
         manips[key].exit()
@@ -123,6 +176,12 @@ def empty_stack():
 
 
 def add_manipulable(key, manipulable):
+    """
+        add a ArchipackActiveManip into the stack
+        if not allready present
+        setup reference to manipulable
+        return manipulators stack
+    """
     global manips
     if key not in manips.keys():
         # print("add_manipulable() key:%s not found create new" % (key))
@@ -965,7 +1024,7 @@ class SizeManipulator(Manipulator):
 
     def mouse_move(self, context, event):
         self.mouse_position(event)
-        if self.handle_right.active:
+        if self.active:
             self.update(context, event)
             return True
         else:
@@ -1474,7 +1533,8 @@ class AngleManipulator(Manipulator):
 
     def mouse_move(self, context, event):
         self.mouse_position(event)
-        if self.handle_right.active:
+        if self.active:
+            # print("AngleManipulator.mouse_move")
             self.update(context, event)
             return True
         else:
@@ -1993,6 +2053,15 @@ class ARCHIPACK_OT_manipulate(Operator):
     def poll(self, context):
         return context.active_object is not None
 
+    def exit_selectmode(self, context, key):
+        """
+            Hide select area on exit
+        """
+        global manips
+        if key in manips.keys():
+            if manips[key].manipulable is not None:
+                manips[key].manipulable.manipulable_exit_selectmode(context)
+
     def modal(self, context, event):
         global manips
         # Exit on stack change
@@ -2000,20 +2069,22 @@ class ARCHIPACK_OT_manipulate(Operator):
         # use object_name property to find manupulated object in stack
         # select and make object active
         # and exit when not found
+        if context.area is not None:
+            context.area.tag_redraw()
         key = self.object_name
         if check_stack(key):
+            self.exit_selectmode(context, key)
             remove_manipulable(key)
             # print("modal exit by check_stack(%s)" % (key))
-            if context.area is not None:
-                context.area.tag_redraw()
             return {'FINISHED'}
 
         res = manips[key].manipulable.manipulable_modal(context, event)
+
         if 'FINISHED' in res:
-            # print("modal exit by {FINISHED}")
-            if context.area is not None:
-                context.area.tag_redraw()
+            self.exit_selectmode(context, key)
             remove_manipulable(key)
+            # print("modal exit by {FINISHED}")
+
         return res
 
     def invoke(self, context, event):
@@ -2049,6 +2120,7 @@ class Manipulable():
     manipulators = CollectionProperty(
             type=archipack_manipulator,
             # options={'SKIP_SAVE'},
+            # options={'HIDDEN'},
             description="store 3d points to draw gl manipulators"
             )
     manipulable_refresh = BoolProperty(
@@ -2095,11 +2167,22 @@ class Manipulable():
         """
         o = context.active_object
         if o is not None:
+            self.manipulable_exit_selectmode(context)
             remove_manipulable(o.name)
             self.manip_stack = add_manipulable(o.name, self)
 
         self.manipulate_mode = False
         self.select_mode = False
+
+    def manipulable_exit_selectmode(self, context):
+        self.manipulable_area.disable()
+        self.select_mode = False
+        # remove select draw handler
+        if self.manipulable_draw_handler is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(
+                self.manipulable_draw_handler,
+                'WINDOW')
+        self.manipulable_draw_handler = None
 
     def manipulable_setup(self, context):
         """
@@ -2118,12 +2201,13 @@ class Manipulable():
         # store a reference to self for operators
         add_manipulable(object_name, self)
 
+        # copy context so manipulator always use
+        # invoke time context
+        ctx = context.copy()
+
         # take care of context switching
         # when call from outside of 3d view
-        if context.space_data.type == 'VIEW_3D':
-            bpy.ops.archipack.manipulate('INVOKE_DEFAULT', object_name=object_name)
-        else:
-            ctx = context.copy()
+        if context.space_data.type != 'VIEW_3D':
             for window in bpy.context.window_manager.windows:
                 screen = window.screen
                 for area in screen.areas:
@@ -2133,8 +2217,8 @@ class Manipulable():
                             if region.type == 'WINDOW':
                                 ctx['region'] = region
                         break
-            if ctx is not None:
-                bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT', object_name=object_name)
+        if ctx is not None:
+            bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT', object_name=object_name)
 
     def manipulable_invoke(self, context):
         """
@@ -2256,12 +2340,7 @@ class Manipulable():
                 if self.select_mode:
                     # confirm selection
 
-                    self.manipulable_area.disable()
-                    self.select_mode = False
-                    # remove select draw handler
-                    bpy.types.SpaceView3D.draw_handler_remove(
-                        self.manipulable_draw_handler,
-                        'WINDOW')
+                    self.manipulable_exit_selectmode(context)
 
                     # keep focus
                     # return {'RUNNING_MODAL'}

@@ -28,6 +28,14 @@
 import bpy
 # noinspection PyUnresolvedReferences
 from bpy.props import BoolProperty, StringProperty
+from mathutils import Vector, Matrix
+from mathutils.geometry import (
+    intersect_line_plane
+    )
+from bpy_extras.view3d_utils import (
+    region_2d_to_origin_3d,
+    region_2d_to_vector_3d
+    )
 from .materialutils import MaterialUtils
 
 
@@ -86,7 +94,7 @@ class ArchipackObject():
             return
             object or None when instance not found in selected objects
         """
-        if not auto_update:
+        if auto_update is False:
             return None
 
         active = context.active_object
@@ -148,7 +156,9 @@ class ArchipackCreateTool():
         d.auto_update = False
         if self.filepath != "":
             try:
+                # print("Archipack loading preset: %s" % d.auto_update)
                 bpy.ops.script.python_file_run(filepath=self.filepath)
+                # print("Archipack preset loaded auto_update: %s" % d.auto_update)
             except:
                 print("Archipack unable to load preset file : %s" % (self.filepath))
                 pass
@@ -172,7 +182,56 @@ class ArchipackCreateTool():
                 pass
 
 
-"""
-d = archipack_window.datablock(o)
-archipack_window.filter(o)
-"""
+class ArchpackDrawTool():
+    """
+        Draw tools
+    """
+    def mouse_to_plane(self, context, event, origin=Vector((0, 0, 0)), normal=Vector((0, 0, 1))):
+        """
+            convert mouse pos to 3d point over plane defined by origin and normal
+        """
+        region = context.region
+        rv3d = context.region_data
+        co2d = (event.mouse_region_x, event.mouse_region_y)
+        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
+        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
+        pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
+           origin, normal, False)
+        # fix issue with parallel plane
+        if pt is None:
+            pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
+                origin, view_vector_mouse, False)
+        return pt
+
+    def mouse_to_scene_raycast(self, context, event):
+        """
+            convert mouse pos to 3d point over plane defined by origin and normal
+        """
+        region = context.region
+        rv3d = context.region_data
+        co2d = (event.mouse_region_x, event.mouse_region_y)
+        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
+        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
+        res, pos, normal, face_index, object, matrix_world = context.scene.ray_cast(
+            ray_origin_mouse,
+            view_vector_mouse)
+        return res, pos, normal, face_index, object, matrix_world
+
+    def mouse_hover_wall(self, context, event):
+        """
+            convert mouse pos to matrix at bottom of surrounded wall, y oriented outside wall
+        """
+        res, pt, y, i, o, tM = self.mouse_to_scene_raycast(context, event)
+        if res and o.data is not None and 'archipack_wall2' in o.data:
+            z = Vector((0, 0, 1))
+            d = o.data.archipack_wall2[0]
+            y = -y
+            pt += (0.5 * d.width) * y.normalized()
+            x = y.cross(z)
+            return True, Matrix([
+                [x.x, y.x, z.x, pt.x],
+                [x.y, y.y, z.y, pt.y],
+                [x.z, y.z, z.z, o.matrix_world.translation.z],
+                [0, 0, 0, 1]
+                ]), o, y
+        return False, Matrix(), None, Vector()
