@@ -205,11 +205,13 @@ class Gl():
         return [round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1])]
 
     def _end(self):
+        # print("_end")
         bgl.glEnd()
         bgl.glPopAttrib()
         bgl.glLineWidth(1)
         bgl.glDisable(bgl.GL_BLEND)
         bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
+        # print("_end %s" % (type(self).__name__))
 
 
 class GlText(Gl):
@@ -347,6 +349,7 @@ class GlText(Gl):
         self._text = self.add_units(context)
 
     def draw(self, context, render=False):
+        # print("draw_text %s %s" % (self.text, type(self).__name__))
         self.render = render
         x, y = self.position_2d_from_coord(context, self.pts[0], render)
         # dirty fast assignment
@@ -381,6 +384,7 @@ class GlBaseLine(Gl):
         """
             render flag when rendering
         """
+        # print("draw_line %s" % (type(self).__name__))
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         if self.style == bgl.GL_LINE_STIPPLE:
             bgl.glLineStipple(1, 0x9999)
@@ -671,6 +675,7 @@ class GlPolygon(Gl):
         """
             render flag when rendering
         """
+        # print("draw_polygon")
         self.render = render
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         bgl.glEnable(bgl.GL_BLEND)
@@ -1147,7 +1152,7 @@ class GlCursorFence():
     """
         Cursor crossing Fence
     """
-    def __init__(self, width=1, colour=(1.0, 1.0, 1.0, 0.5), style=2852):
+    def __init__(self, width=1, colour=(1.0, 1.0, 1.0, 0.5), style=bgl.GL_LINE_STIPPLE):
         self.line_x = GlLine(d=2)
         self.line_x.style = style
         self.line_x.width = width
@@ -1184,7 +1189,7 @@ class GlCursorArea():
                 width=1,
                 bordercolour=(1.0, 1.0, 1.0, 0.5),
                 areacolour=(0.5, 0.5, 0.5, 0.08),
-                style=2852):
+                style=bgl.GL_LINE_STIPPLE):
 
         self.border = GlPolyline(bordercolour, d=2)
         self.border.style = style
@@ -1224,5 +1229,6 @@ class GlCursorArea():
 
     def draw(self, context, render=False):
         if self.on:
+            # print("GlCursorArea.draw()")
             self.area.draw(context)
             self.border.draw(context)

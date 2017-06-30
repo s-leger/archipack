@@ -118,13 +118,6 @@ class SlabGenerator():
             seg.set_offset(self.parts[i].offset, last)
             last = seg.line
 
-    """
-    def close(self, closed):
-        # Make last segment implicit closing one
-        if closed:
-            return
-    """
-
     def close(self, closed):
         # Make last segment implicit closing one
         if closed:
@@ -146,9 +139,8 @@ class SlabGenerator():
                 w.v = dp
 
             if len(self.segs) > 1:
-                w.line = w.make_offset(self.parts[-1].offset, self.segs[-2])
+                w.line = w.make_offset(self.parts[-1].offset, self.segs[-2].line)
 
-            w = self.segs[-1]
             p1 = self.segs[0].line.p1
             self.segs[0].line = self.segs[0].make_offset(self.parts[0].offset, w.line)
             self.segs[0].line.p1 = p1
