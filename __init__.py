@@ -55,7 +55,7 @@ if "bpy" in locals():
     imp.reload(archipack_stair)
     imp.reload(archipack_wall)
     imp.reload(archipack_wall2)
-    imp.reload(archipack_roof2d)
+    imp.reload(archipack_roof)
     imp.reload(archipack_slab)
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
@@ -81,7 +81,7 @@ else:
     from . import archipack_stair
     from . import archipack_wall
     from . import archipack_wall2
-    from . import archipack_roof2d
+    from . import archipack_roof
     from . import archipack_slab
     from . import archipack_fence
     from . import archipack_truss
@@ -532,10 +532,13 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["slab"].icon_id
                     ).ceiling = True
 
-        addon_updater_ops.update_notice_box_ui(self, context)
-
+        
         row = box.row(align=True)
-        row.operator("archipack.roof_axis", icon='CURVE_DATA')
+        row.operator("archipack.roof_preset_menu",
+                    text="Roof",
+                    icon='CURVE_DATA',
+                    # icon_value=icons["roof"].icon_id
+                    ).preset_operator = "archipack.roof"
 
         # toolkit
         # row = box.row(align=True)
@@ -546,6 +549,8 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Floor",
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
+        
+        addon_updater_ops.update_notice_box_ui(self, context)
 
 # ----------------------------------------------------
 # ALT + A menu
@@ -586,7 +591,10 @@ def draw_menu(self, context):
                     text="Floor",
                     icon_value=icons["floor"].icon_id
                     )
-
+    layout.operator("archipack.roof_preset_menu",
+                    text="Roof",
+                    # icon_value=icons["roof"].icon_id
+                    )
 
 class ARCHIPACK_create_menu(Menu):
     bl_label = 'Archipack'
@@ -647,7 +655,7 @@ def register():
     archipack_stair.register()
     archipack_wall.register()
     archipack_wall2.register()
-    archipack_roof2d.register()
+    archipack_roof.register()
     archipack_slab.register()
     archipack_fence.register()
     archipack_truss.register()
@@ -688,7 +696,7 @@ def unregister():
     archipack_stair.unregister()
     archipack_wall.unregister()
     archipack_wall2.unregister()
-    archipack_roof2d.unregister()
+    archipack_roof.unregister()
     archipack_slab.unregister()
     archipack_fence.unregister()
     archipack_truss.unregister()
