@@ -505,7 +505,12 @@ class ArchipackPreset(AddPresetBase):
 
     @property
     def preset_defines(self):
-        return ["d = bpy.context.active_object.data." + self.preset_subdir + "[0]"]
+        o = bpy.context.active_object
+        m = o.archipack_material[0]
+        return [
+            "d = bpy.context.active_object.data." + self.preset_subdir + "[0]",
+            "bpy.ops.archipack.material(category='" + m.category + "', material='" + m.material + "')"
+        ]
 
     def pre_cb(self, context):
         return

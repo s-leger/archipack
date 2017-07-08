@@ -46,6 +46,7 @@ import os
 
 if "bpy" in locals():
     import importlib as imp
+    imp.reload(archipack_material)
     imp.reload(archipack_snap)
     imp.reload(archipack_manipulator)
     imp.reload(archipack_reference_point)
@@ -72,6 +73,7 @@ if "bpy" in locals():
 
     print("archipack: reload ready")
 else:
+    from . import archipack_material
     from . import archipack_snap
     from . import archipack_manipulator
     from . import archipack_reference_point
@@ -146,13 +148,13 @@ class Archipack_Pref(AddonPreferences):
     tools_category = StringProperty(
         name="Tools",
         description="Choose a name for the category of the Tools panel",
-        default="Tools",
+        default="Archipack",
         update=update_panel
     )
     create_category = StringProperty(
         name="Create",
         description="Choose a name for the category of the Create panel",
-        default="Create",
+        default="Archipack",
         update=update_panel
     )
     create_submenu = BoolProperty(
@@ -172,6 +174,11 @@ class Archipack_Pref(AddonPreferences):
             description="Manipulators handle sensitive area size (pixels)",
             min=2,
             default=10
+            )
+    matlib_path = StringProperty(
+            name="Folder path",
+            description="absolute path to material library folder",
+            default=""
             )
     # Font sizes and basic colour scheme
     # kept outside of addon prefs until now
@@ -281,6 +288,11 @@ class Archipack_Pref(AddonPreferences):
         col.prop(self, "tools_category")
         col.prop(self, "create_category")
         col.prop(self, "create_submenu")
+        box = layout.box()
+        row = box.row()
+        col = row.column()
+        col.label(text="Material library:")
+        col.prop(self, "matlib_path")
         box = layout.box()
         row = box.row()
         split = row.split(percentage=0.5)
@@ -596,6 +608,7 @@ def draw_menu(self, context):
                     # icon_value=icons["roof"].icon_id
                     )
 
+                    
 class ARCHIPACK_create_menu(Menu):
     bl_label = 'Archipack'
     bl_idname = 'ARCHIPACK_create_menu'
@@ -646,6 +659,7 @@ def register():
         icons.load(name, os.path.join(icons_dir, icon), 'IMAGE')
     icons_collection["main"] = icons
 
+    archipack_material.register()
     archipack_snap.register()
     archipack_manipulator.register()
     archipack_reference_point.register()
@@ -681,12 +695,13 @@ def unregister():
     global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
     bpy.utils.unregister_class(ARCHIPACK_create_menu)
-
+    
     bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Tools)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
     bpy.utils.unregister_class(Archipack_Pref)
     # unregister subs
+    archipack_material.unregister()
     archipack_snap.unregister()
     archipack_manipulator.unregister()
     archipack_reference_point.unregister()

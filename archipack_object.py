@@ -27,6 +27,7 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
+from bpy.types import Object
 from bpy.props import BoolProperty, StringProperty
 from mathutils import Vector, Matrix
 from mathutils.geometry import (
@@ -36,7 +37,7 @@ from bpy_extras.view3d_utils import (
     region_2d_to_origin_3d,
     region_2d_to_vector_3d
     )
-from .materialutils import MaterialUtils
+# from .materialutils import MaterialUtils
 
 
 class ArchipackObject():
@@ -156,19 +157,20 @@ class ArchipackCreateTool():
         d.auto_update = False
         if self.filepath != "":
             try:
-                # print("Archipack loading preset: %s" % d.auto_update)
                 bpy.ops.script.python_file_run(filepath=self.filepath)
-                # print("Archipack preset loaded auto_update: %s" % d.auto_update)
             except:
                 print("Archipack unable to load preset file : %s" % (self.filepath))
                 pass
         d.auto_update = True
 
-    def add_material(self, o):
+    def add_material(self, o, material='DEFAULT', category=None):
         try:
-            getattr(MaterialUtils, "add_" + self.archipack_category + "_materials")(o)
+            if category is None:
+                category = self.archipack_category
+            if bpy.ops.archipack.material.poll():
+                bpy.ops.archipack.material(category=category, material=material)
         except:
-            print("Archipack MaterialUtils.add_%s_materials not found" % (self.archipack_category))
+            print("Archipack %s materials not found" % (self.archipack_category))
             pass
 
     def manipulate(self):

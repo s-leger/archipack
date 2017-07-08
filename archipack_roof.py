@@ -20,6 +20,10 @@
 
 # <pep8 compliant>
 
+# https://www.dropbox.com/s/qh0rdcu6alioe8k/Situation.zip?dl=1
+
+
+
 # ----------------------------------------------------------
 # Author: Stephen Leger (s-leger)
 #
@@ -31,15 +35,15 @@ from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
     FloatProperty, BoolProperty, IntProperty,
     StringProperty, EnumProperty,
-    CollectionProperty, PointerProperty
+    CollectionProperty
     )
 from .bmesh_utils import BmeshEdit as bmed
+from random import randint
 import bmesh
 from .materialutils import MaterialUtils
-from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from mathutils.geometry import interpolate_bezier
-from math import sin, cos, pi, acos, atan2, sqrt
+from math import sin, cos, pi, atan2, sqrt, tan
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
@@ -63,8 +67,12 @@ class Roof():
         self.slope_right = 1
         self.width_left = 1
         self.width_right = 1
-        
-    def copy(self):    
+        self.depends_left = 0
+        self.depends_right = 0
+        # force hip or valley
+        self.enforce_part = 'AUTO'
+
+    def copy(self):
         # if "Straight" in type(self).__name__:
         s = StraightRoof(self.p.copy(), self.v.copy())
         # else:
@@ -75,17 +83,20 @@ class Roof():
         s.v1_idx = self.v1_idx
         s.constraint_type = self.constraint_type
         s.slope_left = self.slope_left
-        s.slope_right = self.slope_right 
+        s.slope_right = self.slope_right
         s.width_left = self.width_left
-        s.width_right = self.width_right 
-        return s 
-      
+        s.width_right = self.width_right
+        s.depends_left = self.depends_left
+        s.depends_right = self.depends_right
+        s.enforce_part = self.enforce_part
+        return s
+
     def straight(self, length, t=1):
         s = self.copy()
         s.p = self.lerp(t)
         s.v = self.v.normalized() * length
-        return s 
-        
+        return s
+
     def set_offset(self, offset, last=None):
         """
             Offset line and compute intersection point
@@ -120,7 +131,7 @@ class StraightRoof(Roof, Line):
     def __init__(self, p, v):
         Line.__init__(self, p, v)
         Roof.__init__(self)
-                
+
 
 class CurvedRoof(Roof, Arc):
     def __str__(self):
@@ -129,7 +140,8 @@ class CurvedRoof(Roof, Arc):
     def __init__(self, c, radius, a0, da):
         Arc.__init__(self, c, radius, a0, da)
         Roof.__init__(self)
-        
+
+
 """
 class RoofGenerator():
 
@@ -143,14 +155,14 @@ class RoofGenerator():
         self.user_defined_mat = None
         self.z = 0
         self.slope = 0
-        
+
     def add_part(self, part):
 
         if len(self.segs) < 1:
             s = None
         else:
             s = self.segs[-1]
-        
+
         # start a new roof
         if s is None:
             if part.type == 'S_SEG':
@@ -164,16 +176,16 @@ class RoofGenerator():
                 s = s.straight_roof(part.a0, part.length)
             elif part.type == 'C_SEG':
                 s = s.curved_roof(part.a0, part.da, part.radius)
-        
+
         self.segs.append(s)
         self.last_type = part.type
-    
+
     def set_offset(self):
         last = None
         for i, seg in enumerate(self.segs):
             seg.set_offset(self.parts[i].offset, last)
             last = seg.line
-            
+
     def close(self, closed):
         # Make last segment implicit closing one
         if closed:
@@ -200,15 +212,15 @@ class RoofGenerator():
             p1 = self.segs[0].line.p1
             self.segs[0].line = self.segs[0].make_offset(self.parts[0].offset, w.line)
             self.segs[0].line.p1 = p1
-        
+
         self.length = 0
         for i, seg in enumerate(self.segs):
             seg.line.dist = self.length
             self.length += seg.line.length
-            
+
     def locate_manipulators(self):
-        
-            
+
+
         for i, f in enumerate(self.segs):
 
             manipulators = self.parts[i].manipulators
@@ -216,12 +228,12 @@ class RoofGenerator():
             p1 = f.p1.to_3d()
             # angle from last to current segment
             if i > 0:
-            
+
                 if i < len(self.segs) - 1:
                     manipulators[0].type_key = 'ANGLE'
                 else:
                     manipulators[0].type_key = 'DUMB_ANGLE'
-                    
+
                 v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
                 v1 = f.straight(1, 0).v.to_3d()
                 manipulators[0].set_pts([p0, v0, v1])
@@ -333,11 +345,11 @@ class RoofGenerator():
             uvs += lofter.uv(16, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
 
     def debug(self, verts):
-        for s, roof in enumerate(self.segs):        
+        for s, roof in enumerate(self.segs):
             for i in range(33):
                 x, y = roof.line.lerp(i / 32)
                 verts.append((x, y, 0))
-    
+
     def find_z(self, axis, pt):
         d = 100000
         z = 0
@@ -350,7 +362,7 @@ class RoofGenerator():
                 print("res:%s i:%s d0:%s t:%s d:%s" % (res, i, d0, t, d))
                 z = axis.z - d * axis.slope
         return z
-     
+
     def intersection_partition(self, array, begin, end):
         pivot = begin
         for i in range(begin + 1, end + 1):
@@ -373,39 +385,39 @@ class RoofGenerator():
             _quicksort(array, begin, pivot - 1)
             _quicksort(array, pivot + 1, end)
         return _quicksort(array, begin, end)
- 
-     
+
+
     def get_verts(self, verts, edges, axis):
-        
-       
-        
-        
+
+
+
+
         if axis is None:
             return
         n_axis = len(axis.segs) - 1
-        
+
         # boundary vertices without intersections
-        n_boundary = len(self.segs) - 1 
-        
+        n_boundary = len(self.segs) - 1
+
         # boundary vertices with intersections
         axis_id = n_boundary + 1
         print("n_boundary:%s n_axis:%s axis_id:%s" % (n_boundary, n_axis, axis_id))
-        
+
         # add boundary verts
-        
+
         for boundary in self.segs:
             p = boundary.line.p0
             x, y = p
             z = self.find_z(axis, p)
             verts.append((x, y, z))
-            
+
         # intersections axis / boundary
         axis_it = []
-        
+
         intersections = []
-        
+
         # intersections for each boundary part
-        for i, boundary in enumerate(self.segs):    
+        for i, boundary in enumerate(self.segs):
             it = []
             bl = boundary.line
             for j, ax in enumerate(axis.segs):
@@ -418,14 +430,14 @@ class RoofGenerator():
                             it.append([j + 1, u, p, False])
                         else:
                             it.append([j, u, p, False])
-                            
+
                     if j > 0 and len(axis_it) < 2:
                         # right of axis
                         n = ax.sized_normal(1000000, 0)
-                        
+
                         # demi-angle pour pente constante
                         # n.rotate(0.5 * ax.delta_angle(axis.segs[j - 1]))
-                        
+
                         res, p, u, v = bl.intersect_ext(n)
                         if res:
                             it.append([j, u, p, True])
@@ -436,12 +448,12 @@ class RoofGenerator():
                         if res:
                             it.append([j, u, p, True])
                             axis_id += 1
-                            
+
             # sort intersection for this boundary by param t
             self.sort_intersection(it)
             intersections.append(it)
-        
-        for i, it in enumerate(intersections):    
+
+        for i, it in enumerate(intersections):
             # add verts and edges for this boundary part
             i0 = i
             for j, t, p, do_edge in it:
@@ -455,36 +467,36 @@ class RoofGenerator():
                 else:
                     # use axis vert
                     i1 = axis_id + j
-                        
+
                 # append edge between it
                 edges.append([i0, i1])
                 i0 = i1
-            
+
             # add last edge for boundary
             i1 = i + 1
             if i1 > n_boundary:
                 i1 = 0
             edges.append([i0, i1])
-            
-            
+
+
         # add axis verts and edges
         start, end = axis_it
-        
+
         if end[0] < start[0]:
             end, start = start, end
         elif end[0] == start[0]:
             if end[1] < start[1]:
                 end, start = start, end
-            
+
         x, y = start[2]
         z = self.z
         verts.append((x, y, z))
-        
+
         x, y = end[2]
         verts.append((x, y, z))
-        
+
         i0 = axis_id
-        
+
         for j, s in enumerate(axis.segs):
             if j > 0 and j < end[0]:
                 x, y = s.p0
@@ -494,40 +506,114 @@ class RoofGenerator():
                 if j > 1:
                     edges.append([i0, i0 + 1])
                 i0 += 1
-        
-        edges.append([i0, i0 + 1])
-"""               
 
-class RoofAxisNode():
+        edges.append([i0, i0 + 1])
+"""
+
+
+class RoofAxisSegment():
     def __init__(self, a0, idx, reversed):
         self.a0 = a0
         self.idx = idx
         self.reversed = reversed
 
-               
-class RoofAxisGenerator():
 
-    def __init__(self, parts, origin=Vector((0, 0))):
-        self.parts = parts
+class RoofAxisNode():
+    def __init__(self):
+        # axis segments
+        self.segs = []
+        self.root = None
+        self.center = -1
+
+    @property
+    def count(self):
+        return len(self.segs)
+
+    @property
+    def idx(self):
+        """
+            index of segments in this node
+        """
+        return [n.idx for n in self.segs]
+
+    @property
+    def last_idx(self):
+        """
+            index of last segments in this node
+        """
+        return self.segs[-1].idx
+
+    @property
+    def last(self):
+        """
+            last segments in this node
+        """
+        return self.segs[-1]
+
+    def left_idx(self, index):
+        if index + 1 > self.count:
+            return self.segs[0].idx
+        return self.segs[index + 1].idx
+
+    def right_idx(self, index):
+        return self.segs[index - 1].idx
+
+    def add(self, a0, idx, reversed):
+        s = RoofAxisSegment(a0, idx, reversed)
+        if reversed:
+            self.root = s
+        self.segs.append(s)
+
+    # sort tree segments by angle
+    def partition(self, array, begin, end):
+        pivot = begin
+        for i in range(begin + 1, end + 1):
+            if array[i].a0 < array[begin].a0:
+                pivot += 1
+                array[i], array[pivot] = array[pivot], array[i]
+        array[pivot], array[begin] = array[begin], array[pivot]
+        return pivot
+
+    def sort(self):
+        def _quicksort(array, begin, end):
+            if begin >= end:
+                return
+            pivot = self.partition(array, begin, end)
+            _quicksort(array, begin, pivot - 1)
+            _quicksort(array, pivot + 1, end)
+
+        end = len(self.segs) - 1
+        _quicksort(self.segs, 0, end)
+
+        for i, s in enumerate(self.segs):
+            if s == self.root:
+                self.center = i
+                return
+
+
+class RoofGenerator():
+
+    def __init__(self, d, origin=Vector((0, 0, 0))):
+        self.parts = d.parts
         self.segs = []
         self.length = 0
-        self.origin = origin
-        self.user_defined_post = None
+        self.origin = origin.to_2d()
+        self.z = origin.z
+        self.width_right = d.width_right
+        self.width_left = d.width_left
+        self.slope_left = d.slope_left
+        self.slope_right = d.slope_right
+        self.user_defined_tile = None
         self.user_defined_uvs = None
         self.user_defined_mat = None
-        self.z = 0
-        self.width_right = 2.5
-        self.width_left = 2.5
-        self.slope_left = 1
-        self.slope_right = 1
-        
+
     def add_part(self, part):
 
         if len(self.segs) < 1 or part.bound_idx < 1:
             s = None
         else:
             s = self.segs[part.bound_idx - 1]
-        
+
         # start a new roof
         if s is None:
             if part.type == 'S_SEG':
@@ -541,17 +627,23 @@ class RoofAxisGenerator():
                 s = s.straight_roof(part.a0, part.length)
             elif part.type == 'C_SEG':
                 s = s.curved_roof(part.a0, part.da, part.radius)
-        s.angle_0 = part.a0
+        # parent segment (root) index is  v0_idx - 1
         s.v0_idx = part.bound_idx
         s.constraint_type = part.constraint_type
+
+        if part.constraint_type == 'SLOPE':
+            s.enforce_part = part.enforce_part
+        else:
+            s.enforce_part = 'AUTO'
+
+        s.angle_0 = part.a0
         s.take_precedence = part.take_precedence
         self.segs.append(s)
-                
+
     def locate_manipulators(self):
         """
             
         """
-            
         for i, f in enumerate(self.segs):
 
             manipulators = self.parts[i].manipulators
@@ -559,9 +651,9 @@ class RoofAxisGenerator():
             p1 = f.p1.to_3d()
             # angle from last to current segment
             if i > 0:
-            
+
                 manipulators[0].type_key = 'ANGLE'
-                v0 = self.segs[f.v0_idx].straight(-1, 1).v.to_3d()
+                v0 = self.segs[f.v0_idx - 1].straight(-1, 1).v.to_3d()
                 v1 = f.straight(1, 0).v.to_3d()
                 manipulators[0].set_pts([p0, v0, v1])
 
@@ -585,11 +677,11 @@ class RoofAxisGenerator():
             manipulators[3].set_pts([p0, p1, (1, 0, 0)])
 
     def debug(self, verts):
-        for s, roof in enumerate(self.segs):        
+        for s, roof in enumerate(self.segs):
             for i in range(33):
                 x, y = roof.lerp(i / 32)
                 verts.append((x, y, 0))
-    
+
     # sort tree segments by angle
     def seg_partition(self, array, begin, end):
         pivot = begin
@@ -613,10 +705,10 @@ class RoofAxisGenerator():
             _quicksort(array, begin, pivot - 1)
             _quicksort(array, pivot + 1, end)
         return _quicksort(array, begin, end)
- 
+
     def intersect_chevron(self, line, side1, side2, slope, height, segs, verts):
         res, p, u, v = line.intersect_ext(segs[side1])
-        if res :
+        if res:
             x, y = p
             z = self.z - slope * u
         else:
@@ -627,51 +719,59 @@ class RoofAxisGenerator():
             else:
                 x, y = line.p1
                 z = self.z - slope
-        
+
         verts.append((x, y, z))
         verts.append((x, y, z - height))
- 
+
     def make_roof(self, verts, edges):
-        
+        """
+            Init data structure for possibly multi branched nodes
+
+        """
         x, y = self.segs[0].p0
         z = self.z
         verts.append((x, y, z))
-        
+
         # Axis verts
         for idx, s in enumerate(self.segs):
             s.v1_idx = idx + 1
             x, y = s.p1
             verts.append((x, y, z))
             s.z0 = z
-            
+
         # node are connected segments
-        # node    
-        # (segment idx) 
-        # (angle from root part > 0 right) 
-        # (reversed) connected by p1
-        
-        nodes = [[] for s in range(len(self.segs) + 1)]
+        # node
+        # (segment idx)
+        # (angle from root part > 0 right)
+        # (reversed) denote a seg connected by p1
+        #            "root" of node
+        nodes = [RoofAxisNode() for s in range(len(self.segs) + 1)]
         new_idx = len(self.segs)
-        
+
         for i, s in enumerate(self.segs):
-            nodes[s.v0_idx].append(RoofAxisNode(s.angle_0, i, False))
-            nodes[s.v1_idx].append(RoofAxisNode(-pi, i, True))
-        
-        # slope and width on 
-        # per node basis along axis
+            nodes[s.v0_idx].add(s.angle_0, i, False)
+            nodes[s.v1_idx].add(-pi, i, True)
+
+        # override first segment a0
+        # so regular sort does work
+        # nodes[0].segs[0].a0 = -pi
+        nodes[0].root = nodes[0].segs[0]
+
+        # Propagate slope and width
+        # on node basis along axis
         # contigous -> same
         # T: and (x % 2 == 1)
         # First one take precedence over others
         # others inherit from side
         #
-        #         l / l
-        #          3
-        #   l _1_ / 
+        #         l / l    l = left
+        #          3       r = right
+        #   l _1_ /
         #   r     \
         #          2
         #          r\ l
         #
-        # X: rigth one r left one l (x % 2 == 0) 
+        # X: rigth one r left one l (x % 2 == 0)
         # inherits from side
         #
         #    l 3 l          l = left
@@ -679,110 +779,132 @@ class RoofAxisGenerator():
         # r    |   r
         #    r 4 r
         #
+
+        # Init slope and width on seg 0
         seg = self.segs[0]
         seg.slope_right = self.slope_right
         seg.slope_left = self.slope_left
         seg.width_right = self.width_right
         seg.width_left = self.width_left
-        
+
         for idx, node in enumerate(nodes):
-            
-            self.sort_seg(node)
+
+            node.sort()
+
+            """
             # special case: segment 0
-            # reorder so segment is 
-            if idx == 0:
-                for i, n in enumerate(node):
+            # there is no "root"
+            if node.root is None:
+                for i, n in enumerate(node.segs):
                     seg = self.segs[n.idx]
                     if seg.v1_idx == 1:
-                        node = node[i:] + node[:i]
-                        nodes[0] = node
-                        
-            nb_segs = len(node)
-            
+                        node.segs = node.segs[i:] + node.segs[:i]
+            """
+
+            nb_segs = node.count
+
             if nb_segs < 2:
                 continue
-            
-            n = node[0]
-            seg = self.segs[n.idx]
+
+            # get "root" slope and width
+            s = node.root.idx
+            seg = self.segs[s]
             slope_right = seg.slope_right
             slope_left = seg.slope_left
             width_right = seg.width_right
             width_left = seg.width_left
-            
+            depends_left = seg.depends_left
+            depends_right = seg.depends_right
+
+            # simple case: 2 contigous segments
             if nb_segs == 2:
-                n = node[1]
-                seg = self.segs[n.idx]
+                s = node.last_idx
+                seg = self.segs[s]
                 seg.slope_right = slope_right
                 seg.slope_left = slope_left
                 seg.width_right = width_right
                 seg.width_left = width_left
+                seg.depends_left = depends_left
+                seg.depends_right = depends_right
                 continue
-                
+
+            # More than 2 segments, uneven distribution
             if nb_segs % 2 == 1:
                 # find wich child does take precedence
-                # either first one on rootline
+                # first one on rootline (arbitrary)
                 center = nb_segs
-                for i, n in enumerate(node):
-                    seg = self.segs[n.idx]
+                for s in node.idx:
+                    seg = self.segs[s]
                     if seg.v1_idx < center:
                         center = seg.v1_idx
             else:
+                # even distribution
                 center = nb_segs / 2
-                
-            # user defined precedence   
-            for i, n in enumerate(node):
-                seg = self.segs[n.idx]
+
+            # user defined precedence if any
+            for i, s in enumerate(node.idx):
+                seg = self.segs[s]
                 if seg.take_precedence:
                     center = i
-                    break    
-                
-            for i, n in enumerate(node):
-                seg = self.segs[n.idx]
+                    break
+
+            for i, s in enumerate(node.idx):
+                # repartir les dependences
+                # chaque segment depend du precedant
+                # TODO:
+                # chaque segment adjascent d'un meme cote d'un axe
+                # depend du precedant
+                # prendre depuis l'axe dans les 2 directions
+                seg = self.segs[s]
                 if i > 0:
                     if i < center:
                         seg.slope_left = slope_right
-                        seg.slope_right = slope_right 
+                        seg.slope_right = slope_right
                         seg.width_left = width_right
-                        seg.width_right = width_right 
+                        seg.width_right = width_right
+                        seg.depends_right = depends_right
+                        seg.depends_left = depends_right
                     elif i == center:
                         seg.slope_left = slope_left
-                        seg.slope_right = slope_right 
+                        seg.slope_right = slope_right
                         seg.width_left = width_left
-                        seg.width_right = width_right 
+                        seg.width_right = width_right
+                        seg.depends_right = depends_right
+                        seg.depends_left = depends_left
                     else:
                         seg.slope_left = slope_left
-                        seg.slope_right = slope_left 
+                        seg.slope_right = slope_left
                         seg.width_left = width_left
-                        seg.width_right = width_left 
-        
-        
+                        seg.width_right = width_left
+                        seg.depends_right = depends_left
+                        seg.depends_left = depends_left
+
         # vertices for slope between sections
         #
         #    2 slope            2 slope           2 slope
-        #     |                  |                 | 
+        #     |                  |                 |
         #     |______section_1___|___section_2_____|
-        #     |                  |                 |  
+        #     |                  |                 |
         #     |                  |                 |
         #
         segs = []
         for idx, node in enumerate(nodes):
-            
-            nb_segs = len(node)
+
+            # count for 'HORIZONTAL' segments in node
+            nb_segs = node.count
             # if node is empty:
             if nb_segs < 1:
-                print("empty node")
+                # print("empty node")
+
                 break
-            
-            # if node is alone:
-            # build 2 slopes on each sides
-            
-            root = self.segs[node[0].idx]
-            
+
+            root = self.segs[node.root.idx]
+
             # check if there is a user defined slope
             # disable auto-slope when found
             slope_left = None
             slope_right = None
-            for n in node:
+            for n in node.segs:
                 seg = self.segs[n.idx]
                 if not n.reversed and seg.constraint_type == 'SLOPE':
                     # print("node:%s seg:%s angle_0:%s" % (idx, n.idx, seg.angle_0))
@@ -791,28 +913,31 @@ class RoofAxisGenerator():
                         slope_left = n.idx
                     else:
                         slope_right = n.idx
-                        
-            print("nb_segs:%s slope_right:%s slope_left:%s root.constraint_type:%s" % (nb_segs, slope_right, slope_left, root.constraint_type))
-            
-            # ends either start or end of roof parts
-            # where segment is alone or with user defined slope
+
+            # one 'HORIZONTAL' segment in node
+            # with possibly 'SLOPE' segments
+            # on roof extremity
             if nb_segs < 2:
-                
-                if node[0].reversed:
-                    # slope_left, slope_right = slope_right, slope_left
+
+                if node.root.reversed:
+                    # node on end of roof segment
                     t = 1
                 else:
+                    # node on start of roof segment
                     segs.append(root)
                     t = 0
-                
-                # slope + width OK
+
+                # Ensure root is 'HORIZONTAL'
+                # dosent make sense otherwhise
                 if root.constraint_type == 'HORIZONTAL':
-                    # left - auto slope 
+                    # left - auto slope
                     if slope_left is None:
                         length = root.width_left
                         new_idx += 1
                         new = root.straight(length, t).rotate(pi / 2)
                         new.constraint_type = 'SLOPE'
+                        new.slope_right = root.slope_left
+                        new.width_right = root.width_left
                         new.angle_0 = pi / 2
                         new.v0_idx = idx
                         new.v1_idx = new_idx
@@ -820,32 +945,35 @@ class RoofAxisGenerator():
                         x, y = new.p1
                         z = root.z0 - length * root.slope_left
                         verts.append((x, y, z))
-                    
+
                     # user defined left slope
-                    else: 
+                    else:
                         cur = self.segs[slope_left]
-                        # reproject user defined slope 
+                        # project side using user defined slope
+                        # to fit avaliable width
                         da = cur.delta_angle(root)
                         # angle always ccw
                         if da < 0:
                             da = 2 * pi + da
                         if da == 0:
-                            length = root.width_left
-                        else:    
-                            length = min(3 * root.width_left, root.width_left / sin(da))
+                            width = root.width_left
+                        else:
+                            width = min(3 * root.width_left, root.width_left / sin(da))
                         # print("length:%s da:%s" % (length, da))
                         cur = cur.copy()
-                        cur.v = cur.v.normalized() * length
+                        cur.v = cur.v.normalized() * width
                         segs.append(cur)
                         x, y = cur.p1
                         z = root.z0 - root.width_left * root.slope_left
                         verts[cur.v1_idx] = (x, y, z)
-                        
+
                     # right - auto slope
-                    if slope_right is None:    
+                    if slope_right is None:
                         length = root.width_right
                         new_idx += 1
                         new = root.straight(length, t).rotate(-pi / 2)
+                        new.slope_left = root.slope_right
+                        new.width_left = root.width_right
                         new.constraint_type = 'SLOPE'
                         new.angle_0 = -pi / 2
                         new.v0_idx = idx
@@ -854,70 +982,87 @@ class RoofAxisGenerator():
                         x, y = new.p1
                         z = root.z0 - length * root.slope_right
                         verts.append((x, y, z))
-                    
+
                     # user defined right slope
                     else:
-                        
+
                         cur = self.segs[slope_right]
-                        # reproject user defined slope 
+                        # project side using user defined slope
+                        # to fit avaliable width
                         da = cur.delta_angle(root)
                         # angle always ccw
                         if da < 0:
                             da = 2 * pi + da
                         if da == 0:
-                            length = root.width_right   
+                            width = root.width_right
                         else:
-                            length = min(3 * root.width_right, root.width_right / sin(da))
-                        
-                        print("user def slope right length:%s da:%s" % (length, da))
-                        
+                            width = min(3 * root.width_right, root.width_right / sin(da))
+
+                        # print("user def slope right length:%s da:%s" % (width, da))
+
                         cur = cur.copy()
-                        cur.v = cur.v.normalized() * -length
+                        cur.v = cur.v.normalized() * -width
                         segs.append(cur)
                         x, y = cur.p1
                         z = root.z0 - root.width_right * root.slope_right
                         verts[cur.v1_idx] = (x, y, z)
-            
+
             # between segments
             else:
-                
-                # add slope between horizontal parts
-                last = self.segs[node[-1].idx]
-                
-                if node[-1].reversed:
+
+                # add slope segs between horizontal parts
+
+                # last segment in ccw order
+                last = self.segs[node.last_idx]
+
+                # take inverse of node when reversed
+                # so angle mesure remains constant
+                if node.last.reversed:
                     last = last.copy()
                     last.p += last.v
                     last.v = -last.v
-                
+
                 # new_node.append(last)
-                for n in node:
+                for n in node.segs:
                     cur = self.segs[n.idx]
                     width = cur.width_right
                     slope = cur.slope_right
-                            
+
+                    # take inverse of node when reversed
+                    # so angle mesure remains constant
                     if n.reversed:
                         width = cur.width_left
                         slope = cur.slope_left
                         cur = cur.copy()
                         cur.p += cur.v
                         cur.v = -cur.v
-                    
+
                     if cur.constraint_type == 'HORIZONTAL':
                         if last.constraint_type == cur.constraint_type:
-                            # add slope in the middle
-                            
+
+                            # add slope between 2 'HORIZONTAL'
+                            # sections
+
+                            # cur will inherits from reproj as width
+                            # and slope
+
                             # wich side here ?
-                            
+
                             da = cur.delta_angle(last)
                             # angle always ccw
                             if da < 0:
                                 da = 2 * pi + da
-                            
-                            # a0 = cur.delta_angle(root)
-                            
-                            length = min(3 * width, width / sin(0.5 * da))
+
+                            reproj = min(3 * width, width / sin(0.5 * da))
                             new_idx += 1
-                            new = last.straight(length, 0).rotate(0.5 * da)
+                            new = last.straight(reproj, 0).rotate(0.5 * da)
+
+                            # maybe store width here ?
+                            new.slope_left = slope
+                            new.slope_right = slope
+                            new.width_left = width
+                            new.width_right = width
+
                             new.constraint_type = 'SLOPE'
                             new.v0_idx = idx
                             new.v1_idx = new_idx
@@ -926,44 +1071,59 @@ class RoofAxisGenerator():
                             x, y = new.p1
                             z = root.z0 - width * slope
                             verts.append((x, y, z))
-                    
-                    # reproject user defined slope 
+
+                    # user defined 'SLOPE' segment
+                    # reproject width and z of vertex
                     else:
                         da = cur.delta_angle(root)
                         # angle always ccw
                         if da < 0:
                             da = 2 * pi + da
-                        length = min(3 * width, width / sin(da))
+                        reproj = min(3 * width, width / sin(da))
                         # print("length:%s da:%s" % (length, da))
                         cur = cur.copy()
-                        cur.v = cur.v.normalized() * length
+                        cur.v = cur.v.normalized() * reproj
                         if cur.angle_0 < 0:
                             cur.v = -cur.v
                         x, y = cur.p1
                         z = root.z0 - width * slope
                         verts[cur.v1_idx] = (x, y, z)
-                        
+
+                        if not n.reversed:
+                            # update "rootline"
+                            self.segs[n.idx].slope_right = slope * width / reproj
+                            self.segs[n.idx].width_right = reproj
+                            cur.v1_idx
+
+                    # do not append "root" segments here
                     if not n.reversed:
                         segs.append(cur)
-                    
+
                     last = cur
-        
+
         # axis and slope edges
         for s in segs:
             edges.append([s.v0_idx, s.v1_idx])
-        
-        # boundary edges / faces
-        nodes = [[] for s in range(new_idx + 1)]
+
+        # Store nodes including 'SLOPE' ones
+        nodes = [RoofAxisNode() for s in range(new_idx + 1)]
+
         for i, s in enumerate(segs):
-            nodes[s.v0_idx].append(RoofAxisNode(s.angle_0, i, False))
-            nodes[s.v1_idx].append(RoofAxisNode(-pi, i, True))
-        
-        for idx, node in enumerate(nodes):
-            self.sort_seg(node)
-        
+            nodes[s.v0_idx].add(s.angle_0, i, False)
+            nodes[s.v1_idx].add(-pi, i, True)
+
+        # override first segment a0
+        # so regular sort does work
+        # nodes[0].segs[0].a0 = -pi
+        nodes[0].root = nodes[0].segs[0]
+
+        # sort segs in nodes in ccw order
+        for node in nodes:
+            node.sort()
+
         self.nodes = nodes
         self.all_segs = segs
-        
+
     def bissect(self, bm,
             plane_co,
             plane_no,
@@ -985,251 +1145,277 @@ class RoofAxisGenerator():
             clear_outer=clear_outer,
             clear_inner=clear_inner
             )
-        
+
     def lambris(self, d, verts, faces, edges, matids, uvs):
-        
+
         idmat = 0
-        
         segs = self.all_segs
         nodes = self.nodes
-        
+
         for idx, node in enumerate(nodes):
-            # segment always between 2 nodes
-            # create edge between rightmost of first node to leftmost of next node
-            # same for other side
-            
+
             # find next node in segment
-            for i, s in enumerate(node):
-                
+            for i, s in enumerate(node.segs):
+
                 seg = segs[s.idx]
-                
+
                 if s.reversed:
                     continue
-                    
-                if len(nodes[seg.v1_idx]) > 1:
-                    next = nodes[seg.v1_idx]
-                    # segments sorted by angle from axis 
-                    # center are ids of axis segment on each node
-                    # so center + 1 and center - 1
-                    # are leftmost and rightmost slope segments
+
+                next = nodes[seg.v1_idx]
+
+                if next.count > 1:
+
                     center_0 = i
-                    center_1 = -1
-                    for i, s in enumerate(next):
-                        if s.reversed:
-                            center_1 = i
-                            break
+                    center_1 = next.center
+
                     # found 2nd node
                     if center_1 > -1:
-                    
+
                         i0 = seg.v0_idx
                         i1 = seg.v1_idx
-                        
+
                         ############
                         # right
                         ############
-                        
-                        ir0 = next[center_1 - 1].idx
-                        if center_0 + 1 < len(node):
-                            ir1 = node[center_0 + 1].idx
-                        else:
-                            ir1 = node[0].idx
-                        
+
+                        ir0 = next.right_idx(center_1)
+                        ir1 = node.left_idx(center_0)
+
                         vi2 = segs[ir0].v1_idx
                         vi3 = segs[ir1].v1_idx
-                        
+
                         edges.append([vi2, vi3])
-                        faces.append([i0, i1, vi2, vi3])
- 
-                        
+                        faces.append([i1, i0, vi3, vi2])
+
                         ############
                         # left
                         ############
-                        
-                        il0 = node[center_0 - 1].idx
-                        if center_1 + 1 < len(next):
-                            il1 = next[center_1 + 1].idx
-                        else:
-                            il1 = next[0].idx
-                        
+
+                        il0 = node.right_idx(center_0)
+                        il1 = next.left_idx(center_1)
+
                         vi2 = segs[il0].v1_idx
                         vi3 = segs[il1].v1_idx
-                        
+
                         edges.append([vi2, vi3])
-                        faces.append([i1, i0, vi2, vi3])
-                        
+                        faces.append([i0, i1, vi3, vi2])
+
                         matids.extend([idmat, idmat])
                         uvs.extend([
                             [(0, 0), (1, 0), (1, 1), (0, 1)],
                             [(0, 0), (1, 0), (1, 1), (0, 1)]
                         ])
-                        
+
     def couverture(self, context, o, d):
-        
-        idmat = 6
-        
+
+        idmat = 7
+        rand = 3
+
         segs = self.all_segs
         nodes = self.nodes
-        
+
         left, right = True, True
         angle_90 = round(pi / 2, 4)
         """
         m = C.object.data
         [(round(v.co.x, 2), round(v.co.y, 2), round(v.co.z, 2)) for v in m.vertices]
         [tuple(p.vertices) for p in m.polygons]
+
+        uvs = []
+        bpy.ops.object.mode_set(mode='EDIT')
+        bm = bmesh.from_edit_mesh(o.data)
+
+        layer = bm.loops.layers.uv.verify()
+        for i, face in enumerate(bm.faces):
+            uv = []
+            for j, loop in enumerate(face.loops):
+                co = loop[layer].uv
+                uv.append((round(co.x, 2), round(co.y, 2)))
+            uvs.append(uv)
+
         """
 
         sx, sy, sz = d.tile_size_x, d.tile_size_y, d.tile_size_z
-        
+
+        """
+        /* Bevel offset_type slot values */
+        enum {
+          BEVEL_AMT_OFFSET,
+          BEVEL_AMT_WIDTH,
+          BEVEL_AMT_DEPTH,
+          BEVEL_AMT_PERCENT
+        };
+        """
+        offset_type = 3
+
         if d.tile_offset > 0:
             offset = - d.tile_offset / 100
         else:
             offset = 0
-            
+
         if d.tile_model == 'BRAAS2':
             t_pts = [Vector(p) for p in [
-                (0.06, -1.0, 1.0), (0.19, -1.0, 0.5), (0.31, -1.0, 0.5), (0.44, -1.0, 1.0), 
-                (0.56, -1.0, 1.0), (0.69, -1.0, 0.5), (0.81, -1.0, 0.5), (0.94, -1.0, 1.0), 
-                (0.06, 0.0, 0.5), (0.19, 0.0, 0.0), (0.31, 0.0, 0.0), (0.44, 0.0, 0.5), 
-                (0.56, 0.0, 0.5), (0.69, 0.0, 0.0), (0.81, 0.0, 0.0), (0.94, 0.0, 0.5), 
+                (0.06, -1.0, 1.0), (0.19, -1.0, 0.5), (0.31, -1.0, 0.5), (0.44, -1.0, 1.0),
+                (0.56, -1.0, 1.0), (0.69, -1.0, 0.5), (0.81, -1.0, 0.5), (0.94, -1.0, 1.0),
+                (0.06, 0.0, 0.5), (0.19, 0.0, 0.0), (0.31, 0.0, 0.0), (0.44, 0.0, 0.5),
+                (0.56, 0.0, 0.5), (0.69, 0.0, 0.0), (0.81, 0.0, 0.0), (0.94, 0.0, 0.5),
                 (-0.0, -1.0, 1.0), (-0.0, 0.0, 0.5), (1.0, -1.0, 1.0), (1.0, 0.0, 0.5)]]
             t_faces = [
-                (16, 0, 8, 17), (0, 1, 9, 8), (1, 2, 10, 9), (2, 3, 11, 10), 
+                (16, 0, 8, 17), (0, 1, 9, 8), (1, 2, 10, 9), (2, 3, 11, 10),
                 (3, 4, 12, 11), (4, 5, 13, 12), (5, 6, 14, 13), (6, 7, 15, 14), (7, 18, 19, 15)]
         elif d.tile_model == 'BRAAS1':
             t_pts = [Vector(p) for p in [
-                (0.1, -1.0, 1.0), (0.2, -1.0, 0.5), (0.6, -1.0, 0.5), (0.7, -1.0, 1.0), 
-                (0.1, 0.0, 0.5), (0.2, 0.0, 0.0), (0.6, 0.0, 0.0), (0.7, 0.0, 0.5), 
+                (0.1, -1.0, 1.0), (0.2, -1.0, 0.5), (0.6, -1.0, 0.5), (0.7, -1.0, 1.0),
+                (0.1, 0.0, 0.5), (0.2, 0.0, 0.0), (0.6, 0.0, 0.0), (0.7, 0.0, 0.5),
                 (-0.0, -1.0, 1.0), (-0.0, 0.0, 0.5), (1.0, -1.0, 1.0), (1.0, 0.0, 0.5)]]
             t_faces = [(8, 0, 4, 9), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 10, 11, 7)]
         elif d.tile_model == 'ETERNIT':
             t_pts = [Vector(p) for p in [
-                (0.11, -1.0, 1.0), (0.89, -1.0, 1.0), (0.0, -0.89, 0.89), 
-                (1.0, -0.89, 0.89), (0.0, 0.5, -0.5), (1.0, 0.5, -0.5)]]
+                (0.11, -1.0, 1.0), (0.9, -1.0, 1.0), (0.0, -0.79, 0.79),
+                (1.0, -0.79, 0.79), (0.0, 2.0, -2.0), (1.0, 2.0, -2.0)]]
             t_faces = [(0, 1, 3, 5, 4, 2)]
+        elif d.tile_model == 'ONDULEE':
+            t_pts = [Vector(p) for p in [
+                (0.0, -1.0, 0.1), (0.05, -1.0, 1.0), (0.1, -1.0, 0.1),
+                (0.15, -1.0, 1.0), (0.2, -1.0, 0.1), (0.25, -1.0, 1.0),
+                (0.3, -1.0, 0.1), (0.35, -1.0, 1.0), (0.4, -1.0, 0.1),
+                (0.45, -1.0, 1.0), (0.5, -1.0, 0.1), (0.55, -1.0, 1.0),
+                (0.6, -1.0, 0.1), (0.65, -1.0, 1.0), (0.7, -1.0, 0.1),
+                (0.75, -1.0, 1.0), (0.8, -1.0, 0.1), (0.85, -1.0, 1.0),
+                (0.9, -1.0, 0.1), (0.95, -1.0, 1.0), (1.0, -1.0, 0.1),
+                (0.0, 0.0, 0.0), (0.05, 0.0, 0.9), (0.1, 0.0, 0.0),
+                (0.15, 0.0, 0.9), (0.2, 0.0, 0.0), (0.25, 0.0, 0.9),
+                (0.3, 0.0, 0.0), (0.35, 0.0, 0.9), (0.4, 0.0, 0.0),
+                (0.45, 0.0, 0.9), (0.5, 0.0, 0.0), (0.55, 0.0, 0.9),
+                (0.6, 0.0, 0.0), (0.65, 0.0, 0.9), (0.7, 0.0, 0.0),
+                (0.75, 0.0, 0.9), (0.8, 0.0, 0.0), (0.85, 0.0, 0.9),
+                (0.9, 0.0, 0.0), (0.95, 0.0, 0.9), (1.0, 0.0, 0.0)]]
+            t_faces = [
+                (0, 1, 22, 21), (1, 2, 23, 22), (2, 3, 24, 23),
+                (3, 4, 25, 24), (4, 5, 26, 25), (5, 6, 27, 26),
+                (6, 7, 28, 27), (7, 8, 29, 28), (8, 9, 30, 29),
+                (9, 10, 31, 30), (10, 11, 32, 31), (11, 12, 33, 32),
+                (12, 13, 34, 33), (13, 14, 35, 34), (14, 15, 36, 35),
+                (15, 16, 37, 36), (16, 17, 38, 37), (17, 18, 39, 38),
+                (18, 19, 40, 39), (19, 20, 41, 40)]
+        elif d.tile_model == 'METAL':
+            t_pts = [Vector(p) for p in [
+                (0.0, -1.0, 0.0), (0.99, -1.0, 0.0), (1.0, -1.0, 0.0),
+                (0.0, 0.0, 0.0), (0.99, 0.0, 0.0), (1.0, 0.0, 0.0),
+                (0.99, -1.0, 1.0), (1.0, -1.0, 1.0), (1.0, 0.0, 1.0), (0.99, 0.0, 1.0)]]
+            t_faces = [(0, 1, 4, 3), (7, 2, 5, 8), (1, 6, 9, 4), (6, 7, 8, 9)]
         elif d.tile_model == 'LAUZE':
             t_pts = [Vector(p) for p in [
-                (0.75, -0.8, 0.8), (0.5, -1.0, 1.0), (0.25, -0.8, 0.8), 
+                (0.75, -0.8, 0.8), (0.5, -1.0, 1.0), (0.25, -0.8, 0.8),
                 (0.0, -0.5, 0.5), (1.0, -0.5, 0.5), (0.0, 0.5, -0.5), (1.0, 0.5, -0.5)]]
             t_faces = [(1, 0, 4, 6, 5, 3, 2)]
         elif d.tile_model == 'PLACEHOLDER':
             t_pts = [Vector(p) for p in [(0.0, -1.0, 1.0), (1.0, -1.0, 1.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]]
-            t_faces = [(0, 1, 3, 2)] 
+            t_faces = [(0, 1, 3, 2)]
         else:
             return
-        
+
         n_faces = len(t_faces)
         t_uvs = [[(t_pts[i].x, t_pts[i].y) for i in f] for f in t_faces]
-        t_mats = [idmat for i in range(n_faces)]
-            
+
         for idx, node in enumerate(nodes):
             # segment always between 2 nodes
             # create edge between rightmost of first node to leftmost of next node
             # same for other side
-            
+
             # find next node in segment
-            for i, s in enumerate(node):
-                
+            for i, s in enumerate(node.segs):
+
                 seg = segs[s.idx]
-                
+
                 if s.reversed:
                     continue
-                    
-                if len(nodes[seg.v1_idx]) > 1:
+
+                if nodes[seg.v1_idx].count > 1:
+
                     next = nodes[seg.v1_idx]
-                    # segments sorted by angle from axis 
+                    # segments sorted by angle from axis
                     # center are ids of axis segment on each node
                     # so center + 1 and center - 1
                     # are leftmost and rightmost slope segments
-                    
-                    n_next = len(next)
-                    n_node = len(node)
-                    
+
+                    n_next = next.count
+                    n_node = node.count
+
                     center_0 = i
-                    center_1 = -1
-                    for i, s in enumerate(next):
-                        if s.reversed:
-                            center_1 = i
-                            break
-                            
+                    center_1 = next.center
+
                     # found 2nd node
                     if center_1 > -1:
-                    
-                        i0 = seg.v0_idx
-                        i1 = seg.v1_idx
-                        
+
                         ############
                         # right
                         ############
                         if right:
                             dx, dy = d.tile_space_x, d.tile_space_y
-            
-                            ir0 = next[center_1 - 1].idx
-                            if center_0 + 1 < len(node):
-                                ir1 = node[center_0 + 1].idx
-                            else:
-                                ir1 = node[0].idx
-                            
-                                
-                            s0 = segs[ir0] # sur next
-                            s1 = segs[ir1] # sur node
-                            
+
+                            ir0 = next.right_idx(center_1)
+                            ir1 = node.left_idx(center_0)
+
+                            s0 = segs[ir0]
+                            s1 = segs[ir1]
+
                             # right part is larger than axis: compute t param in axis
                             res, d0, u = seg.point_sur_segment(s1.p1)
                             res, dr, v = seg.point_sur_segment(s0.p1)
-                            rslope = abs(dr) * seg.slope_left
                             trmin = min(0, u)
                             trmax = max(1, v)
-                            
-                            
+
                             #####################
                             # Right part
                             #####################
-                            
+
                             # compute base matrix top left of face
                             vx = -seg.v.normalized().to_3d()
                             vy = Vector((-vx.y, vx.x, seg.slope_left)).normalized()
                             vz = vx.cross(vy)
-                            
+
                             x0, y0 = seg.lerp(trmax)
-                            z0 = self.z + 0.1 
-                            
+                            z0 = self.z + d.tile_altitude
+
                             space_x = (trmax - trmin) * seg.length + 2 * d.tile_side
                             space_y = (d.tile_border + abs(dr)) * sqrt(1 + seg.slope_left * seg.slope_left)
                             n_x = 1 + int(space_x / dx)
                             n_y = 1 + int(space_y / dy)
-                            
+
                             if d.tile_fit_x:
                                 dx = space_x / n_x
-                                
+
                             if d.tile_fit_y:
                                 dy = space_y / n_y
-                                
+
                             tM = Matrix([
                                 [vx.x, vy.x, vz.x, x0],
                                 [vx.y, vy.y, vz.y, y0],
                                 [vx.z, vy.z, vz.z, z0],
                                 [0, 0, 0, 1]
-                            ]) 
-                            
-                            verts = [] 
+                            ])
+
+                            verts = []
                             faces = []
                             matids = []
                             uvs = []
-                            
+
                             for k in range(n_y):
-                               
+
                                 y = k * dy
-                                
+
                                 x0 = offset * dx - d.tile_side
-                                nx = n_x                            
-                                
+                                nx = n_x
+
                                 if d.tile_alternate and k % 2 == 1:
                                     x0 -= 0.5 * dx
                                     nx += 1
-                                
+
                                 if d.tile_offset > 0:
                                     nx += 1
-                                    
+
                                 for j in range(nx):
                                     x = x0 + j * dx
                                     lM = tM * Matrix([
@@ -1238,52 +1424,56 @@ class RoofAxisGenerator():
                                         [0, 0, sz, 0],
                                         [0, 0, 0, 1]
                                     ])
-                                    
+
                                     v = len(verts)
-                                    
-                                    verts.extend([lM * p for p in t_pts]) 
+
+                                    verts.extend([lM * p for p in t_pts])
                                     faces.extend([tuple(i + v for i in f) for f in t_faces])
+                                    id = randint(idmat, idmat + rand)
+                                    t_mats = [id for i in range(n_faces)]
                                     matids.extend(t_mats)
                                     uvs.extend(t_uvs)
-                            
-                            # build temp bmesh and bissect 
-                            bm = bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=False, clean=False, auto_smooth=False, temporary=True)
-                            
+
+                            # build temp bmesh and bissect
+                            bm = bmed.buildmesh(
+                                context, o, verts, faces, matids=matids, uvs=uvs,
+                                weld=False, clean=False, auto_smooth=False, temporary=True)
+
                             # len(node/next) > 3  -> couloir ou faitiere
                             # len(node/next) < 3  -> terminaison
-                            
+
                             da0 = round(abs(seg.delta_angle(s1)), 4)
                             da1 = round(abs(seg.delta_angle(s0)), 4)
-                            
+
                             b0 = seg.p0.copy()
                             b1 = seg.p1.copy()
                             n0 = -s1.cross_z
                             n1 = s0.cross_z
-                             
-                            if n_node > 3: 
+
+                            if n_node > 3:
                                 # angle from root > 90 = faitiere
                                 # angle from root < 90 = couloir
-                                if da0 < angle_90:  
+                                if da0 < angle_90:
                                     # couloir
-                                    b0 -= n0.normalized() * d.tile_couloir 
+                                    b0 -= n0.normalized() * d.tile_couloir
                             else:
                                 # bord
-                                b0 += n0.normalized() * d.tile_side 
-                                
+                                b0 += n0.normalized() * d.tile_side
+
                             if n_next > 3:
-                                
-                                if da1 > angle_90:  
+
+                                if da1 > angle_90:
                                     # couloir
-                                    b1 -= n1.normalized() * d.tile_couloir 
+                                    b1 -= n1.normalized() * d.tile_couloir
                             else:
                                 # bord
-                                b1 += n1.normalized() * d.tile_side 
-                            
+                                b1 += n1.normalized() * d.tile_side
+
                             # -> couloir decouper vers l'interieur
                             # -> terminaison rallonger ou raccourcir
                             # -> faitiere: laisser tel quel
                             # origin and normal to bissect mesh
-                            
+
                             # node
                             self.bissect(bm, b0.to_3d(), n0.to_3d())
                             # next
@@ -1291,84 +1481,95 @@ class RoofAxisGenerator():
                             # top
                             self.bissect(bm, seg.p1.to_3d(), seg.cross_z.to_3d())
                             # bottom
-                            t = 1 + min(3 * d.tile_border, d.tile_border / sin(da1)) / s0.length
-                            self.bissect(bm, s0.lerp(t).to_3d(), -seg.cross_z.to_3d())
-                            
+                            x, y, z = seg.p0.to_3d() + space_y * -vy
+                            self.bissect(bm, Vector((x, y, self.z + z)), -vy)
+
+                            if d.tile_bevel:
+                                geom = bm.verts[:]
+                                geom.extend(bm.edges[:])
+                                bmesh.ops.bevel(bm,
+                                    geom=geom,
+                                    offset=d.tile_bevel_amt,
+                                    offset_type=offset_type,
+                                    segments=d.tile_bevel_segs,
+                                    profile=0.5,
+                                    vertex_only=False,
+                                    clamp_overlap=True,
+                                    material=-1)
+
                             if d.tile_solidify:
                                 geom = bm.faces[:]
-                                bmesh.ops.solidify(bm, geom=geom, thickness=d.tile_height)
-                            
+                                verts = bm.verts[:]
+                                bmesh.ops.solidify(bm, geom=geom, thickness=0.0001)
+                                bmesh.ops.translate(bm, vec=vz * d.tile_height, space=o.matrix_world, verts=verts)
+
                             # merge with object
                             bmed.bmesh_join(context, o, [bm], normal_update=True)
-        
+
                         ###################
                         # left
                         ###################
                         if left:
-                        
+
                             dx, dy = d.tile_space_x, d.tile_space_y
-                            
-                            il0 = node[center_0 - 1].idx
-                            if center_1 + 1 < len(next):
-                                il1 = next[center_1 + 1].idx
-                            else:
-                                il1 = next[0].idx
-                            
+
+                            il0 = node.right_idx(center_0)
+                            il1 = next.left_idx(center_1)
+
                             s0 = segs[il0]  # sur node
                             s1 = segs[il1]  # sur next
-                            
+
                             # left part is larger than axis: compute t param in axis
                             res, d0, u = seg.point_sur_segment(s0.p1)
                             res, dl, v = seg.point_sur_segment(s1.p1)
-                            lslope = abs(dl) * seg.slope_right
                             tlmin = min(0, u)
                             tlmax = max(1, v)
-                            
+
                             # compute matrix for face
                             vx = seg.v.normalized().to_3d()
                             vy = Vector((-vx.y, vx.x, seg.slope_right)).normalized()
                             vz = vx.cross(vy)
-                            
+
                             x0, y0 = seg.lerp(tlmin)
-                            z0 = self.z + 0.1 
-                            
-                            space_x = (tlmax - tlmin) * seg.length + 2 * d.tile_side 
+                            z0 = self.z + d.tile_altitude
+
+                            space_x = (tlmax - tlmin) * seg.length + 2 * d.tile_side
                             space_y = (d.tile_border + abs(dl)) * sqrt(1 + seg.slope_right * seg.slope_right)
                             n_x = 1 + int(space_x / dx)
                             n_y = 1 + int(space_y / dy)
-                            
+
                             if d.tile_fit_x:
                                 dx = space_x / n_x
-                                
+
                             if d.tile_fit_y:
                                 dy = space_y / n_y
-                                
+
                             tM = Matrix([
                                 [vx.x, vy.x, vz.x, x0],
                                 [vx.y, vy.y, vz.y, y0],
                                 [vx.z, vy.z, vz.z, z0],
                                 [0, 0, 0, 1]
-                            ]) 
-                            
-                            verts = [] 
+                            ])
+
+                            verts = []
                             faces = []
                             matids = []
                             uvs = []
-                              
+
                             for k in range(n_y):
-                               
+
                                 y = k * dy
 
                                 x0 = offset * dx - d.tile_side
-                                nx = n_x                            
-                                
+                                nx = n_x
+
                                 if d.tile_alternate and k % 2 == 1:
                                     x0 -= 0.5 * dx
                                     nx += 1
-                                
+
                                 if d.tile_offset > 0:
                                     nx += 1
-                                    
+
                                 for j in range(nx):
                                     x = x0 + j * dx
                                     lM = tM * Matrix([
@@ -1377,42 +1578,46 @@ class RoofAxisGenerator():
                                         [0, 0, sz, 0],
                                         [0, 0, 0, 1]
                                     ])
-                                    
+
                                     v = len(verts)
-                                    
-                                    verts.extend([lM * p for p in t_pts]) 
+
+                                    verts.extend([lM * p for p in t_pts])
                                     faces.extend([tuple(i + v for i in f) for f in t_faces])
+                                    id = randint(idmat, idmat + rand)
+                                    t_mats = [id for i in range(n_faces)]
                                     matids.extend(t_mats)
                                     uvs.extend(t_uvs)
-                            
-                            # build temp bmesh and bissect 
-                            bm = bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=False, clean=False, auto_smooth=False, temporary=True)
-                            
+
+                            # build temp bmesh and bissect
+                            bm = bmed.buildmesh(
+                                context, o, verts, faces, matids=matids, uvs=uvs,
+                                weld=False, clean=False, auto_smooth=False, temporary=True)
+
                             da0 = round(abs(seg.delta_angle(s0)), 4)
                             da1 = round(abs(seg.delta_angle(s1)), 4)
-                            
+
                             b0 = seg.p0.copy()
                             b1 = seg.p1.copy()
                             n0 = s0.cross_z
                             n1 = -s1.cross_z
-                             
-                            if n_node > 3: 
-                                if da0 < angle_90:  
+
+                            if n_node > 3:
+                                if da0 < angle_90:
                                     # couloir
-                                    b0 -= n0.normalized() * d.tile_couloir 
+                                    b0 -= n0.normalized() * d.tile_couloir
                             else:
                                 # bord
-                                b0 += n0.normalized() * d.tile_side 
-        
+                                b0 += n0.normalized() * d.tile_side
+
                             if n_next > 3:
                                 # angle from root > 90 = faitiere
                                 # angle from root < 90 = couloir
-                                if da1 > angle_90:  
+                                if da1 > angle_90:
                                     # couloir
-                                    b1 -= n1.normalized() * d.tile_couloir 
+                                    b1 -= n1.normalized() * d.tile_couloir
                             else:
                                 # bord
-                                b1 += n1.normalized() * d.tile_side 
+                                b1 += n1.normalized() * d.tile_side
                             # node
                             self.bissect(bm, b0.to_3d(), n0.to_3d())
                             # next
@@ -1420,371 +1625,361 @@ class RoofAxisGenerator():
                             # top
                             self.bissect(bm, seg.p1.to_3d(), -seg.cross_z.to_3d())
                             # bottom
-                            t = 1 + min(3 * d.tile_border, d.tile_border / sin(da1)) / s1.length
-                            self.bissect(bm, s1.lerp(t).to_3d(), seg.cross_z.to_3d())
-                            
+                            # w = seg.width_right + d.tile_border
+                            # z = self.z + d.tile_altitude + d.tile_size_z - w * seg.slope_right
+                            # x, y = w * -vy.to_2d().normalized()
+                            x, y, z = seg.p0.to_3d() + space_y * -vy
+                            self.bissect(bm, Vector((x, y, self.z + z)), -vy)
+
+                            if d.tile_bevel:
+                                geom = bm.verts[:]
+                                geom.extend(bm.edges[:])
+                                bmesh.ops.bevel(bm,
+                                    geom=geom,
+                                    offset=d.tile_bevel_amt,
+                                    offset_type=offset_type,
+                                    segments=d.tile_bevel_segs,
+                                    profile=0.5,
+                                    vertex_only=False,
+                                    clamp_overlap=True,
+                                    material=-1)
+
                             if d.tile_solidify:
                                 geom = bm.faces[:]
-                                bmesh.ops.solidify(bm, geom=geom, thickness=d.tile_height)
-                            
+                                verts = bm.verts[:]
+                                bmesh.ops.solidify(bm, geom=geom, thickness=0.0001)
+                                bmesh.ops.translate(bm, vec=vz * d.tile_height, space=o.matrix_world, verts=verts)
+
                             # merge with object
                             bmed.bmesh_join(context, o, [bm], normal_update=True)
-                            
+
     def virevents(self, d, verts, faces, edges, matids, uvs):
-        
+
         idmat = 1
-        
+
         segs = self.all_segs
         nodes = self.nodes
-        
+
         virevents_depth = 0.02
         virevents_height = 0.15
         virevents_altitude = 0.1
-        
+
         for idx, node in enumerate(nodes):
-            # segment always between 2 nodes
-            # create edge between rightmost of first node to leftmost of next node
-            # same for other side
-            
+
             # find next node in segment
-            for i, s in enumerate(node):
-                
+            for i, s in enumerate(node.segs):
+
                 seg = segs[s.idx]
-                
+
                 if s.reversed:
                     continue
-                    
-                if len(nodes[seg.v1_idx]) > 1:
-                    next = nodes[seg.v1_idx]
-                    # segments sorted by angle from axis 
-                    # center are ids of axis segment on each node
-                    # so center + 1 and center - 1
-                    # are leftmost and rightmost slope segments
+
+                next = nodes[seg.v1_idx]
+
+                if next.count > 1:
+
                     center_0 = i
-                    center_1 = -1
-                    for i, s in enumerate(next):
-                        if s.reversed:
-                            center_1 = i
-                            break
+                    center_1 = next.center
+
                     # found 2nd node
                     if center_1 > -1:
-                    
-                        i0 = seg.v0_idx
-                        i1 = seg.v1_idx
-                        
+
                         ############
                         # right
                         ############
-                        
-                        ir0 = next[center_1 - 1].idx
-                        if center_0 + 1 < len(node):
-                            ir1 = node[center_0 + 1].idx
-                        else:
-                            ir1 = node[0].idx
-                        
+
+                        ir0 = next.right_idx(center_1)
+                        ir1 = node.left_idx(center_0)
+
                         ############
                         # left
                         ############
-                        
-                        il0 = node[center_0 - 1].idx
-                        if center_1 + 1 < len(next):
-                            il1 = next[center_1 + 1].idx
-                        else:
-                            il1 = next[0].idx
-                        
+
+                        il0 = node.right_idx(center_0)
+                        il1 = next.left_idx(center_1)
+
                         #####################
                         # Vire-vents
                         #####################
-                        if len(node) == 3:
-                            
+                        if node.count == 3:
+
                             # right
-                            f = len(verts)
                             s0 = segs[il0]
-                            s1 = s0.offset(virevents_depth)
-                            res, d, t = seg.point_sur_segment(s0.p1)
-                            slope = abs(d) * seg.slope_right
-                        
-                            x0, y0 = s0.p0
-                            x1, y1 = s1.p0
-                            x2, y2 = s1.p1
-                            x3, y3 = s1.p1
-                            z0 = self.z + virevents_altitude
-                            z1 = z0 - slope
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                            z0 -= virevents_height
-                            z1 -= virevents_height
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                        
-                            faces.extend([
-                                # top
-                                (f, f + 1, f + 2, f + 3),
-                                # sides
-                                (f, f + 4, f + 5, f + 1),
-                                (f + 1, f + 5, f + 6, f + 2),
-                                (f + 2, f + 6, f + 7, f + 3),
-                                (f + 3, f + 7, f + 4, f ),
-                                # bottom
-                                (f + 4, f + 7, f + 6, f + 5)
-                            ])
-                            edges.append([f, f + 3])
-                            edges.append([f + 1, f + 2])
-                            edges.append([f + 4, f + 7])
-                            edges.append([f + 5, f + 6])
-                            
-                            matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
-                            uvs.extend([
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)]
-                            ])
-                            
+                            if s0.enforce_part is 'AUTO':
+                                f = len(verts)
+                                s1 = s0.offset(virevents_depth)
+                                res, d, t = seg.point_sur_segment(s0.p1)
+                                slope = abs(d) * seg.slope_right
+
+                                x0, y0 = s0.p0
+                                x1, y1 = s1.p0
+                                x2, y2 = s1.p1
+                                x3, y3 = s0.p1
+                                z0 = self.z + virevents_altitude
+                                z1 = z0 - slope
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+                                z0 -= virevents_height
+                                z1 -= virevents_height
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+
+                                faces.extend([
+                                    # top
+                                    (f, f + 1, f + 2, f + 3),
+                                    # sides
+                                    (f, f + 4, f + 5, f + 1),
+                                    (f + 1, f + 5, f + 6, f + 2),
+                                    (f + 2, f + 6, f + 7, f + 3),
+                                    (f + 3, f + 7, f + 4, f),
+                                    # bottom
+                                    (f + 4, f + 7, f + 6, f + 5)
+                                ])
+                                edges.append([f, f + 3])
+                                edges.append([f + 1, f + 2])
+                                edges.append([f + 4, f + 7])
+                                edges.append([f + 5, f + 6])
+
+                                matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
+                                uvs.extend([
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)]
+                                ])
+
                             # left
-                            f = len(verts)
                             s1 = segs[ir1]
-                            s0 = s1.offset(-virevents_depth)
-                            res, d, t = seg.point_sur_segment(s0.p1)
-                            slope = abs(d) * seg.slope_left
-                        
-                            x0, y0 = s0.p0
-                            x1, y1 = s1.p0
-                            x2, y2 = s1.p1
-                            x3, y3 = s1.p1
-                            
-                            z0 = self.z + virevents_altitude
-                            z1 = z0 - slope
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                            z0 -= virevents_height
-                            z1 -= virevents_height
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                        
-                            faces.extend([
-                                # top
-                                (f, f + 1, f + 2, f + 3),
-                                # sides
-                                (f, f + 4, f + 5, f + 1),
-                                (f + 1, f + 5, f + 6, f + 2),
-                                (f + 2, f + 6, f + 7, f + 3),
-                                (f + 3, f + 7, f + 4, f ),
-                                # bottom
-                                (f + 4, f + 7, f + 6, f + 5)
-                            ])
-                            edges.append([f, f + 3])
-                            edges.append([f + 1, f + 2])
-                            edges.append([f + 4, f + 7])
-                            edges.append([f + 5, f + 6])
-                            matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
-                            uvs.extend([
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)]
-                            ])
-                        
-                        if len(next) == 3:
+                            if s1.enforce_part is 'AUTO':
+                                f = len(verts)
+                                s0 = s1.offset(-virevents_depth)
+                                res, d, t = seg.point_sur_segment(s1.p1)
+                                slope = abs(d) * seg.slope_left
+
+                                x0, y0 = s0.p0
+                                x1, y1 = s1.p0
+                                x2, y2 = s1.p1
+                                x3, y3 = s0.p1
+
+                                z0 = self.z + virevents_altitude
+                                z1 = z0 - slope
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+                                z0 -= virevents_height
+                                z1 -= virevents_height
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+
+                                faces.extend([
+                                    # top
+                                    (f, f + 1, f + 2, f + 3),
+                                    # sides
+                                    (f, f + 4, f + 5, f + 1),
+                                    (f + 1, f + 5, f + 6, f + 2),
+                                    (f + 2, f + 6, f + 7, f + 3),
+                                    (f + 3, f + 7, f + 4, f),
+                                    # bottom
+                                    (f + 4, f + 7, f + 6, f + 5)
+                                ])
+                                edges.append([f, f + 3])
+                                edges.append([f + 1, f + 2])
+                                edges.append([f + 4, f + 7])
+                                edges.append([f + 5, f + 6])
+                                matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
+                                uvs.extend([
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)]
+                                ])
+
+                        if next.count == 3:
                             # left
-                            f = len(verts)
                             s0 = segs[ir0]
-                            s1 = s0.offset(virevents_depth)
-                            res, d, t = seg.point_sur_segment(s0.p1)
-                            slope = abs(d) * seg.slope_left
-                        
-                            x0, y0 = s0.p0
-                            x1, y1 = s1.p0
-                            x2, y2 = s1.p1
-                            x3, y3 = s1.p1
-                            
-                            z0 = self.z + virevents_altitude
-                            z1 = z0 - slope
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                            z0 -= virevents_height
-                            z1 -= virevents_height
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                        
-                            faces.extend([
-                                # top
-                                (f, f + 1, f + 2, f + 3),
-                                # sides
-                                (f, f + 4, f + 5, f + 1),
-                                (f + 1, f + 5, f + 6, f + 2),
-                                (f + 2, f + 6, f + 7, f + 3),
-                                (f + 3, f + 7, f + 4, f ),
-                                # bottom
-                                (f + 4, f + 7, f + 6, f + 5)
-                            ])
-                            edges.append([f, f + 3])
-                            edges.append([f + 1, f + 2])
-                            edges.append([f + 4, f + 7])
-                            edges.append([f + 5, f + 6])
-                            matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
-                            uvs.extend([
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)]
-                            ])
+                            if s0.enforce_part is 'AUTO':
+                                f = len(verts)
+                                s1 = s0.offset(virevents_depth)
+                                res, d, t = seg.point_sur_segment(s0.p1)
+                                slope = abs(d) * seg.slope_left
+
+                                x0, y0 = s0.p0
+                                x1, y1 = s1.p0
+                                x2, y2 = s1.p1
+                                x3, y3 = s0.p1
+
+                                z0 = self.z + virevents_altitude
+                                z1 = z0 - slope
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+                                z0 -= virevents_height
+                                z1 -= virevents_height
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+
+                                faces.extend([
+                                    # top
+                                    (f, f + 1, f + 2, f + 3),
+                                    # sides
+                                    (f, f + 4, f + 5, f + 1),
+                                    (f + 1, f + 5, f + 6, f + 2),
+                                    (f + 2, f + 6, f + 7, f + 3),
+                                    (f + 3, f + 7, f + 4, f),
+                                    # bottom
+                                    (f + 4, f + 7, f + 6, f + 5)
+                                ])
+                                edges.append([f, f + 3])
+                                edges.append([f + 1, f + 2])
+                                edges.append([f + 4, f + 7])
+                                edges.append([f + 5, f + 6])
+                                matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
+                                uvs.extend([
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)]
+                                ])
                             # Right
-                            f = len(verts)
                             s1 = segs[il1]
-                            s0 = s1.offset(-virevents_depth)
-                            res, d, t = seg.point_sur_segment(s0.p1)
-                            slope = abs(d) * seg.slope_right
-                        
-                            x0, y0 = s0.p0
-                            x1, y1 = s1.p0
-                            x2, y2 = s1.p1
-                            x3, y3 = s1.p1
-                            
-                            z0 = self.z + virevents_altitude
-                            z1 = z0 - slope
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                            z0 -= virevents_height
-                            z1 -= virevents_height
-                            verts.extend([
-                                (x0, y0, z0),
-                                (x1, y1, z0),
-                                (x2, y2, z1),
-                                (x3, y3, z1),
-                            ])
-                        
-                            faces.extend([
-                                # top
-                                (f, f + 1, f + 2, f + 3),
-                                # sides
-                                (f, f + 4, f + 5, f + 1),
-                                (f + 1, f + 5, f + 6, f + 2),
-                                (f + 2, f + 6, f + 7, f + 3),
-                                (f + 3, f + 7, f + 4, f ),
-                                # bottom
-                                (f + 4, f + 7, f + 6, f + 5)
-                            ])
-                            edges.append([f, f + 3])
-                            edges.append([f + 1, f + 2])
-                            edges.append([f + 4, f + 7])
-                            edges.append([f + 5, f + 6])
-                            matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
-                            uvs.extend([
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)],
-                                [(0, 0), (1, 0), (1, 1), (0, 1)]
-                            ])
-                            
+                            if s1.enforce_part is 'AUTO':
+                                f = len(verts)
+
+                                s0 = s1.offset(-virevents_depth)
+                                res, d, t = seg.point_sur_segment(s0.p1)
+                                slope = abs(d) * seg.slope_right
+
+                                x0, y0 = s0.p0
+                                x1, y1 = s1.p0
+                                x2, y2 = s1.p1
+                                x3, y3 = s0.p1
+
+                                z0 = self.z + virevents_altitude
+                                z1 = z0 - slope
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+                                z0 -= virevents_height
+                                z1 -= virevents_height
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x1, y1, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z1),
+                                ])
+
+                                faces.extend([
+                                    # top
+                                    (f, f + 1, f + 2, f + 3),
+                                    # sides
+                                    (f, f + 4, f + 5, f + 1),
+                                    (f + 1, f + 5, f + 6, f + 2),
+                                    (f + 2, f + 6, f + 7, f + 3),
+                                    (f + 3, f + 7, f + 4, f),
+                                    # bottom
+                                    (f + 4, f + 7, f + 6, f + 5)
+                                ])
+                                edges.append([f, f + 3])
+                                edges.append([f + 1, f + 2])
+                                edges.append([f + 4, f + 7])
+                                edges.append([f + 5, f + 6])
+                                matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
+                                uvs.extend([
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)]
+                                ])
+
     def larmiers(self, d, verts, faces, edges, matids, uvs):
-        
+
         idmat = 2
-        
+
         segs = self.all_segs
         nodes = self.nodes
-        
+
         larmier_width = 0.02
         larmier_height = 0.25
         larmier_altitude = 0.1
-        
+
         for idx, node in enumerate(nodes):
-            # segment always between 2 nodes
-            # create edge between rightmost of first node to leftmost of next node
-            # same for other side
-            
-            # find next node in segment
-            for i, s in enumerate(node):
-                
+
+            for i, s in enumerate(node.segs):
+
                 seg = segs[s.idx]
-                
+
                 if s.reversed:
                     continue
-                    
-                if len(nodes[seg.v1_idx]) > 1:
+
+                if nodes[seg.v1_idx].count > 1:
                     next = nodes[seg.v1_idx]
-                    # segments sorted by angle from axis 
+                    # segments sorted by angle from axis
                     # center are ids of axis segment on each node
                     # so center + 1 and center - 1
                     # are leftmost and rightmost slope segments
                     center_0 = i
-                    center_1 = -1
-                    for i, s in enumerate(next):
-                        if s.reversed:
-                            center_1 = i
-                            break
+                    center_1 = next.center
+
                     # found 2nd node
                     if center_1 > -1:
-                    
-                        i0 = seg.v0_idx
-                        i1 = seg.v1_idx
-                        
+
                         ############
                         # right
                         ############
-                        
-                        ir0 = next[center_1 - 1].idx
-                        if center_0 + 1 < len(node):
-                            ir1 = node[center_0 + 1].idx
-                        else:
-                            ir1 = node[0].idx
-                        
+
+                        ir0 = next.right_idx(center_1)
+                        ir1 = node.left_idx(center_0)
+
                         ############
                         # left
                         ############
-                        
-                        il0 = node[center_0 - 1].idx
-                        if center_1 + 1 < len(next):
-                            il1 = next[center_1 + 1].idx
-                        else:
-                            il1 = next[0].idx                     
-                         
+
+                        il0 = node.right_idx(center_0)
+                        il1 = next.left_idx(center_1)
+
                         #####################
                         # Larmiers
                         #####################
-                        
+
                         # ! pas forcement perpendiculaire
-                        # t  x/sin(a) 
+                        # t  x/sin(a)
                         # angle axe / segment
                         """
-                         1___________________2   
-                        0|___________________|3  
+                         1___________________2
+                        0|___________________|3
                         """
                         f = len(verts)
                         s0 = segs[ir0]
@@ -1792,9 +1987,16 @@ class RoofAxisGenerator():
                         res, d, t = seg.point_sur_segment(s0.p1)
                         slope = abs(d) * seg.slope_left
                         a0 = abs(seg.delta_angle(s0))
-                        t0 = 1 + min(3 * larmier_width, larmier_width / sin(a0)) / s0.length
+                        if a0 > 0:
+                            t0 = 1 + min(3 * larmier_width, larmier_width / sin(a0)) / s0.length
+                        else:
+                            t0 = 1 + larmier_width / s0.length
                         a1 = abs(seg.delta_angle(s1))
-                        t1 = 1 + min(3 * larmier_width, larmier_width / sin(a1)) / s1.length
+                        if a1 > 0:
+                            t1 = 1 + min(3 * larmier_width, larmier_width / sin(a1)) / s1.length
+                        else:
+                            t1 = 1 + larmier_width / s0.length
+
                         x0, y0 = s0.p1
                         x1, y1 = s0.lerp(t0)
                         x2, y2 = s1.lerp(t1)
@@ -1813,7 +2015,7 @@ class RoofAxisGenerator():
                             (x2, y2, z),
                             (x3, y3, z),
                         ])
-                        
+
                         faces.extend([
                             # top
                             (f, f + 1, f + 2, f + 3),
@@ -1821,7 +2023,7 @@ class RoofAxisGenerator():
                             (f, f + 4, f + 5, f + 1),
                             (f + 1, f + 5, f + 6, f + 2),
                             (f + 2, f + 6, f + 7, f + 3),
-                            (f + 3, f + 7, f + 4, f ),
+                            (f + 3, f + 7, f + 4, f),
                             # bottom
                             (f + 4, f + 7, f + 6, f + 5)
                         ])
@@ -1838,9 +2040,9 @@ class RoofAxisGenerator():
                             [(0, 0), (1, 0), (1, 1), (0, 1)],
                             [(0, 0), (1, 0), (1, 1), (0, 1)]
                         ])
-                        
+
                         # right side
-                        
+
                         f = len(verts)
                         s0 = segs[il0]
                         s1 = segs[il1]
@@ -1868,7 +2070,7 @@ class RoofAxisGenerator():
                             (x2, y2, z),
                             (x3, y3, z),
                         ])
-                        
+
                         faces.extend([
                             # top
                             (f, f + 1, f + 2, f + 3),
@@ -1876,7 +2078,7 @@ class RoofAxisGenerator():
                             (f, f + 4, f + 5, f + 1),
                             (f + 1, f + 5, f + 6, f + 2),
                             (f + 2, f + 6, f + 7, f + 3),
-                            (f + 3, f + 7, f + 4, f ),
+                            (f + 3, f + 7, f + 4, f),
                             # bottom
                             (f + 4, f + 7, f + 6, f + 5)
                         ])
@@ -1893,73 +2095,441 @@ class RoofAxisGenerator():
                             [(0, 0), (1, 0), (1, 1), (0, 1)],
                             [(0, 0), (1, 0), (1, 1), (0, 1)]
                         ])
-                        
+
+    def chenaux(self, d, verts, faces, edges, matids, uvs):
+
+        idmat = 5
+
+        left, right = True, True
+
+        segs = self.all_segs
+        nodes = self.nodes
+
+        # location of tablette
+        tablette_alt = 0.1
+        larmier_depth = 0.02
+
+        chenaux_alt = 0.05
+        chenaux_width = 0.15
+        chenaux_dist = 0.05
+        chenaux_boudin = 0.015
+        chenaux_segs = 6
+
+        # caps at start and end
+        if chenaux_segs % 2 == 1:
+            n_faces = int((chenaux_segs - 1) / 2)
+        else:
+            n_faces = int((chenaux_segs / 2) - 1)
+
+        df = 2 * chenaux_segs + 1
+
+        for idx, node in enumerate(nodes):
+
+            # find next node in segment
+            for i, s in enumerate(node.segs):
+
+                seg = segs[s.idx]
+
+                if s.reversed:
+                    continue
+
+                next = nodes[seg.v1_idx]
+
+                if next.count > 1:
+
+                    # segments sorted by angle from axis
+                    # center are ids of axis segment on each node
+                    # so center + 1 and center - 1
+                    # are leftmost and rightmost slope segments
+                    center_0 = i
+                    center_1 = next.center
+
+                    # found 2nd node
+                    if center_1 > -1:
+
+                        ############
+                        # right
+                        ############
+
+                        ir0 = next.right_idx(center_1)
+                        ir1 = node.left_idx(center_0)
+
+                        ############
+                        # left
+                        ############
+
+                        il0 = node.right_idx(center_0)
+                        il1 = next.left_idx(center_1)
+
+                        #####################
+                        # Chenaux
+                        #####################
+                        if left:
+
+                            f = len(verts)
+                            s0 = segs[ir0]
+                            s1 = segs[ir1]
+                            res, d, t = seg.point_sur_segment(s0.p1)
+                            slope = abs(d) * seg.slope_left
+                            a0 = abs(seg.delta_angle(s0))
+                            if a0 > 0:
+                                scale_0 = min(3, 1 / sin(a0)) / s0.length
+                            else:
+                                scale_0 = 1
+
+                            a1 = abs(seg.delta_angle(s1))
+                            if a1 > 0:
+                                scale_1 = min(3, 1 / sin(a1)) / s1.length
+                            else:
+                                scale_1 = 1
+
+                            zt = self.z + tablette_alt - slope
+                            z0 = self.z - slope + chenaux_alt
+                            z1 = z0 - 0.5 * chenaux_width
+                            z2 = z1 - 0.5 * chenaux_width
+                            z3 = z1 - 0.5 * chenaux_boudin
+                            dz0 = z2 - z1
+                            dz1 = z3 - z1
+
+                            tt = 1 + scale_0 * larmier_depth
+                            t0 = 1 + scale_0 * chenaux_dist
+                            t1 = t0 + scale_0 * (0.5 * chenaux_width)
+                            t2 = t1 + scale_0 * (0.5 * chenaux_width)
+                            t3 = t2 + scale_0 * (0.5 * chenaux_boudin)
+
+                            # bord tablette
+                            xt, yt = s0.lerp(tt)
+
+                            # bord
+                            x0, y0 = s0.lerp(t0)
+                            # axe chenaux
+                            x1, y1 = s0.lerp(t1)
+                            # bord boudin interieur
+                            x2, y2 = s0.lerp(t2)
+                            # axe boudin
+                            x3, y3 = s0.lerp(t3)
+
+                            dx = x0 - x1
+                            dy = y0 - y1
+
+                            verts.append((xt, yt, zt))
+                            # chenaux
+                            da = pi / chenaux_segs
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
+
+                            dx = x2 - x3
+                            dy = y2 - y3
+
+                            # boudin
+                            da = -pi / (0.75 * chenaux_segs)
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
+
+                            tt = 1 + scale_1 * larmier_depth
+                            t0 = 1 + scale_1 * chenaux_dist
+                            t1 = t0 + scale_1 * (0.5 * chenaux_width)
+                            t2 = t1 + scale_1 * (0.5 * chenaux_width)
+                            t3 = t2 + scale_1 * (0.5 * chenaux_boudin)
+
+                            # bord tablette
+                            xt, yt = s1.lerp(tt)
+
+                            # bord
+                            x0, y0 = s1.lerp(t0)
+                            # axe chenaux
+                            x1, y1 = s1.lerp(t1)
+                            # bord boudin interieur
+                            x2, y2 = s1.lerp(t2)
+                            # axe boudin
+                            x3, y3 = s1.lerp(t3)
+
+                            dx = x0 - x1
+                            dy = y0 - y1
+
+                            # tablette
+                            verts.append((xt, yt, zt))
+                            faces.append((f + df, f, f + 1, f + df + 1))
+                            uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                            matids.append(idmat)
+
+                            # chenaux
+                            da = pi / chenaux_segs
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
+
+                            dx = x2 - x3
+                            dy = y2 - y3
+
+                            # boudin
+                            da = -pi / (0.75 * chenaux_segs)
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
+
+                            df = 2 * chenaux_segs + 1
+
+                            for i in range(1, 2 * chenaux_segs):
+                                j = i + f
+                                faces.append((j, j + df, j + df + 1, j + 1))
+                                uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                                matids.append(idmat)
+
+                            """
+                                    segs = 6
+
+                                    n_faces = segs / 2 - 1
+
+                                        0           6
+                                         1         5
+                                           2     4
+                                              3
+                            """
+                            # close start
+                            if next.count == 3:
+
+                                if chenaux_segs % 2 == 0:
+                                    faces.append((f + n_faces + 3, f + n_faces + 1, f + n_faces + 2))
+                                    uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
+                                    matids.append(idmat)
+
+                                for i in range(n_faces):
+
+                                    j = i + f + 1
+                                    k = f + chenaux_segs - i
+                                    faces.append((j + 1, k, k + 1, j))
+                                    uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                                    matids.append(idmat)
+
+                            # close end
+                            if node.count == 3:
+
+                                f += 2 * chenaux_segs + 1
+
+                                if chenaux_segs % 2 == 0:
+                                    faces.append((f + n_faces + 1, f + n_faces + 3, f + n_faces + 2))
+                                    uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
+                                    matids.append(idmat)
+
+                                for i in range(n_faces):
+
+                                    j = i + f + 1
+                                    k = f + chenaux_segs - i
+                                    faces.append((j, k + 1, k, j + 1))
+                                    uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                                    matids.append(idmat)
+
+                        if right:
+                            f = len(verts)
+
+                            s0 = segs[il0]
+                            s1 = segs[il1]
+                            res, d, t = seg.point_sur_segment(s0.p1)
+                            slope = abs(d) * seg.slope_right
+                            a0 = abs(seg.delta_angle(s0))
+                            if a0 > 0:
+                                scale_0 = min(3, 1 / sin(a0)) / s0.length
+                            else:
+                                scale_0 = 1
+
+                            a1 = abs(seg.delta_angle(s1))
+                            if a1 > 0:
+                                scale_1 = min(3, 1 / sin(a1)) / s1.length
+                            else:
+                                scale_1 = 1
+
+                            zt = self.z + tablette_alt - slope
+                            z0 = self.z - slope + chenaux_alt
+                            z1 = z0 - 0.5 * chenaux_width
+                            z2 = z1 - 0.5 * chenaux_width
+                            z3 = z1 - 0.5 * chenaux_boudin
+                            dz0 = z2 - z1
+                            dz1 = z3 - z1
+
+                            tt = 1 + scale_0 * larmier_depth
+                            t0 = 1 + scale_0 * chenaux_dist
+                            t1 = t0 + scale_0 * (0.5 * chenaux_width)
+                            t2 = t1 + scale_0 * (0.5 * chenaux_width)
+                            t3 = t2 + scale_0 * (0.5 * chenaux_boudin)
+
+                            # bord tablette
+                            xt, yt = s0.lerp(tt)
+
+                            # bord
+                            x0, y0 = s0.lerp(t0)
+                            # axe chenaux
+                            x1, y1 = s0.lerp(t1)
+                            # bord boudin interieur
+                            x2, y2 = s0.lerp(t2)
+                            # axe boudin
+                            x3, y3 = s0.lerp(t3)
+
+                            dx = x0 - x1
+                            dy = y0 - y1
+
+                            # tablette
+                            verts.append((xt, yt, zt))
+
+                            # chenaux
+                            da = pi / chenaux_segs
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
+
+                            dx = x2 - x3
+                            dy = y2 - y3
+
+                            # boudin
+                            da = -pi / (0.75 * chenaux_segs)
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
+
+                            tt = 1 + scale_1 * larmier_depth
+                            t0 = 1 + scale_1 * chenaux_dist
+                            t1 = t0 + scale_1 * (0.5 * chenaux_width)
+                            t2 = t1 + scale_1 * (0.5 * chenaux_width)
+                            t3 = t2 + scale_1 * (0.5 * chenaux_boudin)
+
+                            # tablette
+                            xt, yt = s1.lerp(tt)
+
+                            # bord
+                            x0, y0 = s1.lerp(t0)
+                            # axe chenaux
+                            x1, y1 = s1.lerp(t1)
+                            # bord boudin interieur
+                            x2, y2 = s1.lerp(t2)
+                            # axe boudin
+                            x3, y3 = s1.lerp(t3)
+
+                            dx = x0 - x1
+                            dy = y0 - y1
+
+                            # tablette
+                            verts.append((xt, yt, zt))
+                            faces.append((f + df, f, f + 1, f + df + 1))
+                            uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                            matids.append(idmat)
+
+                            # chenaux
+                            da = pi / chenaux_segs
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
+
+                            dx = x2 - x3
+                            dy = y2 - y3
+
+                            # boudin
+                            da = -pi / (0.75 * chenaux_segs)
+                            for i in range(chenaux_segs):
+                                sa = sin(i * da)
+                                ca = cos(i * da)
+                                verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
+
+                            for i in range(1, 2 * chenaux_segs):
+                                j = i + f
+                                faces.append((j, j + df, j + df + 1, j + 1))
+                                uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                                matids.append(idmat)
+
+                            # close start
+                            if node.count == 3:
+
+                                if chenaux_segs % 2 == 0:
+                                    faces.append((f + n_faces + 3, f + n_faces + 1, f + n_faces + 2))
+                                    uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
+                                    matids.append(idmat)
+
+                                for i in range(n_faces):
+                                    j = i + f + 1
+                                    k = f + chenaux_segs - i
+                                    faces.append((j + 1, k, k + 1, j))
+                                    uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                                    matids.append(idmat)
+
+                            # close end
+                            if next.count == 3:
+
+                                f += 2 * chenaux_segs + 1
+
+                                if chenaux_segs % 2 == 0:
+                                    faces.append((f + n_faces + 1, f + n_faces + 3, f + n_faces + 2))
+                                    uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
+                                    matids.append(idmat)
+
+                                for i in range(n_faces):
+
+                                    j = i + f + 1
+                                    k = f + chenaux_segs - i
+                                    faces.append((j, k + 1, k, j + 1))
+                                    uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
+                                    matids.append(idmat)
+
     def poutre_faitiere(self, d, verts, faces, edges, matids, uvs):
-        
+
         idmat = 3
-        
+
         segs = self.all_segs
         nodes = self.nodes
         chevron_height = 0.1
         faitiere_width = 0.2
         faitiere_height = 0.3
-        
+
         for idx, node in enumerate(nodes):
             # segment always between 2 nodes
             # create edge between rightmost of first node to leftmost of next node
             # same for other side
-            
+
             # find next node in segment
-            for i, s in enumerate(node):
-                
+            for i, s in enumerate(node.segs):
+
                 seg = segs[s.idx]
-                
+
                 if s.reversed:
                     continue
-                    
-                if len(nodes[seg.v1_idx]) > 1:
+
+                if nodes[seg.v1_idx].count > 1:
                     next = nodes[seg.v1_idx]
-                    # segments sorted by angle from axis 
+                    # segments sorted by angle from axis
                     # center are ids of axis segment on each node
                     # so center + 1 and center - 1
                     # are leftmost and rightmost slope segments
                     center_0 = i
-                    center_1 = -1
-                    for i, s in enumerate(next):
-                        if s.reversed:
-                            center_1 = i
-                            break
+                    center_1 = next.center
+
                     # found 2nd node
                     if center_1 > -1:
-                    
-                        i0 = seg.v0_idx
-                        i1 = seg.v1_idx
-                        
+
                         ############
                         # right
                         ############
-                        
-                        ir0 = next[center_1 - 1].idx
-                        if center_0 + 1 < len(node):
-                            ir1 = node[center_0 + 1].idx
-                        else:
-                            ir1 = node[0].idx
-                        
+
+                        ir0 = next.right_idx(center_1)
+                        ir1 = node.left_idx(center_0)
+
                         ############
                         # left
                         ############
-                        
-                        il0 = node[center_0 - 1].idx
-                        if center_1 + 1 < len(next):
-                            il1 = next[center_1 + 1].idx
-                        else:
-                            il1 = next[0].idx
-                        
-                        
+
+                        il0 = node.right_idx(center_0)
+                        il1 = next.left_idx(center_1)
+
                         ####################
                         # Poutre Faitiere
                         ####################
-                        
+
                         """
                          1___________________2   left
                         0|___________________|3  axis
@@ -1967,13 +2537,21 @@ class RoofAxisGenerator():
                          5                   4
                         """
                         f = len(verts)
-                        
+
                         left = seg.offset(0.5 * faitiere_width)
                         right = seg.offset(-0.5 * faitiere_width)
                         res, p1, t = left.intersect(segs[il0])
+                        if not res:
+                            continue
                         res, p2, t = left.intersect(segs[il1])
+                        if not res:
+                            continue
                         res, p4, t = right.intersect(segs[ir0])
+                        if not res:
+                            continue
                         res, p5, t = right.intersect(segs[ir1])
+                        if not res:
+                            continue
                         x0, y0 = seg.p0
                         x1, y1 = p1
                         x2, y2 = p2
@@ -2013,13 +2591,13 @@ class RoofAxisGenerator():
                             (f + 6, f + 9, f + 8, f + 7),
                             (f + 11, f + 10, f + 9, f + 6)
                         ])
-                        
+
                         edges.append([f + 1, f + 2])
                         edges.append([f + 5, f + 4])
                         edges.append([f + 7, f + 8])
                         edges.append([f + 11, f + 10])
                         matids.extend([
-                            idmat, idmat, idmat, idmat, idmat, 
+                            idmat, idmat, idmat, idmat, idmat,
                             idmat, idmat, idmat, idmat, idmat
                             ])
                         uvs.extend([
@@ -2034,141 +2612,125 @@ class RoofAxisGenerator():
                             [(0, 0), (1, 0), (1, 1), (0, 1)],
                             [(0, 0), (1, 0), (1, 1), (0, 1)]
                         ])
-                        
+
     def chevrons(self, d, verts, faces, edges, matids, uvs):
-        
+
         idmat = 4
-        
+
         # Chevrons
         spacing = 0.7
         start = 0.1
         depth = 0.1
         chevron_height = 0.1
-        
+        chevrons_alt = -0.001
         segs = self.all_segs
         nodes = self.nodes
-        
+
         for idx, node in enumerate(nodes):
             # segment always between 2 nodes
             # create edge between rightmost of first node to leftmost of next node
             # same for other side
-            
+
             # find next node in segment
-            for i, s in enumerate(node):
-                
+            for i, s in enumerate(node.segs):
+
                 seg = segs[s.idx]
-                
+
                 if s.reversed:
                     continue
-                    
-                if len(nodes[seg.v1_idx]) > 1:
+
+                if nodes[seg.v1_idx].count > 1:
                     next = nodes[seg.v1_idx]
-                    # segments sorted by angle from axis 
+                    # segments sorted by angle from axis
                     # center are ids of axis segment on each node
                     # so center + 1 and center - 1
                     # are leftmost and rightmost slope segments
                     center_0 = i
-                    center_1 = -1
-                    for i, s in enumerate(next):
-                        if s.reversed:
-                            center_1 = i
-                            break
+                    center_1 = next.center
+
                     # found 2nd node
                     if center_1 > -1:
-                    
-                        i0 = seg.v0_idx
-                        i1 = seg.v1_idx
-                        
+
                         ############
                         # right
                         ############
-                        
-                        ir0 = next[center_1 - 1].idx
-                        if center_0 + 1 < len(node):
-                            ir1 = node[center_0 + 1].idx
-                        else:
-                            ir1 = node[0].idx
-                        
+
+                        ir0 = next.right_idx(center_1)
+                        ir1 = node.left_idx(center_0)
+
                         ############
                         # left
                         ############
-                        
-                        il0 = node[center_0 - 1].idx
-                        if center_1 + 1 < len(next):
-                            il1 = next[center_1 + 1].idx
-                        else:
-                            il1 = next[0].idx                    
-                        
+
+                        il0 = node.right_idx(center_0)
+                        il1 = next.left_idx(center_1)
+
                         # right part is larger than axis: compute t param in axis
                         res, d, u = seg.point_sur_segment(segs[ir1].p1)
                         res, dr, v = seg.point_sur_segment(segs[ir0].p1)
-                        rslope = abs(dr) * seg.slope_left
                         trmin = min(0, u)
                         trmax = max(1, v)
-                        
+
                         # left part is larger than axis: compute t param in axis
                         res, d, u = seg.point_sur_segment(segs[il0].p1)
                         res, dl, v = seg.point_sur_segment(segs[il1].p1)
-                        lslope = abs(dl) * seg.slope_right
                         tlmin = min(0, u)
                         tlmax = max(1, v)
-                        
+
                         ######################
                         # Left part chevrons
                         ######################
-                        
+
                         f = len(verts)
-                        
-                        
+
                         t0 = trmin + (start - 0.5 * depth) / seg.length
                         t1 = trmin + (start + 0.5 * depth) / seg.length
-                        
+
                         tx = start / seg.length
                         dt = spacing / seg.length
-                        
+
                         n_items = max(1, round((trmax - trmin) / dt, 0))
-                        
+
                         dt = ((trmax - trmin) - 2 * tx) / n_items
-                        
+
                         for j in range(int(n_items) + 1):
-                            # 
+                            #
                             n0 = seg.sized_normal(t1 + j * dt, - seg.width_left)
                             n1 = seg.sized_normal(t0 + j * dt, - seg.width_left)
                             slope = n0.length * seg.slope_left
-                            
+
                             # verts start from axis
                             right_before = t1 + j * dt > 0 and t1 + j * dt < 1
                             left_before = t0 + j * dt > 0 and t0 + j * dt < 1
-                            
+
                             if right_before:
-                                z = self.z
+                                z = self.z + chevrons_alt
                                 x, y = n0.p0
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                            
+
                             self.intersect_chevron(n0, ir0, ir1, slope, chevron_height, segs, verts)
-                            
+
                             if not right_before:
-                                z = self.z - slope
+                                z = self.z - slope + chevrons_alt
                                 x, y = n0.p1
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                            
-                            
+
                             if left_before:
-                                z = self.z
+                                z = self.z + chevrons_alt
                                 x, y = n1.p0
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                            
+
                             self.intersect_chevron(n1, ir0, ir1, slope, chevron_height, segs, verts)
-      
-                            if not left_before:    
-                                z = self.z - slope
+
+                            if not left_before:
+                                z = self.z - slope + chevrons_alt
                                 x, y = n1.p1
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                            
+
                             edges.append([f, f + 2])
                             edges.append([f + 1, f + 3])
                             edges.append([f + 4, f + 6])
@@ -2191,65 +2753,65 @@ class RoofAxisGenerator():
                                 [(0, 0), (1, 0), (1, 1), (0, 1)]
                             ])
                             f += 8
-                        
+
                         ######################
                         # Right part chevrons
                         ######################
-                        
+
                         f = len(verts)
-                        
+
                         t0 = tlmin + (start - 0.5 * depth) / seg.length
                         t1 = tlmin + (start + 0.5 * depth) / seg.length
-                        
+
                         tx = start / seg.length
                         dt = spacing / seg.length
-                        
+
                         n_items = max(1, round((tlmax - tlmin) / dt, 0))
-                        
+
                         dt = ((tlmax - tlmin) - 2 * tx) / n_items
-                        
+
                         for j in range(int(n_items) + 1):
                             n0 = seg.sized_normal(t0 + j * dt, seg.width_right)
                             n1 = seg.sized_normal(t1 + j * dt, seg.width_right)
                             slope = n0.length * seg.slope_right
-                            
+
                             # verts start from axis
                             right_before = t0 + j * dt > 0 and t0 + j * dt < 1
                             left_before = t1 + j * dt > 0 and t1 + j * dt < 1
-                            
+
                             if right_before:
-                                z = self.z
+                                z = self.z + chevrons_alt
                                 x, y = n0.p0
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                            
+
                             self.intersect_chevron(n0, il0, il1, slope, chevron_height, segs, verts)
-                            
+
                             if not right_before:
-                                z = self.z - slope
+                                z = self.z - slope + chevrons_alt
                                 x, y = n0.p1
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                            
+
                             if left_before:
-                                z = self.z
+                                z = self.z + chevrons_alt
                                 x, y = n1.p0
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                            
+
                             self.intersect_chevron(n1, il0, il1, slope, chevron_height, segs, verts)
-                                
-                            if not left_before:    
-                                z = self.z - slope
+
+                            if not left_before:
+                                z = self.z - slope + chevrons_alt
                                 x, y = n1.p1
                                 verts.append((x, y, z))
                                 verts.append((x, y, z - chevron_height))
-                                
+
                             edges.append([f, f + 2])
                             edges.append([f + 1, f + 3])
                             edges.append([f + 4, f + 6])
                             edges.append([f + 5, f + 7])
-                            
+
                             faces.extend([
                                 (f, f + 4, f + 5, f + 1),
                                 (f + 1, f + 5, f + 7, f + 3),
@@ -2268,107 +2830,396 @@ class RoofAxisGenerator():
                                 [(0, 0), (1, 0), (1, 1), (0, 1)]
                             ])
                             f += 8
-    
+
     def faitieres(self, d, verts, faces, edges, matids, uvs):
-        
-        idmat = 5
-        
-        faitiere_length = 0.4
-        faitiere_alt = 0.03
-        
-        x = 0.2
-        y = 0.07
-        z = 0.14
-        t_pts = [
-            Vector((-x, 0.8 * y, 0)),
-            Vector((-x, -0.8 * y, 0)),
-            Vector((x, -y, 0)),
-            Vector((x, y, 0)),
-            Vector((-x, 0.8 * y, 0.8 * z)),
-            Vector((-x, -0.8 * y, 0.8 * z)),
-            Vector((x, -y, z)),
-            Vector((x, y, z))
+
+        idmat_valley = 5
+        idmat = 6
+        idmat_poutre = 4
+
+        poutre_inside = True
+        poutre_width = 0.15
+        poutre_height = 0.2
+
+        sx, sy, sz = d.faitiere_size_x, d.faitiere_size_y, d.faitiere_size_z
+
+        # round hips
+        t_pts = [Vector((sx * x, sy * y, sz * z)) for x, y, z in [
+            (-0.5, 0.34, 0.08), (-0.5, 0.32, 0.19), (0.5, -0.4, -0.5),
+            (0.5, 0.4, -0.5), (-0.5, 0.26, 0.28), (-0.5, 0.16, 0.34),
+            (-0.5, 0.05, 0.37), (-0.5, -0.05, 0.37), (-0.5, -0.16, 0.34),
+            (-0.5, -0.26, 0.28), (-0.5, -0.32, 0.19), (-0.5, -0.34, 0.08),
+            (-0.5, -0.25, -0.5), (-0.5, 0.25, -0.5), (0.5, -0.08, 0.5),
+            (0.5, -0.5, 0.08), (0.5, -0.24, 0.47), (0.5, -0.38, 0.38),
+            (0.5, -0.47, 0.24), (0.5, 0.5, 0.08), (0.5, 0.08, 0.5),
+            (0.5, 0.47, 0.24), (0.5, 0.38, 0.38), (0.5, 0.24, 0.47)
+        ]]
+        t_faces = [
+            (23, 22, 4, 5), (3, 19, 21, 22, 23, 20, 14, 16, 17, 18, 15, 2), (14, 20, 6, 7),
+            (18, 17, 9, 10), (15, 18, 10, 11), (21, 19, 0, 1), (17, 16, 8, 9),
+            (13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 1, 0), (19, 3, 13, 0), (20, 23, 5, 6), (22, 21, 1, 4),
+            (3, 2, 12, 13), (2, 15, 11, 12), (16, 14, 7, 8)
+        ]
+        t_uvs = [
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.5, 1.0), (0.75, 0.93), (0.93, 0.75),
+            (1.0, 0.5), (0.93, 0.25), (0.75, 0.07),
+            (0.5, 0.0), (0.25, 0.07), (0.07, 0.25),
+            (0.0, 0.5), (0.07, 0.75), (0.25, 0.93)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.5, 1.0), (0.75, 0.93), (0.93, 0.75),
+            (1.0, 0.5), (0.93, 0.25), (0.75, 0.07),
+            (0.5, 0.0), (0.25, 0.07), (0.07, 0.25),
+            (0.0, 0.5), (0.07, 0.75), (0.25, 0.93)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
         ]
 
-        t_faces = [
-            (0, 1, 2, 3),
-            (7, 6, 5, 4),
-            (7, 4, 0, 3),
-            (4, 5, 1, 0),
-            (5, 6, 2, 1),
-            (6, 7, 3, 2)
-        ]
-        
+        t_idmats = [idmat for f in t_faces]
+
+        angle_90 = round(pi / 2, 3)
+
         segs = self.all_segs
         nodes = self.nodes
-        
+
         for idx, node in enumerate(nodes):
-            
-            n_node = len(node)
-                    
-            for i, s in enumerate(node):
-                
-                seg = segs[s.idx]
-                
-                if seg.constraint_type == 'SLOPE' or s.reversed:
-                    continue
-                        
-                if len(nodes[seg.v1_idx]) > 1:
-                    
-                    next = nodes[seg.v1_idx]
-                    
-                    n_next = len(next)
-                    
-                    tmin = 0
-                    tmax = 1
-                    
-                    if n_node == 3:
-                        tmin = 0 - d.tile_side / seg.length
-                    
-                    if n_next == 3:
-                        tmax = 1 + d.tile_side / seg.length
-                    
-                    print("tmin:%s tmax:%s" % (tmin, tmax))
-                    ####################
-                    # Faitiere
-                    ####################
-                    
-                    f = len(verts)
-                    s_len = (tmax - tmin) * seg.length
-                    n_obj = 1 + int(s_len / faitiere_length)
-                    dx = s_len / n_obj
-                    x0 = 0.5 * dx 
-                    v = seg.v.normalized()
-                    p0 = seg.lerp(tmin)
-                    tM = Matrix([
-                        [v.x, v.y, 0, p0.x],
-                        [v.y, -v.x, 0, p0.y],
-                        [0, 0, 1, self.z + faitiere_alt],
-                        [0, 0, 0, 1]
-                    ])
-                    
-                    for k in range(n_obj):
-                        lM = tM * Matrix([
-                            [1, 0, 0, x0 + k * dx],
-                            [0, 1, 0, 0],
-                            [0, 0, 1, 0],
+
+            n_node = node.count
+
+            # faitieres sur parties en pente
+            # seulement entre segments
+            if n_node > 3:
+
+                last = segs[node.last_idx]
+
+                for i, s in enumerate(node.segs):
+                    seg = segs[s.idx]
+
+                    if s.reversed:
+                        last = seg
+                        continue
+
+                    if seg.constraint_type == 'SLOPE':
+
+                        # if n_node < 4 and seg.enforce_part == 'AUTO':
+                        #     continue
+
+                        da = round(seg.delta_angle(last), 3)
+                        # t param at segment end + border
+                        if da > 0:
+                            tmax = 1 + min(3 * d.tile_border, d.tile_border / sin(da)) / seg.length
+                        else:
+                            tmax = 1
+
+                        p1 = seg.lerp(tmax)
+
+                        res, d0, t = last.point_sur_segment(p1)
+
+                        # delta height at roof border
+                        slope = abs(d0) * seg.slope_left
+
+                        if abs(da) != angle_90:
+
+                            # poutre inside
+                            if poutre_inside:
+                                f = len(verts)
+                                s0 = seg.offset(0.5 * poutre_width)
+                                s1 = seg.offset(-0.5 * poutre_width)
+                                x0, y0 = s0.p0
+                                x1, y1 = s0.p1
+                                x2, y2 = s1.p0
+                                x3, y3 = s1.p1
+                                z0 = self.z
+                                z1 = z0 - poutre_height
+                                z2 = z0 - slope
+                                z3 = z2 - poutre_height
+                                verts.extend([
+                                    (x0, y0, z0),
+                                    (x0, y0, z1),
+                                    (x1, y1, z2),
+                                    (x1, y1, z3),
+                                    (x2, y2, z0),
+                                    (x2, y2, z1),
+                                    (x3, y3, z2),
+                                    (x3, y3, z3),
+                                ])
+                                faces.extend([
+                                    (f, f + 4, f + 5, f + 1),
+                                    (f + 1, f + 5, f + 7, f + 3),
+                                    (f + 2, f + 3, f + 7, f + 6),
+                                    (f + 2, f + 6, f + 4, f),
+                                    (f, f + 1, f + 3, f + 2),
+                                    (f + 5, f + 4, f + 6, f + 7)
+                                ])
+                                matids.extend([
+                                    idmat_poutre, idmat_poutre, idmat_poutre,
+                                    idmat_poutre, idmat_poutre, idmat_poutre
+                                ])
+                                uvs.extend([
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                    [(0, 0), (1, 0), (1, 1), (0, 1)]
+                                ])
+
+                            # valley :
+                            if t > 0 and t < 1:
+                                if d.valley_enable:
+                                    """
+                                        Note:
+                                        Enforce for valley
+                                        only make sense with T childs
+                                        and depends on parent
+                                        enforce for valley seg.enforce_part == 'VALLEY' or
+                                    """
+                                    # decalage pour les 2 bords
+                                    f = len(verts)
+                                    if da > 0:
+                                        op = abs(tan(angle_90 - da))
+                                        tside = min(6 * d.tile_couloir, 2 * d.tile_couloir * op) / seg.length
+                                    else:
+                                        tside = 0
+
+                                    s0 = seg.offset(2 * d.tile_couloir)
+                                    s1 = seg.offset(-2 * d.tile_couloir)
+
+                                    x0, y0 = seg.p0
+                                    x1, y1 = s0.lerp(tside)
+                                    x2, y2 = s0.lerp(tmax + tside)
+                                    x3, y3 = p1
+                                    x4, y4 = s1.lerp(tmax + tside)
+                                    x5, y5 = s1.lerp(tside)
+                                    z0 = self.z + d.valley_altitude
+                                    z1 = z0
+                                    z2 = z0 - slope
+                                    z3 = z0 - slope
+
+                                    verts.extend([
+                                        (x0, y0, z0),
+                                        (x1, y1, z1),
+                                        (x2, y2, z2),
+                                        (x3, y3, z3),
+                                        (x4, y4, z2),
+                                        (x5, y5, z1)
+                                    ])
+                                    faces.extend([
+                                        # top
+                                        (f, f + 1, f + 2, f + 3),
+                                        (f + 5, f, f + 3, f + 4),
+                                    ])
+
+                                    matids.extend([
+                                        idmat_valley, idmat_valley
+                                        ])
+                                    uvs.extend([
+                                        [(0, 0), (1, 0), (1, 1), (0, 1)],
+                                        [(0, 0), (1, 0), (1, 1), (0, 1)]
+                                    ])
+
+                            # hip seg.enforce_part == 'HIP' or
+                            elif d.faitiere_enable and (t < 0 or t > 1):
+
+                                vx = seg.v.to_3d()
+                                vx.z = -seg.width_left * seg.slope_left
+                                vx = vx.normalized()
+                                vy = seg.cross_z.normalized().to_3d()
+                                vz = vx.cross(-vy)
+                                x0, y0 = seg.p0
+                                z0 = self.z + d.faitiere_alt
+                                tM = Matrix([
+                                    [vx.x, vy.x, vz.x, x0],
+                                    [vx.y, vy.y, vz.y, y0],
+                                    [vx.z, vy.z, vz.z, z0],
+                                    [0, 0, 0, 1]
+                                ])
+                                space_2d = tmax * seg.length
+                                space_z = tmax * seg.width_left * seg.slope_left
+                                space_x = sqrt(space_2d * space_2d + space_z * space_z)
+                                n_x = 1 + int(space_x / d.faitiere_space_x)
+                                dx = space_x / n_x
+                                x0 = 0.5 * dx
+
+                                for k in range(n_x):
+                                    lM = tM * Matrix([
+                                        [1, 0, 0, x0 + k * dx],
+                                        [0, -1, 0, 0],
+                                        [0, 0, 1, 0],
+                                        [0, 0, 0, 1]
+                                    ])
+                                    f = len(verts)
+                                    verts.extend([lM * p for p in t_pts])
+                                    faces.extend([tuple(i + f for i in p) for p in t_faces])
+                                    matids.extend(t_idmats)
+                                    uvs.extend(t_uvs)
+
+                    last = seg
+
+            if d.faitiere_enable:
+                # hip horizontales
+                for i, s in enumerate(node.segs):
+
+                    seg = segs[s.idx]
+
+                    if s.reversed:
+                        continue
+
+                    if nodes[seg.v1_idx].count > 1:
+
+                        next = nodes[seg.v1_idx]
+
+                        n_next = next.count
+
+                        tmin = 0
+                        tmax = 1
+
+                        if n_node == 3:
+                            tmin = 0 - d.tile_side / seg.length
+
+                        if n_next == 3:
+                            tmax = 1 + d.tile_side / seg.length
+
+                        # print("tmin:%s tmax:%s" % (tmin, tmax))
+                        ####################
+                        # Faitiere
+                        ####################
+
+                        f = len(verts)
+                        s_len = (tmax - tmin) * seg.length
+                        n_obj = 1 + int(s_len / d.faitiere_space_x)
+                        dx = s_len / n_obj
+                        x0 = 0.5 * dx
+                        v = seg.v.normalized()
+                        p0 = seg.lerp(tmin)
+                        tM = Matrix([
+                            [v.x, v.y, 0, p0.x],
+                            [v.y, -v.x, 0, p0.y],
+                            [0, 0, 1, self.z + d.faitiere_alt],
                             [0, 0, 0, 1]
                         ])
-                        v = len(verts)
-                        verts.extend([lM * p for p in t_pts]) 
-                        faces.extend([tuple(i + v for i in f) for f in t_faces])      
-                        matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
-                        uvs.extend([
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)]
-                        ])
+
+                        for k in range(n_obj):
+                            lM = tM * Matrix([
+                                [1, 0, 0, x0 + k * dx],
+                                [0, -1, 0, 0],
+                                [0, 0, 1, 0],
+                                [0, 0, 0, 1]
+                            ])
+                            v = len(verts)
+                            verts.extend([lM * p for p in t_pts])
+                            faces.extend([tuple(i + v for i in f) for f in t_faces])
+                            matids.extend(t_idmats)
+                            uvs.extend(t_uvs)
+
+    def slope_for_angle(self, slope, angle):
+        """
+            slope by angle from axis
+        """
+        return sin(angle) * slope
+
+    def width_for_angle(self, width, angle):
+        """
+            length of projection of width over axis
+
+             / width perpendicular
+            /|\
+           / | \/
+     angle/__|_|   axis
+              l
+        """
+        return width / sin(angle)
+
+    def make_hole(self, context, hole_obj, d, offset):
+        """
+            Hole
+            follow axis based on node roots
+            take an offset from horiziontal parts
+            build 2 verts
+
+            top view                  front view
+                   11-10 /
+          5-4___s4___/  /                0-6      z0
+       0-3  /__________/  / 6-9         /|\
+            \_____s2_____/        5-11 / | \ 1-7  z1 - z2
+         1-2            7-8           |__|__|
+                                  4-10  3-9  2-8  z3
+        """
+
+        segs = self.all_segs
+        node = self.nodes[0]
+        root = segs[node.root.idx]
+        il0 = node.left_idx(node.center)
+        ir0 = node.right_idx(node.center)
+        s0 = segs[il0]
+        s1 = segs[ir0]
+        s2 = root.offset(offset - root.width_left)
+        s4 = root.offset(root.width_right - offset)
+        x0, y0 = root.p0
+        res, p, t = s0.intersect(s2)
+        x1, y1 = p
+        res, p, t = s1.intersect(s4)
+        x4, y4 = p
+        x6, y6 = root.p1
+        x7, y7 = s2.p1
+        x10, y10 = s4.p1
+        z0 = self.z + 1.0
+        z1 = z0
+        z2 = z0
+        z3 = z0 - max(z1, z2) - 1.0
+
+        verts = [
+            (x0, y0, z0),
+            # right
+            (x1, y1, z1),
+            (x1, y1, z3),
+            # center
+            (x0, y0, z3),
+            # left
+            (x4, y4, z3),
+            (x4, y4, z2),
+
+            (x6, y6, z0),
+            # right
+            (x7, y7, z1),
+            (x7, y7, z3),
+            # center
+            (x6, y6, z3),
+            # left
+            (x10, y10, z3),
+            (x10, y10, z2)
+        ]
+        faces = [
+            (0, 1, 2, 3),
+            (0, 3, 4, 5),
+
+            (0, 6, 7, 1),
+            (1, 7, 8, 2),
+            (2, 8, 9, 3),
+            (3, 9, 10, 4),
+            (4, 10, 11, 5),
+            (5, 11, 6, 0),
+
+            (6, 9, 8, 7),
+            (6, 11, 10, 9)
+        ]
+        matids = None
+        uvs = None
+        bmed.buildmesh(
+            context, hole_obj, verts, faces, matids=matids, uvs=uvs,
+            weld=False, clean=False, auto_smooth=False, temporary=False)
+
 
 # bpy.app.debug = True
-                
+
 def update(self, context):
     self.update(context)
 
@@ -2379,6 +3230,109 @@ def update_manipulators(self, context):
 
 def update_path(self, context):
     self.update_path(context)
+
+
+def update_parent(self, context):
+
+    # update part a0
+    o = context.active_object
+    p, d = self.find_parent(context)
+
+    if d is not None:
+        # add a reference point
+        bpy.ops.object.select_all(action="DESELECT")
+
+        # 5 cases here:
+        # 1 No parents at all
+        # 2 o has parent
+        # 3 w has parent
+        # 4 o and w share same parent allready
+        # 5 o and w dosent share parent
+        link_to_parent = False
+
+        # when both walls do have a reference point, we may delete one of them
+        to_delete = None
+
+        # select childs and make parent reference point active
+        if p.parent is None:
+            # Either link to o.parent or create new parent
+            link_to_parent = True
+            if o.parent is None:
+                # create a reference point and make it active
+                x, y, z = p.bound_box[0]
+                context.scene.cursor_location = p.matrix_world * Vector((x, y, z))
+                # fix issue #9
+                context.scene.objects.active = o
+                bpy.ops.archipack.reference_point()
+                o.select = True
+            else:
+                context.scene.objects.active = o.parent
+            p.select = True
+        else:
+            # w has parent
+            if o.parent is not p.parent:
+                link_to_parent = True
+                context.scene.objects.active = p.parent
+                o.select = True
+                if o.parent is not None:
+                    # store o.parent to delete it
+                    to_delete = o.parent
+                    for c in o.parent.children:
+                        if c is not o:
+                            c.hide_select = False
+                            c.select = True
+
+        parent = context.active_object
+
+        if link_to_parent and bpy.ops.archipack.parent_to_reference.poll():
+            bpy.ops.archipack.parent_to_reference('INVOKE_DEFAULT')
+
+        # hide holes from select
+        for c in parent.children:
+            if "archipack_hybridhole" in c:
+                c.hide_select = True
+
+        # delete unneeded reference point
+        if to_delete is not None:
+            bpy.ops.object.select_all(action="DESELECT")
+            to_delete.select = True
+            context.scene.objects.active = to_delete
+            if bpy.ops.object.delete.poll():
+                bpy.ops.object.delete(use_global=False)
+
+                
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select = True
+        context.scene.objects.active = o
+        
+        bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
+        
+        hole_obj = context.active_object
+        hole_obj.select = False
+        
+        o.select = True
+        context.scene.objects.active = p
+        
+        p.select = True
+        if bpy.ops.archipack.single_boolean.poll():
+            bpy.ops.archipack.single_boolean()
+        
+        hole_obj.matrix_world = o.matrix_world.copy()
+        
+        p.select = False
+        
+        context.scene.objects.active = o
+        o.select = True
+        # trigger object update
+        self.parts[0].a0 = pi / 2
+        
+
+    elif self.t_parent != "":
+        self.t_parent = ""
+
+
+def update_location(self, context):
+    self.update(context, relocate_only=True)
 
 
 def update_type(self, context):
@@ -2552,7 +3506,7 @@ class ArchipackSegment():
         row.prop(self, "offset")
         row = box.row()
         row.prop(self, "a0")
-        
+
 
 class ArchipackLines():
     n_parts = IntProperty(
@@ -2588,16 +3542,13 @@ class ArchipackLines():
         # NOTE:
         # n_parts+1
         # as last one is end point of last segment or closing one
-        row_change = False
         for i in range(len(self.parts), self.n_parts + 1, -1):
-            row_change = True
             self.parts.remove(i - 1)
 
         # add rows
         for i in range(len(self.parts), self.n_parts + 1):
-            row_change = True
             self.parts.add()
-            
+
         self.setup_manipulators()
 
     def setup_parts_manipulators(self):
@@ -2639,9 +3590,9 @@ class ArchipackLines():
 
 
 class archipack_roof_segment(ArchipackSegment, PropertyGroup):
-    
+
     bound_idx = IntProperty(
-        default=0, 
+        default=0,
         min=0,
         update=update_manipulators
         )
@@ -2658,9 +3609,21 @@ class archipack_roof_segment(ArchipackSegment, PropertyGroup):
             ('HORIZONTAL', 'Horizontal', '', 0),
             ('SLOPE', 'Slope', '', 1)
             ),
-        default='HORIZONTAL'    
+        default='HORIZONTAL',
+        update=update_manipulators
         )
-    
+
+    enforce_part = EnumProperty(
+        name="Enforce part",
+        items=(
+            ('AUTO', 'Auto', '', 0),
+            ('VALLEY', 'Valley', '', 1),
+            ('HIP', 'Hip', '', 2)
+            ),
+        default='AUTO',
+        update=update
+        )
+
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -2674,11 +3637,15 @@ class archipack_roof_segment(ArchipackSegment, PropertyGroup):
                     if part == self:
                         return d
         return None
-        
+
     def draw(self, layout, context, index):
         box = layout.box()
         row = box.row()
         row.prop(self, "constraint_type", text=str(index + 1))
+        if self.constraint_type == 'SLOPE':
+            row = box.row()
+            row.prop(self, "enforce_part", text="")
+
         if self.type in ['C_SEG']:
             row = box.row()
             row.prop(self, "radius")
@@ -2691,7 +3658,7 @@ class archipack_roof_segment(ArchipackSegment, PropertyGroup):
         row.prop(self, "a0")
         row = box.row()
         row.prop(self, 'bound_idx')
-        
+
 
 class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup):
     parts = CollectionProperty(type=archipack_roof_segment)
@@ -2703,25 +3670,25 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             )
     slope_left = FloatProperty(
             name="L slope",
-            default=1, precision=2, step=1,
+            default=0.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     slope_right = FloatProperty(
             name="R slope",
-            default=1, precision=2, step=1,
+            default=0.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     width_left = FloatProperty(
             name="L width",
-            default=2.5, precision=2, step=1,
+            default=3, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     width_right = FloatProperty(
             name="R width",
-            default=2.5, precision=2, step=1,
+            default=3, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
@@ -2735,43 +3702,20 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             default=False,
             update=update
             )
-    user_defined_path = StringProperty(
-            name="user defined",
-            update=update_path
-            )
-    user_defined_resolution = IntProperty(
-            name="resolution",
-            min=1,
-            max=128,
-            default=12, update=update_path
-            )
-    angle_limit = FloatProperty(
-            name="angle",
-            min=0,
-            max=2 * pi,
-            default=pi / 2,
-            subtype='ANGLE', unit='ROTATION',
-            update=update_manipulators
-            )
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
             update=update_manipulators
             )
-    couverture = BoolProperty(
-            name="Couverture",
-            default=True,
-            update=update
-            )
-    realtime = BoolProperty(
-            name="Realtime",
+    quick_edit = BoolProperty(
+            name="Quick Edit",
             default=True
             )
     throttle = BoolProperty(
             name="Throttle",
             default=True
             )
-    
+
     tile_enable = BoolProperty(
             name="Enable",
             default=True,
@@ -2790,6 +3734,26 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+    tile_bevel = BoolProperty(
+            name="Bevel",
+            default=False,
+            update=update
+            )
+    tile_bevel_amt = FloatProperty(
+            name="Amount",
+            description="Amount for bevel",
+            min=0,
+            default=0.02,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    tile_bevel_segs = IntProperty(
+            name="Segs",
+            description="Bevel Segs",
+            min=1,
+            default=2,
+            update=update
+            )
     tile_alternate = BoolProperty(
             name="Alternate",
             default=False,
@@ -2801,6 +3765,13 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             max=100,
             subtype="PERCENTAGE",
+            update=update
+            )
+    tile_altitude = FloatProperty(
+            name="Altitude",
+            description="Altitude from roof",
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     tile_size_x = FloatProperty(
@@ -2868,13 +3839,15 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 ('ETERNIT', 'Eternit', '', 2),
                 ('LAUZE', 'Lauze', '', 3),
                 ('PLACEHOLDER', 'Placeholder', '', 4),
-                ('USER','User defined', '', 5)
+                ('ONDULEE', 'Ondule', '', 5),
+                ('METAL', 'Metal', '', 6),
+                ('USER', 'User defined', '', 7)
                 ),
             default="BRAAS2",
             update=update
             )
     tile_side = FloatProperty(
-            name="side",
+            name="Side",
             description="Space on side",
             default=0,
             unit='LENGTH', subtype='DISTANCE',
@@ -2889,33 +3862,119 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             update=update
             )
     tile_border = FloatProperty(
-            name="Border",
+            name="Bottom",
             description="Tiles offset from bottom",
             default=0,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-    
+
+    faitiere_enable = BoolProperty(
+            name="Enable",
+            default=True,
+            update=update
+            )
+    faitiere_expand = BoolProperty(
+            name="Hips",
+            description="Expand hips panel",
+            default=False
+            )
+    faitiere_alt = FloatProperty(
+            name="x",
+            description="Hip altitude from roof",
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    faitiere_space_x = FloatProperty(
+            name="x",
+            description="Space between hips",
+            min=0.01,
+            default=0.4,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    faitiere_size_x = FloatProperty(
+            name="l",
+            description="Length of hip",
+            min=0.01,
+            default=0.4,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    faitiere_size_y = FloatProperty(
+            name="w",
+            description="Width of hip",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    faitiere_size_z = FloatProperty(
+            name="h",
+            description="Height of hip",
+            min=0.0,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+
+    valley_altitude  = FloatProperty(
+            name="x",
+            description="Valley altitude from roof",
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    valley_enable = BoolProperty(
+            name="Valley",
+            default=True,
+            update=update
+            )
+
+    t_parent = StringProperty(
+        name="Parent",
+        default="",
+        update=update_parent
+        )
+    t_part = IntProperty(
+        name="Part",
+        description="Parent part index",
+        default=0,
+        min=0,
+        update=update_location
+        )
+    t_dist_x = FloatProperty(
+        name="Dist x",
+        description="Location on axis ",
+        default=0,
+        update=update_location
+        )
+    t_dist_y = FloatProperty(
+        name="Dist y",
+        description="Lateral distance from axis",
+        min=0,
+        default=0,
+        update=update
+        )
+
     def update_parts(self):
         # print("update_parts")
         # remove rows
         # NOTE:
         # n_parts+1
         # as last one is end point of last segment or closing one
-        row_change = False
         for i in range(len(self.parts), self.n_parts, -1):
-            row_change = True
             self.parts.remove(i - 1)
 
         # add rows
         for i in range(len(self.parts), self.n_parts):
-            row_change = True
             bound_idx = len(self.parts)
             self.parts.add()
             self.parts[-1].bound_idx = bound_idx
-            
+
         self.setup_manipulators()
-    
+
     def setup_manipulators(self):
         for i in range(self.n_parts):
             p = self.parts[i]
@@ -2939,7 +3998,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 s.prop1_name = str(i + 1)
             p.manipulators[2].prop1_name = str(i)
             p.manipulators[3].prop1_name = str(i + 1)
-      
+
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
@@ -3007,20 +4066,20 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
             self.from_spline(user_def_path.matrix_world, self.user_defined_resolution, user_def_path.data.splines[0])
-    
-    def get_generator(self, origin=Vector((0, 0))):
-        g = RoofAxisGenerator(self.parts, origin)
-        g.z = self.z
-        g.width_left = self.width_left
-        g.width_right = self.width_right
-        g.slope_left = self.slope_left
-        g.slope_right = self.slope_right
-        
-        for part in self.parts:
-            g.add_part(part)
+
+    def get_generator(self, origin=Vector((0, 0, 0))):
+        g = RoofGenerator(self, origin)
+
+        # TODO: sort part by bound idx so deps always find parent
+
+        for i, part in enumerate(self.parts):
+            # skip part if bound_idx > parent
+            # so deps always see parent
+            if part.bound_idx <= i:
+                g.add_part(part)
         g.locate_manipulators()
         return g
-    
+
     def make_surface(self, o, verts, edges):
         bm = bmesh.new()
         for v in verts:
@@ -3031,9 +4090,56 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         bm.edges.ensure_lookup_table()
         # bmesh.ops.contextual_create(bm, geom=bm.edges)
         bm.to_mesh(o.data)
-        bm.free()  
-    
-    def update(self, context, manipulable_refresh=False):
+        bm.free()
+
+    def find_parent(self, context):
+        o = context.scene.objects.get(self.t_parent)
+        return o, archipack_roof.datablock(o)
+
+    def intersection_angle(self, t_slope, t_width, p_slope, angle):
+        # 2d intersection angle between two roofs parts
+        dy = abs(t_slope * t_width / p_slope)
+        ca = cos(angle)
+        ta = tan(angle)
+        if ta == 0:
+            w0 = 0
+        else:
+            w0 = dy * ta
+        if ca == 0:
+            w1 = 0
+        else:
+            w1 = t_width / ca
+        dx = w1 - w0
+        return atan2(dy, dx)
+
+    def relocate_child(self, context, o, g, child):
+
+        d = archipack_roof.datablock(child)
+
+        if d is not None and d.t_part - 1 < len(g.segs):
+
+            seg = g.segs[d.t_part]
+            # adjust T part matrix_world from parent
+            # T part origin located on parent axis
+            # with y in parent direction
+            t = (d.t_dist_x / seg.length)
+            x, y, z = seg.lerp(t).to_3d()
+            dy = seg.v.normalized()
+            child.matrix_world = o.matrix_world * Matrix([
+                [dy.x, dy.y, 0, x],
+                [dy.y, -dy.x, 0, y],
+                [0, 0, 1, z],
+                [0, 0, 0, 1]
+            ])
+
+    def relocate_childs(self, context, o, g):
+        if o.parent is not None:
+            for child in o.parent.children:
+                d = archipack_roof.datablock(child)
+                if d is not None and d.t_parent == o.name:
+                    self.relocate_child(context, o, g, child)
+
+    def update(self, context, manipulable_refresh=False, relocate_only=False):
 
         o = self.find_in_selection(context, self.auto_update)
 
@@ -3046,47 +4152,169 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
 
         self.update_parts()
 
-        verts = []
-        edges = []
-        faces = []
-        matids = []
-        uvs = []
+        verts, edges, faces, matids, uvs = [], [], [], [], []
 
-        g = self.get_generator()
+        y = 0
+        z = self.z
+        p, d = self.find_parent(context)
+        g = None
+
+        # t childs
+        if d is not None:
+
+            pg = d.get_generator()
+            pg.make_roof([], [])
+
+            if self.t_part - 1 < len(pg.segs):
+
+                seg = pg.segs[self.t_part]
+
+                d.relocate_child(context, p, pg, o)
+
+                if relocate_only:
+                    self.restore_context(context)
+                    return
+
+                a0 = self.parts[0].a0
+
+                if a0 > 0:
+                    # a_axis est mesure depuis la perpendiculaire à l'axe
+                    a_axis = a0 - pi / 2
+                    slope = seg.slope_right
+                    y = self.t_dist_y
+                else:
+                    a_axis = a0 + pi / 2
+                    slope = seg.slope_left
+                    y = -self.t_dist_y
+
+                if slope == 0:
+                    slope = 0.0001
+
+                z = d.z - self.t_dist_y * slope
+
+                # a_right from axis cross z
+
+                b_right = self.intersection_angle(
+                    self.slope_left,
+                    -self.width_left,
+                    slope,
+                    a_axis)
+
+                a_right = b_right
+
+                b_left = self.intersection_angle(
+                    self.slope_right,
+                    self.width_right,
+                    slope,
+                    a_axis)
+
+                a_left = b_left - pi
+
+                g = self.get_generator(origin=Vector((0, y, z)))
+
+                # Add 'SLOPE' constraints for segment 0
+                v = Vector((cos(a_left), sin(a_left)))
+                s = StraightRoof(g.origin, v)
+                s.v0_idx = 0
+                s.constraint_type = 'SLOPE'
+                # s.enforce_part = 'VALLEY'
+                s.angle_0 = a_left
+                s.take_precedence = False
+                g.segs.append(s)
+
+                v = Vector((cos(a_right), sin(a_right)))
+                s = StraightRoof(g.origin, v)
+                s.v0_idx = 0
+                s.constraint_type = 'SLOPE'
+                # s.enforce_part = 'VALLEY'
+                s.angle_0 = a_right
+                s.take_precedence = False
+                g.segs.append(s)
+                       
+        if g is None:
+            g = self.get_generator(origin=Vector((0, y, z)))
+
         g.make_roof(verts, edges)
+
+        self.relocate_childs(context, o, g)
+
         # print("%s" % (faces))
         g.lambris(self, verts, faces, edges, matids, uvs)
+        n_verts = len(verts)
         g.virevents(self, verts, faces, edges, matids, uvs)
         g.larmiers(self, verts, faces, edges, matids, uvs)
         g.poutre_faitiere(self, verts, faces, edges, matids, uvs)
         g.chevrons(self, verts, faces, edges, matids, uvs)
         g.faitieres(self, verts, faces, edges, matids, uvs)
-        
-        if self.throttle or self.realtime:
-            
+        g.chenaux(self, verts, faces, edges, matids, uvs)
+
+        if self.throttle or not self.quick_edit:
+
             if self.tile_enable:
-                bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=False, clean=False, auto_smooth=False, temporary=False)
+                bmed.buildmesh(
+                    context, o, verts, faces, matids=matids, uvs=uvs,
+                    weld=False, clean=False, auto_smooth=False, temporary=False)
+
                 bpy.ops.object.mode_set(mode='EDIT')
                 g.couverture(context, o, self)
-                self.throttle = self.realtime
-                
+                self.throttle = not self.quick_edit
+
             elif self.do_faces:
-                bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=False, clean=False, auto_smooth=False, temporary=False)
+                bmed.buildmesh(
+                    context, o, verts, faces, matids=matids, uvs=uvs,
+                    weld=False, clean=False, auto_smooth=False, temporary=False)
+
             else:
                 self.make_surface(o, verts, edges)
+            
+            # throttle update hole too
+            if d is not None:
+                hole_obj = self.find_hole(o)
+                if hole_obj is not None:
+                    g.make_hole(context, hole_obj, self, 0.1)    
+                
         else:
             if self.do_faces:
-                bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=False, clean=False, auto_smooth=False, temporary=False)
+                bmed.buildmesh(
+                    context, o, verts, faces, matids=matids, uvs=uvs,
+                    weld=False, clean=False, auto_smooth=False, temporary=False)
+
             else:
                 self.make_surface(o, verts, edges)
             bpy.ops.archipack.roof_throttle_update(name=o.name)
+        
             
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
 
+
         # restore context
         self.restore_context(context)
+
+    def find_hole(self, o):
+        for child in o.children:
+            if 'archipack_hole' in child:
+                return child
+        return None
+
+    def interactive_hole(self, context, o):
+        hole_obj = self.find_hole(o)
+        if hole_obj is None:
+            m = bpy.data.meshes.new("hole")
+            hole_obj = bpy.data.objects.new("hole", m)
+            context.scene.objects.link(hole_obj)
+            hole_obj['archipack_hole'] = True
+            hole_obj.parent = o
+            hole_obj.matrix_world = o.matrix_world.copy()
+
+        hole_obj.data.materials.clear()
+        for mat in o.data.materials:
+            hole_obj.data.materials.append(mat)
+        g = self.get_generator()
+        g.make_roof([], [])
+        g.make_hole(context, hole_obj, self, 0.1)
+        return hole_obj
 
     def manipulable_setup(self, context):
         """
@@ -3096,14 +4324,13 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             manipulators set on active object
         """
         self.manipulable_disable(context)
-        
+
         o = context.active_object
-        
-        
+
         self.setup_manipulators()
-        
+
         for i, part in enumerate(self.parts):
-                    
+
             if i > 0:
                 # start angle
                 self.manip_stack.append(part.manipulators[0].setup(context, o, part))
@@ -3112,14 +4339,13 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             self.manip_stack.append(part.manipulators[1].setup(context, o, part))
             # index
             self.manip_stack.append(part.manipulators[3].setup(context, o, self))
-        
+
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
-                
-            
+
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
-    
+
     def draw(self, layout, context):
         box = layout.box()
         row = box.row()
@@ -3132,7 +4358,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         else:
             row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
 
-            
+
 """
 class archipack_roof_boundary(ArchipackSegment, PropertyGroup):
 
@@ -3231,7 +4457,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             s.prop1_name = "height"
             s.normal = Vector((0, 1, 0))
         self.setup_parts_manipulators()
-       
+
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
@@ -3310,15 +4536,15 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         bm.edges.ensure_lookup_table()
         bmesh.ops.contextual_create(bm, geom=bm.edges)
         bm.to_mesh(o.data)
-        bm.free()        
-       
+        bm.free()
+
     def update(self, context, manipulable_refresh=False):
 
         o = self.find_in_selection(context, self.auto_update)
 
         if o is None:
             return
-        
+
         # clean up manipulators before any data model change
         if manipulable_refresh:
             self.manipulable_disable(context)
@@ -3332,20 +4558,20 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         uvs = []
 
         g = self.get_generator()
-        
+
         ag = None
-        
+
         for a in o.children:
             axis = archipack_roof.datablock(a)
             if axis is not None:
                 ag = axis.get_generator(origin=a.matrix_world.translation - o.matrix_world.translation)
                 ag.z = self.z
                 ag.slope = self.slope
-        
+
         # vertex index in order to build axis
         g.get_verts(verts, edges, ag)
         print("edges %s" % edges)
-        
+
         if len(verts) > 2:
             self.make_surface(o, verts, edges)
         else:
@@ -3360,19 +4586,19 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         self.restore_context(context)
 
     def manipulable_setup(self, context):
-        
+
         self.manipulable_disable(context)
         o = context.active_object
-        
+
         n_parts = self.n_parts
         if self.closed:
             n_parts += 1
-        
+
         self.setup_manipulators()
-        
+
         for i, part in enumerate(self.parts):
             if i < n_parts:
-                    
+
                 if i > 0:
                     # start angle
                     self.manip_stack.append(part.manipulators[0].setup(context, o, part))
@@ -3383,11 +4609,11 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 self.manip_stack.append(part.manipulators[3].setup(context, o, self))
                 # offset
                 self.manip_stack.append(part.manipulators[4].setup(context, o, part))
-            
+
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
-                
-            
+
+
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
 
@@ -3419,7 +4645,7 @@ class ARCHIPACK_PT_roof(Panel):
         row.operator("archipack.roof_preset_menu", text=bpy.types.ARCHIPACK_OT_roof_preset_menu.bl_label)
         row.operator("archipack.roof_preset", text="", icon='ZOOMIN')
         row.operator("archipack.roof_preset", text="", icon='ZOOMOUT').remove_active = True
-        
+
         row = layout.row(align=True)
         row.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
         box = layout.box()
@@ -3454,21 +4680,31 @@ class ARCHIPACK_PT_roof(Panel):
         layout = self.layout
         row = layout.row(align=True)
         row.operator('archipack.roof_manipulate', icon='HAND')
-        
+
         box = layout.box()
         row = box.row(align=True)
         row.operator("archipack.roof_preset_menu", text=bpy.types.ARCHIPACK_OT_roof_preset_menu.bl_label)
         row.operator("archipack.roof_preset", text="", icon='ZOOMIN')
         row.operator("archipack.roof_preset", text="", icon='ZOOMOUT').remove_active = True
-        
         box = layout.box()
-        box.prop(prop, 'z')
+        box.prop_search(prop, "t_parent", scene, "objects", text="Parent", icon='OBJECT_DATA')
+        p, d = prop.find_parent(context)
+        if d is not None:
+            box.prop(prop, 't_part')
+            box.prop(prop, 't_dist_x')
+            box.prop(prop, 't_dist_y')
+
+        box = layout.box()
+        box.prop(prop, 'quick_edit', icon="MOD_MULTIRES")
+        box.prop(prop, 'do_faces')
+        if d is None:
+            box.prop(prop, 'z')
         box.prop(prop, 'slope_left')
         box.prop(prop, 'slope_right')
         box.prop(prop, 'width_left')
         box.prop(prop, 'width_right')
-        box.prop(prop, 'do_faces')
-        box.prop(prop, 'realtime')
+        # parts
+        prop.draw(layout, context)
         # tiles
         box = layout.box()
         row = box.row(align=True)
@@ -3478,40 +4714,72 @@ class ARCHIPACK_PT_roof(Panel):
             row.prop(prop, 'tile_expand', icon="TRIA_RIGHT", text="Tiles", icon_only=True, emboss=False)
         row.prop(prop, 'tile_enable')
         if prop.tile_expand:
-            box.prop(prop, 'tile_model')
-            
-            box.prop(prop, 'tile_solidify')
+            box.prop(prop, 'tile_model', text="")
+
+            box.prop(prop, 'tile_solidify', icon='MOD_SOLIDIFY')
             if prop.tile_solidify:
                 box.prop(prop, 'tile_height')
-            
-            box.prop(prop, 'tile_offset')
-            box.prop(prop, 'tile_alternate')
-            box.prop(prop, 'tile_fit_x')
-            box.prop(prop, 'tile_fit_y')
-            box.label(text="Scale")
+                box.separator()
+            box.prop(prop, 'tile_bevel', icon='MOD_BEVEL')
+            if prop.tile_bevel:
+                box.prop(prop, 'tile_bevel_amt')
+                box.prop(prop, 'tile_bevel_segs')
+                box.separator()
+            box.label(text="Tile size")
             row = box.row(align=True)
             row.prop(prop, 'tile_size_x')
             row.prop(prop, 'tile_size_y')
             row.prop(prop, 'tile_size_z')
-            
+            box.prop(prop, 'tile_altitude')
+
+            box.separator()
+            box.label(text="Distribution")
+            box.prop(prop, 'tile_alternate', icon='NLA')
+            row = box.row(align=True)
+            row.prop(prop, 'tile_fit_x', icon='ALIGN')
+            row.prop(prop, 'tile_fit_y', icon='ALIGN')
+            box.prop(prop, 'tile_offset')
+
             box.label(text="Spacing")
             row = box.row(align=True)
             row.prop(prop, 'tile_space_x')
             row.prop(prop, 'tile_space_y')
-            
+
+            box.separator()		# hip
+            box.label(text="Borders")
             box.prop(prop, 'tile_side')
             box.prop(prop, 'tile_couloir')
             box.prop(prop, 'tile_border')
-            
-        
+
+        box = layout.box()
+        row = box.row(align=True)
+        if prop.faitiere_expand:
+            row.prop(prop, 'faitiere_expand', icon="TRIA_DOWN", text="Hip", icon_only=True, emboss=False)
+        else:
+            row.prop(prop, 'faitiere_expand', icon="TRIA_RIGHT", text="Hip", icon_only=True, emboss=False)
+        row.prop(prop, 'faitiere_enable')
+        if prop.faitiere_expand:
+            # box.prop(prop, 'faitiere_model', text="")
+
+            box.label(text="Hip size")
+            row = box.row(align=True)
+            row.prop(prop, 'faitiere_size_x')
+            row.prop(prop, 'faitiere_size_y')
+            row.prop(prop, 'faitiere_size_z')
+            box.prop(prop, 'faitiere_alt')
+
+            box.label(text="Spacing")
+            row = box.row(align=True)
+            row.prop(prop, 'faitiere_space_x')
+
+
         """
-        
         box = layout.box()
         row.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
         box.prop(prop, 'user_defined_resolution')
         box.prop(prop, 'angle_limit')
         """
-        prop.draw(layout, context)
+
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -3555,7 +4823,6 @@ class ARCHIPACK_OT_roof(ArchipackCreateTool, Operator):
             return {'CANCELLED'}
 
 
-
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
@@ -3573,10 +4840,6 @@ class ARCHIPACK_OT_roof_from_curve(Operator):
     @classmethod
     def poll(self, context):
         return context.active_object is not None and context.active_object.type == 'CURVE'
-    # -----------------------------------------------------
-    # Draw (create UI interface)
-    # -----------------------------------------------------
-    # noinspection PyUnusedLocal
 
     def draw(self, context):
         layout = self.layout
@@ -3628,6 +4891,7 @@ class ARCHIPACK_OT_roof_from_curve(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+
 # ------------------------------------------------------------------
 # Define operator class to manipulate object
 # ------------------------------------------------------------------
@@ -3647,14 +4911,13 @@ class ARCHIPACK_OT_roof_manipulate(Operator):
         d = archipack_roof.datablock(context.active_object)
         d.manipulable_invoke(context)
         return {'FINISHED'}
-        
- 
+
 
 # Update throttle (smell hack here)
 # use 2 globals to store a timer and state of update_action
-# NO MORE USING THIS PART, kept as it as it may be usefull in some cases
 update_timer = None
 update_timer_updating = False
+throttle_delay = 1
 
 
 class ARCHIPACK_OT_roof_throttle_update(Operator):
@@ -3686,11 +4949,11 @@ class ARCHIPACK_OT_roof_throttle_update(Operator):
                 return {'CANCELLED'}
             # reset update_timer so it only occurs once 0.1s after last action
             context.window_manager.event_timer_remove(update_timer)
-            update_timer = context.window_manager.event_timer_add(0.5, context.window)
+            update_timer = context.window_manager.event_timer_add(throttle_delay, context.window)
             return {'CANCELLED'}
         update_timer_updating = False
         context.window_manager.modal_handler_add(self)
-        update_timer = context.window_manager.event_timer_add(0.5, context.window)
+        update_timer = context.window_manager.event_timer_add(throttle_delay, context.window)
         return {'RUNNING_MODAL'}
 
     def cancel(self, context):
@@ -3699,8 +4962,7 @@ class ARCHIPACK_OT_roof_throttle_update(Operator):
         update_timer = None
         return {'CANCELLED'}
 
- 
- 
+
 # ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
@@ -3736,7 +4998,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_roof_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_roof_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_roof_throttle_update)
-   
+
 
 def unregister():
     bpy.utils.unregister_class(archipack_roof_material)
@@ -3751,4 +5013,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_throttle_update)
-   
