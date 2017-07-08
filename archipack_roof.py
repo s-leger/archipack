@@ -20,10 +20,6 @@
 
 # <pep8 compliant>
 
-# https://www.dropbox.com/s/qh0rdcu6alioe8k/Situation.zip?dl=1
-
-
-
 # ----------------------------------------------------------
 # Author: Stephen Leger (s-leger)
 #
