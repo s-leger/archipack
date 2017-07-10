@@ -501,6 +501,7 @@ class ArchipackPreset(AddPresetBase):
             if prop_id not in blacklist:
                 if not (prop.is_hidden or prop.is_skip_save):
                     ret.append("d.%s" % prop_id)
+        ret.sort()
         return ret
 
     @property

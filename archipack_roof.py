@@ -26,6 +26,7 @@
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
+import time
 # noinspection PyUnresolvedReferences
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
@@ -587,6 +588,29 @@ class RoofAxisNode():
                 return
 
 
+
+"""
+import bmesh
+
+m = C.object.data
+[(round(v.co.x, 2), round(v.co.y, 2), round(v.co.z, 2)) for v in m.vertices]
+[tuple(p.vertices) for p in m.polygons]
+
+uvs = []
+bpy.ops.object.mode_set(mode='EDIT')
+bm = bmesh.from_edit_mesh(m)
+
+layer = bm.loops.layers.uv.verify()
+for i, face in enumerate(bm.faces):
+    uv = []
+    for j, loop in enumerate(face.loops):
+        co = loop[layer].uv
+        uv.append((round(co.x, 2), round(co.y, 2)))
+    uvs.append(uv)
+
+uvs
+"""
+
 class RoofGenerator():
 
     def __init__(self, d, origin=Vector((0, 0, 0))):
@@ -638,7 +662,7 @@ class RoofGenerator():
 
     def locate_manipulators(self):
         """
-            
+
         """
         for i, f in enumerate(self.segs):
 
@@ -667,10 +691,8 @@ class RoofGenerator():
                 manipulators[1].prop2_name = "radius"
                 manipulators[1].set_pts([f.c.to_3d(), v0, v1])
 
-            # snap manipulator, dont change index !
-            manipulators[2].set_pts([p0, p1, (1, 0, 0)])
             # dumb segment id
-            manipulators[3].set_pts([p0, p1, (1, 0, 0)])
+            manipulators[2].set_pts([p0, p1, (1, 0, 0)])
 
     def debug(self, verts):
         for s, roof in enumerate(self.segs):
@@ -702,20 +724,18 @@ class RoofGenerator():
             _quicksort(array, pivot + 1, end)
         return _quicksort(array, begin, end)
 
-    def intersect_chevron(self, line, side1, side2, slope, height, segs, verts):
+    def intersect_chevron(self, line, side1, side2, slope, height, alt, segs, verts):
         res, p, u, v = line.intersect_ext(segs[side1])
         if res:
             x, y = p
-            z = self.z - slope * u
         else:
             res, p, u, v = line.intersect_ext(segs[side2])
             if res:
                 x, y = p
-                z = self.z - slope * u
             else:
                 x, y = line.p1
-                z = self.z - slope
-
+                u = 1
+        z = self.z - slope * u + alt
         verts.append((x, y, z))
         verts.append((x, y, z - height))
 
@@ -1213,24 +1233,7 @@ class RoofGenerator():
 
         left, right = True, True
         angle_90 = round(pi / 2, 4)
-        """
-        m = C.object.data
-        [(round(v.co.x, 2), round(v.co.y, 2), round(v.co.z, 2)) for v in m.vertices]
-        [tuple(p.vertices) for p in m.polygons]
 
-        uvs = []
-        bpy.ops.object.mode_set(mode='EDIT')
-        bm = bmesh.from_edit_mesh(o.data)
-
-        layer = bm.loops.layers.uv.verify()
-        for i, face in enumerate(bm.faces):
-            uv = []
-            for j, loop in enumerate(face.loops):
-                co = loop[layer].uv
-                uv.append((round(co.x, 2), round(co.y, 2)))
-            uvs.append(uv)
-
-        """
 
         sx, sy, sz = d.tile_size_x, d.tile_size_y, d.tile_size_z
 
@@ -1309,9 +1312,32 @@ class RoofGenerator():
         elif d.tile_model == 'PLACEHOLDER':
             t_pts = [Vector(p) for p in [(0.0, -1.0, 1.0), (1.0, -1.0, 1.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]]
             t_faces = [(0, 1, 3, 2)]
+        elif d.tile_model == 'ROMAN':
+            t_pts = [Vector(p) for p in [
+                (0.18, 0.0, 0.3), (0.24, 0.0, 0.58), (0.76, 0.0, 0.58), 
+                (0.82, 0.0, 0.3), (0.05, -1.0, 0.5), (0.14, -1.0, 0.8), 
+                (0.86, -1.0, 0.8), (0.95, -1.0, 0.5), (0.45, 0.0, 0.5), 
+                (0.36, 0.0, 0.2), (-0.36, 0.0, 0.2), (-0.45, -0.0, 0.5), 
+                (0.32, -1.0, 0.7), (0.26, -1.0, 0.42), (-0.26, -1.0, 0.42), 
+                (-0.32, -1.0, 0.7), (0.5, 0.0, 0.74), (0.5, -1.0, 1.0), 
+                (-0.0, -1.0, 0.26), (-0.0, 0.0, 0.0)]
+            ]
+            t_faces = [
+                (0, 4, 5, 1), (16, 17, 6, 2), (2, 6, 7, 3), 
+                (13, 12, 8, 9), (18, 13, 9, 19), (15, 14, 10, 11), 
+                (14, 18, 19, 10), (1, 5, 17, 16)
+            ]
+        elif d.tile_model == 'ROUND':
+            t_pts = [Vector(p) for p in [
+                (0.0, -0.5, 0.5), (1.0, -0.5, 0.5), (0.0, 0.0, 0.0), 
+                (1.0, 0.0, 0.0), (0.93, -0.71, 0.71), (0.78, -0.88, 0.88), 
+                (0.39, -0.97, 0.97), (0.61, -0.97, 0.97), (0.07, -0.71, 0.71), 
+                (0.22, -0.88, 0.88)]
+            ]
+            t_faces = [(6, 7, 5, 4, 1, 3, 2, 0, 8, 9)]
         else:
             return
-
+        
         n_faces = len(t_faces)
         t_uvs = [[(t_pts[i].x, t_pts[i].y) for i in f] for f in t_faces]
 
@@ -1386,6 +1412,9 @@ class RoofGenerator():
                             if d.tile_fit_y:
                                 dy = space_y / n_y
 
+                            if d.tile_alternate:
+                                n_y += 1
+
                             tM = Matrix([
                                 [vx.x, vy.x, vz.x, x0],
                                 [vx.y, vy.y, vz.y, y0],
@@ -1433,7 +1462,7 @@ class RoofGenerator():
                             # build temp bmesh and bissect
                             bm = bmed.buildmesh(
                                 context, o, verts, faces, matids=matids, uvs=uvs,
-                                weld=False, clean=False, auto_smooth=False, temporary=True)
+                                weld=False, clean=False, auto_smooth=True, temporary=True)
 
                             # len(node/next) > 3  -> couloir ou faitiere
                             # len(node/next) < 3  -> terminaison
@@ -1534,11 +1563,15 @@ class RoofGenerator():
                             n_x = 1 + int(space_x / dx)
                             n_y = 1 + int(space_y / dy)
 
+
                             if d.tile_fit_x:
                                 dx = space_x / n_x
 
                             if d.tile_fit_y:
                                 dy = space_y / n_y
+
+                            if d.tile_alternate:
+                                n_y += 1
 
                             tM = Matrix([
                                 [vx.x, vy.x, vz.x, x0],
@@ -1587,7 +1620,7 @@ class RoofGenerator():
                             # build temp bmesh and bissect
                             bm = bmed.buildmesh(
                                 context, o, verts, faces, matids=matids, uvs=uvs,
-                                weld=False, clean=False, auto_smooth=False, temporary=True)
+                                weld=False, clean=False, auto_smooth=True, temporary=True)
 
                             da0 = round(abs(seg.delta_angle(s0)), 4)
                             da1 = round(abs(seg.delta_angle(s1)), 4)
@@ -1649,16 +1682,17 @@ class RoofGenerator():
                             # merge with object
                             bmed.bmesh_join(context, o, [bm], normal_update=True)
 
-    def virevents(self, d, verts, faces, edges, matids, uvs):
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.faces_shade_smooth()
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    def rake(self, d, verts, faces, edges, matids, uvs):
 
         idmat = 1
 
         segs = self.all_segs
         nodes = self.nodes
-
-        virevents_depth = 0.02
-        virevents_height = 0.15
-        virevents_altitude = 0.1
 
         for idx, node in enumerate(nodes):
 
@@ -1703,15 +1737,15 @@ class RoofGenerator():
                             s0 = segs[il0]
                             if s0.enforce_part is 'AUTO':
                                 f = len(verts)
-                                s1 = s0.offset(virevents_depth)
-                                res, d, t = seg.point_sur_segment(s0.p1)
-                                slope = abs(d) * seg.slope_right
-
+                                s1 = s0.offset(d.rake_offset)
+                                res, d0, t = seg.point_sur_segment(s0.p1)
+                                slope = abs(d0) * seg.slope_right
+                                s0 = s0.offset(d.rake_offset - d.rake_width)
                                 x0, y0 = s0.p0
                                 x1, y1 = s1.p0
                                 x2, y2 = s1.p1
                                 x3, y3 = s0.p1
-                                z0 = self.z + virevents_altitude
+                                z0 = self.z + d.rake_altitude
                                 z1 = z0 - slope
                                 verts.extend([
                                     (x0, y0, z0),
@@ -1719,8 +1753,8 @@ class RoofGenerator():
                                     (x2, y2, z1),
                                     (x3, y3, z1),
                                 ])
-                                z0 -= virevents_height
-                                z1 -= virevents_height
+                                z0 -= d.rake_height
+                                z1 -= d.rake_height
                                 verts.extend([
                                     (x0, y0, z0),
                                     (x1, y1, z0),
@@ -1758,16 +1792,16 @@ class RoofGenerator():
                             s1 = segs[ir1]
                             if s1.enforce_part is 'AUTO':
                                 f = len(verts)
-                                s0 = s1.offset(-virevents_depth)
-                                res, d, t = seg.point_sur_segment(s1.p1)
-                                slope = abs(d) * seg.slope_left
-
+                                s0 = s1.offset(-d.rake_offset)
+                                res, d0, t = seg.point_sur_segment(s1.p1)
+                                slope = abs(d0) * seg.slope_left
+                                s1 = s1.offset(d.rake_width - d.rake_offset )
                                 x0, y0 = s0.p0
                                 x1, y1 = s1.p0
                                 x2, y2 = s1.p1
                                 x3, y3 = s0.p1
 
-                                z0 = self.z + virevents_altitude
+                                z0 = self.z + d.rake_altitude
                                 z1 = z0 - slope
                                 verts.extend([
                                     (x0, y0, z0),
@@ -1775,8 +1809,8 @@ class RoofGenerator():
                                     (x2, y2, z1),
                                     (x3, y3, z1),
                                 ])
-                                z0 -= virevents_height
-                                z1 -= virevents_height
+                                z0 -= d.rake_height
+                                z1 -= d.rake_height
                                 verts.extend([
                                     (x0, y0, z0),
                                     (x1, y1, z0),
@@ -1814,16 +1848,16 @@ class RoofGenerator():
                             s0 = segs[ir0]
                             if s0.enforce_part is 'AUTO':
                                 f = len(verts)
-                                s1 = s0.offset(virevents_depth)
-                                res, d, t = seg.point_sur_segment(s0.p1)
-                                slope = abs(d) * seg.slope_left
-
+                                s1 = s0.offset(d.rake_offset )
+                                res, d0, t = seg.point_sur_segment(s0.p1)
+                                slope = abs(d0) * seg.slope_left
+                                s0 = s0.offset(d.rake_offset - d.rake_width)
                                 x0, y0 = s0.p0
                                 x1, y1 = s1.p0
                                 x2, y2 = s1.p1
                                 x3, y3 = s0.p1
 
-                                z0 = self.z + virevents_altitude
+                                z0 = self.z + d.rake_altitude
                                 z1 = z0 - slope
                                 verts.extend([
                                     (x0, y0, z0),
@@ -1831,8 +1865,8 @@ class RoofGenerator():
                                     (x2, y2, z1),
                                     (x3, y3, z1),
                                 ])
-                                z0 -= virevents_height
-                                z1 -= virevents_height
+                                z0 -= d.rake_height
+                                z1 -= d.rake_height
                                 verts.extend([
                                     (x0, y0, z0),
                                     (x1, y1, z0),
@@ -1869,16 +1903,16 @@ class RoofGenerator():
                             if s1.enforce_part is 'AUTO':
                                 f = len(verts)
 
-                                s0 = s1.offset(-virevents_depth)
-                                res, d, t = seg.point_sur_segment(s0.p1)
-                                slope = abs(d) * seg.slope_right
-
+                                s0 = s1.offset(-d.rake_offset )
+                                res, d0, t = seg.point_sur_segment(s0.p1)
+                                slope = abs(d0) * seg.slope_right
+                                s1 = s1.offset(d.rake_width - d.rake_offset)
                                 x0, y0 = s0.p0
                                 x1, y1 = s1.p0
                                 x2, y2 = s1.p1
                                 x3, y3 = s0.p1
 
-                                z0 = self.z + virevents_altitude
+                                z0 = self.z + d.rake_altitude
                                 z1 = z0 - slope
                                 verts.extend([
                                     (x0, y0, z0),
@@ -1886,8 +1920,8 @@ class RoofGenerator():
                                     (x2, y2, z1),
                                     (x3, y3, z1),
                                 ])
-                                z0 -= virevents_height
-                                z1 -= virevents_height
+                                z0 -= d.rake_height
+                                z1 -= d.rake_height
                                 verts.extend([
                                     (x0, y0, z0),
                                     (x1, y1, z0),
@@ -1920,16 +1954,12 @@ class RoofGenerator():
                                     [(0, 0), (1, 0), (1, 1), (0, 1)]
                                 ])
 
-    def larmiers(self, d, verts, faces, edges, matids, uvs):
+    def facia(self, d, verts, faces, edges, matids, uvs):
 
         idmat = 2
 
         segs = self.all_segs
         nodes = self.nodes
-
-        larmier_width = 0.02
-        larmier_height = 0.25
-        larmier_altitude = 0.1
 
         for idx, node in enumerate(nodes):
 
@@ -1980,31 +2010,31 @@ class RoofGenerator():
                         f = len(verts)
                         s0 = segs[ir0]
                         s1 = segs[ir1]
-                        res, d, t = seg.point_sur_segment(s0.p1)
-                        slope = abs(d) * seg.slope_left
+                        res, d0, t = seg.point_sur_segment(s0.p1)
+                        slope = abs(d0) * seg.slope_left
                         a0 = abs(seg.delta_angle(s0))
                         if a0 > 0:
-                            t0 = 1 + min(3 * larmier_width, larmier_width / sin(a0)) / s0.length
+                            t0 = 1 + min(3 * d.facia_width, d.facia_width / sin(a0)) / s0.length
                         else:
-                            t0 = 1 + larmier_width / s0.length
+                            t0 = 1 + d.facia_width / s0.length
                         a1 = abs(seg.delta_angle(s1))
                         if a1 > 0:
-                            t1 = 1 + min(3 * larmier_width, larmier_width / sin(a1)) / s1.length
+                            t1 = 1 + min(3 * d.facia_width, d.facia_width / sin(a1)) / s1.length
                         else:
-                            t1 = 1 + larmier_width / s0.length
+                            t1 = 1 + d.facia_width / s1.length
 
                         x0, y0 = s0.p1
                         x1, y1 = s0.lerp(t0)
                         x2, y2 = s1.lerp(t1)
                         x3, y3 = s1.p1
-                        z = self.z + larmier_altitude - slope
+                        z = self.z + d.facia_altitude - slope
                         verts.extend([
                             (x0, y0, z),
                             (x1, y1, z),
                             (x2, y2, z),
                             (x3, y3, z),
                         ])
-                        z -= larmier_height
+                        z -= d.facia_height
                         verts.extend([
                             (x0, y0, z),
                             (x1, y1, z),
@@ -2042,24 +2072,30 @@ class RoofGenerator():
                         f = len(verts)
                         s0 = segs[il0]
                         s1 = segs[il1]
-                        res, d, t = seg.point_sur_segment(s0.p1)
-                        slope = abs(d) * seg.slope_right
+                        res, d0, t = seg.point_sur_segment(s0.p1)
+                        slope = abs(d0) * seg.slope_right
                         a0 = abs(seg.delta_angle(s0))
-                        t0 = 1 + min(3 * larmier_width, larmier_width / sin(a0)) / s0.length
+                        if a0 > 0:
+                            t0 = 1 + min(3 * d.facia_width, d.facia_width / sin(a0)) / s0.length
+                        else:
+                            t0 = 1 + d.facia_width / s0.length
                         a1 = abs(seg.delta_angle(s1))
-                        t1 = 1 + min(3 * larmier_width, larmier_width / sin(a1)) / s1.length
+                        if a1 > 0:
+                            t1 = 1 + min(3 * d.facia_width, d.facia_width / sin(a1)) / s1.length
+                        else:
+                            t1 = 1 + d.facia_width / s1.length
                         x0, y0 = s0.p1
                         x1, y1 = s0.lerp(t0)
                         x2, y2 = s1.lerp(t1)
                         x3, y3 = s1.p1
-                        z = self.z + larmier_altitude - slope
+                        z = self.z + d.facia_altitude - slope
                         verts.extend([
                             (x0, y0, z),
                             (x1, y1, z),
                             (x2, y2, z),
                             (x3, y3, z),
                         ])
-                        z -= larmier_height
+                        z -= d.facia_height
                         verts.extend([
                             (x0, y0, z),
                             (x1, y1, z),
@@ -2092,7 +2128,7 @@ class RoofGenerator():
                             [(0, 0), (1, 0), (1, 1), (0, 1)]
                         ])
 
-    def chenaux(self, d, verts, faces, edges, matids, uvs):
+    def gutter(self, d, verts, faces, edges, matids, uvs):
 
         idmat = 5
 
@@ -2101,23 +2137,14 @@ class RoofGenerator():
         segs = self.all_segs
         nodes = self.nodes
 
-        # location of tablette
-        tablette_alt = 0.1
-        larmier_depth = 0.02
-
-        chenaux_alt = 0.05
-        chenaux_width = 0.15
-        chenaux_dist = 0.05
-        chenaux_boudin = 0.015
-        chenaux_segs = 6
 
         # caps at start and end
-        if chenaux_segs % 2 == 1:
-            n_faces = int((chenaux_segs - 1) / 2)
+        if d.gutter_segs % 2 == 1:
+            n_faces = int((d.gutter_segs - 1) / 2)
         else:
-            n_faces = int((chenaux_segs / 2) - 1)
+            n_faces = int((d.gutter_segs / 2) - 1)
 
-        df = 2 * chenaux_segs + 1
+        df = 2 * d.gutter_segs + 1
 
         for idx, node in enumerate(nodes):
 
@@ -2165,8 +2192,8 @@ class RoofGenerator():
                             f = len(verts)
                             s0 = segs[ir0]
                             s1 = segs[ir1]
-                            res, d, t = seg.point_sur_segment(s0.p1)
-                            slope = abs(d) * seg.slope_left
+                            res, d0, t = seg.point_sur_segment(s0.p1)
+                            slope = abs(d0) * seg.slope_left
                             a0 = abs(seg.delta_angle(s0))
                             if a0 > 0:
                                 scale_0 = min(3, 1 / sin(a0)) / s0.length
@@ -2179,19 +2206,19 @@ class RoofGenerator():
                             else:
                                 scale_1 = 1
 
-                            zt = self.z + tablette_alt - slope
-                            z0 = self.z - slope + chenaux_alt
-                            z1 = z0 - 0.5 * chenaux_width
-                            z2 = z1 - 0.5 * chenaux_width
-                            z3 = z1 - 0.5 * chenaux_boudin
+                            zt = self.z + d.facia_altitude - slope
+                            z0 = self.z - slope + d.gutter_alt
+                            z1 = z0 - 0.5 * d.gutter_width
+                            z2 = z1 - 0.5 * d.gutter_width
+                            z3 = z1 - 0.5 * d.gutter_boudin
                             dz0 = z2 - z1
                             dz1 = z3 - z1
 
-                            tt = 1 + scale_0 * larmier_depth
-                            t0 = 1 + scale_0 * chenaux_dist
-                            t1 = t0 + scale_0 * (0.5 * chenaux_width)
-                            t2 = t1 + scale_0 * (0.5 * chenaux_width)
-                            t3 = t2 + scale_0 * (0.5 * chenaux_boudin)
+                            tt = 1 + scale_0 * d.facia_width
+                            t0 = 1 + scale_0 * d.gutter_dist
+                            t1 = t0 + scale_0 * (0.5 * d.gutter_width)
+                            t2 = t1 + scale_0 * (0.5 * d.gutter_width)
+                            t3 = t2 + scale_0 * (0.5 * d.gutter_boudin)
 
                             # bord tablette
                             xt, yt = s0.lerp(tt)
@@ -2210,8 +2237,8 @@ class RoofGenerator():
 
                             verts.append((xt, yt, zt))
                             # chenaux
-                            da = pi / chenaux_segs
-                            for i in range(chenaux_segs):
+                            da = pi / d.gutter_segs
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
@@ -2220,17 +2247,17 @@ class RoofGenerator():
                             dy = y2 - y3
 
                             # boudin
-                            da = -pi / (0.75 * chenaux_segs)
-                            for i in range(chenaux_segs):
+                            da = -pi / (0.75 * d.gutter_segs)
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
 
-                            tt = 1 + scale_1 * larmier_depth
-                            t0 = 1 + scale_1 * chenaux_dist
-                            t1 = t0 + scale_1 * (0.5 * chenaux_width)
-                            t2 = t1 + scale_1 * (0.5 * chenaux_width)
-                            t3 = t2 + scale_1 * (0.5 * chenaux_boudin)
+                            tt = 1 + scale_1 * d.facia_width
+                            t0 = 1 + scale_1 * d.gutter_dist
+                            t1 = t0 + scale_1 * (0.5 * d.gutter_width)
+                            t2 = t1 + scale_1 * (0.5 * d.gutter_width)
+                            t3 = t2 + scale_1 * (0.5 * d.gutter_boudin)
 
                             # bord tablette
                             xt, yt = s1.lerp(tt)
@@ -2254,8 +2281,8 @@ class RoofGenerator():
                             matids.append(idmat)
 
                             # chenaux
-                            da = pi / chenaux_segs
-                            for i in range(chenaux_segs):
+                            da = pi / d.gutter_segs
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
@@ -2264,15 +2291,15 @@ class RoofGenerator():
                             dy = y2 - y3
 
                             # boudin
-                            da = -pi / (0.75 * chenaux_segs)
-                            for i in range(chenaux_segs):
+                            da = -pi / (0.75 * d.gutter_segs)
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
 
-                            df = 2 * chenaux_segs + 1
+                            df = 2 * d.gutter_segs + 1
 
-                            for i in range(1, 2 * chenaux_segs):
+                            for i in range(1, 2 * d.gutter_segs):
                                 j = i + f
                                 faces.append((j, j + df, j + df + 1, j + 1))
                                 uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
@@ -2291,7 +2318,7 @@ class RoofGenerator():
                             # close start
                             if next.count == 3:
 
-                                if chenaux_segs % 2 == 0:
+                                if d.gutter_segs % 2 == 0:
                                     faces.append((f + n_faces + 3, f + n_faces + 1, f + n_faces + 2))
                                     uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
                                     matids.append(idmat)
@@ -2299,7 +2326,7 @@ class RoofGenerator():
                                 for i in range(n_faces):
 
                                     j = i + f + 1
-                                    k = f + chenaux_segs - i
+                                    k = f + d.gutter_segs - i
                                     faces.append((j + 1, k, k + 1, j))
                                     uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
                                     matids.append(idmat)
@@ -2307,9 +2334,9 @@ class RoofGenerator():
                             # close end
                             if node.count == 3:
 
-                                f += 2 * chenaux_segs + 1
+                                f += 2 * d.gutter_segs + 1
 
-                                if chenaux_segs % 2 == 0:
+                                if d.gutter_segs % 2 == 0:
                                     faces.append((f + n_faces + 1, f + n_faces + 3, f + n_faces + 2))
                                     uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
                                     matids.append(idmat)
@@ -2317,7 +2344,7 @@ class RoofGenerator():
                                 for i in range(n_faces):
 
                                     j = i + f + 1
-                                    k = f + chenaux_segs - i
+                                    k = f + d.gutter_segs - i
                                     faces.append((j, k + 1, k, j + 1))
                                     uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
                                     matids.append(idmat)
@@ -2327,8 +2354,8 @@ class RoofGenerator():
 
                             s0 = segs[il0]
                             s1 = segs[il1]
-                            res, d, t = seg.point_sur_segment(s0.p1)
-                            slope = abs(d) * seg.slope_right
+                            res, d0, t = seg.point_sur_segment(s0.p1)
+                            slope = abs(d0) * seg.slope_right
                             a0 = abs(seg.delta_angle(s0))
                             if a0 > 0:
                                 scale_0 = min(3, 1 / sin(a0)) / s0.length
@@ -2341,19 +2368,19 @@ class RoofGenerator():
                             else:
                                 scale_1 = 1
 
-                            zt = self.z + tablette_alt - slope
-                            z0 = self.z - slope + chenaux_alt
-                            z1 = z0 - 0.5 * chenaux_width
-                            z2 = z1 - 0.5 * chenaux_width
-                            z3 = z1 - 0.5 * chenaux_boudin
+                            zt = self.z + d.facia_altitude - slope
+                            z0 = self.z - slope + d.gutter_alt
+                            z1 = z0 - 0.5 * d.gutter_width
+                            z2 = z1 - 0.5 * d.gutter_width
+                            z3 = z1 - 0.5 * d.gutter_boudin
                             dz0 = z2 - z1
                             dz1 = z3 - z1
 
-                            tt = 1 + scale_0 * larmier_depth
-                            t0 = 1 + scale_0 * chenaux_dist
-                            t1 = t0 + scale_0 * (0.5 * chenaux_width)
-                            t2 = t1 + scale_0 * (0.5 * chenaux_width)
-                            t3 = t2 + scale_0 * (0.5 * chenaux_boudin)
+                            tt = 1 + scale_0 * d.facia_width
+                            t0 = 1 + scale_0 * d.gutter_dist
+                            t1 = t0 + scale_0 * (0.5 * d.gutter_width)
+                            t2 = t1 + scale_0 * (0.5 * d.gutter_width)
+                            t3 = t2 + scale_0 * (0.5 * d.gutter_boudin)
 
                             # bord tablette
                             xt, yt = s0.lerp(tt)
@@ -2374,8 +2401,8 @@ class RoofGenerator():
                             verts.append((xt, yt, zt))
 
                             # chenaux
-                            da = pi / chenaux_segs
-                            for i in range(chenaux_segs):
+                            da = pi / d.gutter_segs
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
@@ -2384,17 +2411,17 @@ class RoofGenerator():
                             dy = y2 - y3
 
                             # boudin
-                            da = -pi / (0.75 * chenaux_segs)
-                            for i in range(chenaux_segs):
+                            da = -pi / (0.75 * d.gutter_segs)
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
 
-                            tt = 1 + scale_1 * larmier_depth
-                            t0 = 1 + scale_1 * chenaux_dist
-                            t1 = t0 + scale_1 * (0.5 * chenaux_width)
-                            t2 = t1 + scale_1 * (0.5 * chenaux_width)
-                            t3 = t2 + scale_1 * (0.5 * chenaux_boudin)
+                            tt = 1 + scale_1 * d.facia_width
+                            t0 = 1 + scale_1 * d.gutter_dist
+                            t1 = t0 + scale_1 * (0.5 * d.gutter_width)
+                            t2 = t1 + scale_1 * (0.5 * d.gutter_width)
+                            t3 = t2 + scale_1 * (0.5 * d.gutter_boudin)
 
                             # tablette
                             xt, yt = s1.lerp(tt)
@@ -2418,8 +2445,8 @@ class RoofGenerator():
                             matids.append(idmat)
 
                             # chenaux
-                            da = pi / chenaux_segs
-                            for i in range(chenaux_segs):
+                            da = pi / d.gutter_segs
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x1 + dx * ca, y1 + dy * ca, z1 + dz0 * sa))
@@ -2428,13 +2455,13 @@ class RoofGenerator():
                             dy = y2 - y3
 
                             # boudin
-                            da = -pi / (0.75 * chenaux_segs)
-                            for i in range(chenaux_segs):
+                            da = -pi / (0.75 * d.gutter_segs)
+                            for i in range(d.gutter_segs):
                                 sa = sin(i * da)
                                 ca = cos(i * da)
                                 verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
 
-                            for i in range(1, 2 * chenaux_segs):
+                            for i in range(1, 2 * d.gutter_segs):
                                 j = i + f
                                 faces.append((j, j + df, j + df + 1, j + 1))
                                 uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
@@ -2443,14 +2470,14 @@ class RoofGenerator():
                             # close start
                             if node.count == 3:
 
-                                if chenaux_segs % 2 == 0:
+                                if d.gutter_segs % 2 == 0:
                                     faces.append((f + n_faces + 3, f + n_faces + 1, f + n_faces + 2))
                                     uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
                                     matids.append(idmat)
 
                                 for i in range(n_faces):
                                     j = i + f + 1
-                                    k = f + chenaux_segs - i
+                                    k = f + d.gutter_segs - i
                                     faces.append((j + 1, k, k + 1, j))
                                     uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
                                     matids.append(idmat)
@@ -2458,9 +2485,9 @@ class RoofGenerator():
                             # close end
                             if next.count == 3:
 
-                                f += 2 * chenaux_segs + 1
+                                f += 2 * d.gutter_segs + 1
 
-                                if chenaux_segs % 2 == 0:
+                                if d.gutter_segs % 2 == 0:
                                     faces.append((f + n_faces + 1, f + n_faces + 3, f + n_faces + 2))
                                     uvs.append([(0, 0), (1, 0), (0.5, -0.5)])
                                     matids.append(idmat)
@@ -2468,20 +2495,17 @@ class RoofGenerator():
                                 for i in range(n_faces):
 
                                     j = i + f + 1
-                                    k = f + chenaux_segs - i
+                                    k = f + d.gutter_segs - i
                                     faces.append((j, k + 1, k, j + 1))
                                     uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
                                     matids.append(idmat)
 
-    def poutre_faitiere(self, d, verts, faces, edges, matids, uvs):
+    def beam_primary(self, d, verts, faces, edges, matids, uvs):
 
         idmat = 3
 
         segs = self.all_segs
         nodes = self.nodes
-        chevron_height = 0.1
-        faitiere_width = 0.2
-        faitiere_height = 0.3
 
         for idx, node in enumerate(nodes):
             # segment always between 2 nodes
@@ -2534,27 +2558,45 @@ class RoofGenerator():
                         """
                         f = len(verts)
 
-                        left = seg.offset(0.5 * faitiere_width)
-                        right = seg.offset(-0.5 * faitiere_width)
-                        res, p1, t = left.intersect(segs[il0])
+                        left = seg.offset(0.5 * d.beam_primary_width)
+                        right = seg.offset(-0.5 * d.beam_primary_width)
+
+                        # offset from roof border
+                        s0 = segs[il0]
+                        s1 = segs[il1]
+                        s2 = segs[ir0]
+                        s3 = segs[ir1]
+                        t0 = 0
+                        t1 = 1
+                        if node.count == 3:
+                            s0 = s0.offset(d.beam_primary_offset)
+                            s3 = s3.offset(-d.beam_primary_offset)
+                            t0 = -d.beam_primary_offset / seg.length
+
+                        if next.count == 3:
+                            s1 = s1.offset(-d.beam_primary_offset)
+                            s2 = s2.offset(d.beam_primary_offset)
+                            t1 = 1 + d.beam_primary_offset / seg.length
+
+                        res, p1, t = left.intersect(s0)
                         if not res:
                             continue
-                        res, p2, t = left.intersect(segs[il1])
+                        res, p2, t = left.intersect(s1)
                         if not res:
                             continue
-                        res, p4, t = right.intersect(segs[ir0])
+                        res, p4, t = right.intersect(s2)
                         if not res:
                             continue
-                        res, p5, t = right.intersect(segs[ir1])
+                        res, p5, t = right.intersect(s3)
                         if not res:
                             continue
-                        x0, y0 = seg.p0
+                        x0, y0 = seg.lerp(t0)
                         x1, y1 = p1
                         x2, y2 = p2
-                        x3, y3 = seg.p1
+                        x3, y3 = seg.lerp(t1)
                         x4, y4 = p4
                         x5, y5 = p5
-                        z = self.z - chevron_height
+                        z = self.z + d.beam_primary_alt
                         verts.extend([
                             (x0, y0, z),
                             (x1, y1, z),
@@ -2563,7 +2605,7 @@ class RoofGenerator():
                             (x4, y4, z),
                             (x5, y5, z)
                         ])
-                        z -= faitiere_height
+                        z -= d.beam_primary_height
                         verts.extend([
                             (x0, y0, z),
                             (x1, y1, z),
@@ -2609,16 +2651,14 @@ class RoofGenerator():
                             [(0, 0), (1, 0), (1, 1), (0, 1)]
                         ])
 
-    def chevrons(self, d, verts, faces, edges, matids, uvs):
+    def rafter(self, d, verts, faces, edges, matids, uvs):
 
         idmat = 4
 
-        # Chevrons
-        spacing = 0.7
-        start = 0.1
-        depth = 0.1
-        chevron_height = 0.1
+        # Rafters / Chevrons
+        start = max(0.001 + 0.5 * d.rafter_width, d.rafter_start)
         chevrons_alt = -0.001
+
         segs = self.all_segs
         nodes = self.nodes
 
@@ -2662,13 +2702,13 @@ class RoofGenerator():
                         il1 = next.left_idx(center_1)
 
                         # right part is larger than axis: compute t param in axis
-                        res, d, u = seg.point_sur_segment(segs[ir1].p1)
+                        res, d0, u = seg.point_sur_segment(segs[ir1].p1)
                         res, dr, v = seg.point_sur_segment(segs[ir0].p1)
                         trmin = min(0, u)
                         trmax = max(1, v)
 
                         # left part is larger than axis: compute t param in axis
-                        res, d, u = seg.point_sur_segment(segs[il0].p1)
+                        res, d0, u = seg.point_sur_segment(segs[il0].p1)
                         res, dl, v = seg.point_sur_segment(segs[il1].p1)
                         tlmin = min(0, u)
                         tlmax = max(1, v)
@@ -2679,11 +2719,11 @@ class RoofGenerator():
 
                         f = len(verts)
 
-                        t0 = trmin + (start - 0.5 * depth) / seg.length
-                        t1 = trmin + (start + 0.5 * depth) / seg.length
+                        t0 = trmin + (start - 0.5 * d.rafter_width) / seg.length
+                        t1 = trmin + (start + 0.5 * d.rafter_width) / seg.length
 
                         tx = start / seg.length
-                        dt = spacing / seg.length
+                        dt = d.rafter_spacing / seg.length
 
                         n_items = max(1, round((trmax - trmin) / dt, 0))
 
@@ -2700,32 +2740,32 @@ class RoofGenerator():
                             left_before = t0 + j * dt > 0 and t0 + j * dt < 1
 
                             if right_before:
-                                z = self.z + chevrons_alt
+                                z = self.z + d.rafter_alt
                                 x, y = n0.p0
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
-                            self.intersect_chevron(n0, ir0, ir1, slope, chevron_height, segs, verts)
+                            self.intersect_chevron(n0, ir0, ir1, slope, d.rafter_height, d.rafter_alt, segs, verts)
 
                             if not right_before:
-                                z = self.z - slope + chevrons_alt
+                                z = self.z - slope + d.rafter_alt
                                 x, y = n0.p1
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
                             if left_before:
-                                z = self.z + chevrons_alt
+                                z = self.z + d.rafter_alt
                                 x, y = n1.p0
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
-                            self.intersect_chevron(n1, ir0, ir1, slope, chevron_height, segs, verts)
+                            self.intersect_chevron(n1, ir0, ir1, slope, d.rafter_height, d.rafter_alt, segs, verts)
 
                             if not left_before:
-                                z = self.z - slope + chevrons_alt
+                                z = self.z - slope + d.rafter_alt
                                 x, y = n1.p1
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
                             edges.append([f, f + 2])
                             edges.append([f + 1, f + 3])
@@ -2756,11 +2796,11 @@ class RoofGenerator():
 
                         f = len(verts)
 
-                        t0 = tlmin + (start - 0.5 * depth) / seg.length
-                        t1 = tlmin + (start + 0.5 * depth) / seg.length
+                        t0 = tlmin + (start - 0.5 * d.rafter_width) / seg.length
+                        t1 = tlmin + (start + 0.5 * d.rafter_width) / seg.length
 
                         tx = start / seg.length
-                        dt = spacing / seg.length
+                        dt = d.rafter_spacing / seg.length
 
                         n_items = max(1, round((tlmax - tlmin) / dt, 0))
 
@@ -2776,32 +2816,32 @@ class RoofGenerator():
                             left_before = t1 + j * dt > 0 and t1 + j * dt < 1
 
                             if right_before:
-                                z = self.z + chevrons_alt
+                                z = self.z + d.rafter_alt
                                 x, y = n0.p0
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
-                            self.intersect_chevron(n0, il0, il1, slope, chevron_height, segs, verts)
+                            self.intersect_chevron(n0, il0, il1, slope, d.rafter_height, d.rafter_alt, segs, verts)
 
                             if not right_before:
-                                z = self.z - slope + chevrons_alt
+                                z = self.z - slope + d.rafter_alt
                                 x, y = n0.p1
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
                             if left_before:
-                                z = self.z + chevrons_alt
+                                z = self.z + d.rafter_alt
                                 x, y = n1.p0
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
-                            self.intersect_chevron(n1, il0, il1, slope, chevron_height, segs, verts)
+                            self.intersect_chevron(n1, il0, il1, slope, d.rafter_height, d.rafter_alt, segs, verts)
 
                             if not left_before:
-                                z = self.z - slope + chevrons_alt
+                                z = self.z - slope + d.rafter_alt
                                 x, y = n1.p1
                                 verts.append((x, y, z))
-                                verts.append((x, y, z - chevron_height))
+                                verts.append((x, y, z - d.rafter_height))
 
                             edges.append([f, f + 2])
                             edges.append([f + 1, f + 3])
@@ -2827,57 +2867,114 @@ class RoofGenerator():
                             ])
                             f += 8
 
-    def faitieres(self, d, verts, faces, edges, matids, uvs):
+    def hips(self, d, verts, faces, edges, matids, uvs):
 
         idmat_valley = 5
         idmat = 6
         idmat_poutre = 4
 
-        poutre_inside = True
-        poutre_width = 0.15
-        poutre_height = 0.2
+        sx, sy, sz = d.hip_size_x, d.hip_size_y, d.hip_size_z
 
-        sx, sy, sz = d.faitiere_size_x, d.faitiere_size_y, d.faitiere_size_z
+        if d.hip_model == 'ROUND':
 
-        # round hips
-        t_pts = [Vector((sx * x, sy * y, sz * z)) for x, y, z in [
-            (-0.5, 0.34, 0.08), (-0.5, 0.32, 0.19), (0.5, -0.4, -0.5),
-            (0.5, 0.4, -0.5), (-0.5, 0.26, 0.28), (-0.5, 0.16, 0.34),
-            (-0.5, 0.05, 0.37), (-0.5, -0.05, 0.37), (-0.5, -0.16, 0.34),
-            (-0.5, -0.26, 0.28), (-0.5, -0.32, 0.19), (-0.5, -0.34, 0.08),
-            (-0.5, -0.25, -0.5), (-0.5, 0.25, -0.5), (0.5, -0.08, 0.5),
-            (0.5, -0.5, 0.08), (0.5, -0.24, 0.47), (0.5, -0.38, 0.38),
-            (0.5, -0.47, 0.24), (0.5, 0.5, 0.08), (0.5, 0.08, 0.5),
-            (0.5, 0.47, 0.24), (0.5, 0.38, 0.38), (0.5, 0.24, 0.47)
-        ]]
-        t_faces = [
-            (23, 22, 4, 5), (3, 19, 21, 22, 23, 20, 14, 16, 17, 18, 15, 2), (14, 20, 6, 7),
-            (18, 17, 9, 10), (15, 18, 10, 11), (21, 19, 0, 1), (17, 16, 8, 9),
-            (13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 1, 0), (19, 3, 13, 0), (20, 23, 5, 6), (22, 21, 1, 4),
-            (3, 2, 12, 13), (2, 15, 11, 12), (16, 14, 7, 8)
-        ]
-        t_uvs = [
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.5, 1.0), (0.75, 0.93), (0.93, 0.75),
-            (1.0, 0.5), (0.93, 0.25), (0.75, 0.07),
-            (0.5, 0.0), (0.25, 0.07), (0.07, 0.25),
-            (0.0, 0.5), (0.07, 0.75), (0.25, 0.93)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.5, 1.0), (0.75, 0.93), (0.93, 0.75),
-            (1.0, 0.5), (0.93, 0.25), (0.75, 0.07),
-            (0.5, 0.0), (0.25, 0.07), (0.07, 0.25),
-            (0.0, 0.5), (0.07, 0.75), (0.25, 0.93)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
-            [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
-        ]
+            # round hips
+            t_pts = [Vector((sx * x, sy * y, sz * z)) for x, y, z in [
+                (-0.5, 0.34, 0.08), (-0.5, 0.32, 0.19), (0.5, -0.4, -0.5),
+                (0.5, 0.4, -0.5), (-0.5, 0.26, 0.28), (-0.5, 0.16, 0.34),
+                (-0.5, 0.05, 0.37), (-0.5, -0.05, 0.37), (-0.5, -0.16, 0.34),
+                (-0.5, -0.26, 0.28), (-0.5, -0.32, 0.19), (-0.5, -0.34, 0.08),
+                (-0.5, -0.25, -0.5), (-0.5, 0.25, -0.5), (0.5, -0.08, 0.5),
+                (0.5, -0.5, 0.08), (0.5, -0.24, 0.47), (0.5, -0.38, 0.38),
+                (0.5, -0.47, 0.24), (0.5, 0.5, 0.08), (0.5, 0.08, 0.5),
+                (0.5, 0.47, 0.24), (0.5, 0.38, 0.38), (0.5, 0.24, 0.47)
+            ]]
+            t_faces = [
+                (23, 22, 4, 5), (3, 19, 21, 22, 23, 20, 14, 16, 17, 18, 15, 2), (14, 20, 6, 7),
+                (18, 17, 9, 10), (15, 18, 10, 11), (21, 19, 0, 1), (17, 16, 8, 9),
+                (13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 1, 0), (19, 3, 13, 0), (20, 23, 5, 6), (22, 21, 1, 4),
+                (3, 2, 12, 13), (2, 15, 11, 12), (16, 14, 7, 8)
+            ]
+            t_uvs = [
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.5, 1.0), (0.75, 0.93), (0.93, 0.75),
+                (1.0, 0.5), (0.93, 0.25), (0.75, 0.07),
+                (0.5, 0.0), (0.25, 0.07), (0.07, 0.25),
+                (0.0, 0.5), (0.07, 0.75), (0.25, 0.93)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.5, 1.0), (0.75, 0.93), (0.93, 0.75),
+                (1.0, 0.5), (0.93, 0.25), (0.75, 0.07),
+                (0.5, 0.0), (0.25, 0.07), (0.07, 0.25),
+                (0.0, 0.5), (0.07, 0.75), (0.25, 0.93)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+            ]
+            # affect vertex with slope
+            t_left = []
+            t_right = []
+
+        elif d.hip_model == 'ETERNIT':
+
+            # square hips "eternit like"
+            t_pts = [Vector((sx * x, sy * y, sz * z)) for x, y, z in [
+                (0.5, 0.5, 0.0), (-0.5, 0.5, -0.5), (0.5, -0.5, 0.0),
+                (-0.5, -0.5, -0.5), (0.5, 0.0, 0.0), (-0.5, -0.0, -0.5),
+                (0.5, 0.0, 0.5), (0.5, -0.5, 0.5), (-0.5, -0.5, 0.0),
+                (-0.5, -0.0, 0.0), (0.5, 0.5, 0.5), (-0.5, 0.5, 0.0)]
+            ]
+            t_faces = [
+                (4, 2, 3, 5), (0, 4, 5, 1), (6, 9, 8, 7),
+                (10, 11, 9, 6), (0, 10, 6, 4), (5, 9, 11, 1),
+                (2, 7, 8, 3), (1, 11, 10, 0), (4, 6, 7, 2), (3, 8, 9, 5)
+                ]
+            t_uvs = [
+                [(0.0, 0.5), (0.0, 1.0), (1.0, 1.0), (1.0, 0.5)], [(0.0, 0.0), (0.0, 0.5), (1.0, 0.5), (1.0, 0.0)],
+                [(0.0, 0.5), (1.0, 0.5), (1.0, 1.0), (0.0, 1.0)], [(0.0, 0.0), (1.0, 0.0), (1.0, 0.5), (0.0, 0.5)],
+                [(0.0, 0.5), (0.0, 1.0), (0.5, 1.0), (0.5, 0.5)], [(0.5, 0.5), (0.5, 1.0), (0.0, 1.0), (0.0, 0.5)],
+                [(0.0, 0.5), (0.0, 1.0), (1.0, 1.0), (1.0, 0.5)], [(0.0, 0.5), (0.0, 1.0), (-1.0, 1.0), (-1.0, 0.5)],
+                [(0.5, 0.5), (0.5, 1.0), (1.0, 1.0), (1.0, 0.5)], [(0.0, 0.5), (0.0, 1.0), (-0.5, 1.0), (-0.5, 0.5)]
+            ]
+            t_left = [2, 3, 7, 8]
+            t_right = [0, 1, 10, 11]
+
+        elif d.hip_model == 'FLAT':
+            # square hips "eternit like"
+            t_pts = [Vector((sx * x, sy * y, sz * z)) for x, y, z in [
+                (-0.5, -0.4, 0.0), (-0.5, -0.4, 0.5), (-0.5, 0.4, 0.0),
+                (-0.5, 0.4, 0.5), (0.5, -0.5, 0.5), (0.5, -0.5, 1.0),
+                (0.5, 0.5, 0.5), (0.5, 0.5, 1.0), (-0.5, 0.33, 0.0),
+                (-0.5, -0.33, 0.0), (0.5, -0.33, 0.5), (0.5, 0.33, 0.5),
+                (-0.5, 0.33, -0.5), (-0.5, -0.33, -0.5), (0.5, -0.33, -0.5),
+                (0.5, 0.33, -0.5)]
+            ]
+            t_faces = [
+                (0, 1, 3, 2, 8, 9), (2, 3, 7, 6), (6, 7, 5, 4, 10, 11),
+                (4, 5, 1, 0), (9, 10, 4, 0), (7, 3, 1, 5),
+                (2, 6, 11, 8), (9, 8, 12, 13), (12, 15, 14, 13),
+                (8, 11, 15, 12), (10, 9, 13, 14), (11, 10, 14, 15)]
+            t_uvs = [
+                [(0.5, 1.0), (0.93, 0.75), (0.93, 0.25), (0.5, 0.0), (0.07, 0.25), (0.07, 0.75)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.5, 1.0), (0.93, 0.75), (0.93, 0.25), (0.5, 0.0), (0.07, 0.25), (0.07, 0.75)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+            ]
+            t_left = []
+            t_right = []
 
         t_idmats = [idmat for f in t_faces]
 
@@ -2925,18 +3022,18 @@ class RoofGenerator():
                         if abs(da) != angle_90:
 
                             # poutre inside
-                            if poutre_inside:
+                            if d.beam_sec_enable:
                                 f = len(verts)
-                                s0 = seg.offset(0.5 * poutre_width)
-                                s1 = seg.offset(-0.5 * poutre_width)
+                                s0 = seg.offset(0.5 * d.beam_sec_width)
+                                s1 = seg.offset(-0.5 * d.beam_sec_width)
                                 x0, y0 = s0.p0
                                 x1, y1 = s0.p1
                                 x2, y2 = s1.p0
                                 x3, y3 = s1.p1
-                                z0 = self.z
-                                z1 = z0 - poutre_height
+                                z0 = self.z + d.beam_sec_alt
+                                z1 = z0 - d.beam_sec_height
                                 z2 = z0 - slope
-                                z3 = z2 - poutre_height
+                                z3 = z2 - d.beam_sec_height
                                 verts.extend([
                                     (x0, y0, z0),
                                     (x0, y0, z1),
@@ -2980,7 +3077,7 @@ class RoofGenerator():
                                     """
                                     # decalage pour les 2 bords
                                     f = len(verts)
-                                    if da > 0:
+                                    if abs(da) > 0:
                                         op = abs(tan(angle_90 - da))
                                         tside = min(6 * d.tile_couloir, 2 * d.tile_couloir * op) / seg.length
                                     else:
@@ -3023,27 +3120,39 @@ class RoofGenerator():
                                     ])
 
                             # hip seg.enforce_part == 'HIP' or
-                            elif d.faitiere_enable and (t < 0 or t > 1):
+                            elif d.hip_enable and (t < 0 or t > 1):
 
                                 vx = seg.v.to_3d()
                                 vx.z = -seg.width_left * seg.slope_left
                                 vx = vx.normalized()
                                 vy = seg.cross_z.normalized().to_3d()
                                 vz = vx.cross(-vy)
-                                x0, y0 = seg.p0
-                                z0 = self.z + d.faitiere_alt
+                                x0, y0 = seg.p0 + vx.to_2d().normalized() * 0.3 * d.hip_size_y
+                                z0 = self.z + d.hip_alt
                                 tM = Matrix([
                                     [vx.x, vy.x, vz.x, x0],
                                     [vx.y, vy.y, vz.y, y0],
                                     [vx.z, vy.z, vz.z, z0],
                                     [0, 0, 0, 1]
                                 ])
-                                space_2d = tmax * seg.length
+                                space_2d = tmax * seg.length - 0.1 * d.hip_size_y
                                 space_z = tmax * seg.width_left * seg.slope_left
                                 space_x = sqrt(space_2d * space_2d + space_z * space_z)
-                                n_x = 1 + int(space_x / d.faitiere_space_x)
+                                n_x = 1 + int(space_x / d.hip_space_x)
                                 dx = space_x / n_x
                                 x0 = 0.5 * dx
+
+                                t_verts = [p for p in t_pts]
+
+                                # apply slope
+                                dz = t_verts[i].y * cos(abs(da))
+
+                                for i in t_left:
+                                    t_verts[i] = t_verts[i].copy()
+                                    t_verts[i].z -= dz
+                                for i in t_right:
+                                    t_verts[i] = t_verts[i].copy()
+                                    t_verts[i].z -= dz
 
                                 for k in range(n_x):
                                     lM = tM * Matrix([
@@ -3053,14 +3162,15 @@ class RoofGenerator():
                                         [0, 0, 0, 1]
                                     ])
                                     f = len(verts)
-                                    verts.extend([lM * p for p in t_pts])
+
+                                    verts.extend([lM * p for p in t_verts])
                                     faces.extend([tuple(i + f for i in p) for p in t_faces])
                                     matids.extend(t_idmats)
                                     uvs.extend(t_uvs)
 
                     last = seg
 
-            if d.faitiere_enable:
+            if d.hip_enable:
                 # hip horizontales
                 for i, s in enumerate(node.segs):
 
@@ -3091,7 +3201,7 @@ class RoofGenerator():
 
                         f = len(verts)
                         s_len = (tmax - tmin) * seg.length
-                        n_obj = 1 + int(s_len / d.faitiere_space_x)
+                        n_obj = 1 + int(s_len / d.hip_space_x)
                         dx = s_len / n_obj
                         x0 = 0.5 * dx
                         v = seg.v.normalized()
@@ -3099,9 +3209,16 @@ class RoofGenerator():
                         tM = Matrix([
                             [v.x, v.y, 0, p0.x],
                             [v.y, -v.x, 0, p0.y],
-                            [0, 0, 1, self.z + d.faitiere_alt],
+                            [0, 0, 1, self.z + d.hip_alt],
                             [0, 0, 0, 1]
                         ])
+                        t_verts = [p.copy() for p in t_pts]
+
+                        # apply slope
+                        for i in t_left:
+                            t_verts[i].z += t_verts[i].y * (seg.slope_right - d.tile_size_z / d.tile_size_y)
+                        for i in t_right:
+                            t_verts[i].z -= t_verts[i].y * (seg.slope_left - d.tile_size_z / d.tile_size_y)
 
                         for k in range(n_obj):
                             lM = tM * Matrix([
@@ -3111,7 +3228,7 @@ class RoofGenerator():
                                 [0, 0, 0, 1]
                             ])
                             v = len(verts)
-                            verts.extend([lM * p for p in t_pts])
+                            verts.extend([lM * p for p in t_verts])
                             faces.extend([tuple(i + v for i in f) for f in t_faces])
                             matids.extend(t_idmats)
                             uvs.extend(t_uvs)
@@ -3134,7 +3251,7 @@ class RoofGenerator():
         """
         return width / sin(angle)
 
-    def make_hole(self, context, hole_obj, d, offset):
+    def make_hole(self, context, hole_obj, d):
         """
             Hole
             follow axis based on node roots
@@ -3157,16 +3274,17 @@ class RoofGenerator():
         ir0 = node.right_idx(node.center)
         s0 = segs[il0]
         s1 = segs[ir0]
-        s2 = root.offset(offset - root.width_left)
-        s4 = root.offset(root.width_right - offset)
+        s2 = root.offset(min(0.001 - root.width_left, d.hole_offset_left - root.width_left))
+        s4 = root.offset(max(root.width_right - 0.001, root.width_right - d.hole_offset_right))
         x0, y0 = root.p0
         res, p, t = s0.intersect(s2)
         x1, y1 = p
         res, p, t = s1.intersect(s4)
         x4, y4 = p
-        x6, y6 = root.p1
-        x7, y7 = s2.p1
-        x10, y10 = s4.p1
+        t = max(0.001, (root.length - d.hole_offset_front) /  root.length)
+        x6, y6 = root.lerp(t)
+        x7, y7 = s2.lerp(t)
+        x10, y10 = s4.lerp(t)
         z0 = self.z + 1.0
         z1 = z0
         z2 = z0
@@ -3222,10 +3340,6 @@ def update(self, context):
 
 def update_manipulators(self, context):
     self.update(context, manipulable_refresh=True)
-
-
-def update_path(self, context):
-    self.update_path(context)
 
 
 def update_parent(self, context):
@@ -3296,32 +3410,32 @@ def update_parent(self, context):
             if bpy.ops.object.delete.poll():
                 bpy.ops.object.delete(use_global=False)
 
-                
+
         bpy.ops.object.select_all(action="DESELECT")
         o.select = True
         context.scene.objects.active = o
-        
+
         bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
-        
+
         hole_obj = context.active_object
         hole_obj.select = False
-        
+
         o.select = True
         context.scene.objects.active = p
-        
+
         p.select = True
         if bpy.ops.archipack.single_boolean.poll():
             bpy.ops.archipack.single_boolean()
-        
+
         hole_obj.matrix_world = o.matrix_world.copy()
-        
+
         p.select = False
-        
+
         context.scene.objects.active = o
         o.select = True
         # trigger object update
         self.parts[0].a0 = pi / 2
-        
+
 
     elif self.t_parent != "":
         self.t_parent = ""
@@ -3331,63 +3445,8 @@ def update_location(self, context):
     self.update(context, relocate_only=True)
 
 
-def update_type(self, context):
-
-    d = self.find_in_selection(context)
-
-    if d is not None and d.auto_update:
-
-        d.auto_update = False
-        idx = 0
-        for i, part in enumerate(d.parts):
-            if part == self:
-                idx = i
-                break
-        a0 = 0
-        if idx > 0:
-            g = d.get_generator()
-            w0 = g.segs[idx - 1]
-            a0 = w0.straight(1).angle
-            if "C_" in self.type:
-                w = w0.straight_roof(self.a0, self.length)
-            else:
-                w = w0.curved_roof(self.a0, self.da, self.radius)
-        else:
-            g = RoofGenerator(None)
-            g.add_part(self)
-            w = g.segs[0]
-
-        # w0 - w - w1
-        dp = w.p1 - w.p0
-        if "C_" in self.type:
-            self.radius = 0.5 * dp.length
-            self.da = pi
-            a0 = atan2(dp.y, dp.x) - pi / 2 - a0
-        else:
-            self.length = dp.length
-            a0 = atan2(dp.y, dp.x) - a0
-
-        if a0 > pi:
-            a0 -= 2 * pi
-        if a0 < -pi:
-            a0 += 2 * pi
-        self.a0 = a0
-
-        if idx + 1 < d.n_parts:
-            # adjust rotation of next part
-            part1 = d.parts[idx + 1]
-            if "C_" in self.type:
-                a0 = part1.a0 - pi / 2
-            else:
-                a0 = part1.a0 + w.straight(1).angle - atan2(dp.y, dp.x)
-
-            if a0 > pi:
-                a0 -= 2 * pi
-            if a0 < -pi:
-                a0 += 2 * pi
-            part1.a0 = a0
-
-        d.auto_update = True
+def update_childs(self, context):
+    self.update(context, update_childs=True)
 
 
 materials_enum = (
@@ -3433,8 +3492,7 @@ class ArchipackSegment():
                 ('S_SEG', 'Straight roof', '', 0),
                 ('C_SEG', 'Curved roof', '', 1),
                 ),
-            default='S_SEG',
-            update=update_type
+            default='S_SEG'
             )
     length = FloatProperty(
             name="length",
@@ -3526,7 +3584,6 @@ class ArchipackLines():
         if self.parts_expand:
             row.prop(self, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
             box.prop(self, 'n_parts')
-            box.prop(self, 'closed')
             for i, part in enumerate(self.parts):
                 part.draw(layout, context, i)
         else:
@@ -3574,15 +3631,6 @@ class ArchipackLines():
                 s.prop1_name = "offset"
             p.manipulators[2].prop1_name = str(i)
             p.manipulators[3].prop1_name = str(i + 1)
-
-    def get_generator(self, origin=Vector((0, 0))):
-        g = RoofGenerator(self.parts, origin)
-        for part in self.parts:
-            g.add_part(part)
-        g.set_offset()
-        g.close(self.closed)
-        g.locate_manipulators()
-        return g
 
 
 class archipack_roof_segment(ArchipackSegment, PropertyGroup):
@@ -3668,13 +3716,13 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             name="L slope",
             default=0.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_childs
             )
     slope_right = FloatProperty(
             name="R slope",
             default=0.5, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_childs
             )
     width_left = FloatProperty(
             name="L width",
@@ -3687,11 +3735,6 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             default=3, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
-            )
-    closed = BoolProperty(
-            default=False,
-            name="Close",
-            update=update_manipulators
             )
     do_faces = BoolProperty(
             name="Make faces",
@@ -3707,7 +3750,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             name="Quick Edit",
             default=True
             )
-    throttle = BoolProperty(
+    force_update = BoolProperty(
             name="Throttle",
             default=True
             )
@@ -3834,10 +3877,12 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 ('BRAAS2', 'Braas 2', '', 1),
                 ('ETERNIT', 'Eternit', '', 2),
                 ('LAUZE', 'Lauze', '', 3),
-                ('PLACEHOLDER', 'Placeholder', '', 4),
-                ('ONDULEE', 'Ondule', '', 5),
-                ('METAL', 'Metal', '', 6),
-                ('USER', 'User defined', '', 7)
+                ('ROMAN', 'Roman', '', 4),
+                ('ROUND', 'Round', '', 5),
+                ('PLACEHOLDER', 'Square', '', 6),
+                ('ONDULEE', 'Ondule', '', 7),
+                ('METAL', 'Metal', '', 8),
+             #  ('USER', 'User defined', '', 7)
                 ),
             default="BRAAS2",
             update=update
@@ -3865,32 +3910,194 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             update=update
             )
 
-    faitiere_enable = BoolProperty(
+    gutter_expand = BoolProperty(
+            name="Gutter",
+            description="Expand gutter panel",
+            default=False
+            )
+    gutter_enable = BoolProperty(
             name="Enable",
             default=True,
             update=update
             )
-    faitiere_expand = BoolProperty(
+    gutter_alt = FloatProperty(
+            name="Altitude",
+            description="altitude",
+            default=0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    gutter_width = FloatProperty(
+            name="Width",
+            description="Width",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    gutter_dist = FloatProperty(
+            name="Spacing",
+            description="Spacing",
+            min=0,
+            default=0.05,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    gutter_boudin = FloatProperty(
+            name="Small width",
+            description="Small width",
+            min=0,
+            default=0.015,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    gutter_segs = IntProperty(
+            default=6,
+            min=1,
+            name="Segs",
+            update=update
+            )
+
+    beam_expand = BoolProperty(
+            name="Beam",
+            description="Expand beam panel",
+            default=False
+            )
+    beam_primary_enable = BoolProperty(
+            name="Primary",
+            default=True,
+            update=update
+            )
+    beam_primary_width = FloatProperty(
+            name="Width",
+            description="Width",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    beam_primary_height = FloatProperty(
+            name="Height",
+            description="Height",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    beam_primary_offset = FloatProperty(
+            name="Offset",
+            description="Distance from roof border",
+            default=0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    beam_primary_alt = FloatProperty(
+            name="Altitude",
+            description="Altitude from roof",
+            default=0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    beam_sec_enable = BoolProperty(
+            name="Hip rafter",
+            default=True,
+            update=update
+            )
+    beam_sec_width = FloatProperty(
+            name="Width",
+            description="Width",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    beam_sec_height = FloatProperty(
+            name="Height",
+            description="Height",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    beam_sec_alt = FloatProperty(
+            name="Altitude",
+            description="Distance from roof",
+            default=0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rafter_enable = BoolProperty(
+            name="Rafter",
+            default=True,
+            update=update
+            )
+    rafter_width = FloatProperty(
+            name="Width",
+            description="Width",
+            min=0.01,
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rafter_height = FloatProperty(
+            name="Height",
+            description="Height",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rafter_spacing = FloatProperty(
+            name="Spacing",
+            description="Spacing",
+            min=0.1,
+            default=0.7,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rafter_start = FloatProperty(
+            name="Offset",
+            description="Spacing from roof border",
+            min=0,
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rafter_alt = FloatProperty(
+            name="Altitude",
+            description="Altitude from roof",
+            max=-0.0001,
+            default=-0.001,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+
+    hip_enable = BoolProperty(
+            name="Enable",
+            default=True,
+            update=update
+            )
+    hip_expand = BoolProperty(
             name="Hips",
             description="Expand hips panel",
             default=False
             )
-    faitiere_alt = FloatProperty(
-            name="x",
+    hip_alt = FloatProperty(
+            name="Altitude",
             description="Hip altitude from roof",
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-    faitiere_space_x = FloatProperty(
-            name="x",
+    hip_space_x = FloatProperty(
+            name="Spacing",
             description="Space between hips",
             min=0.01,
             default=0.4,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-    faitiere_size_x = FloatProperty(
+    hip_size_x = FloatProperty(
             name="l",
             description="Length of hip",
             min=0.01,
@@ -3898,7 +4105,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-    faitiere_size_y = FloatProperty(
+    hip_size_y = FloatProperty(
             name="w",
             description="Width of hip",
             min=0.01,
@@ -3906,7 +4113,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-    faitiere_size_z = FloatProperty(
+    hip_size_z = FloatProperty(
             name="h",
             description="Height of hip",
             min=0.0,
@@ -3914,7 +4121,16 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-
+    hip_model = EnumProperty(
+            name="model",
+            items=(
+                ('ROUND', 'Round', '', 0),
+                ('ETERNIT', 'Eternit', '', 1),
+                ('FLAT', 'Flat', '', 2)
+                ),
+            default="ROUND",
+            update=update
+            )
     valley_altitude  = FloatProperty(
             name="x",
             description="Valley altitude from roof",
@@ -3925,6 +4141,83 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
     valley_enable = BoolProperty(
             name="Valley",
             default=True,
+            update=update
+            )
+
+    facia_enable = BoolProperty(
+            name="Enable",
+            description="Enable Facia",
+            default=True,
+            update=update
+            )
+    facia_expand = BoolProperty(
+            name="Facia",
+            description="Expand facia panel",
+            default=False
+            )
+    facia_height = FloatProperty(
+            name="Height",
+            description="Height",
+            min=0.01,
+            default=0.3,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    facia_width =FloatProperty(
+            name="Width",
+            description="Width",
+            min=0.01,
+            default=0.02,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    facia_altitude = FloatProperty(
+            name="Altitude",
+            description="Facia altitude from roof",
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+
+    rake_enable = BoolProperty(
+            name="Enable",
+            description="Enable Rake",
+            default=True,
+            update=update
+            )
+    rake_expand = BoolProperty(
+            name="Rake",
+            description="Expand rake panel",
+            default=False
+            )
+    rake_height = FloatProperty(
+            name="Height",
+            description="Height",
+            min=0.01,
+            default=0.3,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rake_width =FloatProperty(
+            name="Width",
+            description="Width",
+            min=0.01,
+            default=0.02,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rake_offset =FloatProperty(
+            name="Offset",
+            description="Offset from roof border",
+            default=0.001,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rake_altitude = FloatProperty(
+            name="Altitude",
+            description="Facia altitude from roof",
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
             update=update
             )
 
@@ -3954,6 +4247,28 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         update=update
         )
 
+    hole_offset_left = FloatProperty(
+        name="Left",
+        description="Left distance from border",
+        min=0,
+        default=0,
+        update=update
+        )
+    hole_offset_right = FloatProperty(
+        name="Right",
+        description="Right distance from border",
+        min=0,
+        default=0,
+        update=update
+        )
+    hole_offset_front = FloatProperty(
+        name="Front",
+        description="Front distance from border",
+        min=0,
+        default=0,
+        update=update
+        )
+
     def update_parts(self):
         # print("update_parts")
         # remove rows
@@ -3972,6 +4287,20 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         self.setup_manipulators()
 
     def setup_manipulators(self):
+        if len(self.manipulators) < 1:
+            s = self.manipulators.add()
+            s.type_key = "SIZE"
+            s.prop1_name = "z"
+            s.normal = (0, 1, 0)
+        if len(self.manipulators) < 2:
+            s = self.manipulators.add()
+            s.type_key = "SIZE"
+            s.prop1_name = "width_left"
+        if len(self.manipulators) < 3:
+            s = self.manipulators.add()
+            s.type_key = "SIZE"
+            s.prop1_name = "width_right"
+
         for i in range(self.n_parts):
             p = self.parts[i]
             n_manips = len(p.manipulators)
@@ -3985,15 +4314,9 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 s.prop1_name = "length"
             if n_manips < 3:
                 s = p.manipulators.add()
-                s.type_key = 'WALL_SNAP'
-                s.prop1_name = str(i)
-                s.prop2_name = 'z'
-            if n_manips < 4:
-                s = p.manipulators.add()
                 s.type_key = 'DUMB_STRING'
                 s.prop1_name = str(i + 1)
-            p.manipulators[2].prop1_name = str(i)
-            p.manipulators[3].prop1_name = str(i + 1)
+            p.manipulators[2].prop1_name = str(i + 1)
 
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
         # straight segment, worth testing here
@@ -4135,8 +4458,29 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 if d is not None and d.t_parent == o.name:
                     self.relocate_child(context, o, g, child)
 
-    def update(self, context, manipulable_refresh=False, relocate_only=False):
+    def update_childs(self, context, o, g):
+        if o.parent is not None:
+            for child in o.parent.children:
+                d = archipack_roof.datablock(child)
+                if d is not None and d.t_parent == o.name:
+                    child.select = True
+                    context.scene.objects.active = child
+                    d.update(context, force_update=True)
+                    child.select = False
+            o.select = True
+            context.scene.objects.active = o
 
+    def update(self,
+                context,
+                manipulable_refresh=False,
+                relocate_only=False,
+                update_childs=False,
+                force_update=False):
+        """
+            relocate only: relocate childs
+            update_childs: force childs update
+            force_update: skip throttle
+        """
         o = self.find_in_selection(context, self.auto_update)
 
         if o is None:
@@ -4226,60 +4570,92 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 s.angle_0 = a_right
                 s.take_precedence = False
                 g.segs.append(s)
-                       
+
         if g is None:
             g = self.get_generator(origin=Vector((0, y, z)))
+
+        if len(g.segs) > 0:
+            f = g.segs[0]
+            # z
+            n = f.straight(-1, 0).v.to_3d()
+            self.manipulators[0].set_pts([(0, 0, 0), (0, 0, self.z), (1, 0, 0)], normal=n)
+            # left width
+            n = f.sized_normal(0, -self.width_left)
+            self.manipulators[1].set_pts([n.p0.to_3d(), n.p1.to_3d(), (-1, 0, 0)])
+            # right width
+            n = f.sized_normal(0, self.width_right)
+            self.manipulators[2].set_pts([n.p0.to_3d(), n.p1.to_3d(), (1, 0, 0)])
 
         g.make_roof(verts, edges)
 
         self.relocate_childs(context, o, g)
 
+        if update_childs:
+            self.update_childs(context, o, g)
+
         # print("%s" % (faces))
         g.lambris(self, verts, faces, edges, matids, uvs)
         n_verts = len(verts)
-        g.virevents(self, verts, faces, edges, matids, uvs)
-        g.larmiers(self, verts, faces, edges, matids, uvs)
-        g.poutre_faitiere(self, verts, faces, edges, matids, uvs)
-        g.chevrons(self, verts, faces, edges, matids, uvs)
-        g.faitieres(self, verts, faces, edges, matids, uvs)
-        g.chenaux(self, verts, faces, edges, matids, uvs)
 
-        if self.throttle or not self.quick_edit:
+        if self.rake_enable:
+            g.rake(self, verts, faces, edges, matids, uvs)
+
+        if self.facia_enable:
+            g.facia(self, verts, faces, edges, matids, uvs)
+
+        if self.beam_primary_enable:
+            g.beam_primary(self, verts, faces, edges, matids, uvs)
+
+        if self.rafter_enable:
+            g.rafter(self, verts, faces, edges, matids, uvs)
+
+        g.hips(self, verts, faces, edges, matids, uvs)
+
+        if self.gutter_enable:
+            g.gutter(self, verts, faces, edges, matids, uvs)
+
+        if force_update:
+            self.force_update = True
+
+        if self.do_faces or self.force_update:
+                bmed.buildmesh(
+                    context, o, verts, faces, matids=matids, uvs=uvs,
+                    weld=False, clean=False, auto_smooth=True, temporary=False)
+        else:
+            self.make_surface(o, verts, edges)
+
+        # quick edit disable
+        # boolean and tiles
+        # unless throttle force update
+        if self.quick_edit and not force_update:
+            update_hole = False
+            bpy.ops.archipack.roof_throttle_update(name=o.name)
+
+        if not self.quick_edit or self.force_update:
+
+            update_hole = True
 
             if self.tile_enable:
-                bmed.buildmesh(
-                    context, o, verts, faces, matids=matids, uvs=uvs,
-                    weld=False, clean=False, auto_smooth=False, temporary=False)
-
                 bpy.ops.object.mode_set(mode='EDIT')
                 g.couverture(context, o, self)
-                self.throttle = not self.quick_edit
 
-            elif self.do_faces:
-                bmed.buildmesh(
-                    context, o, verts, faces, matids=matids, uvs=uvs,
-                    weld=False, clean=False, auto_smooth=False, temporary=False)
+            if self.quick_edit:
+                self.force_update = False
 
-            else:
-                self.make_surface(o, verts, edges)
-            
             # throttle update hole too
             if d is not None:
                 hole_obj = self.find_hole(o)
                 if hole_obj is not None:
-                    g.make_hole(context, hole_obj, self, 0.1)    
-                
-        else:
-            if self.do_faces:
-                bmed.buildmesh(
-                    context, o, verts, faces, matids=matids, uvs=uvs,
-                    weld=False, clean=False, auto_smooth=False, temporary=False)
+                    g.make_hole(context, hole_obj, self)
 
-            else:
-                self.make_surface(o, verts, edges)
-            bpy.ops.archipack.roof_throttle_update(name=o.name)
-        
-            
+        # disable AutoBoolean on
+        if o.parent is not None:
+            for child in o.parent.children:
+                m = child.modifiers.get('AutoMerge')
+                if m is not None:
+                    m.show_viewport = update_hole
+
+
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
@@ -4309,7 +4685,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             hole_obj.data.materials.append(mat)
         g = self.get_generator()
         g.make_roof([], [])
-        g.make_hole(context, hole_obj, self, 0.1)
+        g.make_hole(context, hole_obj, self)
         return hole_obj
 
     def manipulable_setup(self, context):
@@ -4334,10 +4710,8 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             # length / radius + angle
             self.manip_stack.append(part.manipulators[1].setup(context, o, part))
             # index
-            self.manip_stack.append(part.manipulators[3].setup(context, o, self))
-
-            # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
+
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
@@ -4689,7 +5063,10 @@ class ARCHIPACK_PT_roof(Panel):
             box.prop(prop, 't_part')
             box.prop(prop, 't_dist_x')
             box.prop(prop, 't_dist_y')
-
+            box.label(text="Hole")
+            box.prop(prop, 'hole_offset_front')
+            box.prop(prop, 'hole_offset_left')
+            box.prop(prop, 'hole_offset_right')
         box = layout.box()
         box.prop(prop, 'quick_edit', icon="MOD_MULTIRES")
         box.prop(prop, 'do_faces')
@@ -4749,25 +5126,90 @@ class ARCHIPACK_PT_roof(Panel):
 
         box = layout.box()
         row = box.row(align=True)
-        if prop.faitiere_expand:
-            row.prop(prop, 'faitiere_expand', icon="TRIA_DOWN", text="Hip", icon_only=True, emboss=False)
+        if prop.hip_expand:
+            row.prop(prop, 'hip_expand', icon="TRIA_DOWN", text="Hip", icon_only=True, emboss=False)
         else:
-            row.prop(prop, 'faitiere_expand', icon="TRIA_RIGHT", text="Hip", icon_only=True, emboss=False)
-        row.prop(prop, 'faitiere_enable')
-        if prop.faitiere_expand:
-            # box.prop(prop, 'faitiere_model', text="")
+            row.prop(prop, 'hip_expand', icon="TRIA_RIGHT", text="Hip", icon_only=True, emboss=False)
+        row.prop(prop, 'hip_enable')
+        if prop.hip_expand:
+            box.prop(prop, 'hip_model', text="")
 
             box.label(text="Hip size")
             row = box.row(align=True)
-            row.prop(prop, 'faitiere_size_x')
-            row.prop(prop, 'faitiere_size_y')
-            row.prop(prop, 'faitiere_size_z')
-            box.prop(prop, 'faitiere_alt')
+            row.prop(prop, 'hip_size_x')
+            row.prop(prop, 'hip_size_y')
+            row.prop(prop, 'hip_size_z')
+            box.prop(prop, 'hip_alt')
+            box.prop(prop, 'hip_space_x')
 
-            box.label(text="Spacing")
-            row = box.row(align=True)
-            row.prop(prop, 'faitiere_space_x')
+        box = layout.box()
+        row = box.row(align=True)
 
+        if prop.beam_expand:
+            row.prop(prop, 'beam_expand', icon="TRIA_DOWN", text="Beam", icon_only=True, emboss=False)
+        else:
+            row.prop(prop, 'beam_expand', icon="TRIA_RIGHT", text="Beam", icon_only=True, emboss=False)
+        if prop.beam_expand:
+            box.prop(prop, 'beam_primary_enable')
+            if prop.beam_primary_enable:
+                box.prop(prop, 'beam_primary_width')
+                box.prop(prop, 'beam_primary_height')
+                box.prop(prop, 'beam_primary_offset')
+                box.prop(prop, 'beam_primary_alt')
+            box.separator()
+            box.prop(prop, 'beam_sec_enable')
+            if prop.beam_sec_enable:
+                box.prop(prop, 'beam_sec_width')
+                box.prop(prop, 'beam_sec_height')
+                box.prop(prop, 'beam_sec_alt')
+            box.separator()
+            box.prop(prop, 'rafter_enable')
+            if prop.rafter_enable:
+                box.prop(prop, 'rafter_height')
+                box.prop(prop, 'rafter_width')
+                box.prop(prop, 'rafter_spacing')
+                box.prop(prop, 'rafter_start')
+                box.prop(prop, 'rafter_alt')
+
+        box = layout.box()
+        row = box.row(align=True)
+        if prop.gutter_expand:
+            row.prop(prop, 'gutter_expand', icon="TRIA_DOWN", text="Gutter", icon_only=True, emboss=False)
+        else:
+            row.prop(prop, 'gutter_expand', icon="TRIA_RIGHT", text="Gutter", icon_only=True, emboss=False)
+        row.prop(prop, 'gutter_enable')
+        if prop.gutter_expand:
+            box.prop(prop, 'gutter_alt')
+            box.prop(prop, 'gutter_width')
+            box.prop(prop, 'gutter_dist')
+            box.prop(prop, 'gutter_boudin')
+            box.prop(prop, 'gutter_segs')
+
+
+        box = layout.box()
+        row = box.row(align=True)
+        if prop.facia_expand:
+            row.prop(prop, 'facia_expand', icon="TRIA_DOWN", text="Facia", icon_only=True, emboss=False)
+        else:
+            row.prop(prop, 'facia_expand', icon="TRIA_RIGHT", text="Facia", icon_only=True, emboss=False)
+        row.prop(prop, 'facia_enable')
+        if prop.facia_expand:
+            box.prop(prop, 'facia_altitude')
+            box.prop(prop, 'facia_width')
+            box.prop(prop, 'facia_height')
+
+        box = layout.box()
+        row = box.row(align=True)
+        if prop.rake_expand:
+            row.prop(prop, 'rake_expand', icon="TRIA_DOWN", text="Rake", icon_only=True, emboss=False)
+        else:
+            row.prop(prop, 'rake_expand', icon="TRIA_RIGHT", text="Rake", icon_only=True, emboss=False)
+        row.prop(prop, 'rake_enable')
+        if prop.rake_expand:
+            box.prop(prop, 'rake_altitude')
+            box.prop(prop, 'rake_width')
+            box.prop(prop, 'rake_height')
+            box.prop(prop, 'rake_offset')
 
         """
         box = layout.box()
@@ -4911,9 +5353,12 @@ class ARCHIPACK_OT_roof_manipulate(Operator):
 
 # Update throttle (smell hack here)
 # use 2 globals to store a timer and state of update_action
+# TODO: dict for those per object name
+# to
 update_timer = None
 update_timer_updating = False
 throttle_delay = 1
+throttle_start = 0
 
 
 class ARCHIPACK_OT_roof_throttle_update(Operator):
@@ -4924,29 +5369,35 @@ class ARCHIPACK_OT_roof_throttle_update(Operator):
 
     def modal(self, context, event):
         global update_timer_updating
+        global throttle_start
+        global throttle_delay
         if event.type == 'TIMER' and not update_timer_updating:
-            update_timer_updating = True
-            o = context.scene.objects.get(self.name)
-            # print("delay update of %s" % (self.name))
-            if o is not None:
-                o.select = True
-                context.scene.objects.active = o
-                d = o.data.archipack_roof[0]
-                d.throttle = True
-                d.update(context)
-                return self.cancel(context)
+            # cant rely on timer as another one may run
+            if time.time() - throttle_start > throttle_delay:
+                update_timer_updating = True
+                o = context.scene.objects.get(self.name)
+                # print("delay update of %s" % (self.name))
+                if o is not None:
+                    o.select = True
+                    context.scene.objects.active = o
+                    d = o.data.archipack_roof[0]
+                    d.force_update = True
+                    d.update(context)
+                    return self.cancel(context)
         return {'PASS_THROUGH'}
 
     def execute(self, context):
         global update_timer
         global update_timer_updating
         if update_timer is not None:
+            context.window_manager.event_timer_remove(update_timer)
             if update_timer_updating:
                 return {'CANCELLED'}
             # reset update_timer so it only occurs once 0.1s after last action
-            context.window_manager.event_timer_remove(update_timer)
+            throttle_start = time.time()
             update_timer = context.window_manager.event_timer_add(throttle_delay, context.window)
             return {'CANCELLED'}
+        throttle_start = time.time()
         update_timer_updating = False
         context.window_manager.modal_handler_add(self)
         update_timer = context.window_manager.event_timer_add(throttle_delay, context.window)
