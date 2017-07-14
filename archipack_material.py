@@ -32,156 +32,13 @@ from bpy.types import (
     Panel, PropertyGroup,
     Object, Operator
     )
-
 from bpy.props import (
     EnumProperty, CollectionProperty,
     StringProperty
     )
 
-
-"""
-    Dict to store material variants names definitions
-    and object's parts names in slot order
-
-
-    @TODO:
-
-    Store this as tuple in file(s) so we may add preset as per object basis
-    (
-        ('object name',
-            (
-                ('material_variation',
-                    (
-                        list of material_names in slot order
-                    )
-                ),
-                ...
-            )
-        ),
-        ...
-    )
-
-"""
-
-archipack_materials = {}
-
-archipack_materials['window'] = [
-    [
-        'PVC',
-        'WOOD',
-        'METAL'
-    ],
-    # material slots for parts
-    ['inside', 'outside', 'glass', 'metal', 'stone', 'blind']
-]
-
-archipack_materials['door'] = [
-    [
-    'PVC',
-    'WOOD',
-    'METAL'
-    ],
-    # material slots for parts
-    ['inside', 'outside', 'glass', 'metal']
-]
-
-archipack_materials['handle'] = [
-    [
-    'METAL'
-    ],
-    # material slots for parts
-    ['inside', 'outside']
-]
-
-archipack_materials['stair'] = [
-    [
-        'DEFAULT',
-        'VARIANT1',
-        'VARIANT2'
-    ],
-    # material slots for parts
-    ['ceiling', 'white', 'concrete', 'wood', 'metal', 'glass']
-]
-
-archipack_materials['wall2'] = [
-    [
-    'CONCRETE',
-    'WOOD',
-    'WHITE',
-    'STONE'
-    ],
-    # material slots for parts
-    ['inside', 'outside', 'cuts', 'alt1', 'alt2', 'alt3', 'alt4', 'alt5']
-]
-
-archipack_materials['wall'] = [
-    [
-    'CONCRETE',
-    'WOOD',
-    'WHITE',
-    'STONE'
-    ],
-    # material slots for parts
-    ['inside', 'outside', 'cuts', 'alt1', 'alt2', 'alt3', 'alt4', 'alt5']
-]
-
-archipack_materials['fence'] = [
-    [
-    'METAL',
-    'WOOD',
-    'CONCRETE'
-    ],
-    # material slots for parts
-    ['wood', 'metal', 'glass', 'concrete']
-]
-
-archipack_materials['truss'] = [
-    [
-    'METAL',
-    'WOOD'
-    ],
-    # material slots for parts
-    ['truss']
-]
-
-archipack_materials['slab'] = [
-    [
-    'CONCRETE',
-    'WHITE',
-    'WOOD'
-    ],
-    # material slots for parts
-    ['bottom', 'top', 'side']
-]
-
-archipack_materials['roof'] = [
-    [
-    'CLAY',
-    'ETERNIT',
-    'STONE',
-    'COPPER',
-    'ZINC',
-    'WOOD'
-    ],
-    # material slots for parts
-    [
-        'sheeting', 'rakes', 'eaves', 'ridge', 'rafter', 'valley',
-        'hip_tiles', 'tiles', 'tiles2', 'tiles3', 'tiles4', 'tiles5'
-    ]
-]
-
-archipack_materials['floor'] = [
-    [
-    'TILE',
-    'WOOD'
-    ],
-    # material slots for parts
-    [
-        'grout',
-        'alt1', 'alt2', 'alt3', 'alt4', 'alt5',
-        'alt6', 'alt7', 'alt8', 'alt9', 'alt10'
-    ]
-]
+setman = None
+libman = None
 
 
 class MatLib():
@@ -198,14 +55,12 @@ class MatLib():
     def cleanup(self):
         self.materials.clear()
 
-    @property
-    def shortname(self):
-        return bpy.path.display_name(self.name).title()
-
     def load_list(self, sort=False):
         """
             list material names
         """
+        # print("MatLib.load_list(%s)" % (self.name))
+
         self.materials.clear()
 
         with bpy.data.libraries.load(self.path) as (data_from, data_to):
@@ -221,17 +76,11 @@ class MatLib():
         """
             Load a material from library
         """
+        # print("MatLib.load_mat(%s) linked:%s" % (name, link))
         with bpy.data.libraries.load(self.path, link, False) as (data_from, data_to):
             data_to.materials = [name]
-        if link:
-            print(name + " linked.")
-        else:
-            print(name + " appended.")
 
-    def from_data(self, name):
-        return bpy.data.materials.get(name)
-
-    def get_mat(self, name, link=False):
+    def get_mat(self, name, link):
         """
             apply a material by name to active_object
             into slot index
@@ -247,17 +96,8 @@ class MatLib():
 
             # load material
             self.load_mat(name, link)
-            mat = self.from_data(name)
-            """
-            # when import linked
-            # material may be with use_fake_user
-            # realy not sure about this part !
-            if mat:
-                mat.use_fake_user = False
-                mat.user_clear()
-            """
 
-            return mat
+            return bpy.data.materials.get(name)
 
         return None
 
@@ -308,9 +148,9 @@ class MatlibsManager():
             self.matlibs.extend(
                     [
                     MatLib(path, f) for f in os.listdir(path)
-                    if f[-5::] == "blend" and os.path.join(path, f) not in loaded_path
+                    if f.endswith(".blend") and os.path.join(path, f) not in loaded_path
                     ]
-                )
+            )
 
     def load_list(self, context):
         """
@@ -326,9 +166,8 @@ class MatlibsManager():
             prefs = self.get_prefs(context)
             self.add_to_list(prefs.matlib_path)
         except:
-            print("unable to load %s" % user_path)
+            print("unable to load %s" % mat_path)
             pass
-        # return sorted(self.matlibs, key=lambda x: bpy.path.display_name(x.name))
 
     def apply(self, context, slot_index, name, link=False):
 
@@ -340,6 +179,7 @@ class MatlibsManager():
 
         # mat not in scene: try to load from lib
         if mat is None:
+            # print("mat %s not found in scene, loading" % (name))
             # Lazy build matlibs list
             if len(self.matlibs) < 1:
                 self.load_list(context)
@@ -361,9 +201,6 @@ class MatlibsManager():
         if not link:
             # break link
             bpy.ops.object.make_local(type="SELECT_OBDATA_MATERIAL")
-
-
-libsman = None
 
 
 class MaterialSetManager():
@@ -408,11 +245,11 @@ class MaterialSetManager():
 
             filename = os.path.dirname(os.path.realpath(__file__)) + rel_filepath
 
-        print("load filename %s" % filename)
+        # print("load filename %s" % filename)
 
         material_sets = {}
-        #create file object, and set open mode
-        f = open( filename, 'r')
+        # create file object, and set open mode
+        f = open(filename, 'r')
         lines = f.readlines()
 
         for line in lines:
@@ -429,7 +266,7 @@ class MaterialSetManager():
     def save(self, object_type):
         # always save in user prefs
         filename = self.get_filename(object_type)
-        print("filename:%s" % filename)
+        # print("filename:%s" % filename)
         o_dict = self.objects[object_type]
         lines = []
         for s_key in o_dict.keys():
@@ -444,7 +281,7 @@ class MaterialSetManager():
         if "archipack_material" in o:
             object_type = o.archipack_material[0].category
             materials_names = [slot.name for slot in o.material_slots if slot.name != '']
-            print("%s " % materials_names)
+            # print("%s " % materials_names)
             self.register_set(object_type, set_name, materials_names)
             self.save(object_type)
 
@@ -454,8 +291,8 @@ class MaterialSetManager():
             d = o.archipack_material[0]
             object_type = d.category
             set_name = d.material
-            if set_name in self.materials[object_type].keys():
-                self.materials[object_type].pop(set_name)
+            if set_name in self.objects[object_type].keys():
+                self.objects[object_type].pop(set_name)
                 self.save(object_type)
 
     def get_materials(self, object_type, set_name):
@@ -481,9 +318,6 @@ class MaterialSetManager():
         return [(s.upper(), s.capitalize(), '', i) for i, s in enumerate(s_keys)]
 
 
-setman = None
-
-
 def material_enum(self, context):
     global setman
     if setman is None:
@@ -493,7 +327,7 @@ def material_enum(self, context):
 
 def update(self, context):
     self.update(context)
-    
+
 
 class archipack_material(PropertyGroup):
 
@@ -510,12 +344,12 @@ class archipack_material(PropertyGroup):
         )
 
     def apply_material(self, context, slot_index, name):
-        global libsman
+        global libman
 
-        if libsman is None:
-            libsman = MatlibsManager()
+        if libman is None:
+            libman = MatlibsManager()
 
-        libsman.apply(context, slot_index, name, link=False)
+        libman.apply(context, slot_index, name, link=False)
 
     def update(self, context):
         global setman
@@ -613,7 +447,7 @@ class ARCHIPACK_OT_material(Operator):
         except:
             res = False
             pass
-            
+
         if res:
             return {'FINISHED'}
         else:
@@ -698,13 +532,13 @@ class ARCHIPACK_OT_material_library(Operator):
         else:
             m = o.archipack_material.add()
         o.data.materials.clear()
-        for category in archipack_materials.keys():
-            for material in archipack_materials[category][0]:
-                prefix = category.capitalize() + '_' + material.capitalize() + '_'
-                for part in archipack_materials[category][1]:
-                    name = prefix + part
-                    mat = m.get_material(name)
-                    o.data.materials.append(mat)
+
+        for category in setman.objects.keys():
+            prefix = category.capitalize() + "_"
+            for part in setman.objects[category]["DEFAULT"]:
+                name = prefix + part
+                mat = m.get_material(name)
+                o.data.materials.append(mat)
 
         return {'FINISHED'}
 
@@ -720,9 +554,9 @@ def register():
 
 
 def unregister():
-    global libsman
+    global libman
     global setman
-    libsman.cleanup()
+    libman.cleanup()
     setman.cleanup()
     bpy.utils.unregister_class(ARCHIPACK_PT_material)
     bpy.utils.unregister_class(ARCHIPACK_OT_material)
@@ -731,4 +565,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_material_library)
     bpy.utils.unregister_class(archipack_material)
     del Object.archipack_material
-
