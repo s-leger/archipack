@@ -248,20 +248,23 @@ class MaterialSetManager():
         # print("load filename %s" % filename)
 
         material_sets = {}
+        
         # create file object, and set open mode
-        f = open(filename, 'r')
-        lines = f.readlines()
+        if os.path.exists(filename):
+        
+            f = open(filename, 'r')
+            lines = f.readlines()
 
-        for line in lines:
-            s_key, mat_name = line.split("##|##")
-            if str(s_key) not in material_sets.keys():
-                material_sets[s_key] = []
-            material_sets[s_key].append(mat_name.strip())
+            for line in lines:
+                s_key, mat_name = line.split("##|##")
+                if str(s_key) not in material_sets.keys():
+                    material_sets[s_key] = []
+                material_sets[s_key].append(mat_name.strip())
 
-        f.close()
+            f.close()
 
-        for s_key in material_sets.keys():
-            self.register_set(object_type, s_key, material_sets[s_key])
+            for s_key in material_sets.keys():
+                self.register_set(object_type, s_key, material_sets[s_key])
 
     def save(self, object_type):
         # always save in user prefs
@@ -556,8 +559,10 @@ def register():
 def unregister():
     global libman
     global setman
-    libman.cleanup()
-    setman.cleanup()
+    if libman is not None:
+        libman.cleanup()
+    if setman is not None:
+        setman.cleanup()
     bpy.utils.unregister_class(ARCHIPACK_PT_material)
     bpy.utils.unregister_class(ARCHIPACK_OT_material)
     bpy.utils.unregister_class(ARCHIPACK_OT_material_add)

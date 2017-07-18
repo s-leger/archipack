@@ -281,13 +281,20 @@ class Archipack_Pref(AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        box = layout.box()
+        if not HAS_POLYLIB:
+            box = layout.box()
+            row = box.row()
+            col = row.column()
+            col.label(text="WARNING Shapely python module not found", icon="ERROR")
+            col.label(text="2d to 3d tools are disabled, see setup info in the doc")
+        box = layout.box()        
         row = box.row()
         col = row.column()
         col.label(text="Tab Category:")
         col.prop(self, "tools_category")
         col.prop(self, "create_category")
         col.prop(self, "create_submenu")
+
         box = layout.box()
         row = box.row()
         col = row.column()
@@ -548,8 +555,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         row = box.row(align=True)
         row.operator("archipack.roof_preset_menu",
                     text="Roof",
-                    icon='CURVE_DATA',
-                    # icon_value=icons["roof"].icon_id
+                    icon_value=icons["roof"].icon_id
                     ).preset_operator = "archipack.roof"
 
         # toolkit
@@ -605,7 +611,7 @@ def draw_menu(self, context):
                     )
     layout.operator("archipack.roof_preset_menu",
                     text="Roof",
-                    # icon_value=icons["roof"].icon_id
+                    icon_value=icons["roof"].icon_id
                     )
 
                     

@@ -776,7 +776,8 @@ class WallSnapManipulator(Manipulator):
                         part.a0 = w.straight(1, 0).angle
                         # move object when point 0
                         self.o.location += sp.delta
-
+                        self.o.matrix_world.translation += sp.delta
+                        
                     if "C_" in part.type:
                         part.radius = w.r
                     else:

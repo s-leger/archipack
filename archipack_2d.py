@@ -83,7 +83,10 @@ class Projection(GlBaseLine):
         size = -cos(pi - 0.5 * acos(c))
         return direction.normalized(), size
 
-
+    
+    
+    
+    
 class Line(Projection):
     """
         2d Line
@@ -116,7 +119,11 @@ class Line(Projection):
         else:
             self.p = Vector((0, 0))
             self.v = Vector((0, 0))
-
+    
+    @property
+    def copy(self):
+        return Line(self.p.copy(), self.v.copy())
+    
     @property
     def p0(self):
         return self.p
@@ -272,6 +279,8 @@ class Line(Projection):
         """
         dp = pt - self.p
         dl = self.length
+        if dl == 0:
+            return dp.length < 0.00001, 0, 0
         d = (self.v.x * dp.y - self.v.y * dp.x) / dl
         t = (self.v * dp) / (dl * dl)
         return t > 0 and t < 1, d, t
@@ -332,7 +341,19 @@ class Line(Projection):
             Draw Line with open gl in screen space
             aka: coords are in pixels
         """
-        raise NotImplementedError
+        curve = bpy.data.curves.new('LINE', type='CURVE')
+        curve.dimensions = '2D'
+        spline = curve.splines.new('POLY')
+        spline.use_endpoint_u = False
+        spline.use_cyclic_u = False
+        pts = self.pts
+        spline.points.add(len(pts) - 1)
+        for i, p in enumerate(pts):
+            x, y, z = p
+            spline.points[i].co = (x, y, 0, 1)
+        curve_obj = bpy.data.objects.new('LINE', curve)
+        context.scene.objects.link(curve_obj)
+        curve_obj.select = True
 
     def make_offset(self, offset, last=None):
         """
