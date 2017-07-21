@@ -65,10 +65,8 @@ class Roof():
         self.type = 'SIDE'
         # force hip or valley
         self.enforce_part = 'AUTO'
-
-    @property
-    def copy(self):
-        s = StraightRoof(self.p.copy(), self.v.copy())
+        
+    def copy_params(self, s):
         s.angle_0 = self.angle_0
         s.v0_idx = self.v0_idx
         s.v1_idx = self.v1_idx
@@ -83,6 +81,11 @@ class Roof():
         s.backward_right = self.backward_right
         s.type = self.type
         s.enforce_part = self.enforce_part
+    
+    @property
+    def copy(self):
+        s = StraightRoof(self.p.copy(), self.v.copy())
+        self.copy_params(s)
         return s
 
     def straight(self, length, t=1):
@@ -97,7 +100,7 @@ class Roof():
             between segments
         """
         self.line = self.make_offset(offset, last)
-
+   
     def offset(self, offset):
         o = self.copy
         o.p += offset * self.cross_z.normalized()
@@ -132,13 +135,13 @@ class Roof():
 
 class StraightRoof(Roof, Line):
     def __str__(self):
-        return "t_start:{} t_end:{} dist:{}".format(self.t_start, self.t_end, self.dist)
+        return "p0:{} p1:{}".format(self.p0, self.p1)
 
     def __init__(self, p, v):
         Line.__init__(self, p, v)
         Roof.__init__(self)
 
-
+    
 class CurvedRoof(Roof, Arc):
     def __str__(self):
         return "t_start:{} t_end:{} dist:{}".format(self.t_start, self.t_end, self.dist)
@@ -414,11 +417,15 @@ class RoofSegment():
 
 
 class RoofAxisNode():
+    """
+        Connection between parts 
+        for radial analysis
+    """
     def __init__(self):
         # axis segments
         self.segs = []
         self.root = None
-        self.center = -1
+        self.center = 0
         # store count of horizontal segs
         self.n_horizontal = 0
         # store count of slopes segs
@@ -558,6 +565,7 @@ class RoofPolygon():
         # to prevent further check
         if fake_axis is None:
             self._axis = self.axis
+            self.fake_axis = self.axis
         else:
             if side == 'RIGHT':
                 self.fake_axis = fake_axis.oposite
@@ -725,20 +733,20 @@ class RoofPolygon():
 
         self.node_angle = -0.5 * da
         self.node_link()
-    
+
     def get_index(self, index):
         n_segs = len(self.segs)
         if index >= n_segs:
             index -= n_segs
         return index
-    
+
     def next_seg(self, index):
         idx = self.get_index(index + 1)
         return self.segs[idx]
-    
+
     def last_seg(self, index):
         return self.segs[index - 1]
-    
+
     def make_segments(self):
         if len(self.segs) < 1:
             s0 = self._axis
@@ -750,7 +758,7 @@ class RoofPolygon():
             s2 = StraightRoof(s1.p1, s3.p0 - s1.p1)
             s2.type = 'BOTTOM'
             self.segs = [s0, s1, s2, s3]
-    
+
     def move_side(self, pt):
         """
             offset side to point
@@ -760,7 +768,7 @@ class RoofPolygon():
         d1, t = self.distance(pt)
         self.slope = self.slope * d0 / d1
         self.segs[2] = s2.offset(d1 - d0)
-    
+
     def propagate_backward(self, pt):
         """
             Propagate slope, keep 2d angle of slope
@@ -786,7 +794,7 @@ class RoofPolygon():
 
         if self.next is not None:
             self.next.propagate_backward(p)
-    
+
     def propagate_forward(self, pt):
         """
             Propagate slope, keep 2d angle of slope
@@ -809,7 +817,7 @@ class RoofPolygon():
         self.move_next(p)
         if self.next is not None:
             self.next.propagate_forward(p)
-    
+
     def rotate_next_slope(self, a0):
         """
             Rotate next slope part
@@ -832,7 +840,7 @@ class RoofPolygon():
                 self.next.propagate_backward(p)
             else:
                 self.next.propagate_forward(p)
-    
+
     def rotate_node_slope(self, a0):
         """
             Rotate node slope part
@@ -855,14 +863,17 @@ class RoofPolygon():
                 self.next.propagate_backward(p)
             else:
                 self.next.propagate_forward(p)
-    
+
     def distance(self, pt):
         """
             distance from axis
+            always use fake_axis here to
+            allow axis being cut and 
+            still work
         """
-        res, d, t = self._axis.point_sur_segment(pt)
+        res, d, t = self.fake_axis.point_sur_segment(pt)
         return d, t
-    
+
     def inside(self, pt, segs=None):
         """
             Point inside poly (raycast method)
@@ -879,15 +890,15 @@ class RoofPolygon():
             if res:
                 counter += 1
         return counter % 2 == 1
-    
+
     def altitude(self, pt):
         d, t = self.distance(pt)
         return -d * self.slope
-    
+
     def uv(self, pt):
         d, t = self.distance(pt)
         return ((t - self.tmin) * self.xsize, d)
-    
+
     def intersect(self, seg):
         """
             compute intersections of a segment with boundaries
@@ -900,7 +911,7 @@ class RoofPolygon():
             if res:
                 it.append((t, p))
         return it
-    
+
     def is_convex(self):
         n_segs = len(self.segs)
         self.convex = True
@@ -915,66 +926,98 @@ class RoofPolygon():
                 self.convex = False
                 return
             s0 = s1
-    
+
     def iter_segs(self, segs, index):
         n_segs = len(segs)
         if index >= n_segs:
             index -= n_segs
         return index
-    
-    def follow_until_cross(
-            self, 
-            f_segs, f_copy, f_start, 
-            c_segs, c_copy, c_start, 
-            end_point, 
-            skip_last, 
-            store):
+
+    def get_intersections(self, roof, cutter, s_start, segs):
         """
-            f_ the line to follow
-            c_ the crossing one
-            end_point : the point we may reach to end the loop
-            skip_last : when starting from intersection skip last from test 
-                        to prevent redetection the same intersection
-            store : array of segments found in the rootline
+            Detect all intersections
+            for boundary: store intersection point, t, idx of segment, idx of cutter
+            sort by t
         """
-        f_nsegs = len(f_segs)
-        c_nsegs = len(c_segs)
-        for f in range(f_nsegs):
-            
-            f_idx = self.iter_segs(f_segs, f_start + f)
-            f_s = f_segs[f_idx]
-            f_c = f_copy[f_idx]
-            
-            store.append(f_c)
-            
-            print("append r:%s f_c.p0:%s p1:%s" % (f_idx, f_c.p0, f_c.p1))
-            
-            # found starting point then exit
-            if f_s.p1 == end_point:
-                return True, f_start, c_start
-            
-            # when cross occur, modify crossing segments
-            # so it fit with intersection
-            for c in range(c_nsegs - skip_last):
-                c_idx = self.iter_segs(c_segs, c_start + c)
-                c_s = c_segs[c_idx]
-                c_c = c_copy[c_idx]
-                res, p, u, v = f_s.intersect_ext(c_s)
+        s_segs = roof.segs
+        b_segs = cutter.segs
+        s_nsegs = len(s_segs)
+        b_nsegs = len(b_segs)
+        inter = []
+        
+        # find all intersections
+        for idx in range(s_nsegs):
+            s_idx = roof.get_index(s_start + idx)
+            s = s_segs[s_idx]
+            for b_idx, b in enumerate(b_segs):
+                res, p, u, v = s.intersect_ext(b)
                 if res:
-                    f_c.p1 = p
-                    c_c.p0 = p
-                    c_start = c_idx
-                    # a segment only cross another once
-                    # so prevent detection of same intersection 
-                    f_start = f_idx + 1
-                    print("r:%s intersect b:%s at p:%s " % (f_idx, c_idx, p))
-                    return False, f_start, c_start
-                    
-            # on next iterations 
-            # check for the whole shape
-            skip_last = 0
+                    inter.append((s_idx, u, b_idx, v, p))
+        
+        # print("%s" % (self.side))
+        # print("%s" % (inter))
+        
+        if len(inter) < 1:
+            return True
             
-        return False, f_start, c_start
+        # sort by seg and param t of seg
+        inter.sort()
+        
+        # reorder so we realy start from s_start
+        for i, it in enumerate(inter):
+            if it[0] >= s_start:
+                order = i
+                break
+            
+        inter = inter[order:] + inter[:order]
+        
+        # print("%s" % (inter))
+        p0 = roof.segs[s_start].p0
+        
+        n_inter = len(inter) - 1
+        
+        for i in range(n_inter):
+            s_end, u, b_start, v, p = inter[i]
+            s_idx = roof.get_index(s_start)
+            segs.append(s_segs[s_idx].copy)
+            idx = s_idx
+            # walk through s_segs until intersection
+            while s_idx != s_end:
+                idx += 1
+                s_idx = roof.get_index(idx)
+                segs.append(s_segs[s_idx].copy)
+            segs[-1].p1 = p
+            
+            s_start, u, b_end, v, p = inter[i + 1]
+            b_idx = cutter.get_index(b_start) 
+            segs.append(b_segs[b_idx].copy)
+            idx = b_idx
+            # walk through b_segs until intersection
+            while b_idx != b_end:
+                idx += 1
+                b_idx = cutter.get_index(idx)
+                segs.append(b_segs[b_idx].copy)
+            segs[-1].p1 = p
+        
+        # add part between last intersection and start point
+        idx = s_start
+        s_idx = roof.get_index(s_start)
+        segs.append(s_segs[s_idx].copy)
+        
+        # go until end of segment is near start of first one    
+        while (s_segs[s_idx].p1 - p0).length > 0.0001:
+            idx += 1
+            s_idx = roof.get_index(idx)
+            segs.append(s_segs[s_idx].copy)
+        
+        if len(segs) > s_nsegs + b_nsegs + 1:
+            print("slice failed found:%s of:%s" % (len(segs), s_nsegs + b_nsegs))
+            return False
+        
+        for i, s in enumerate(segs):
+            s.p0 = segs[i - 1].p1
+        
+        return True
         
     def slice(self, boundary):
         """
@@ -983,102 +1026,89 @@ class RoofPolygon():
             when cross occur, modify crossing segments to store crossing point
             then follow boundary storing segments until cross pitch again.
             repeat until pitch start point is reached
-            
+
             4 cases:
             1 pitch has point in boundary -> start from this point
-            2 boundary hea point in pitch -> start from this point
+            2 boundary has point in pitch -> start from this point
             3 no points inside -> find first crossing segment
-            4 not points inside and no crossing segments 
+            4 not points inside and no crossing segments
         """
+        # print("************")
         
         # keep inside or cut inside
         # keep inside must be CCW
         # cut inside must be CW
         keep_inside = (boundary.operation == 'INTERSECTION')
+        if keep_inside:
+            in_out = "in"
+        else:
+            in_out = "out"
+        start = -1
+        cutter = boundary
+        roof = self
         
-        f_start = -1
-        c_start = -1
         f_segs = self.segs
         c_segs = boundary.segs
-        f_copy = [s.copy for s in f_segs]
-        c_copy = [s.copy for s in c_segs]
+        store = []
+        
+        slice_res = True
+        is_inside = False
+        
+        # find if either a boundary or
+        # cutter intersects 
+        # (at least one point of any must be inside other one)
         
         # find a point of this pitch inside boundary
         for i, s in enumerate(f_segs):
             res = self.inside(s.p0, c_segs)
+            if res:
+                is_inside = True
             if res == keep_inside:
-                f_start = i
-                c_start = 0
-                end_point = f_segs[f_start].p0
-                print("pitch pt inside f_start:%s" % (f_start))
+                start = i
+                # print("pitch pt %sside f_start:%s" % (in_out, start))
+                slice_res = self.get_intersections(roof, cutter, start, store)
                 break
-            
-        # no pitch point found inside boundary
+
         # seek for point of boundary inside pitch
-        if c_start < 0:
-            for i, s in enumerate(c_segs):
-                res = self.inside(s.p0)
-                if res == keep_inside:
-                    c_start = i
-                    f_start = 0
-                    end_point = c_segs[c_start].p0
-                    print("boundary pt inside c_start:%s" % (c_start))
-                    # swap boundary / pitch so we start from boundary
-                    c_start, f_start = f_start, c_start
-                    c_segs, f_segs = f_segs, c_segs
-                    c_copy, f_copy = f_copy, c_copy
-                    break
-            
-        # no points found at all
-        # seek for a crossing segment 
-        if f_start < 0:
-            print("no pt inside")
-            return
-                    
-        store = []
-        iter = 0
-        
-        print("slice end_point:%s" % (end_point))
-        
-        # on first iteration, use all segments
-        skip_last = 0
-            
-        while iter < 10:    
-            end, c_start, f_start = self.follow_until_cross(
-                                        f_segs, f_copy, f_start, 
-                                        c_segs, c_copy, c_start, 
-                                        end_point, 
-                                        skip_last, 
-                                        store)                
-            if end:
+        for i, s in enumerate(c_segs):
+            res = self.inside(s.p0)
+            if res:
+                is_inside = True
+            # no pitch point found inside boundary
+            if start < 0 and res == keep_inside:
+                start = i
+                # print("boundary pt %sside c_start:%s" % (in_out, start))
+                # swap boundary / pitch so we start from boundary
+                slice_res = self.get_intersections(cutter, roof, start, store)
                 break
-            # after first cross, skip last segment
-            # as it is the intersected one    
-            skip_last = 1
-            
-            # follow other line
-            # swap seek / cross
-            c_segs, f_segs = f_segs, c_segs
-            c_copy, f_copy = f_copy, c_copy
-            iter += 1
         
-        # points are found, but nothing intersects
-        # so use boundary as hole
-        if iter < 1:
-            self.holes.append(boundary)
-            return 
+        # no points found at all
+        if not is_inside:
+            # print("no pt inside")
+            return
+        
+        if not slice_res:
+            # print("slice fails")
+            # found more segments than input
+            # cutter made more than one loop
+            return
             
+        if len(store) < 1 and is_inside:
+            # print("not touching, add as hole")
+            self.holes.append(boundary)
+            return
+        
         # find "axis"
         a = 0
         for i, s in enumerate(store):
             if s.type == 'AXIS':
                 a = i
                 break
-                
+
         self.segs = store[a:] + store[:a]
         self._axis = self.segs[0]
 
-        print("types:%s" % ([s.type for s in self.segs]))
+        # print("types:%s" % ([s.type for s in self.segs]))
         self.is_convex()
         self.limits()
 
@@ -1113,7 +1143,7 @@ class RoofPolygon():
         p1.z = z
         verts.extend([p0, p1])
         edges.append([f, f + 1])
-    
+
     def as_string(self):
         """
             Print strips relationships
@@ -1138,7 +1168,7 @@ class RoofPolygon():
             self.next.as_string()
         else:
             print("#########")
-    
+
     def limits(self):
         dist = []
         param_t = []
@@ -1152,7 +1182,7 @@ class RoofPolygon():
         self.ysize = max(dist)
         self.xsize = self._axis.length * self.dt
 
-        
+
 """
 import bmesh
 m = C.object.data
@@ -1179,6 +1209,8 @@ class RoofGenerator():
     def __init__(self, d, origin=Vector((0, 0, 0))):
         self.parts = d.parts
         self.segs = []
+        self.nodes = []
+        self.pans = []
         self.length = 0
         self.origin = origin.to_2d()
         self.z = origin.z
@@ -1308,8 +1340,7 @@ class RoofGenerator():
             _quicksort(array, pivot + 1, end)
         return _quicksort(array, begin, end)
 
-    
-    def make_roof(self, context, verts, edges):
+    def make_roof(self, context):
         """
             Init data structure for possibly multi branched nodes
         """
@@ -1352,7 +1383,7 @@ class RoofGenerator():
         # set first node root
         # so regular sort does work
         nodes[0].root = nodes[0].segs[0]
-
+        self.nodes = nodes
         # Propagate slope and width
         # on node basis along axis
         # bi-direction Radial around node
@@ -1554,16 +1585,22 @@ class RoofGenerator():
                             s.left.segs[1].p1 = p
                             s.left.segs[2].p0 = p
                         if node.n_slope > 1:
-                            a1 = s1.seg.delta_angle(s.seg)
                             # last one must be left
                             s1 = node.right(node.center)
+                            a1 = s1.seg.delta_angle(s.seg)
                             # both slopes on same side:
                             # skip this one
+                            if a0 > 0 and a1 < 0:
+                                # right side
+                                res, p, t = s1.seg.intersect(s.right.segs[2])
+                                s.right.segs[-1].p0 = p
+                                s.right.segs[2].p1 = p
                             if a0 < 0 and a1 > 0:
                                 # left side
                                 res, p, t = s1.seg.intersect(s.left.segs[2])
                                 s.left.segs[1].p1 = p
                                 s.left.segs[2].p0 = p
+                            
                     else:
                         # slope at start of segment
                         if a0 < 0:
@@ -1577,17 +1614,22 @@ class RoofGenerator():
                             s.left.segs[-1].p0 = p
                             s.left.segs[2].p1 = p
                         if node.n_slope > 1:
-                            a1 = s1.seg.delta_angle(s.seg)
                             # last one must be right
                             s1 = node.right(node.center)
+                            a1 = s1.seg.delta_angle(s.seg)
                             # both slopes on same side:
                             # skip this one
-                            if a0 < 0 and a1 > 0:
+                            if a0 > 0 and a1 < 0:
                                 # right side
                                 res, p, t = s1.seg.intersect(s.right.segs[2])
                                 s.right.segs[1].p1 = p
                                 s.right.segs[2].p0 = p
-
+                            if a0 < 0 and a1 > 0:
+                                # left side
+                                res, p, t = s1.seg.intersect(s.left.segs[2])
+                                s.left.segs[-1].p0 = p
+                                s.left.segs[2].p1 = p
+                            
             else:
                 # slopes between segments
                 for i, s0 in enumerate(node.segs):
@@ -1720,16 +1762,7 @@ class RoofGenerator():
             if pan.last is None:
                 pan.as_string()
         """
-        for s in self.segs:
-            if s.constraint_type == 'SLOPE':
-                f = len(verts)
-                p0 = s.p0.to_3d()
-                p0.z = self.z
-                p1 = s.p1.to_3d()
-                p1.z = self.z
-                verts.extend([p0, p1])
-                edges.append([f, f + 1])
-
+        
         #   Include user def boundarys if any
         #
         # node ________axis_______ next
@@ -1769,19 +1802,57 @@ class RoofGenerator():
             clear_outer=clear_outer,
             clear_inner=clear_inner
             )
+    
+    def cut_holes(self, bm, pan, offset=0):
+        # cut holes
+        for hole in pan.holes:
+                
+            for seg in hole.segs:
+                p0 = seg.p0 + seg.cross_z.normalized() * offset
+                self.bissect(bm, p0.to_3d(), seg.cross_z.to_3d(), clear_outer=False)
+            
+            if offset != 0:
+                new_s = None
+                segs = []
+                for s in hole.segs:
+                    new_s = s.make_offset(offset, new_s)
+                    segs.append(new_s)
+                # last / first intersection
+                res, p0, t = segs[0].intersect(segs[-1])
+                segs[0].p0 = p0
+                segs[-1].p1 = p0
+            else:
+                segs = hole.segs
+            
+            # when hole segs are found clear parts inside hole
+            f_geom = [f for f in bm.faces
+                if pan.inside(
+                    f.calc_center_median().to_2d(),
+                    segs=segs)]
+            bmesh.ops.delete(bm, geom=f_geom, context=5)
 
+    def cut_boundary(self, bm, pan):
+        # cut outside parts
+        for seg in pan.segs:
+            self.bissect(bm, seg.p0.to_3d(), seg.cross_z.to_3d(), clear_outer=pan.convex)
+            
+        if not pan.convex:
+            f_geom = [f for f in bm.faces
+                if not pan.inside(f.calc_center_median().to_2d())]
+            bmesh.ops.delete(bm, geom=f_geom, context=5)
+              
     def lambris(self, context, o, d):
 
         idmat = 0
         lambris_height = 0.02
         alt = self.z - lambris_height
         for pan in self.pans:
-            
+
             verts = []
             faces = []
             matids = []
             uvs = []
-            
+
             f = len(verts)
             verts.extend([(s.p0.x, s.p0.y, alt + pan.altitude(s.p0)) for s in pan.segs])
             uvs.append([pan.uv(s.p0) for s in pan.segs])
@@ -1789,21 +1860,13 @@ class RoofGenerator():
             face = [f + i for i in range(n_segs)]
             faces.append(face)
             matids.append(idmat)
-            
+
             bm = bmed.buildmesh(
                 context, o, verts, faces, matids=matids, uvs=uvs,
                 weld=False, clean=False, auto_smooth=True, temporary=True)
-            
-            for hole in pan.holes:
-                for seg in hole.segs:
-                    self.bissect(bm, seg.p0.to_3d(), seg.cross_z.to_3d(), clear_outer=False)
-                # when hole segs are found clear parts inside hole
-                f_geom = [f for f in bm.faces 
-                    if pan.inside(
-                        f.calc_center_median().to_2d(), 
-                        segs=hole.segs)]
-                bmesh.ops.delete(bm, geom=f_geom, context=5)
-            
+
+            self.cut_holes(bm, pan)
+
             geom = bm.faces[:]
             verts = bm.verts[:]
             bmesh.ops.solidify(bm, geom=geom, thickness=0.0001)
@@ -1811,7 +1874,7 @@ class RoofGenerator():
 
             # merge with object
             bmed.bmesh_join(context, o, [bm], normal_update=True)
-            
+
     def couverture(self, context, o, d):
 
         idmat = 7
@@ -2025,17 +2088,7 @@ class RoofGenerator():
                     self.bissect(bm, p0.to_3d(), seg.cross_z.to_3d(), clear_outer=remove)
                 elif seg.type in {'LINK_HIP', 'LINK'}:
                     self.bissect(bm, seg.p0.to_3d(), seg.cross_z.to_3d(), clear_outer=remove)
-            
-            for hole in pan.holes:
-                for seg in hole.segs:
-                    self.bissect(bm, seg.p0.to_3d(), seg.cross_z.to_3d(), clear_outer=False)
-                # when hole segs are found clear parts inside hole
-                f_geom = [f for f in bm.faces 
-                    if pan.inside(
-                        f.calc_center_median().to_2d(), 
-                        segs=hole.segs)]
-                bmesh.ops.delete(bm, geom=f_geom, context=5)
-             
+                       
             # when not convex, select and remove outer parts
             if not pan.convex:
                 """
@@ -2052,9 +2105,29 @@ class RoofGenerator():
                     DEL_ONLYTAGGED
                 };
                 """
-                f_geom = [f for f in bm.faces if not pan.inside(f.calc_center_median().to_2d())]
+                # Build boundary including borders and bottom offsets
+                new_s = None
+                segs = []
+                for s in pan.segs:
+                    if s.type == 'LINK_VALLEY':
+                        offset = -d.tile_couloir
+                    elif s.type == 'BOTTOM':
+                        offset = d.tile_border
+                    elif s.type == 'SIDE':
+                        offset = d.tile_side
+                    else:
+                        offset = 0
+                    new_s = s.make_offset(offset, new_s)
+                    segs.append(new_s)
+                # last / first intersection
+                res, p0, t = segs[0].intersect(segs[-1])
+                segs[0].p0 = p0
+                segs[-1].p1 = p0
+                f_geom = [f for f in bm.faces if not pan.inside(f.calc_center_median().to_2d(), segs)]
                 bmesh.ops.delete(bm, geom=f_geom, context=5)
-
+            
+            self.cut_holes(bm, pan)
+            
             if d.tile_bevel:
                 geom = bm.verts[:]
                 geom.extend(bm.edges[:])
@@ -2076,8 +2149,8 @@ class RoofGenerator():
 
             # merge with object
             bmed.bmesh_join(context, o, [bm], normal_update=True)
-        bpy.ops.object.mode_set(mode='OBJECT')    
-            
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     def rake(self, d, verts, faces, edges, matids, uvs):
 
         #####################
@@ -2255,8 +2328,8 @@ class RoofGenerator():
                             a0 = -s3.v.angle_signed(s.p1 - p)
                         else:
                             a1 = -s3.v.angle_signed(s.p1 - p)
-                    
-                    
+
+
                     if pan.side == 'LEFT':
                         s2, s3 = s3, s2
                         s0 = s.straight(-1, 1).rotate(-a0)
@@ -2476,9 +2549,9 @@ class RoofGenerator():
                     x1, y1 = s.lerp(t0)
                     x2, y2 = p1
                     x3, y3 = s.lerp(t1)
-                    z0 = self.z + d.beam_alt + pan.altitude(p0)
+                    z0 = self.z + d.beam_alt
                     z1 = z0 - d.beam_height
-                    z2 = self.z + d.beam_alt + pan.altitude(p1)
+                    z2 = self.z + d.beam_alt
                     z3 = z2 - d.beam_height
                     verts.extend([
                         (x0, y0, z0),
@@ -2517,36 +2590,24 @@ class RoofGenerator():
                         [(0, 0), (1, 0), (1, 1), (0, 1)],
                         [(0, 0), (1, 0), (1, 1), (0, 1)]
                     ])
-    
-    def intersect_chevron(self, line, pan, alt, verts):
-        u0 = 2
-        p1 = line.p1
-        for i, seg in enumerate(pan.segs):
-            if i == 0:
-                continue
-            res, p, u, v = line.intersect_ext(seg)
-            if res and u < u0:
-                p1 = p
-                u0 = u
-        
-        z = self.z + alt + pan.altitude(p1)
-        x, y = p1
-        verts.append((x, y, z))
-        
+
     def rafter(self, context, o, d):
 
         idmat = 4
-
+        
         # Rafters / Chevrons
         start = max(0.001 + 0.5 * d.rafter_width, d.rafter_start)
+        
+        holes_offset = -d.rafter_width
+        
         chevrons_alt = -0.001
         # build temp bmesh and bissect
-             
+
         for pan in self.pans:
             tmin, tmax, ysize = pan.tmin, pan.tmax, pan.ysize
-            
+
             f = 0
-            
+
             verts = []
             faces = []
             matids = []
@@ -2572,47 +2633,32 @@ class RoofGenerator():
                 right_before = t1 + j * dt > 0 and t1 + j * dt < 1
                 left_before = t0 + j * dt > 0 and t0 + j * dt < 1
 
-                if right_before:
-                    z = self.z + alt + pan.altitude(n0.p0)
-                    x, y = n0.p0
-                    verts.append((x, y, z))
-                    
-                self.intersect_chevron(n0, pan, alt, verts)
+                z0 = self.z + alt + pan.altitude(n0.p0)
+                x0, y0 = n0.p0
+                z1 = self.z + alt + pan.altitude(n0.p1)
+                x1, y1 = n0.p1
+                z2 = self.z + alt + pan.altitude(n1.p0)
+                x2, y2 = n1.p0
+                z3 = self.z + alt + pan.altitude(n1.p1)
+                x3, y3 = n1.p1
+                
+                verts.extend([
+                    (x0, y0, z0),
+                    (x1, y1, z1),
+                    (x2, y2, z2),
+                    (x3, y3, z3)
+                    ])
 
-                if not right_before:
-                    z = self.z + alt + pan.altitude(n0.p1)
-                    x, y = n0.p1
-                    verts.append((x, y, z))
-                    
-                if left_before:
-                    z = self.z + alt + pan.altitude(n1.p0)
-                    x, y = n1.p0
-                    verts.append((x, y, z))
-                    
-                self.intersect_chevron(n1, pan, alt, verts)
-
-                if not left_before:
-                    z = self.z + alt + pan.altitude(n1.p1)
-                    x, y = n1.p1
-                    verts.append((x, y, z))
-                    
                 faces.append((f, f + 1, f + 3, f + 2))
                 matids.append(idmat)
                 uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
-            
+
             bm = bmed.buildmesh(
                 context, o, verts, faces, matids=matids, uvs=uvs,
                 weld=False, clean=False, auto_smooth=True, temporary=True)
             
-            for hole in pan.holes:
-                for seg in hole.segs:
-                    self.bissect(bm, seg.p0.to_3d(), seg.cross_z.to_3d(), clear_outer=False)
-                # when hole segs are found clear parts inside hole
-                f_geom = [f for f in bm.faces 
-                    if pan.inside(
-                        f.calc_center_median().to_2d(), 
-                        segs=hole.segs)]
-                bmesh.ops.delete(bm, geom=f_geom, context=5)
+            self.cut_boundary(bm, pan)
+            self.cut_holes(bm, pan, offset=holes_offset)
             
             geom = bm.faces[:]
             verts = bm.verts[:]
@@ -2621,7 +2667,7 @@ class RoofGenerator():
 
             # merge with object
             bmed.bmesh_join(context, o, [bm], normal_update=True)
-            
+
     def hips(self, d, verts, faces, edges, matids, uvs):
 
         idmat_valley = 5
@@ -2780,93 +2826,100 @@ class RoofGenerator():
                         [(0, 0), (1, 0), (1, 1), (0, 1)],
                         [(0, 0), (1, 0), (1, 1), (0, 1)]
                     ])
+                    
                 if s.type == 'LINK_HIP':
-                     if d.hip_enable:
-                        # s0 is bottom seg
+                    
+                    # TODO:
+                    # Slice borders properly
+                    
+                    if d.hip_enable:
+                        
                         s0 = pan.last_seg(i)
-                        if s0.type == 'AXIS':
-                            s0 = pan.next_seg(i)
-                            s2 = s
-                        else:
-                            continue
-
-                        s1 = s0.offset(d.tile_border)
-                        res, p1, tmax = s2.intersect(s1)
-
-                        vx = s2.v.to_3d()
-                        vx.z = -pan.ysize * pan.slope
-                        vx = vx.normalized()
-                        vy = s2.cross_z.normalized().to_3d()
-                        vz = vx.cross(-vy)
-                        x0, y0 = s2.p0 + vx.to_2d().normalized() * 0.3 * d.hip_size_y
-                        z0 = self.z + d.hip_alt
-                        tM = Matrix([
-                            [vx.x, vy.x, vz.x, x0],
-                            [vx.y, vy.y, vz.y, y0],
-                            [vx.z, vy.z, vz.z, z0],
-                            [0, 0, 0, 1]
-                        ])
-
-                        space_2d = tmax * pan.ysize - 0.1 * d.hip_size_y
-                        space_z = pan.altitude(p1)
-                        space_x = sqrt(space_2d * space_2d + space_z * space_z)
-                        n_x = 1 + int(space_x / d.hip_space_x)
-                        dx = space_x / n_x
-                        x0 = 0.5 * dx
-
-                        t_verts = [p for p in t_pts]
-
-                        # apply slope
-                        dz = 0
-                        #t_verts[i].y * cos(abs(da))
-
-                        for i in t_left:
-                            t_verts[i] = t_verts[i].copy()
-                            t_verts[i].z -= dz
-                        for i in t_right:
-                            t_verts[i] = t_verts[i].copy()
-                            t_verts[i].z -= dz
-
-                        for k in range(n_x):
-                            lM = tM * Matrix([
-                                [1, 0, 0, x0 + k * dx],
-                                [0, -1, 0, 0],
-                                [0, 0, 1, 0],
+                        s1 = pan.next_seg(i)
+                        s2 = s
+                        p0 = s0.p1
+                        p1 = s1.p0
+                        z0 = pan.altitude(p0)
+                        z1 = pan.altitude(p1)
+                        
+                        # s0 is top seg
+                        if z1 > z0:
+                            p0, p1 = p1, p0
+                            z0, z1 = z1, z0
+                            s2 = s2.oposite
+                        dz = pan.altitude(s2.sized_normal(0, 1).p1) - z0
+                        
+                        if dz < 0:    
+                            s1 = s1.offset(d.tile_border)
+                            # vx from p0 to p1
+                            x, y = p1 - p0
+                            v = Vector((x, y, z1 - z0))
+                            vx_2d = v.to_2d()
+                            vx = v.normalized()
+                            vy = vx.cross(Vector((0, 0, 1)))
+                            vz = vy.cross(vx)
+                            
+                            x0, y0 = p0 + vx_2d.normalized() * 0.3 * d.hip_size_y
+                            z2 = z0 + self.z + d.hip_alt 
+                            tM = Matrix([
+                                [vx.x, vy.x, vz.x, x0],
+                                [vx.y, vy.y, vz.y, y0],
+                                [vx.z, vy.z, vz.z, z2],
                                 [0, 0, 0, 1]
                             ])
-                            f = len(verts)
+                            space_x = v.length - d.tile_border
+                            n_x = 1 + int(space_x / d.hip_space_x)
+                            dx = space_x / n_x
+                            x0 = 0.5 * dx
 
-                            verts.extend([lM * p for p in t_verts])
-                            faces.extend([tuple(i + f for i in p) for p in t_faces])
-                            matids.extend(t_idmats)
-                            uvs.extend(t_uvs)
+                            t_verts = [p for p in t_pts]
+                            
+                            # apply slope
+                        
+                            for i in t_left:
+                                t_verts[i] = t_verts[i].copy()
+                                t_verts[i].z -= dz * t_verts[i].y
+                            for i in t_right:
+                                t_verts[i] = t_verts[i].copy()
+                                t_verts[i].z += dz * t_verts[i].y
+
+                            for k in range(n_x):
+                                lM = tM * Matrix([
+                                    [1, 0, 0, x0 + k * dx],
+                                    [0, -1, 0, 0],
+                                    [0, 0, 1, 0],
+                                    [0, 0, 0, 1]
+                                ])
+                                f = len(verts)
+
+                                verts.extend([lM * p for p in t_verts])
+                                faces.extend([tuple(i + f for i in p) for p in t_faces])
+                                matids.extend(t_idmats)
+                                uvs.extend(t_uvs)
+                            
                 elif s.type == 'LINK_VALLEY':
                     if d.valley_enable:
                         f = len(verts)
                         s0 = s.offset(-2 * d.tile_couloir)
-                        s1 = pan._axis
-                        # s2 = border
-                        s2 = pan.last_seg(i)
-                        if s2.type == 'AXIS':
-                            s3 = s
-                            s2 = pan.next_seg(i)
-                        else:
-                            s3 = s.oposite
+                        s1 = pan.last_seg(i)
+                        s2 = pan.next_seg(i)
                         res, p0, t = s0.intersect(s1)
                         res, p1, t = s0.intersect(s2)
-
-                        x0, y0 = s3.p0
+                        alt = self.z + d.valley_altitude
+                        x0, y0 = s1.p1
                         x1, y1 = p0
                         x2, y2 = p1
-                        x3, y3 = s3.p1
-                        z0 = self.z + d.valley_altitude + pan.altitude(s3.p0)
-                        z1 = self.z + d.valley_altitude + pan.altitude(s3.p1)
-
+                        x3, y3 = s2.p0
+                        z0 = alt + pan.altitude(s1.p1)
+                        z1 = alt + pan.altitude(p0)
+                        z2 = alt + pan.altitude(p1)
+                        z3 = alt + pan.altitude(s2.p0)
+                        
                         verts.extend([
                             (x0, y0, z0),
-                            (x1, y1, z0),
-                            (x2, y2, z1),
-                            (x3, y3, z1),
+                            (x1, y1, z1),
+                            (x2, y2, z2),
+                            (x3, y3, z3),
                         ])
                         faces.extend([
                             (f, f + 1, f + 2, f + 3)
@@ -2877,6 +2930,7 @@ class RoofGenerator():
                         uvs.extend([
                             [(0, 0), (1, 0), (1, 1), (0, 1)]
                         ])
+                        
                 elif s.type == 'AXIS' and d.hip_enable and pan.side == 'LEFT':
 
                     tmin = 0
@@ -2928,86 +2982,126 @@ class RoofGenerator():
                         matids.extend(t_idmats)
                         uvs.extend(t_uvs)
 
-    def make_hole(self, context, hole_obj, d):
+    def make_hole(self, context, hole_obj, d, skip_parent_update=True):
         """
-            Hole
-            follow axis based on node roots
-            take an offset from horiziontal parts
-            build 2 verts
-
-            top view                  front view
-                   11-10 /
-          5-4___s4___/  /                0-6      z0
-       0-3  /__________/  / 6-9         /|\
-            \_____s2_____/        5-11 / | \ 1-7  z1 - z2
-         1-2            7-8           |__|__|
-                                  4-10  3-9  2-8  z3
+            Hole for t child on parent
+            create / update a RoofCutter on parent
+            assume context object is child roof
+            with parent set
         """
-
-        segs = self.all_segs
-        node = self.nodes[0]
-        root = segs[node.root.idx]
-        il0 = node.left_idx(node.center)
-        ir0 = node.right_idx(node.center)
-        s0 = segs[il0]
-        s1 = segs[ir0]
-        s2 = root.offset(min(0.001 - root.width_left, d.hole_offset_left - root.width_left))
-        s4 = root.offset(max(root.width_right - 0.001, root.width_right - d.hole_offset_right))
-        x0, y0 = root.p0
-        res, p, t = s0.intersect(s2)
-        x1, y1 = p
-        res, p, t = s1.intersect(s4)
-        x4, y4 = p
-        t = max(0.001, (root.length - d.hole_offset_front) /  root.length)
-        x6, y6 = root.lerp(t)
-        x7, y7 = s2.lerp(t)
-        x10, y10 = s4.lerp(t)
-        z0 = self.z + 1.0
-        z1 = z0
-        z2 = z0
-        z3 = z0 - max(z1, z2) - 1.0
-
-        verts = [
-            (x0, y0, z0),
-            # right
-            (x1, y1, z1),
-            (x1, y1, z3),
-            # center
-            (x0, y0, z3),
-            # left
-            (x4, y4, z3),
-            (x4, y4, z2),
-
-            (x6, y6, z0),
-            # right
-            (x7, y7, z1),
-            (x7, y7, z3),
-            # center
-            (x6, y6, z3),
-            # left
-            (x10, y10, z3),
-            (x10, y10, z2)
-        ]
-        faces = [
-            (0, 1, 2, 3),
-            (0, 3, 4, 5),
-
-            (0, 6, 7, 1),
-            (1, 7, 8, 2),
-            (2, 8, 9, 3),
-            (3, 9, 10, 4),
-            (4, 10, 11, 5),
-            (5, 11, 6, 0),
-
-            (6, 9, 8, 7),
-            (6, 11, 10, 9)
-        ]
-        matids = None
-        uvs = None
-        bmed.buildmesh(
-            context, hole_obj, verts, faces, matids=matids, uvs=uvs,
-            weld=False, clean=False, auto_smooth=False, temporary=False)
-
+        o = context.active_object
+        print("Make hole :%s hole_obj:%s" % (o.name, hole_obj))
+            
+        # root is a RoofSegment
+        root = self.nodes[0].root
+        r_pan = root.right
+        l_pan = root.left
+        
+        # merge :
+        # 5   ____________ 4
+        #    /            | 
+        #   /     left    |
+        #  /_____axis_____|  3 <- kill axis and this one
+        #0 \              |
+        #   \     right   | 
+        # 1  \____________| 2
+        #   
+        # degenerate case: 
+        # 
+        #  /|
+        # / |  
+        # \ |
+        #  \|
+        #
+        
+        segs = []
+        last = len(r_pan.segs) - 1
+        for i, seg in enumerate(r_pan.segs):
+            # r_pan start parent roof side
+            if i == last:
+                to_merge = seg.copy
+            elif seg.type != 'AXIS':
+                segs.append(seg.copy)
+        
+        for i, seg in enumerate(l_pan.segs):
+            # l_pan end parent roof side
+            if i == 1:
+                # 0 is axis
+                to_merge.p1 = seg.p1
+                segs.append(to_merge)
+            elif seg.type != 'AXIS':
+                segs.append(seg.copy)
+        
+        # if there is side offset:
+        # create an arrow
+        # 
+        # 4   s4
+        #    /|
+        #   / |___s1_______ 
+        #  / p3            | p2  s3  
+        #0 \ p0___s0_______| p1
+        #   \ |
+        # 1  \|
+        s0 = root.left._axis.offset(
+                min(
+                    root.right.width - 0.001, 
+                    root.right.width - d.hole_offset_right
+                    ))
+        s1 = root.left._axis.offset(
+                max(
+                    0.001 - root.left.width, 
+                    d.hole_offset_left - root.left.width
+                    ))
+        
+        s3 = segs[2].offset(-d.hole_offset_front)
+        s4 = segs[0].copy
+        p1 = s4.p1
+        s4.p1 = segs[-1].p0
+        s4.p0 = p1 
+        res, p0, t = s4.intersect(s0)
+        res, p1, t = s0.intersect(s3)
+        res, p2, t = s1.intersect(s3)
+        res, p3, t = s4.intersect(s1)
+        pts = []
+        # pts in cw order for 'DIFFERENCE' mode
+        pts.extend([segs[-1].p1, segs[-1].p0])
+        if (segs[-1].p0 - p3).length > 0.001:
+            pts.append(p3)
+        pts.extend([p2, p1])
+        if (segs[0].p1 - p0).length > 0.001:
+            pts.append(p0)
+        pts.extend([segs[0].p1, segs[0].p0])
+        
+        pts = [p.to_3d() for p in pts]
+        
+        if hole_obj is None:
+            context.scene.objects.active = o.parent
+            bpy.ops.archipack.roof_boundary(parent=o.parent.name)
+            hole_obj = context.active_object
+        else:
+            context.scene.objects.active = hole_obj   
+        
+        hole_obj.select = True
+        if d.parts[0].a0 < 0:
+            y = -d.t_dist_y
+        else:
+            y = d.t_dist_y
+        
+            
+        hole_obj.matrix_world = o.matrix_world * Matrix([
+            [1, 0, 0, 0],
+            [0, 1, 0, y],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+            ])
+            
+        hd = archipack_roof_boundary.datablock(hole_obj)
+        hd.boundary = o.name
+        hd.update_points(pts, True, skip_parent_update)
+        hole_obj.select = False
+        
+        context.scene.objects.active = o
+        
     def change_coordsys(self, fromTM, toTM):
         """
             move shape fromTM into toTM coordsys
@@ -3053,9 +3147,6 @@ class RoofGenerator():
         wg = wd.get_generator()
         z0 = self.z - wd.z
 
-        segs = self.all_segs
-        nodes = self.nodes
-
         # wg in roof coordsys
         wg.change_coordsys(wall.matrix_world, o.matrix_world)
 
@@ -3070,115 +3161,48 @@ class RoofGenerator():
 
         wall_t = [[] for w in wg.segs]
 
-        for idx, node in enumerate(nodes):
-
-            # find next node in segment
-            for i, s in enumerate(node.segs):
-
-                seg = segs[s.idx]
-
-                if s.reversed:
-                    continue
-
-                if nodes[seg.v1_idx].count > 1:
-                    next = nodes[seg.v1_idx]
-
-                    center_0 = i
-                    center_1 = next.center
-
-                    # found 2nd node
-                    if center_1 > -1:
-
-                        ############
-                        # right
-                        ############
-
-                        ir0 = next.right_idx(center_1)
-                        ir1 = node.left_idx(center_0)
-
-                        ############
-                        # left
-                        ############
-
-                        il0 = node.right_idx(center_0)
-                        il1 = next.left_idx(center_1)
-
-                        for widx, wseg in enumerate(wg.segs):
-                            # walls segment in roof coordsys
-                            p0 = wseg.line.p0
-                            p1 = wseg.line.p1
-                            # side of wall segment vs axis
-                            res, d0, t0 = seg.point_sur_segment(p0)
-                            res, d1, t1 = seg.point_sur_segment(p1)
-
-                            # print("w:%s s:%s d0:%s d1:%s" % (widx, idx, d0, d1))
-
-                            # side of axis
-                            if d0 > 0:
-                                slope = seg.slope_left
-                                width = seg.width_left
-                                s0 = segs[ir0]
-                                s1 = segs[ir1]
-
-                            elif d0 <= 0:
-                                slope = seg.slope_right
-                                width = seg.width_right
-                                s0 = segs[il0]
-                                s1 = segs[il1]
-
-                            # check if wall segment is between slopes
-                            res, d2, t2 = s0.point_sur_segment(p0)
-                            res, d3, t3 = s1.point_sur_segment(p0)
-
-                            # p0 between slopes
-                            if d2 > 0 and d3 < 0:
-                                z = z0 - abs(d0) * slope
-                                wall_t[widx].append((0, z, widx, idx, "p0"))
-
-                            # slope segments intersection check
-                            res, p, t, v = wseg.line.intersect_ext(s0)
-                            if res and t > 0 and t < 1 and v > 0 and v < 1:
-                                res, d0, t0 = seg.point_sur_segment(p)
-                                z = z0 - abs(d0) * slope
-                                wall_t[widx].append((t, z, widx, idx, "slope s0"))
-
-                            res, p, t, v = wseg.line.intersect_ext(s1)
-                            if res and t > 0 and t < 1 and v > 0 and v < 1:
-                                res, d0, t0 = seg.point_sur_segment(p)
-                                z = z0 - abs(d0) * slope
-                                wall_t[widx].append((t, z, widx, idx, "slope s1"))
-
-                            # axis intersection
-                            res, p, t, v = wseg.line.intersect_ext(seg)
-                            if res and t > 0 and t < 1 and v > 0 and v < 1:
-                                wall_t[widx].append((t, z0, widx, idx, "axis"))
-
-                            # TODO:
-                            # Roof bottom border intersection
-                            # if ever this make sense
+        for pan in self.pans:  
+            # walls segment
+            for widx, wseg in enumerate(wg.segs):
+                
+                for seg in pan.segs:
+                    # intersect with a roof segment
+                    # any linked or axis intersection here 
+                    # will be dup as they are between 2 roof parts
+                    res, p, t, v = wseg.line.intersect_ext(seg)
+                    if res:
+                        z = z0 + pan.altitude(p)
+                        wall_t[widx].append((t, z, widx))
+                    
+                # lie under roof
+                if pan.inside(wseg.line.p0):
+                    z = z0 + pan.altitude(wseg.line.p0)
+                    wall_t[widx].append((0, z, widx))
 
         old = context.active_object
         old_sel = wall.select
         wall.select = True
         context.scene.objects.active = wall
-
+        
         wd.auto_update = False
+        # setup splits count and first split to 0
         for seg in wall_t:
             self.sort_t(seg)
-            print("seg: %s" % seg)
+            # print("seg: %s" % seg)
             for s in seg:
-                t, z, widx, idx, type = s
+                t, z, widx = s
                 wd.parts[widx].n_splits = len(seg) + 1
                 wd.parts[widx].z[0] = 0
                 wd.parts[widx].t[0] = 0
                 break
-
+        
+        # add splits, skip dups
         for seg in wall_t:
             t0 = 0
             last_t = -1
             id = 1
             for s in seg:
-                t, z, widx, idx, type = s
+                t, z, widx = s
                 if t == 0:
                     # add at end of last segment
                     if widx > 0:
@@ -3214,7 +3238,10 @@ class RoofGenerator():
         wall.select = old_sel
         context.scene.objects.active = old
 
-    def boundary(self, context, o, verts, edges):
+    def boundary(self, context, o):
+        """
+            either external or holes cuts
+        """
         for b in o.children:
             d = archipack_roof_boundary.datablock(b)
             if d is not None:
@@ -3222,7 +3249,20 @@ class RoofGenerator():
                 g.change_coordsys(b.matrix_world, o.matrix_world)
                 for pan in self.pans:
                     pan.slice(g)
-
+    
+    def draft(self, context, verts, edges):
+        for pan in self.pans:
+            pan.draw(context, self.z, verts, edges)
+            
+        for s in self.segs:
+            if s.constraint_type == 'SLOPE':
+                f = len(verts)
+                p0 = s.p0.to_3d()
+                p0.z = self.z
+                p1 = s.p1.to_3d()
+                p1.z = self.z
+                verts.extend([p0, p1])
+                edges.append([f, f + 1])
 
 """
 wall = C.object
@@ -3250,95 +3290,12 @@ def update_parent(self, context):
     # update part a0
     o = context.active_object
     p, d = self.find_parent(context)
-
+    
     if d is not None:
-        # add a reference point
-        bpy.ops.object.select_all(action="DESELECT")
-
-        # 5 cases here:
-        # 1 No parents at all
-        # 2 o has parent
-        # 3 w has parent
-        # 4 o and w share same parent allready
-        # 5 o and w dosent share parent
-        link_to_parent = False
-
-        # when both walls do have a reference point, we may delete one of them
-        to_delete = None
-
-        # select childs and make parent reference point active
-        if p.parent is None:
-            # Either link to o.parent or create new parent
-            link_to_parent = True
-            if o.parent is None:
-                # create a reference point and make it active
-                x, y, z = p.bound_box[0]
-                context.scene.cursor_location = p.matrix_world * Vector((x, y, z))
-                # fix issue #9
-                context.scene.objects.active = o
-                bpy.ops.archipack.reference_point(symbol_type='ROOF')
-                o.select = True
-            else:
-                context.scene.objects.active = o.parent
-            p.select = True
-        else:
-            # w has parent
-            if o.parent is not p.parent:
-                link_to_parent = True
-                context.scene.objects.active = p.parent
-                o.select = True
-                if o.parent is not None:
-                    # store o.parent to delete it
-                    to_delete = o.parent
-                    for c in o.parent.children:
-                        if c is not o:
-                            c.hide_select = False
-                            c.select = True
-
-        parent = context.active_object
-
-        if link_to_parent and bpy.ops.archipack.parent_to_reference.poll():
-            bpy.ops.archipack.parent_to_reference('INVOKE_DEFAULT')
-
-        # hide holes from select
-        for c in parent.children:
-            if "archipack_hybridhole" in c:
-                c.hide_select = True
-
-        # delete unneeded reference point
-        if to_delete is not None:
-            bpy.ops.object.select_all(action="DESELECT")
-            to_delete.select = True
-            context.scene.objects.active = to_delete
-            if bpy.ops.object.delete.poll():
-                bpy.ops.object.delete(use_global=False)
-
-
-        bpy.ops.object.select_all(action="DESELECT")
-        o.select = True
-        context.scene.objects.active = o
-
-        bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
-
-        hole_obj = context.active_object
-        hole_obj.select = False
-
-        o.select = True
-        context.scene.objects.active = p
-
-        p.select = True
-        if bpy.ops.archipack.single_boolean.poll():
-            bpy.ops.archipack.single_boolean()
-
-        hole_obj.matrix_world = o.matrix_world.copy()
-
-        p.select = False
-
-        context.scene.objects.active = o
-        o.select = True
+        o.parent = p
+        
         # trigger object update
         self.parts[0].a0 = pi / 2
-
 
     elif self.t_parent != "":
         self.t_parent = ""
@@ -3578,13 +3535,13 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
     slope_left = FloatProperty(
             name="L slope",
             default=0.5, precision=2, step=1,
-            unit='LENGTH', subtype='DISTANCE',
+            # unit='LENGTH', subtype='DISTANCE',
             update=update_childs
             )
     slope_right = FloatProperty(
             name="R slope",
             default=0.5, precision=2, step=1,
-            unit='LENGTH', subtype='DISTANCE',
+            # unit='LENGTH', subtype='DISTANCE',
             update=update_childs
             )
     width_left = FloatProperty(
@@ -4136,7 +4093,6 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
     hole_offset_front = FloatProperty(
         name="Front",
         description="Front distance from border",
-        min=0,
         default=0,
         update=update
         )
@@ -4145,7 +4101,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
     def make_wall_fit(self, context, o, wall, inside=False):
         origin = Vector((0, 0, self.z))
         g = self.get_generator(origin)
-        g.make_roof(context, [], [])
+        g.make_roof(context)
         g.make_wall_fit(context, o, wall, inside)
 
     def update_parts(self):
@@ -4331,44 +4287,45 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         d = archipack_roof.datablock(child)
 
         if d is not None and d.t_part - 1 < len(g.segs):
-
+            print("relocate_child(%s)" % (child.name))
+                
             seg = g.segs[d.t_part]
             # adjust T part matrix_world from parent
             # T part origin located on parent axis
             # with y in parent direction
             t = (d.t_dist_x / seg.length)
             x, y, z = seg.lerp(t).to_3d()
-            dy = seg.v.normalized()
+            dy = -seg.v.normalized()
             child.matrix_world = o.matrix_world * Matrix([
-                [dy.x, dy.y, 0, x],
-                [dy.y, -dy.x, 0, y],
+                [dy.x, -dy.y, 0, x],
+                [dy.y, dy.x, 0, y],
                 [0, 0, 1, z],
                 [0, 0, 0, 1]
             ])
 
     def relocate_childs(self, context, o, g):
-        if o.parent is not None:
-            for child in o.parent.children:
-                d = archipack_roof.datablock(child)
-                if d is not None and d.t_parent == o.name:
-                    self.relocate_child(context, o, g, child)
+        for child in o.children:
+            d = archipack_roof.datablock(child)
+            if d is not None and d.t_parent == o.name:
+                self.relocate_child(context, o, g, child)
 
     def update_childs(self, context, o, g):
-        if o.parent is not None:
-            for child in o.parent.children:
-                d = archipack_roof.datablock(child)
-                if d is not None and d.t_parent == o.name:
-                    child.select = True
-                    context.scene.objects.active = child
-                    d.update(context, force_update=True)
-                    child.select = False
-            o.select = True
-            context.scene.objects.active = o
-
+        for child in o.children:
+            d = archipack_roof.datablock(child)
+            if d is not None and d.t_parent == o.name:
+                print("upate_childs(%s)" % (child.name))
+                child.select = True
+                context.scene.objects.active = child
+                # prevent cyclic update
+                d.update(context, force_update=True, skip_parent_update=True)
+                child.select = False
+        o.select = True
+        context.scene.objects.active = o
+    
     def update(self,
                 context,
                 manipulable_refresh=False,
-                relocate_only=False,
+                skip_parent_update=False,
                 update_childs=False,
                 force_update=False):
         """
@@ -4393,38 +4350,36 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         z = self.z
         p, d = self.find_parent(context)
         g = None
-
-        # t childs
+        
+        # t childs: use parent to relocate
+        # setup slopes into generator
         if d is not None:
-
             pg = d.get_generator()
-            pg.make_roof(context, [], [])
+            pg.make_roof(context)
 
             if self.t_part - 1 < len(pg.segs):
 
-                seg = pg.segs[self.t_part]
+                seg = pg.nodes[self.t_part].root
 
                 d.relocate_child(context, p, pg, o)
 
-                if relocate_only:
-                    self.restore_context(context)
-                    return
-
                 a0 = self.parts[0].a0
-
+                a_axis = a0 - pi / 2
+                a_offset = 0    
                 if a0 > 0:
                     # a_axis est mesure depuis la perpendiculaire à l'axe
-                    a_axis = a0 - pi / 2
-                    slope = seg.slope_right
+                    slope = seg.right.slope
                     y = self.t_dist_y
                 else:
-                    a_axis = a0 + pi / 2
-                    slope = seg.slope_left
+                    a_offset = pi    
+                    slope = seg.left.slope
                     y = -self.t_dist_y
-
+                    
                 if slope == 0:
                     slope = 0.0001
-
+                
+                print("slope: %s" % (slope))
+                
                 z = d.z - self.t_dist_y * slope
 
                 # a_right from axis cross z
@@ -4435,7 +4390,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                     slope,
                     a_axis)
 
-                a_right = b_right
+                a_right = b_right + a_offset
 
                 b_left = self.intersection_angle(
                     self.slope_right,
@@ -4443,10 +4398,11 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                     slope,
                     a_axis)
 
-                a_left = b_left - pi
-
+                a_left = b_left + a_offset
+                
+                # print("a_left:%s" % (a_left))
                 g = self.get_generator(origin=Vector((0, y, z)))
-
+                
                 # Add 'SLOPE' constraints for segment 0
                 v = Vector((cos(a_left), sin(a_left)))
                 s = StraightRoof(g.origin, v)
@@ -4465,7 +4421,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 s.angle_0 = a_right
                 s.take_precedence = False
                 g.segs.append(s)
-
+        
         if g is None:
             g = self.get_generator(origin=Vector((0, y, z)))
 
@@ -4481,18 +4437,30 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             n = f.sized_normal(0, self.width_right)
             self.manipulators[2].set_pts([n.p0.to_3d(), n.p1.to_3d(), (1, 0, 0)])
 
-        g.make_roof(context, [], [])
-
-        g.boundary(context, o, verts, edges)
-
+        g.make_roof(context)
+        
+        # update childs here so parent may use 
+        # new holes
+        self.update_childs(context, o, g)
+        
+        # this trigger parent update
+        # only when editing child
+        if d is not None:
+            # t_child, update hole
+            hole_obj = self.find_hole(context, o)
+            g.make_hole(context, hole_obj, self, skip_parent_update)
+        
+        # add cutters
+        g.boundary(context, o)
+        
         if self.draft:
 
-            for pan in g.pans:
-                pan.draw(context, self.z, verts, edges)
+            g.draft(context, verts, edges)
 
             self.make_surface(o, verts, edges)
 
         else:
+        
             if self.rake_enable:
                 g.rake(self, verts, faces, edges, matids, uvs)
 
@@ -4512,32 +4480,32 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
 
                 context, o, verts, faces, matids=matids, uvs=uvs,
                 weld=False, clean=False, auto_smooth=True, temporary=False)
-            
+
             bpy.ops.object.mode_set(mode='EDIT')
             g.lambris(context, o, self)
 
             if self.rafter_enable:
                 bpy.ops.object.mode_set(mode='EDIT')
                 g.rafter(context, o, self)
-
+            
+            # throttle here
             if self.tile_enable:
                 bpy.ops.object.mode_set(mode='EDIT')
                 g.couverture(context, o, self)
-
+            
+            
+            
+        # cycle deps here
+        # 
 
         """
 
         self.relocate_childs(context, o, g)
 
-        if update_childs:
-            self.update_childs(context, o, g)
-
+        
         # print("%s" % (faces))
 
         n_verts = len(verts)
-
-
-
 
         if force_update:
             self.force_update = True
@@ -4590,29 +4558,14 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         # restore context
         self.restore_context(context)
 
-    def find_hole(self, o):
-        for child in o.children:
-            if 'archipack_hole' in child:
-                return child
+    def find_hole(self, context, o):
+        p, d = self.find_parent(context)
+        if d is not None:
+            for child in p.children:
+                cd = archipack_roof_boundary.datablock(child)
+                if cd is not None and cd.boundary == o.name:    
+                    return child
         return None
-
-    def interactive_hole(self, context, o):
-        hole_obj = self.find_hole(o)
-        if hole_obj is None:
-            m = bpy.data.meshes.new("hole")
-            hole_obj = bpy.data.objects.new("hole", m)
-            context.scene.objects.link(hole_obj)
-            hole_obj['archipack_hole'] = True
-            hole_obj.parent = o
-            hole_obj.matrix_world = o.matrix_world.copy()
-
-        hole_obj.data.materials.clear()
-        for mat in o.data.materials:
-            hole_obj.data.materials.append(mat)
-        g = self.get_generator()
-        g.make_roof([], [])
-        g.make_hole(context, hole_obj, self)
-        return hole_obj
 
     def manipulable_setup(self, context):
         """
@@ -4715,11 +4668,11 @@ class archipack_roof_boundary_segment(ArchipackSegment, PropertyGroup):
         row = box.row()
         row.prop(self, "a0")
 
-        
+
 def update_operation(self, context):
     self.reverse(context, make_ccw=(self.operation == 'INTERSECTION'))
-    
-    
+
+
 class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup):
     # boundary
     parts = CollectionProperty(type=archipack_roof_boundary_segment)
@@ -4733,7 +4686,7 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
             description="Dumb z for manipulator",
             default=0.1,
             options={'SKIP_SAVE'}
-            )    
+            )
     user_defined_path = StringProperty(
             name="user defined",
             update=update_path
@@ -4768,14 +4721,25 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
                 ),
             default='DIFFERENCE',
             update=update_operation
-            )        
-    
+            )
+    boundary = StringProperty(
+            default="",
+            name="Boundary",
+            description="Boundary of t child to cut parent"
+            )
     closed = BoolProperty(
             default=True,
             name="Close",
             options={'SKIP_SAVE'}
             )
 
+    skip_parent_update = BoolProperty(
+        description="Flag to prevent cyclic parent -> child update",
+        options={'SKIP_SAVE'},
+        default=False
+        )
+           
+            
     def setup_manipulators(self):
         for i in range(self.n_parts + 1):
             p = self.parts[i]
@@ -4832,7 +4796,7 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
                     resolution + 1)
                 for i in range(resolution):
                     pts.append(seg[i].to_3d())
-        
+
     def is_cw(self, pts):
         p0 = pts[0]
         d = 0
@@ -4876,7 +4840,7 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
             self.n_parts -= 1
 
         self.update_parts()
-
+        
         p0 = pts.pop(0)
         a0 = 0
         for i, p1 in enumerate(pts):
@@ -4898,20 +4862,27 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
 
         self.closed = closed
 
+    def update_points(self, pts, closed, skip_parent_update):
+        self.auto_update = False 
+        self.from_points(pts, closed)
+        self.skip_parent_update = skip_parent_update
+        self.auto_update = True
+        self.skip_parent_update = False
+        
     def reverse(self, context, make_ccw=False):
 
         g = self.get_generator()
-        
+
         pts = [seg.p0.to_3d() for seg in g.segs]
-        
+
         if self.is_cw(pts) != make_ccw:
             return
-            
+
         types = [p.type for p in self.parts]
-        
+
         if self.closed:
             pts.append(pts[0])
-        
+
         pts = list(reversed(pts))
         self.auto_update = False
 
@@ -4925,14 +4896,14 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
                 [0, 0, 1, 0],
                 [0, 0, 0, 1],
                 ])
-        
+
         self.from_points(pts, self.closed)
-        
+
         for i, type in enumerate(reversed(types)):
             self.parts[i].type = type
-        
+
         self.auto_update = True
-        
+
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
@@ -4950,7 +4921,7 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
         # bmesh.ops.contextual_create(bm, geom=bm.edges)
         bm.to_mesh(o.data)
         bm.free()
-
+        
     def update(self, context, manipulable_refresh=False):
 
         o = self.find_in_selection(context, self.auto_update)
@@ -4972,7 +4943,7 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
 
         g = self.get_generator()
         g.locate_manipulators()
-        
+
         # vertex index in order to build axis
         g.get_verts(verts, edges)
 
@@ -4986,15 +4957,17 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
         if manipulable_refresh:
             self.manipulable_refresh = True
         
-        d = archipack_roof.datablock(o.parent)
-        if d is not None:
-            o.parent.select = True
-            context.scene.objects.active = o.parent
-            d.update(context)
-            
-        o.parent.select = False
-        context.scene.objects.active = o
-        
+        # prevent cyclic update
+        if not self.skip_parent_update:         
+            d = archipack_roof.datablock(o.parent)
+            if d is not None:
+                o.parent.select = True
+                context.scene.objects.active = o.parent
+                d.update(context)
+
+            o.parent.select = False
+            context.scene.objects.active = o
+
         # restore context
         self.restore_context(context)
 
@@ -5053,6 +5026,8 @@ class ARCHIPACK_PT_roof_boundary(Panel):
         box.prop(prop, 'x_offset')
         box.prop(prop, "closed")
         box.prop(prop, 'angle_limit')
+        box.prop_search(prop, "boundary", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
+       
         prop.draw(layout, context)
 
 
@@ -5296,9 +5271,9 @@ class ARCHIPACK_OT_roof_boundary(ArchipackCreateTool, Operator):
     bl_description = "Roof Cutter"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     parent = StringProperty("")
-    
+
     def create(self, context):
         m = bpy.data.meshes.new("Roof Boundary")
         o = bpy.data.objects.new("Roof Boundary", m)

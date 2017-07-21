@@ -83,10 +83,7 @@ class Projection(GlBaseLine):
         size = -cos(pi - 0.5 * acos(c))
         return direction.normalized(), size
 
-    
-    
-    
-    
+
 class Line(Projection):
     """
         2d Line
@@ -119,11 +116,11 @@ class Line(Projection):
         else:
             self.p = Vector((0, 0))
             self.v = Vector((0, 0))
-    
+
     @property
     def copy(self):
         return Line(self.p.copy(), self.v.copy())
-    
+
     @property
     def p0(self):
         return self.p
@@ -256,8 +253,8 @@ class Line(Projection):
             return False, 0, 0
         t = (c * (line.p - self.p)) / d
         return True, self.lerp(t), t
-    
-    def intersect_ext(self, line):    
+
+    def intersect_ext(self, line):
         """
             same as intersect, but return param t on both lines
         """
@@ -270,7 +267,7 @@ class Line(Projection):
         u = (c * dp) / d
         v = (c2 * dp) / d
         return u > 0 and v > 0 and u < 1 and v < 1, self.lerp(u), u, v
-        
+
     def point_sur_segment(self, pt):
         """ _point_sur_segment
             point: Vector 2d
@@ -449,7 +446,7 @@ class Circle(Projection):
                 return True, line.lerp(t0), t0
             else:
                 return True, line.lerp(t1), t1
-        
+
     def translate(self, dp):
         self.c += dp
 
@@ -615,8 +612,8 @@ class Arc(Circle):
         """
         steps = max(1, round(self.length / length, 0))
         return 1.0 / steps, int(steps)
-    
-    def intersect_ext(self, line):    
+
+    def intersect_ext(self, line):
         """
             same as intersect, but return param t on both lines
         """
@@ -625,7 +622,7 @@ class Arc(Circle):
         v1 = p - self.c
         u = self.signed_angle(v0, v1) / self.da
         return u > 0 and v > 0 and u < 1 and v < 1, p, u, v
-        
+
     # this is for wall
     def steps_by_angle(self, step_angle):
         steps = max(1, round(abs(self.da) / step_angle, 0))
