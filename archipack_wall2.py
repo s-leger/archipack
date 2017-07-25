@@ -58,14 +58,14 @@ class Wall():
         self.t = t
         self.flip = flip
         self.z_step = len(z)
-    
+
     def set_offset(self, offset, last=None):
         """
             Offset line and compute intersection point
             between segments
         """
         self.line = self.make_offset(offset, last)
-    
+
     def get_z(self, t):
         t0 = self.t[0]
         z0 = self.z[0]
@@ -97,13 +97,12 @@ class Wall():
         f = len(verts)
         self.p3d(verts, t)
         self.make_faces(i, f, faces)
-        
+
     def make_hole(self, i, verts, z0):
         t = self.t_step[i]
-        f = len(verts)
         x, y = self.line.lerp(t)
         verts.append((x, y, z0))
-        
+
     def straight_wall(self, a0, length, wall_z, z, t):
         r = self.straight(length).rotate(a0)
         return StraightWall(r.p, r.v, wall_z, z, t, self.flip)
@@ -145,21 +144,22 @@ class WallGenerator():
         self.parts = parts
         self.faces_type = 'NONE'
         self.closed = False
-    
+
     def set_offset(self, offset):
         last = None
         for i, seg in enumerate(self.segs):
             seg.set_offset(offset, last)
             last = seg.line
-            
-        w = self.segs[-1]
-        if len(self.segs) > 1:
-            w.line = w.make_offset(offset, self.segs[-2].line)
 
-        p1 = self.segs[0].line.p1
-        self.segs[0].line = self.segs[0].make_offset(offset, w.line)
-        self.segs[0].line.p1 = p1
-        
+        if self.closed:
+            w = self.segs[-1]
+            if len(self.segs) > 1:
+                w.line = w.make_offset(offset, self.segs[-2].line)
+            
+            p1 = self.segs[0].line.p1
+            self.segs[0].line = self.segs[0].make_offset(offset, w.line)
+            self.segs[0].line.p1 = p1
+
     def add_part(self, part, wall_z, flip):
 
         # TODO:
@@ -234,9 +234,9 @@ class WallGenerator():
                 w.a0 = a0
             else:
                 w.v = dp
-    
+
     def locate_manipulators(self, side):
-    
+
         for i, wall in enumerate(self.segs):
 
             manipulators = self.parts[i].manipulators
@@ -304,9 +304,9 @@ class WallGenerator():
                     continue
                     # print("%s" % (wall.n_step))
                     # wall.make_wall(j, verts, faces)
-        
+
         self.locate_manipulators(side)
-        
+
     def rotate(self, idx_from, a):
         """
             apply rotation to all following segs
@@ -350,7 +350,7 @@ class WallGenerator():
             tp = (rM * s.p0) - s.p0 + dp
             s.rotate(da)
             s.translate(tp)
-  
+
     def draw(self, context):
         for seg in self.segs:
             seg.draw(context, render=False)
@@ -360,7 +360,7 @@ class WallGenerator():
             for i in range(33):
                 x, y = wall.lerp(i / 32)
                 verts.append((x, y, 0))
-    
+
     def make_surface(self, o, verts, height):
         bm = bmesh.new()
         for v in verts:
@@ -375,28 +375,28 @@ class WallGenerator():
         bmesh.ops.solidify(bm, geom=geom, thickness=height)
         bm.to_mesh(o.data)
         bm.free()
-    
+
     def make_hole(self, context, hole_obj, d):
-        
+
         offset = -0.5 * (1 - d.x_offset) * d.width
-        
+
         z0 = 0.1
         self.set_offset(offset)
-        
+
         nb_segs = len(self.segs) - 1
         if d.closed:
             nb_segs += 1
-            
+
         verts = []
         for i, wall in enumerate(self.segs):
             wall.param_t(d.step_angle)
             if i < nb_segs:
                 for j in range(wall.n_step + 1):
                     wall.make_hole(j, verts, -z0)
-                    
+
         self.make_surface(hole_obj, verts, d.z + z0)
-        
-        
+
+
 def update(self, context):
     self.update(context)
 
@@ -1203,9 +1203,9 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                         # floor.draw_type = 'BOUNDS'
                         # m.show_viewport = False
                         bpy.ops.archipack.wall2_throttle_update(name=floor.name)
-                
+
             self.interactive_hole(context, o)
-            
+
         if manipulable_refresh:
             # print("manipulable_refresh=True")
             self.manipulable_refresh = True
@@ -1602,7 +1602,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         self._manipulable_invoke(context)
 
         return True
-    
+
     def find_roof(self, context, o, g):
         tM = o.matrix_world
         up = Vector((0, 0, 1))
@@ -1618,16 +1618,16 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             # print("res:%s" % res)
             if res and r.data is not None and "archipack_roof" in r.data:
                 return r, r.data.archipack_roof[0]
-                
+
         return None, None
-                
+
     def find_hole(self, o):
-        if o.parent is not None:                
+        if o.parent is not None:
             for child in o.parent.children:
                 if 'archipack_hole' in child:
                     return child
         return None
-    
+
     def find_floors(self, o):
         floors = []
         if o.parent is not None:
@@ -1635,15 +1635,15 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 if child.data and "archipack_floor" in child.data:
                     floors.append(child)
         return floors
-        
+
     def interactive_hole(self, context, o):
         """
             NOTE:
-            Hole has to be child of reference point to avoid 
+            Hole has to be child of reference point to avoid
             floor boolean refresh when adding windows to wall
         """
         hole_obj = self.find_hole(o)
-        
+
         # parenting childs to wall reference point
         if o.parent is None:
             bpy.ops.object.select_all(action='DESELECT')
@@ -1655,7 +1655,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             bpy.ops.archipack.parent_to_reference()
             o.parent.select = False
             context.scene.objects.active = o
-        
+
         if hole_obj is None:
             m = bpy.data.meshes.new("hole")
             hole_obj = bpy.data.objects.new("hole", m)
@@ -1667,14 +1667,14 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         hole_obj.data.materials.clear()
         for mat in o.data.materials:
             hole_obj.data.materials.append(mat)
-            
+
         g = self.get_generator()
         g.make_hole(context, hole_obj, self)
-        
+
         return hole_obj
 
-        
-# Update throttle (smell hack here)
+
+# Update throttle (hack)
 # use 2 globals to store a timer and state of update_action
 # Use to update floor boolean on edit
 update_timer = None
@@ -1688,7 +1688,7 @@ class ARCHIPACK_OT_wall2_throttle_update(Operator):
     bl_label = "Update childs with a delay"
 
     name = StringProperty()
-    
+
     def modal(self, context, event):
         global update_timer_updating
         if event.type == 'TIMER' and not update_timer_updating:
@@ -1702,7 +1702,7 @@ class ARCHIPACK_OT_wall2_throttle_update(Operator):
                         o.hide = False
                         # o.draw_type = 'TEXTURED'
                         # m.show_viewport = True
-                        
+
                     return self.cancel(context)
         return {'PASS_THROUGH'}
 
@@ -1945,9 +1945,9 @@ class ARCHIPACK_OT_wall2_fit_roof(Operator):
     bl_description = "Fit roof"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     inside = BoolProperty(default=False)
-    
+
     @classmethod
     def poll(self, context):
         return archipack_wall2.filter(context.active_object)
@@ -1961,7 +1961,7 @@ class ARCHIPACK_OT_wall2_fit_roof(Operator):
             d.setup_childs(o, g)
             rd.make_wall_fit(context, r, o, self.inside)
         return {'FINISHED'}
-        
+
 # ------------------------------------------------------------------
 # Define operator class to draw a wall
 # ------------------------------------------------------------------
@@ -2128,11 +2128,15 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
 
         if self.state == 'STARTING':
             takeloc = self.mouse_to_plane(context, event)
-            # print("STARTING")
-            snap_point(takeloc=takeloc,
-                callback=self.sp_init,
-                constraint_axis=(True, True, False),
-                release_confirm=True)
+            # wait for takeloc being visible when button is over horizon
+            rv3d = context.region_data
+            viewinv = rv3d.view_matrix.inverted()
+            if (takeloc * viewinv).z < 0:
+                # print("STARTING")
+                snap_point(takeloc=takeloc,
+                    callback=self.sp_init,
+                    constraint_axis=(True, True, False),
+                    release_confirm=True)
             return {'RUNNING_MODAL'}
 
         elif self.state == 'RUNNING':
@@ -2141,12 +2145,13 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
             snap_point(takeloc=self.takeloc,
                 draw=self.sp_draw,
                 takemat=self.takemat,
+                transform_orientation=context.space_data.transform_orientation,
                 callback=self.sp_callback,
                 constraint_axis=(True, True, False),
-                release_confirm=True)
+                release_confirm=self.max_style_draw_tool)
             return {'RUNNING_MODAL'}
 
-        elif event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
+        elif self.state != 'CANCEL' and event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
 
             # print('LEFTMOUSE %s' % (event.value))
             self.feedback.instructions(context, "Draw a wall", "Click & Drag to add a segment", [
@@ -2157,7 +2162,13 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                 ('RIGHTCLICK or ESC', 'exit')
                 ])
 
-            if event.value == 'PRESS':
+            # press with max mode release with blender mode
+            if self.max_style_draw_tool:
+                evt_value = 'PRESS'
+            else:
+                evt_value = 'RELEASE'
+
+            if event.value == evt_value:
 
                 if self.flag_next:
                     self.flag_next = False
@@ -2186,7 +2197,7 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                     draw=self.sp_draw,
                     callback=self.sp_callback,
                     constraint_axis=(True, True, False),
-                    release_confirm=True)
+                    release_confirm=self.max_style_draw_tool)
 
             return {'RUNNING_MODAL'}
 
@@ -2215,7 +2226,12 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
             else:
                 self.o.select = True
                 context.scene.objects.active = self.o
-                # self.ensure_ccw()
+
+                # remove last segment with blender mode
+                if not self.max_style_draw_tool:
+                    if not d.closed and d.n_parts > 1:
+                        d.n_parts -= 1
+
                 self.o.select = True
                 context.scene.objects.active = self.o
                 # make T child
@@ -2233,6 +2249,8 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
+            prefs = context.user_preferences.addons[__name__.split('.')[0]].preferences
+            self.max_style_draw_tool = prefs.max_style_draw_tool
             self.keymap = Keymaps(context)
             self.wall_part1 = GlPolygon((0.5, 0, 0, 0.2))
             self.wall_line1 = GlPolyline((0.5, 0, 0, 0.8))
@@ -2382,6 +2400,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_wall2_from_slab)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_throttle_update)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_fit_roof)
+
 
 def unregister():
     bpy.utils.unregister_class(archipack_wall2_part)

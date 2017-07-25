@@ -66,7 +66,9 @@ class Roof():
         # force hip or valley
         self.enforce_part = 'AUTO'
         self.triangular_end = False
-
+        # seg is part of hole
+        self.is_hole = False
+        
     def copy_params(self, s):
         s.angle_0 = self.angle_0
         s.v0_idx = self.v0_idx
@@ -83,6 +85,8 @@ class Roof():
         s.type = self.type
         s.enforce_part = self.enforce_part
         s.triangular_end = self.triangular_end
+        # segment is part of hole / slice
+        s.is_hole = self.is_hole
         
     @property
     def copy(self):
@@ -245,104 +249,11 @@ class RoofBoundaryGenerator():
                 (0.5, 0, 0)
             ])
 
-    def make_profile(self, profile, idmat,
-            x_offset, z_offset, extend, verts, faces, matids, uvs):
-
-        # self.set_offset(x_offset)
-
-        n_roofs = len(self.segs) - 1
-
-        if n_roofs < 0:
-            return
-
-        sections = []
-
-        f = self.segs[0]
-
-        # first step
-        if extend != 0:
-            t = -extend / self.segs[0].line.length
-            n = f.line.sized_normal(t, 1)
-            # n.p = f.lerp(x_offset)
-            sections.append((n, f.dz / f.length, f.z0 + f.dz * t))
-
-        # add first section
-        n = f.line.sized_normal(0, 1)
-        # n.p = f.lerp(x_offset)
-        sections.append((n, f.dz / f.length, f.z0))
-
-        for s, f in enumerate(self.segs):
-            n = f.line.sized_normal(1, 1)
-            # n.p = f.lerp(x_offset)
-            sections.append((n, f.dz / f.length, f.z0 + f.dz))
-
-        if extend != 0:
-            t = 1 + extend / self.segs[-1].line.length
-            n = f.line.sized_normal(t, 1)
-            # n.p = f.lerp(x_offset)
-            sections.append((n, f.dz / f.length, f.z0 + f.dz * t))
-
-        user_path_verts = len(sections)
-        f = len(verts)
-        if user_path_verts > 0:
-            user_path_uv_v = []
-            n, dz, z0 = sections[-1]
-            sections[-1] = (n, dz, z0)
-            n_sections = user_path_verts - 1
-            n, dz, zl = sections[0]
-            p0 = n.p
-            v0 = n.v.normalized()
-            for s, section in enumerate(sections):
-                n, dz, zl = section
-                p1 = n.p
-                if s < n_sections:
-                    v1 = sections[s + 1][0].v.normalized()
-                dir = (v0 + v1).normalized()
-                scale = 1 / cos(0.5 * acos(min(1, max(-1, v0 * v1))))
-                for p in profile:
-                    x, y = n.p + scale * (x_offset + p.x) * dir
-                    z = zl + p.y + z_offset
-                    verts.append((x, y, z))
-                if s > 0:
-                    user_path_uv_v.append((p1 - p0).length)
-                p0 = p1
-                v0 = v1
-
-            # build faces using Panel
-            lofter = Lofter(
-                # closed_shape, index, x, y, idmat
-                True,
-                [i for i in range(len(profile))],
-                [p.x for p in profile],
-                [p.y for p in profile],
-                [idmat for i in range(len(profile))],
-                closed_path=False,
-                user_path_uv_v=user_path_uv_v,
-                user_path_verts=user_path_verts
-                )
-            faces += lofter.faces(16, offset=f, path_type='USER_DEFINED')
-            matids += lofter.mat(16, idmat, idmat, path_type='USER_DEFINED')
-            v = Vector((0, 0))
-            uvs += lofter.uv(16, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
-
     def debug(self, verts):
         for s, roof in enumerate(self.segs):
             for i in range(33):
                 x, y = roof.line.lerp(i / 32)
                 verts.append((x, y, 0))
-
-    def find_z(self, axis, pt):
-        d = 100000
-        z = 0
-        n_axis = len(axis.segs) - 1
-        for i, s in enumerate(axis.segs):
-            if i < n_axis:
-                res, d0, t = s.point_sur_segment(pt)
-                if res and abs(d0) < d:
-                    d = abs(d0)
-                # print("res:%s i:%s d0:%s t:%s d:%s" % (res, i, d0, t, d))
-                z = axis.z - d * axis.slope
-        return z
 
     def change_coordsys(self, fromTM, toTM):
         """
@@ -410,6 +321,10 @@ class RoofBoundaryGenerator():
 
 
 class RoofSegment():
+    """
+        Roof part with 2 polygons
+        and "axis" StraightRoof segment
+    """
     def __init__(self, seg, left, right):
         self.seg = seg
         self.left = left
@@ -417,6 +332,7 @@ class RoofSegment():
         self.a0 = 0
         self.reversed = False
 
+        
 class RoofAxisNode():
     """
         Connection between parts
@@ -553,13 +469,9 @@ class RoofPolygon():
         # axis segment
         if side == 'RIGHT':
             self.axis = axis.oposite
-            self.node_angle = pi / 2
-            self.next_angle = -pi / 2
         else:
             self.axis = axis
-            self.node_angle = -pi / 2
-            self.next_angle = pi / 2
-
+            
         self.fake_axis = None
 
         # _axis is either a fake one or real one
@@ -567,26 +479,44 @@ class RoofPolygon():
         if fake_axis is None:
             self._axis = self.axis
             self.fake_axis = self.axis
+            self.next_cross = axis 
+            self.last_cross = axis
         else:
             if side == 'RIGHT':
                 self.fake_axis = fake_axis.oposite
             else:
                 self.fake_axis = fake_axis
             self._axis = self.fake_axis
-
+        
+        # unit vector perpendicular to axis 
+        # looking at outside part
+        v = self.fake_axis.sized_normal(0, -1)
+        self.next_cross = v 
+        self.cross = v
+        self.last_cross = v
+            
         self.convex = True
         # segments from axis end in ccw order
         # closed by explicit segment
         self.segs = []
         # holes
         self.holes = []
-        #
+        
+        # Triangular ends
+        self.node_tri = False
+        self.next_tri = False
+        self.is_tri = False
+        
+        # sizes
         self.tmin = 0
         self.tmax = 1
         self.dt = 1
         self.ysize = 0
         self.xsize = 0
-
+        self.vx = Vector()
+        self.vy = Vector()
+        self.vz = Vector()
+        
     def move_node(self, p):
         """
             Move slope point in node side
@@ -609,13 +539,13 @@ class RoofPolygon():
             self.segs[-1].p0 = p
             self.segs[2].p1 = p
 
-    def node_link(self):
+    def node_link(self, da):
         angle_90 = round(pi / 2, 4)
         if self.side == 'LEFT':
             idx = -1
         else:
             idx = 1
-        da = abs(round(self.node_angle, 4))
+        da = abs(round(da, 4))
         type = "LINK"
         if da < angle_90:
             type += "_VALLEY"
@@ -623,13 +553,13 @@ class RoofPolygon():
             type += "_HIP"
         self.segs[idx].type = type
 
-    def next_link(self):
+    def next_link(self, da):
         angle_90 = round(pi / 2, 4)
         if self.side == 'LEFT':
             idx = 1
         else:
             idx = -1
-        da = abs(round(self.next_angle, 4))
+        da = abs(round(da, 4))
         type = "LINK"
         if da < angle_90:
             type += "_VALLEY"
@@ -644,7 +574,11 @@ class RoofPolygon():
         # backward dependancy relative to axis
         if last.backward:
             self.backward = self.side == last.side
-
+        
+        # axis of last / next segments
+        last.next_cross = self.cross
+        self.last_cross = last.cross
+        
         if self.backward:
             self.next = last
             last.last = self
@@ -656,9 +590,9 @@ class RoofPolygon():
         if self.auto_mode == 'AUTO':
             self.width = last.width
             self.slope = last.slope
-        elif self.auto_mode == 'WIDTH':
+        elif self.auto_mode == 'WIDTH' and self.width != 0:
             self.slope = last.slope * last.width / self.width
-        elif self.auto_mode == 'SLOPE':
+        elif self.auto_mode == 'SLOPE' and self.slope != 0:
             self.width = last.width * last.slope / self.slope
 
         self.make_segments()
@@ -688,7 +622,7 @@ class RoofPolygon():
             self.segs[2].p1 = p1
             self.segs[-1].p0 = p1
 
-        #   /\
+                #   /\
         #   |   angle
         #   |____>
         #
@@ -712,8 +646,7 @@ class RoofPolygon():
                     da = 2 * pi + da
             elif da > 0:
                 da = da - 2 * pi
-            last.next_angle = 0.5 * da
-            last.next_link()
+            last.next_link(0.5 * da)
 
         else:
             # alternate v0 node -> next
@@ -729,11 +662,9 @@ class RoofPolygon():
                     da = 2 * pi + da
             elif da > 0:
                 da = da - 2 * pi
-            last.node_angle = 0.5 * da
-            last.node_link()
+            last.node_link(0.5 * da)
 
-        self.node_angle = -0.5 * da
-        self.node_link()
+        self.node_link(-0.5 * da)
 
     def get_index(self, index):
         n_segs = len(self.segs)
@@ -767,6 +698,8 @@ class RoofPolygon():
         s2 = self.segs[2]
         d0, t = self.distance(s2.p0)
         d1, t = self.distance(pt)
+        # adjust width and slope according
+        self.width = d1
         self.slope = self.slope * d0 / d1
         self.segs[2] = s2.offset(d1 - d0)
 
@@ -835,8 +768,8 @@ class RoofPolygon():
         s0.p1 = p
 
         if self.next is not None:
-            # if self.next.auto_mode == 'ALL':
-            #    return
+            if self.next.auto_mode == 'ALL':
+                return
             if self.next.backward:
                 self.next.propagate_backward(p)
             else:
@@ -854,12 +787,13 @@ class RoofPolygon():
             s0 = self.segs[1].rotate(a0)
             s1 = self.segs[2]
             res, p, t = s1.intersect(s0)
+        
         s1.p0 = p
         s0.p1 = p
 
         if self.next is not None:
-            # if self.next.auto_mode == 'ALL':
-            #    return
+            if self.next.auto_mode == 'ALL':
+                return
             if self.next.backward:
                 self.next.propagate_backward(p)
             else:
@@ -934,7 +868,7 @@ class RoofPolygon():
             index -= n_segs
         return index
 
-    def get_intersections(self, roof, cutter, s_start, segs):
+    def get_intersections(self, roof, cutter, s_start, segs, start_by_hole):
         """
             Detect all intersections
             for boundary: store intersection point, t, idx of segment, idx of cutter
@@ -980,37 +914,48 @@ class RoofPolygon():
         for i in range(n_inter):
             s_end, u, b_start, v, p = inter[i]
             s_idx = roof.get_index(s_start)
-            segs.append(s_segs[s_idx].copy)
+            s = s_segs[s_idx].copy
+            s.is_hole = not start_by_hole
+            segs.append(s)
             idx = s_idx
             # walk through s_segs until intersection
             while s_idx != s_end:
                 idx += 1
                 s_idx = roof.get_index(idx)
-                segs.append(s_segs[s_idx].copy)
+                s = s_segs[s_idx].copy
+                s.is_hole = not start_by_hole
+                segs.append(s)
             segs[-1].p1 = p
 
             s_start, u, b_end, v, p = inter[i + 1]
             b_idx = cutter.get_index(b_start)
-            segs.append(b_segs[b_idx].copy)
+            s = b_segs[b_idx].copy
+            s.is_hole = start_by_hole
+            segs.append(s)
             idx = b_idx
             # walk through b_segs until intersection
             while b_idx != b_end:
                 idx += 1
                 b_idx = cutter.get_index(idx)
-                segs.append(b_segs[b_idx].copy)
+                s = b_segs[b_idx].copy
+                s.is_hole = start_by_hole
+                segs.append(s)
             segs[-1].p1 = p
 
         # add part between last intersection and start point
         idx = s_start
         s_idx = roof.get_index(s_start)
-        segs.append(s_segs[s_idx].copy)
-
+        s = s_segs[s_idx].copy
+        s.is_hole = not start_by_hole
+        segs.append(s)
         # go until end of segment is near start of first one
         while (s_segs[s_idx].p1 - p0).length > 0.0001:
             idx += 1
             s_idx = roof.get_index(idx)
-            segs.append(s_segs[s_idx].copy)
-
+            s = s_segs[s_idx].copy
+            s.is_hole = not start_by_hole
+            segs.append(s)
+            
         if len(segs) > s_nsegs + b_nsegs + 1:
             print("slice failed found:%s of:%s" % (len(segs), s_nsegs + b_nsegs))
             return False
@@ -1022,12 +967,9 @@ class RoofPolygon():
 
     def slice(self, boundary):
         """
-            find a point of this pitch inside boundary
-            follow pitch until boundary cross, storing each segment
-            when cross occur, modify crossing segments to store crossing point
-            then follow boundary storing segments until cross pitch again.
-            repeat until pitch start point is reached
-
+            Simple 2d Boolean between boundary and roof part 
+            Dosen't handle slicing roof into multiple parts
+            
             4 cases:
             1 pitch has point in boundary -> start from this point
             2 boundary has point in pitch -> start from this point
@@ -1067,7 +1009,7 @@ class RoofPolygon():
             if res == keep_inside:
                 start = i
                 # print("pitch pt %sside f_start:%s %s" % (in_out, start, self.side))
-                slice_res = self.get_intersections(roof, cutter, start, store)
+                slice_res = self.get_intersections(roof, cutter, start, store, True)
                 break
 
         # seek for point of boundary inside pitch
@@ -1080,7 +1022,7 @@ class RoofPolygon():
                 start = i
                 # print("boundary pt %sside c_start:%s %s" % (in_out, start, self.side))
                 # swap boundary / pitch so we start from boundary
-                slice_res = self.get_intersections(cutter, roof, start, store)
+                slice_res = self.get_intersections(cutter, roof, start, store, False)
                 break
 
         # no points found at all
@@ -1142,12 +1084,15 @@ class RoofPolygon():
             edges.append([f + n_segs, f])
             
         # axis
-        """
+        
         f = len(verts)
         verts.extend([self.axis.p0.to_3d(), self.axis.p1.to_3d()])
         edges.append([f, f + 1])
-        """
         
+        # cross
+        f = len(verts)
+        verts.extend([self.axis.lerp(0.5).to_3d(), (self.axis.lerp(0.5) + self.cross.v).to_3d()])
+        edges.append([f, f + 1])
         # relationships arrows
         if self.next or self.last:
             w = 1
@@ -1204,7 +1149,16 @@ class RoofPolygon():
         self.dt = self.tmax - self.tmin
         self.ysize = max(dist)
         self.xsize = self.fake_axis.length * self.dt
-
+        # vectors components of part matrix
+        # where x is is axis direction
+        # y down
+        # z up
+        vx = -self.fake_axis.v.normalized().to_3d()
+        vy = Vector((-vx.y, vx.x, self.slope)).normalized()
+        self.vx = vx
+        self.vy = vy
+        self.vz = vx.cross(vy)
+        
 
 """
 import bmesh
@@ -1244,7 +1198,8 @@ class RoofGenerator():
         self.user_defined_tile = None
         self.user_defined_uvs = None
         self.user_defined_mat = None
-
+        self.is_t_child = d.t_parent != "" 
+        
     def add_part(self, part):
 
         if len(self.segs) < 1 or part.bound_idx < 1:
@@ -1334,17 +1289,12 @@ class RoofGenerator():
             p1.z = self.z - self.parts[i].slope_right
             manipulators[6].set_pts([p0, p1, (1, 0, 0)], normal=n0.v.to_3d())
 
-    def debug(self, verts):
-        for s, roof in enumerate(self.segs):
-            for i in range(33):
-                x, y = roof.lerp(i / 32)
-                verts.append((x, y, 0))
-
-    # sort tree segments by angle
     def seg_partition(self, array, begin, end):
+        """
+            sort tree segments by angle
+        """
         pivot = begin
         for i in range(begin + 1, end + 1):
-            # wall idx
             if array[i].a0 < array[begin].a0:
                 pivot += 1
                 array[i], array[pivot] = array[pivot], array[i]
@@ -1367,6 +1317,8 @@ class RoofGenerator():
     def make_roof(self, context):
         """
             Init data structure for possibly multi branched nodes
+            nodes : radial relationships
+            pans : quad stips linear relationships 
         """
         z = self.z
 
@@ -1590,6 +1542,7 @@ class RoofGenerator():
 
             if node.n_horizontal == 1:
                 # slopes at start or end of segment
+                # segment slope is not affected
                 if node.n_slope > 0:
                     # node has user def slope
                     s = node.root
@@ -1656,6 +1609,7 @@ class RoofGenerator():
 
             else:
                 # slopes between segments
+                # does change next segment slope
                 for i, s0 in enumerate(node.segs):
                     s1 = node.left(i)
                     s2 = node.left(i + 1)
@@ -1741,8 +1695,12 @@ class RoofGenerator():
         for node in self.nodes:
             if node.n_horizontal == 1 and node.root.seg.triangular_end:
                 if node.root.reversed:
+                    # Next side (segment end)    
                     left = node.root.left
                     right = node.root.right
+                    left.next_tri = True
+                    right.next_tri = True
+                    
                     s0 = left.segs[1]
                     s1 = left.segs[2]
                     s2 = right.segs[-1]
@@ -1758,20 +1716,24 @@ class RoofGenerator():
                     p5 = p2.to_3d()
                     p5.z = -right.width * right.slope
                     n = (p3 - p4).normalized().cross((p5 - p4).normalized())
-                    v = -n.cross(Vector((0, 0, 1)))
+                    v = n.cross(Vector((0, 0, 1)))
                     dz = n.cross(v)
                     
                     # compute axis
-                    # v = -s0.v.normalized()
-                    # n = Vector((v.y, -v.x)).normalized()
-                    # v += n * 0.5 * ((1 / left.slope) - (1 / right.slope))
                     s = StraightRoof(p1, v)
                     res, d0, t = s.point_sur_segment(p0)
                     res, d1, t = s.point_sur_segment(p2)
-                    p = RoofPolygon(s, 'LEFT')
+                    p = RoofPolygon(s, 'RIGHT')
                     p.make_segments()
-                    p.slope =  dz.z / dz.to_2d().length
-                    # p.slope = right.slope * right.width / d1
+                    p.slope =  -dz.z / dz.to_2d().length
+                    p.is_tri = True
+                    
+                    p.cross = StraightRoof(p1, (p2 - p0)).sized_normal(0, -1)
+                    p.next_cross = left.cross
+                    p.last_cross = right.cross
+                    right.next_cross = p.cross
+                    left.next_cross = p.cross
+                    
                     # remove axis seg of tri
                     p.segs[-1].p0 = p0
                     p.segs[-1].p1 = p1
@@ -1791,9 +1753,13 @@ class RoofGenerator():
                     s2.type = 'LINK_HIP'
                     self.pans.append(p)
                 
-                else:
+                elif not self.is_t_child:
+                    # no triangular part with t_child 
+                    # on "node" parent roof side
                     left = node.root.left
                     right = node.root.right
+                    left.node_tri = True
+                    right.node_tri = True
                     s0 = right.segs[1]
                     s1 = right.segs[2]
                     s2 = left.segs[-1]
@@ -1809,13 +1775,20 @@ class RoofGenerator():
                     p5 = p2.to_3d()
                     p5.z = -left.width * left.slope
                     n = (p3 - p4).normalized().cross((p5 - p4).normalized())
-                    v = -n.cross(Vector((0, 0, 1)))
+                    v = n.cross(Vector((0, 0, 1)))
                     dz = n.cross(v)
                     
                     s = StraightRoof(p1, v)
-                    p = RoofPolygon(s, 'LEFT')
+                    p = RoofPolygon(s, 'RIGHT')
                     p.make_segments()
-                    p.slope =  dz.z / dz.to_2d().length
+                    p.slope = -dz.z / dz.to_2d().length
+                    p.is_tri = True
+                    
+                    p.cross = StraightRoof(p1, (p2 - p0)).sized_normal(0, -1)
+                    p.next_cross = right.cross
+                    p.last_cross = left.cross
+                    right.last_cross = p.cross
+                    left.last_cross = p.cross
                     
                     # remove axis seg of tri
                     p.segs[-1].p0 = p0
@@ -1886,23 +1859,6 @@ class RoofGenerator():
             if pan.last is None:
                 pan.as_string()
         """
-
-        #   Include user def boundarys if any
-        #
-        # node ________axis_______ next
-        #   |                      |
-        # s0|       part           | s1 borders segments
-        #   |                      |
-        #
-        #       boundary segments
-        #
-        #
-        #  Boundary may intersect borders or axis
-        #  Boundary does cut part in 2 spaces
-        #  - inside and outside
-        #  - inside part is defined by boundary itself
-        #
-        #
         return
 
     def bissect(self, bm,
@@ -2118,9 +2074,9 @@ class RoofGenerator():
 
             seg = pan.fake_axis
             # compute base matrix top left of face
-            vx = -seg.v.normalized().to_3d()
-            vy = Vector((-vx.y, vx.x, pan.slope)).normalized()
-            vz = vx.cross(vy)
+            vx = pan.vx
+            vy = pan.vy
+            vz = pan.vz
 
             x0, y0 = seg.lerp(pan.tmax)
             z0 = self.z + d.tile_altitude
@@ -2138,7 +2094,7 @@ class RoofGenerator():
 
             if d.tile_alternate:
                 n_y += 1
-
+            
             tM = Matrix([
                 [vx.x, vy.x, vz.x, x0],
                 [vx.y, vy.y, vz.y, y0],
@@ -2328,12 +2284,12 @@ class RoofGenerator():
 
                         matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
                         uvs.extend([
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)],
-                            [(0, 0), (1, 0), (1, 1), (0, 1)]
+                            [(0, 0), (0, 1), (1, 1), (1, 0)],
+                            [(0, 0), (0, 1), (1, 1), (1, 0)],
+                            [(0, 0), (0, 1), (1, 1), (1, 0)],
+                            [(0, 0), (0, 1), (1, 1), (1, 0)],
+                            [(0, 0), (0, 1), (1, 1), (1, 0)],
+                            [(0, 0), (0, 1), (1, 1), (1, 0)]
                         ])
 
     def facia(self, d, verts, faces, edges, matids, uvs):
@@ -2341,28 +2297,81 @@ class RoofGenerator():
         #####################
         # Larmiers
         #####################
-
+        """
+            2 kind of relationships
+            
+            part of hole:
+            
+            -> LINK/AXIS projection of intersection between
+               last/next segment and bound
+            -> BOTTOM projection of sides
+            
+            part of boundary
+            -> LINK half of axis delta angle
+            -> BOTTOM projection of sides
+        """
         idmat = 2
         for pan in self.pans:
             for i, s in enumerate(pan.segs):
                 if s.type == 'BOTTOM':
                     f = len(verts)
                     s0 = s.offset(d.facia_width)
+                    
                     s1 = pan.last_seg(i)
                     s2 = pan.next_seg(i)
-
-                    if s1.type == 'BOTTOM':
+                    
+                    # triangular ends apply on boundary only
+                    # unless cut, boundary is parallel to axis
+                    # except for triangular ends
+                    
+                    tri_0 = (pan.node_tri and not s.is_hole) or pan.is_tri
+                    tri_1 = (pan.next_tri and not s.is_hole) or pan.is_tri
+                    
+                    if pan.side == 'LEFT':
+                        tri_0, tri_1 = tri_1, tri_0
+                    
+                    # tiangular use segment direction    
+                    # if not tri_0:
+                    # find last neighboor depending on type 
+                    if s1.type == 'AXIS' or 'LINK' in s1.type:
+                        # apply only on boundarys
+                        if not s.is_hole:
+                            # use last axis
+                            if pan.side == 'LEFT':
+                                s3 = pan.next_cross
+                            else:
+                                s3 = pan.last_cross
+                            if tri_0:
+                                s1 = s.copy
+                            else:
+                                s1 = s1.copy
+                            s1.v = (s.sized_normal(0, 1).v + s3.v).normalized()
+                    elif s1.type != 'SIDE':
                         s1 = s1.offset(d.facia_width)
-                    res, p0, t = s1.intersect(s0)
-                    if not res:
-                        p0 = s0.p0
-
-                    if s2.type == 'BOTTOM':
+                    
+                    # find next neighboor depending on type 
+                    if s2.type == 'AXIS' or 'LINK' in s2.type:
+                        if not s.is_hole:
+                            # use last axis
+                            if pan.side == 'LEFT':
+                                s3 = pan.last_cross
+                            else:
+                                s3 = pan.next_cross 
+                            if tri_1:
+                                s2 = s.oposite
+                            else:    
+                                s2 = s2.oposite
+                            s2.v = (s.sized_normal(0, 1).v + s3.v).normalized()
+                    elif s2.type != 'SIDE':
                         s2 = s2.offset(d.facia_width)
-                    res, p1, t = s2.intersect(s0)
-                    if not res:
-                        p1 = s0.p1
-
+                    
+                        
+                    # units vectors and scale
+                    # is unit normal on sides
+                    # print("s.p:%s, s.v:%s s1.p::%s s1.v::%s" % (s.p, s.v, s1.p, s1.v))
+                    res, p0, t = s0.intersect(s1)
+                    res, p1, t = s0.intersect(s2)
+                    
                     x0, y0 = s.p0
                     x1, y1 = p0
                     x2, y2 = p1
@@ -2401,12 +2410,12 @@ class RoofGenerator():
                     edges.append([f + 5, f + 6])
                     matids.extend([idmat, idmat, idmat, idmat, idmat, idmat])
                     uvs.extend([
-                        [(0, 0), (1, 0), (1, 1), (0, 1)],
-                        [(0, 0), (1, 0), (1, 1), (0, 1)],
-                        [(0, 0), (1, 0), (1, 1), (0, 1)],
-                        [(0, 0), (1, 0), (1, 1), (0, 1)],
-                        [(0, 0), (1, 0), (1, 1), (0, 1)],
-                        [(0, 0), (1, 0), (1, 1), (0, 1)]
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)]
                     ])
 
     def gutter(self, d, verts, faces, edges, matids, uvs):
@@ -2427,56 +2436,77 @@ class RoofGenerator():
 
         for pan in self.pans:
             for i, s in enumerate(pan.segs):
+                
                 if s.type == 'BOTTOM':
                     f = len(verts)
-                    s2 = pan.last_seg(i)
-                    s3 = pan.next_seg(i)
-                    d2 = d.gutter_dist + 0.5 * d.gutter_width
-                    s4 = s.offset(-d2)
-
-                    a0 = pan.node_angle
-                    a1 = pan.next_angle
-
-                    if s2.type == 'BOTTOM':
-                        s2 = s2.offset(-d2)
-                        res, p, t = s2.intersect(s4)
-                        if pan.side == 'LEFT':
-                            a1 = -s2.v.angle_signed(p - s.p0)
-                        else:
-                            a0 = -s2.v.angle_signed(p - s.p0)
-
-                    if s3.type == 'BOTTOM':
-                        s3 = s3.offset(-d2)
-                        res, p, t = s3.intersect(s4)
-                        if pan.side == 'LEFT':
-                            a0 = -s3.v.angle_signed(s.p1 - p)
-                        else:
-                            a1 = -s3.v.angle_signed(s.p1 - p)
-
-
+                    
+                    s0 = s.offset(d.gutter_dist + d.gutter_width)
+                    
+                    s1 = pan.last_seg(i)
+                    s2 = pan.next_seg(i)
+                    
+                    # triangular ends apply on boundary only
+                    # unless cut, boundary is parallel to axis
+                    # except for triangular ends
+                    
+                    tri_0 = (pan.node_tri and not s.is_hole) or pan.is_tri
+                    tri_1 = (pan.next_tri and not s.is_hole) or pan.is_tri
+                    
                     if pan.side == 'LEFT':
-                        s2, s3 = s3, s2
-                        s0 = s.straight(-1, 1).rotate(-a0)
-                        s1 = s.straight(1, 0).rotate(-a1)
-                    else:
-                        s0 = s.straight(1, 0).rotate(-a0)
-                        s1 = s.straight(-1, 1).rotate(-a1)
-
-                    if abs(a0) > 0:
-                        scale_0 = min(3, 1 / sin(abs(a0)))
-                    else:
-                        scale_0 = 1
-
-
-                    if abs(a1) > 0:
-                        scale_1 = min(3, 1 / sin(abs(a1)))
-                    else:
-                        scale_1 = 1
-
-                    # print("scale_0:%s scale_1:%s" % (scale_0, scale_1))
-
-                    zt = self.z + d.facia_altitude + pan.altitude(s0.p0)
-                    z0 = self.z + d.gutter_alt + pan.altitude(s0.p0)
+                        tri_0, tri_1 = tri_1, tri_0
+                    
+                    # tiangular use segment direction    
+                    # if not tri_0:
+                    # find last neighboor depending on type 
+                    if s1.type == 'AXIS' or 'LINK' in s1.type:
+                        # apply only on boundarys
+                        if not s.is_hole:
+                            # use last axis
+                            if pan.side == 'LEFT':
+                                s3 = pan.next_cross
+                            else:
+                                s3 = pan.last_cross
+                            if tri_0:
+                                s1 = s.copy
+                            else:
+                                s1 = s1.copy
+                            s1.v = (s.sized_normal(0, 1).v + s3.v).normalized()
+                    elif s1.type != 'SIDE':
+                        s1 = s1.offset(d.gutter_dist + d.gutter_width)
+                    
+                    # find next neighboor depending on type 
+                    if s2.type == 'AXIS' or 'LINK' in s2.type:
+                        if not s.is_hole:
+                            # use last axis
+                            if pan.side == 'LEFT':
+                                s3 = pan.last_cross
+                            else:
+                                s3 = pan.next_cross 
+                            if tri_1:
+                                s2 = s.oposite
+                            else:    
+                                s2 = s2.oposite
+                            s2.v = (s.sized_normal(0, 1).v + s3.v).normalized()
+                    elif s2.type != 'SIDE':
+                        s2 = s2.offset(d.gutter_dist + d.gutter_width)
+                    
+                    # units vectors and scale
+                    # is unit normal on sides
+                    # print("s.p:%s, s.v:%s s1.p::%s s1.v::%s" % (s.p, s.v, s1.p, s1.v))
+                    res, p0, t = s0.intersect(s1)
+                    res, p1, t = s0.intersect(s2)
+                    
+                    v0 = p0 - s.p0
+                    v1 = p1 - s.p1
+                    
+                    scale_0 = v0.length / (d.gutter_dist + d.gutter_width)
+                    scale_1 = v1.length / (d.gutter_dist + d.gutter_width)
+                    
+                    s3 = Line(s.p0, v0.normalized())
+                    s4 = Line(s.p1, v1.normalized())
+                    
+                    zt = self.z + d.facia_altitude + pan.altitude(s3.p0)
+                    z0 = self.z + d.gutter_alt + pan.altitude(s3.p0)
                     z1 = z0 - 0.5 * d.gutter_width
                     z2 = z1 - 0.5 * d.gutter_width
                     z3 = z1 - 0.5 * d.gutter_boudin
@@ -2490,16 +2520,16 @@ class RoofGenerator():
                     t3 = t2 + scale_0 * (0.5 * d.gutter_boudin)
 
                     # bord tablette
-                    xt, yt = s0.lerp(tt)
+                    xt, yt = s3.lerp(tt)
 
                     # bord
-                    x0, y0 = s0.lerp(t0)
+                    x0, y0 = s3.lerp(t0)
                     # axe chenaux
-                    x1, y1 = s0.lerp(t1)
+                    x1, y1 = s3.lerp(t1)
                     # bord boudin interieur
-                    x2, y2 = s0.lerp(t2)
+                    x2, y2 = s3.lerp(t2)
                     # axe boudin
-                    x3, y3 = s0.lerp(t3)
+                    x3, y3 = s3.lerp(t3)
 
                     dx = x0 - x1
                     dy = y0 - y1
@@ -2522,8 +2552,8 @@ class RoofGenerator():
                         ca = cos(i * da)
                         verts.append((x3 + dx * ca, y3 + dy * ca, z1 + dz1 * sa))
 
-                    zt = self.z + d.facia_altitude + pan.altitude(s1.p0)
-                    z0 = self.z + d.gutter_alt + pan.altitude(s1.p0)
+                    zt = self.z + d.facia_altitude + pan.altitude(s4.p0)
+                    z0 = self.z + d.gutter_alt + pan.altitude(s4.p0)
                     z1 = z0 - 0.5 * d.gutter_width
                     z2 = z1 - 0.5 * d.gutter_width
                     z3 = z1 - 0.5 * d.gutter_boudin
@@ -2536,16 +2566,16 @@ class RoofGenerator():
                     t3 = t2 + scale_1 * (0.5 * d.gutter_boudin)
 
                     # bord tablette
-                    xt, yt = s1.lerp(tt)
+                    xt, yt = s4.lerp(tt)
 
                     # bord
-                    x0, y0 = s1.lerp(t0)
+                    x0, y0 = s4.lerp(t0)
                     # axe chenaux
-                    x1, y1 = s1.lerp(t1)
+                    x1, y1 = s4.lerp(t1)
                     # bord boudin interieur
-                    x2, y2 = s1.lerp(t2)
+                    x2, y2 = s4.lerp(t2)
                     # axe boudin
-                    x3, y3 = s1.lerp(t3)
+                    x3, y3 = s4.lerp(t3)
 
                     dx = x0 - x1
                     dy = y0 - y1
@@ -2592,7 +2622,7 @@ class RoofGenerator():
                                       3
                     """
                     # close start
-                    if s2.type == 'SIDE':
+                    if s1.type == 'SIDE':
 
                         if d.gutter_segs % 2 == 0:
                             faces.append((f + n_faces + 3, f + n_faces + 1, f + n_faces + 2))
@@ -2608,7 +2638,7 @@ class RoofGenerator():
                             matids.append(idmat)
 
                     # close end
-                    if s3.type == 'SIDE':
+                    if s2.type == 'SIDE':
 
                         f += 2 * d.gutter_segs + 1
 
@@ -2653,21 +2683,36 @@ class RoofGenerator():
                     s1 = pan.next_seg(i)
                     t0 = 0
                     t1 = 1
-
+                    
+                    s0_tri = pan.next_tri
+                    s1_tri = pan.node_tri
+                    
+                    if pan.side == 'LEFT':
+                        s0_tri, s1_tri = s1_tri, s0_tri
+                    
                     if s0.type == 'SIDE':
                         s0 = s0.offset(d.beam_offset)
                         t0 = -d.beam_offset / s.length
-
+                        
+                    if s0_tri:
+                        p0 = s2.p0
+                        t0 = 0
+                    else: 
+                        res, p0, t = s2.intersect(s0)
+                        if not res:
+                            continue
+                    
                     if s1.type == 'SIDE':
                         s1 = s1.offset(d.beam_offset)
                         t1 = 1 + d.beam_offset / s.length
-
-                    res, p0, t = s2.intersect(s0)
-                    if not res:
-                        continue
-                    res, p1, t = s2.intersect(s1)
-                    if not res:
-                        continue
+                        
+                    if s1_tri:
+                        t1 = 1
+                        p1 = s2.p1
+                    else:
+                        res, p1, t = s2.intersect(s1)
+                        if not res:
+                            continue
 
                     x0, y0 = p0
                     x1, y1 = s.lerp(t0)
@@ -2687,11 +2732,11 @@ class RoofGenerator():
                         (x2, y2, z3),
                         (x3, y3, z3),
                     ])
-                    if s0.type == 'SIDE':
-                        faces.append((f, f + 4, f + 5, f + 1))
+                    if s0_tri or s0.type == 'SIDE':
+                        faces.append((f + 4, f + 5, f + 1, f))
                         uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
                         matids.append(idmat)
-                    if s1.type == 'SIDE':
+                    if s1_tri or s1.type == 'SIDE':
                         faces.append((f + 2, f + 3, f + 7, f + 6))
                         uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
                         matids.append(idmat)
@@ -2710,9 +2755,9 @@ class RoofGenerator():
                         idmat, idmat, idmat
                     ])
                     uvs.extend([
-                        [(0, 0), (1, 0), (1, 1), (0, 1)],
-                        [(0, 0), (1, 0), (1, 1), (0, 1)],
-                        [(0, 0), (1, 0), (1, 1), (0, 1)]
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)]
                     ])
 
     def rafter(self, context, o, d):
@@ -2738,7 +2783,7 @@ class RoofGenerator():
             faces = []
             matids = []
             uvs = []
-            alt = d.rafter_alt - d.rafter_height
+            alt = d.rafter_alt #- d.rafter_height
             seg = pan.fake_axis
 
             t0 = tmin + (start - 0.5 * d.rafter_width) / seg.length
@@ -2775,7 +2820,7 @@ class RoofGenerator():
                     (x3, y3, z3)
                     ])
 
-                faces.append((f, f + 1, f + 3, f + 2))
+                faces.append((f + 1, f, f + 2, f + 3))
                 matids.append(idmat)
                 uvs.append([(0, 0), (1, 0), (1, 1), (0, 1)])
 
@@ -2789,8 +2834,16 @@ class RoofGenerator():
             geom = bm.faces[:]
             verts = bm.verts[:]
             bmesh.ops.solidify(bm, geom=geom, thickness=0.0001)
-            bmesh.ops.translate(bm, vec=Vector((0, 0, d.rafter_height)), space=o.matrix_world, verts=verts)
-
+            bmesh.ops.translate(bm, vec=Vector((0, 0, -d.rafter_height)), space=o.matrix_world, verts=verts)
+            n_faces = len(geom)
+            # uvs for sides
+            uvs = [(0, 0), (1, 0), (1, 1), (0, 1)]
+            layer = bm.loops.layers.uv.verify()
+            for i, face in enumerate(bm.faces):
+                if len(face.loops) == 4:
+                    for j, loop in enumerate(face.loops):
+                        loop[layer].uv = uvs[j]
+            
             # merge with object
             bmed.bmesh_join(context, o, [bm], normal_update=True)
 
@@ -2909,18 +2962,131 @@ class RoofGenerator():
 
         for pan in self.pans:
             for i, s in enumerate(pan.segs):
-                if 'LINK' in s.type and d.beam_sec_enable:
-                    # poutre inside
+                if ('LINK' in s.type and (
+                                (pan.side == 'LEFT' and not pan.node_tri and not pan.next_tri) or 
+                                (pan.is_tri)
+                            ) and 
+                        d.beam_sec_enable):
+                    ##############   
+                    # beam inside
+                    ##############
                     f = len(verts)
+                    """
+                    s0 = s.offset(-0.5 * d.beam_sec_width)
+                    s1 = pan.last_seg(i)
+                    s2 = pan.next_seg(i)
+                    p0, p1 = s0.p0, s0.p1
+                    if s1.type in {'BOTTOM', 'SIDE'}:
+                        res, p0, t0 = s0.intersect(s1)
+                    elif 'LINK' in s1.type:
+                        s3 = s1.offset(-0.5 * d.beam_sec_width)
+                        res, p0, t0 = s0.intersect(s3)
+                    
+                    if s2.type in {'BOTTOM', 'SIDE'}:
+                        res, p1, t1 = s0.intersect(s2)
+                    elif 'LINK' in s2.type:
+                        s3 = s2.offset(-0.5 * d.beam_sec_width)
+                        res, p1, t1 = s0.intersect(s3)
+                    
+                    x0, y0 = s.lerp(t0)
+                    x1, y1 = s.lerp(t1)
+                    x2, y2 = p0
+                    x3, y3 = p1
+                    z0 = self.z + d.beam_sec_alt + pan.altitude(s.p0)
+                    z1 = z0 - d.beam_sec_height
+                    z2 = self.z + d.beam_sec_alt + pan.altitude(s.p1)
+                    z3 = z2 - d.beam_sec_height
+                    verts.extend([
+                        (x0, y0, z0),
+                        (x0, y0, z1),
+                        (x1, y1, z2),
+                        (x1, y1, z3)
+                    ])
+                    z0 = self.z + d.beam_sec_alt + pan.altitude(p0)
+                    z1 = z0 - d.beam_sec_height
+                    z2 = self.z + d.beam_sec_alt + pan.altitude(p1)
+                    z3 = z2 - d.beam_sec_height
+                    verts.extend([
+                        (x2, y2, z0),
+                        (x2, y2, z1),
+                        (x3, y3, z2),
+                        (x3, y3, z3),
+                    ])
+                    faces.extend([
+                        (f + 1, f + 5, f + 7, f + 3),
+                        (f + 2, f + 6, f + 4, f),
+                        # (f, f + 1, f + 3, f + 2),
+                        (f + 5, f + 4, f + 6, f + 7)
+                    ])
+                    matids.extend([
+                        idmat_poutre, idmat_poutre,
+                        idmat_poutre
+                    ])
+                    uvs.extend([
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)],
+                        [(0, 0), (0, 1), (1, 1), (1, 0)]                        
+                    ])
+                    
+                    if s1.type != 'AXIS':
+                        faces.append((f + 1, f, f + 4, f + 5))
+                        matids.append(idmat_poutre)
+                        uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
+                      
+                    if s2.type != 'AXIS':
+                        faces.append((f + 2, f + 3, f + 7, f + 6))
+                        matids.append(idmat_poutre)
+                        uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
+                    """
                     s0 = s.offset(0.5 * d.beam_sec_width)
                     s1 = s.offset(-0.5 * d.beam_sec_width)
+                    
+                    s2 = pan.last_seg(i)
+                    s3 = pan.next_seg(i)
+                    
+                    # if s2.type in {'BOTTOM', 'SIDE'}:
+                    res, p0, t = s0.intersect(s2)
+                    res, p0, t1 = s1.intersect(s2)
+                    """
+                    elif 'LINK' in s2.type:
+                        s4 = s2.offset(-0.5 * d.beam_sec_width)
+                        res, p0, t = s0.intersect(s2)
+                        res, p0, t1 = s1.intersect(s2)
+                    """
+                    if t > 0.5:
+                        t0 = min(t, t1)
+                    else:
+                        t0 = max(t, t1)
+                    # if s3.type in {'BOTTOM', 'SIDE'}:
+                    res, p1, t = s0.intersect(s3)
+                    res, p1, t1 = s1.intersect(s3)
+                    """
+                    elif 'LINK' in s3.type:
+                        s4 = s3.offset(-0.5 * d.beam_sec_width)
+                        res, p1, t = s0.intersect(s3)
+                        res, p1, t1 = s1.intersect(s3)
+                    """
+                    if t > 0.5:
+                        t1 = min(t, t1)
+                    else:
+                        t1 = max(t, t1)
+                        
+                    p0 = s.lerp(t0)
+                    p1 = s.lerp(t1)
+                    x0, y0 = s0.lerp(t0)
+                    x1, y1 = s0.lerp(t1)
+                    x2, y2 = s1.lerp(t0)
+                    x3, y3 = s1.lerp(t1)
+                    
+                    """
                     x0, y0 = s0.p0
                     x1, y1 = s0.p1
                     x2, y2 = s1.p0
                     x3, y3 = s1.p1
-                    z0 = self.z + d.beam_sec_alt + pan.altitude(s.p0)
+                    """
+                    z0 = self.z + d.beam_sec_alt + pan.altitude(p0)
                     z1 = z0 - d.beam_sec_height
-                    z2 = self.z + d.beam_sec_alt + pan.altitude(s.p1)
+                    z2 = self.z + d.beam_sec_alt + pan.altitude(p1)
                     z3 = z2 - d.beam_sec_height
                     verts.extend([
                         (x0, y0, z0),
@@ -2952,7 +3118,7 @@ class RoofGenerator():
                         [(0, 0), (1, 0), (1, 1), (0, 1)],
                         [(0, 0), (1, 0), (1, 1), (0, 1)]
                     ])
-
+                
                 if s.type == 'LINK_HIP':
 
                     # TODO:
@@ -2985,8 +3151,8 @@ class RoofGenerator():
                             vy = vx.cross(Vector((0, 0, 1)))
                             vz = vy.cross(vx)
 
-                            x0, y0 = p0 + vx_2d.normalized() * 0.3 * d.hip_size_y
-                            z2 = z0 + self.z + d.hip_alt
+                            x0, y0 = p0 + d.hip_alt * vz.to_2d()
+                            z2 = z0 + self.z + d.hip_alt * vz.z
                             tM = Matrix([
                                 [vx.x, vy.x, vz.x, x0],
                                 [vx.y, vy.y, vz.y, y0],
@@ -3048,7 +3214,7 @@ class RoofGenerator():
                             (x3, y3, z3),
                         ])
                         faces.extend([
-                            (f, f + 1, f + 2, f + 3)
+                            (f, f + 3, f + 2, f + 1)
                         ])
                         matids.extend([
                             idmat_valley
@@ -3115,7 +3281,7 @@ class RoofGenerator():
             assume context object is child roof
             with parent set
         """
-        print("Make hole :%s hole_obj:%s" % (o.name, hole_obj))
+        # print("Make hole :%s hole_obj:%s" % (o.name, hole_obj))
         if o.parent is None:
             return
         # root is a RoofSegment
@@ -3298,12 +3464,12 @@ class RoofGenerator():
                     res, p, t, v = wseg.line.intersect_ext(seg)
                     if res:
                         z = z0 + pan.altitude(p)
-                        wall_t[widx].append((t, z, widx))
+                        wall_t[widx].append((t, z))
 
                 # lie under roof
                 if pan.inside(wseg.line.p0):
                     z = z0 + pan.altitude(wseg.line.p0)
-                    wall_t[widx].append((0, z, widx))
+                    wall_t[widx].append((0, z))
 
         old = context.active_object
         old_sel = wall.select
@@ -3312,23 +3478,23 @@ class RoofGenerator():
 
         wd.auto_update = False
         # setup splits count and first split to 0
-        for seg in wall_t:
+        for widx, seg in enumerate(wall_t):
             self.sort_t(seg)
             # print("seg: %s" % seg)
             for s in seg:
-                t, z, widx = s
+                t, z = s
                 wd.parts[widx].n_splits = len(seg) + 1
                 wd.parts[widx].z[0] = 0
                 wd.parts[widx].t[0] = 0
                 break
 
         # add splits, skip dups
-        for seg in wall_t:
+        for widx, seg in enumerate(wall_t):
             t0 = 0
             last_t = -1
             id = 1
             for s in seg:
-                t, z, widx = s
+                t, z = s
                 if t == 0:
                     # add at end of last segment
                     if widx > 0:
@@ -3371,7 +3537,7 @@ class RoofGenerator():
         for b in o.children:
             d = archipack_roof_boundary.datablock(b)
             if d is not None:
-                g = d.get_generator()
+                g = d.ensure_direction()
                 g.change_coordsys(b.matrix_world, o.matrix_world)
                 for pan in self.pans:
                     pan.slice(g)
@@ -3390,14 +3556,13 @@ class RoofGenerator():
                 verts.extend([p0, p1])
                 edges.append([f, f + 1])
 
-"""
-wall = C.object
-o = C.object
-d = o.data.archipack_roof[0]
-d.make_wall_fit(C, wall)
-"""
 
 # bpy.app.debug = True
+# @TODO:
+# cleanup update handlers
+# separate topology changes from others
+# topology require parent -> child updates
+# take care of parent -> child -> parent update cycle
 
 def update(self, context):
     self.update(context)
@@ -3439,6 +3604,10 @@ def update_childs(self, context):
     self.update(context, update_childs=True)
 
 
+def update_components(self, context):
+    self.update(context, skip_parent_update=True, update_hole=False)
+    
+    
 class ArchipackSegment():
     length = FloatProperty(
             name="length",
@@ -3721,12 +3890,12 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
     tile_enable = BoolProperty(
             name="Enable",
             default=True,
-            update=update
+            update=update_components
             )
     tile_solidify = BoolProperty(
             name="Solidify",
             default=True,
-            update=update
+            update=update_components
             )
     tile_height = FloatProperty(
             name="Height",
@@ -3734,12 +3903,12 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             default=0.02,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_bevel = BoolProperty(
             name="Bevel",
             default=False,
-            update=update
+            update=update_components
             )
     tile_bevel_amt = FloatProperty(
             name="Amount",
@@ -3747,19 +3916,19 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             default=0.02,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_bevel_segs = IntProperty(
             name="Segs",
             description="Bevel Segs",
             min=1,
             default=2,
-            update=update
+            update=update_components
             )
     tile_alternate = BoolProperty(
             name="Alternate",
             default=False,
-            update=update
+            update=update_components
             )
     tile_offset = FloatProperty(
             name="Offset",
@@ -3767,14 +3936,14 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             max=100,
             subtype="PERCENTAGE",
-            update=update
+            update=update_components
             )
     tile_altitude = FloatProperty(
             name="Altitude",
             description="Altitude from roof",
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_size_x = FloatProperty(
             name="x",
@@ -3782,7 +3951,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.2,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_size_y = FloatProperty(
             name="y",
@@ -3790,7 +3959,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.3,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_size_z = FloatProperty(
             name="z",
@@ -3798,7 +3967,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.0,
             default=0.02,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_space_x = FloatProperty(
             name="x",
@@ -3806,7 +3975,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.2,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_space_y = FloatProperty(
             name="y",
@@ -3814,19 +3983,19 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.3,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_fit_x = BoolProperty(
             name="Fit x",
             description="Fit roof on x axis",
             default=True,
-            update=update
+            update=update_components
             )
     tile_fit_y = BoolProperty(
             name="Fit y",
             description="Fit roof on y axis",
             default=True,
-            update=update
+            update=update_components
             )
     tile_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -3849,14 +4018,14 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
              #  ('USER', 'User defined', '', 7)
                 ),
             default="BRAAS2",
-            update=update
+            update=update_components
             )
     tile_side = FloatProperty(
             name="Side",
             description="Space on side",
             default=0,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_couloir = FloatProperty(
             name="Valley",
@@ -3864,14 +4033,14 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             default=0.05,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     tile_border = FloatProperty(
             name="Bottom",
             description="Tiles offset from bottom",
             default=0,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
 
     gutter_expand = BoolProperty(
@@ -3883,14 +4052,14 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
     gutter_enable = BoolProperty(
             name="Enable",
             default=True,
-            update=update
+            update=update_components
             )
     gutter_alt = FloatProperty(
             name="Altitude",
             description="altitude",
             default=0,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     gutter_width = FloatProperty(
             name="Width",
@@ -3898,7 +4067,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.15,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     gutter_dist = FloatProperty(
             name="Spacing",
@@ -3906,7 +4075,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             default=0.05,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     gutter_boudin = FloatProperty(
             name="Small width",
@@ -3914,13 +4083,13 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             default=0.015,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     gutter_segs = IntProperty(
             default=6,
             min=1,
             name="Segs",
-            update=update
+            update=update_components
             )
 
     beam_expand = BoolProperty(
@@ -3932,7 +4101,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
     beam_enable = BoolProperty(
             name="Primary",
             default=True,
-            update=update
+            update=update_components
             )
     beam_width = FloatProperty(
             name="Width",
@@ -3940,7 +4109,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.2,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     beam_height = FloatProperty(
             name="Height",
@@ -3948,26 +4117,26 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.35,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     beam_offset = FloatProperty(
             name="Offset",
             description="Distance from roof border",
             default=0.02,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     beam_alt = FloatProperty(
             name="Altitude",
             description="Altitude from roof",
             default=-0.15,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     beam_sec_enable = BoolProperty(
             name="Hip rafter",
             default=True,
-            update=update
+            update=update_components
             )
     beam_sec_width = FloatProperty(
             name="Width",
@@ -3975,7 +4144,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.15,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     beam_sec_height = FloatProperty(
             name="Height",
@@ -3983,19 +4152,19 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.2,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     beam_sec_alt = FloatProperty(
             name="Altitude",
             description="Distance from roof",
             default=-0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rafter_enable = BoolProperty(
             name="Rafter",
             default=True,
-            update=update
+            update=update_components
             )
     rafter_width = FloatProperty(
             name="Width",
@@ -4003,7 +4172,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rafter_height = FloatProperty(
             name="Height",
@@ -4011,7 +4180,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.2,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rafter_spacing = FloatProperty(
             name="Spacing",
@@ -4019,7 +4188,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.1,
             default=0.7,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rafter_start = FloatProperty(
             name="Offset",
@@ -4027,7 +4196,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0,
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rafter_alt = FloatProperty(
             name="Altitude",
@@ -4035,13 +4204,13 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             max=-0.0001,
             default=-0.001,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
 
     hip_enable = BoolProperty(
             name="Enable",
             default=True,
-            update=update
+            update=update_components
             )
     hip_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -4054,7 +4223,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             description="Hip altitude from roof",
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     hip_space_x = FloatProperty(
             name="Spacing",
@@ -4062,7 +4231,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.4,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     hip_size_x = FloatProperty(
             name="l",
@@ -4070,7 +4239,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.4,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     hip_size_y = FloatProperty(
             name="w",
@@ -4078,7 +4247,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.15,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     hip_size_z = FloatProperty(
             name="h",
@@ -4086,7 +4255,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.0,
             default=0.15,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     hip_model = EnumProperty(
             name="model",
@@ -4096,26 +4265,26 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 ('FLAT', 'Flat', '', 2)
                 ),
             default="ROUND",
-            update=update
+            update=update_components
             )
     valley_altitude  = FloatProperty(
             name="Altitude",
             description="Valley altitude from roof",
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     valley_enable = BoolProperty(
             name="Valley",
             default=True,
-            update=update
+            update=update_components
             )
 
     facia_enable = BoolProperty(
             name="Enable",
             description="Enable Facia",
             default=True,
-            update=update
+            update=update_components
             )
     facia_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -4129,7 +4298,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.3,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     facia_width =FloatProperty(
             name="Width",
@@ -4137,21 +4306,21 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.02,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     facia_altitude = FloatProperty(
             name="Altitude",
             description="Facia altitude from roof",
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
 
     rake_enable = BoolProperty(
             name="Enable",
             description="Enable Rake",
             default=True,
-            update=update
+            update=update_components
             )
     rake_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -4165,7 +4334,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.3,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rake_width =FloatProperty(
             name="Width",
@@ -4173,21 +4342,21 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             min=0.01,
             default=0.02,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rake_offset =FloatProperty(
             name="Offset",
             description="Offset from roof border",
             default=0.001,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
     rake_altitude = FloatProperty(
             name="Altitude",
             description="Facia altitude from roof",
             default=0.1,
             unit='LENGTH', subtype='DISTANCE',
-            update=update
+            update=update_components
             )
 
     t_parent = StringProperty(
@@ -4236,7 +4405,6 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         default=0,
         update=update
         )
-
 
     def make_wall_fit(self, context, o, wall, inside=False):
         origin = Vector((0, 0, self.z))
@@ -4427,7 +4595,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         d = archipack_roof.datablock(child)
 
         if d is not None and d.t_part - 1 < len(g.segs):
-            print("relocate_child(%s)" % (child.name))
+            # print("relocate_child(%s)" % (child.name))
 
             seg = g.segs[d.t_part]
             # adjust T part matrix_world from parent
@@ -4468,7 +4636,8 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
                 relocate_only=False,
                 skip_parent_update=False,
                 update_childs=False,
-                force_update=False):
+                force_update=False, 
+                update_hole=True):
         """
             relocate only: relocate childs
             update_childs: force childs update
@@ -4593,7 +4762,8 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
 
         # this trigger parent update
         # only when editing child
-        if d is not None:
+        # does only update on shape change
+        if d is not None and update_hole:
             # t_child, update hole
             hole_obj = self.find_hole(context, o)
             g.make_hole(context, hole_obj, o, self, skip_parent_update)
@@ -4638,7 +4808,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             
             if self.quick_edit and not force_update:
                 if self.tile_enable:
-                    bpy.ops.archipack.roof_throttle_update(name=o.name)
+                    bpy.ops.archipack.roof_throttle_update(name=o.name, skip_parent_update=skip_parent_update)
             else:
                 # throttle here
                 if self.tile_enable:
@@ -4698,7 +4868,6 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
-
 
         # restore context
         self.restore_context(context)
@@ -4804,14 +4973,10 @@ class archipack_roof_boundary_segment(ArchipackSegment, PropertyGroup):
 
     def draw(self, layout, context, index):
         box = layout.box()
-        row = box.row()
-        row.prop(self, "type", text=str(index + 1))
-        row = box.row()
-        row.prop(self, "length")
-        row = box.row()
-        row.prop(self, "offset")
-        row = box.row()
-        row.prop(self, "a0")
+        box.prop(self, "type", text=str(index + 1))
+        box.prop(self, "length")
+        # box.prop(self, "offset")
+        box.prop(self, "a0")
 
 
 def update_operation(self, context):
@@ -4828,8 +4993,8 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
             )
     z = FloatProperty(
             name="dumb z",
-            description="Dumb z for manipulator",
-            default=0.1,
+            description="Dumb z for manipulator placeholder",
+            default=0.01,
             options={'SKIP_SAVE'}
             )
     user_defined_path = StringProperty(
@@ -4883,7 +5048,6 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
         options={'SKIP_SAVE'},
         default=False
         )
-
 
     def setup_manipulators(self):
         for i in range(self.n_parts + 1):
@@ -4950,6 +5114,16 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
             p0 = p
         return d > 0
 
+    def ensure_direction(self):    
+        # get segs ensure they are cw or ccw depending on operation
+        # whatever the user do with points
+        g = self.get_generator()
+        pts = [seg.p0.to_3d() for seg in g.segs]
+        if self.is_cw(pts) != (self.operation == 'INTERSECTION'):
+            return g
+        g.segs = [s.oposite for s in reversed(g.segs)]
+        return g
+        
     def from_spline(self, wM, resolution, spline):
         pts = []
         if spline.type == 'POLY':
@@ -5008,6 +5182,9 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
         self.closed = closed
 
     def update_points(self, pts, closed, skip_parent_update):
+        """
+            Create boundary from roof
+        """
         self.auto_update = False
         self.from_points(pts, closed)
         self.skip_parent_update = skip_parent_update
@@ -5109,7 +5286,7 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
                 o.parent.select = True
                 context.scene.objects.active = o.parent
                 d.update(context)
-
+            
             o.parent.select = False
             context.scene.objects.active = o
 
@@ -5139,7 +5316,7 @@ class archipack_roof_boundary(ArchipackLines, ArchipackObject, Manipulable, Prop
                 # index
                 self.manip_stack.append(part.manipulators[3].setup(context, o, self))
                 # offset
-                self.manip_stack.append(part.manipulators[4].setup(context, o, part))
+                # self.manip_stack.append(part.manipulators[4].setup(context, o, part))
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
@@ -5163,7 +5340,7 @@ class ARCHIPACK_PT_roof_boundary(Panel):
         scene = context.scene
         layout = self.layout
         box = layout.box()
-        box.operator('archipack.roof_boundary_manipulate')
+        box.operator('archipack.roof_boundary_manipulate', icon='HAND')
         box.prop(prop, 'operation', text="")
         """
         box = layout.box()
@@ -5658,7 +5835,8 @@ class ARCHIPACK_OT_roof_throttle_update(Operator):
     bl_label = "Update childs with a delay"
 
     name = StringProperty()
-
+    skip_parent_update = BoolProperty(default=False)
+    
     def get_handler(self, context, delay):
         global throttle_handlers
         if self.name not in throttle_handlers.keys():
@@ -5677,7 +5855,7 @@ class ARCHIPACK_OT_roof_throttle_update(Operator):
                     o.select = True
                     context.scene.objects.active = o
                     d = o.data.archipack_roof[0]
-                    d.update(context, force_update=True)
+                    d.update(context, force_update=True, skip_parent_update=self.skip_parent_update)
                     o.select = selected
                 context.scene.objects.active = act
                 del throttle_handlers[self.name]
