@@ -60,8 +60,6 @@ class Roof():
         self.width_right = 1
         self.auto_left = 'AUTO'
         self.auto_right = 'AUTO'
-        self.backward_left = 0
-        self.backward_right = 0
         self.type = 'SIDE'
         # force hip or valley
         self.enforce_part = 'AUTO'
@@ -80,8 +78,6 @@ class Roof():
         s.width_right = self.width_right
         s.auto_left = self.auto_left
         s.auto_right = self.auto_right
-        s.backward_left = self.backward_left
-        s.backward_right = self.backward_right
         s.type = self.type
         s.enforce_part = self.enforce_part
         s.triangular_end = self.triangular_end
@@ -491,8 +487,8 @@ class RoofPolygon():
         # unit vector perpendicular to axis 
         # looking at outside part
         v = self.fake_axis.sized_normal(0, -1)
-        self.next_cross = v 
         self.cross = v
+        self.next_cross = v 
         self.last_cross = v
             
         self.convex = True
@@ -575,17 +571,21 @@ class RoofPolygon():
         if last.backward:
             self.backward = self.side == last.side
         
-        # axis of last / next segments
-        last.next_cross = self.cross
+        if self.side == last.side:
+            last.next_cross = self.cross
+        else:
+            last.last_cross = self.cross
+            
         self.last_cross = last.cross
         
+        # axis of last / next segments
         if self.backward:
             self.next = last
             last.last = self
         else:
             self.last = last
             last.next = self
-
+        
         # width auto
         if self.auto_mode == 'AUTO':
             self.width = last.width
@@ -1057,7 +1057,7 @@ class RoofPolygon():
         self.limits()
 
     def merge(self, other):
-
+        
         raise NotImplementedErrot
 
     def draw(self, context, z, verts, edges):
@@ -1816,37 +1816,63 @@ class RoofGenerator():
         # merge contigous with 0 angle diff
         to_remove = []
         for i, pan in enumerate(self.pans):
-            next = pan.next
-            if next is not None:
-                # same side
-                if next.side == pan.side:
-                    if round(next._axis.delta_angle(pan._axis), 4) == 0:
-                        next.last = pan.last
-                        to_remove.append(i)
-                        if pan.side == 'LEFT':
+            if pan.backward:
+                next = pan.last
+                if next is not None:
+                    # same side only can merge
+                    if next.side == pan.side:
+                        if round(next._axis.delta_angle(pan._axis), 4) == 0:
+                            to_remove.append(i)
+                            next.next = pan.next
+                            next.last_cross = pan.last_cross
                             next.slope = pan.slope
-                            if next.backward:
-                                next.next_angle = pan.node_angle
-                                next._axis.p1 = pan._axis.p1
-                                next.segs[1] = pan.segs[1]
-                                next.segs[2].p0 = pan.segs[2].p0
+                            if pan.side == 'RIGHT':
+                                if next.backward:
+                                    next._axis.p1 = pan._axis.p1
+                                    next.segs[1] = pan.segs[1]
+                                    next.segs[2].p0 = pan.segs[2].p0
+                                else:
+                                    next._axis.p0 = pan._axis.p0
+                                    next.segs[-1] = pan.segs[-1]
+                                    next.segs[2].p1 = pan.segs[2].p1
                             else:
-                                next.node_angle = pan.node_angle
-                                next._axis.p0 = pan._axis.p0
-                                next.segs[-1] = pan.segs[-1]
-                                next.segs[2].p1 = pan.segs[2].p1
-                        else:
-                            if next.backward:
-                                next.next_angle = pan.node_angle
-                                next._axis.p0 = pan._axis.p0
-                                next.segs[-1] = pan.segs[-1]
-                                next.segs[2].p1 = pan.segs[2].p1
+                                if next.backward:
+                                    next._axis.p0 = pan._axis.p0
+                                    next.segs[-1] = pan.segs[-1]
+                                    next.segs[2].p1 = pan.segs[2].p1
+                                else:
+                                    next._axis.p1 = pan._axis.p1
+                                    next.segs[1] = pan.segs[1]
+                                    next.segs[2].p0 = pan.segs[2].p0
+            else:    
+                next = pan.next
+                if next is not None:
+                    # same side only can merge
+                    if next.side == pan.side:
+                        if round(next._axis.delta_angle(pan._axis), 4) == 0:
+                            to_remove.append(i)
+                            next.last = pan.last
+                            next.last_cross = pan.last_cross
+                            next.slope = pan.slope
+                            if pan.side == 'LEFT':
+                                if next.backward:
+                                    next._axis.p1 = pan._axis.p1
+                                    next.segs[1] = pan.segs[1]
+                                    next.segs[2].p0 = pan.segs[2].p0
+                                else:
+                                    next._axis.p0 = pan._axis.p0
+                                    next.segs[-1] = pan.segs[-1]
+                                    next.segs[2].p1 = pan.segs[2].p1
                             else:
-                                next.node_angle = pan.node_angle
-                                next._axis.p1 = pan._axis.p1
-                                next.segs[1] = pan.segs[1]
-                                next.segs[2].p0 = pan.segs[2].p0
-
+                                if next.backward:
+                                    next._axis.p0 = pan._axis.p0
+                                    next.segs[-1] = pan.segs[-1]
+                                    next.segs[2].p1 = pan.segs[2].p1
+                                else:
+                                    next._axis.p1 = pan._axis.p1
+                                    next.segs[1] = pan.segs[1]
+                                    next.segs[2].p0 = pan.segs[2].p0
+                        
         for i in reversed(to_remove):
             self.pans.pop(i)
 
@@ -2456,7 +2482,6 @@ class RoofGenerator():
                         tri_0, tri_1 = tri_1, tri_0
                     
                     # tiangular use segment direction    
-                    # if not tri_0:
                     # find last neighboor depending on type 
                     if s1.type == 'AXIS' or 'LINK' in s1.type:
                         # apply only on boundarys
