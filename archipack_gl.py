@@ -32,7 +32,7 @@ from math import sin, cos, atan2, pi
 from mathutils import Vector, Matrix
 from bpy_extras import view3d_utils, object_utils
 
-
+    
 # ------------------------------------------------------------------
 # Define Gl Handle types
 # ------------------------------------------------------------------
@@ -205,6 +205,7 @@ class Gl():
         return [round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1])]
 
     def _end(self):
+        
         # print("_end")
         bgl.glEnd()
         bgl.glPopAttrib()
@@ -349,6 +350,7 @@ class GlText(Gl):
         self._text = self.add_units(context)
 
     def draw(self, context, render=False):
+        
         # print("draw_text %s %s" % (self.text, type(self).__name__))
         self.render = render
         x, y = self.position_2d_from_coord(context, self.pts[0], render)
@@ -384,6 +386,7 @@ class GlBaseLine(Gl):
         """
             render flag when rendering
         """
+        
         # print("draw_line %s" % (type(self).__name__))
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         if self.style == bgl.GL_LINE_STIPPLE:
@@ -675,6 +678,7 @@ class GlPolygon(Gl):
         """
             render flag when rendering
         """
+        
         # print("draw_polygon")
         self.render = render
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
@@ -698,6 +702,7 @@ class GlRect(GlPolygon):
         GlPolygon.__init__(self, colour, d)
 
     def draw(self, context, render=False):
+        
         self.render = render
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         bgl.glEnable(bgl.GL_BLEND)
@@ -743,7 +748,7 @@ class GlImage(Gl):
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
         bgl.glEnable(bgl.GL_TEXTURE_2D)
         bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
-        # bgl.glColor4f(1, 1, 1, 1)
+        # bgl.glColor4f(1, 1, 1, 1)        
         bgl.glBegin(bgl.GL_QUADS)
         bgl.glTexCoord2d(0, 0)
         bgl.glVertex2d(p0.x, p0.y)

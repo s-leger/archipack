@@ -1637,6 +1637,11 @@ class DumbAngleManipulator(AngleManipulator):
         self.line_0.v = -self.line_0.cross.normalized()
         self.line_1.v = right
         self.line_1.v = self.line_1.cross.normalized()
+        
+        # prevent ValueError in angle_signed
+        if self.line_0.length == 0 or self.line_1.length == 0:
+            return
+        
         self.arc.a0 = self.line_0.angle
         self.arc.da = self.line_1.v.to_2d().angle_signed(self.line_0.v.to_2d())
         self.arc.r = 1.0

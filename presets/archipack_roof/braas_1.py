@@ -27,3 +27,4 @@ d.tile_alternate = False
 d.hip_alt = 0.13
 d.tile_bevel_segs = 2
 d.tile_fit_x = False
+d.valley_enable = True

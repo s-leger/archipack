@@ -46,6 +46,7 @@ import os
 
 if "bpy" in locals():
     import importlib as imp
+    imp.reload(archipack_progressbar)
     imp.reload(archipack_material)
     imp.reload(archipack_snap)
     imp.reload(archipack_manipulator)
@@ -73,6 +74,7 @@ if "bpy" in locals():
 
     print("archipack: reload ready")
 else:
+    from . import archipack_progressbar
     from . import archipack_material
     from . import archipack_snap
     from . import archipack_manipulator
@@ -580,7 +582,14 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Floor",
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
-
+        row.operator("archipack.floor_preset_menu",
+                    text="->Wall", 
+                    icon_value=icons["floor"].icon_id
+                    ).preset_operator = "archipack.floor_from_wall"
+        row.operator("archipack.floor_preset_menu", 
+                    text="",
+                    icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
+        
         addon_updater_ops.update_notice_box_ui(self, context)
 
 
@@ -678,7 +687,8 @@ def register():
         name, ext = os.path.splitext(icon)
         icons.load(name, os.path.join(icons_dir, icon), 'IMAGE')
     icons_collection["main"] = icons
-
+    
+    archipack_progressbar.register()
     archipack_material.register()
     archipack_snap.register()
     archipack_manipulator.register()
@@ -720,6 +730,7 @@ def unregister():
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
     bpy.utils.unregister_class(Archipack_Pref)
     # unregister subs
+    archipack_progressbar.unregister()
     archipack_material.unregister()
     archipack_snap.unregister()
     archipack_manipulator.unregister()

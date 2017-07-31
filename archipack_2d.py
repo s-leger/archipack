@@ -621,7 +621,7 @@ class Arc(Circle):
         v0 = self.p0 - self.c
         v1 = p - self.c
         u = self.signed_angle(v0, v1) / self.da
-        return u > 0 and v > 0 and u < 1 and v < 1, p, u, v
+        return res and u > 0 and v > 0 and u < 1 and v < 1, p, u, v
 
     # this is for wall
     def steps_by_angle(self, step_angle):

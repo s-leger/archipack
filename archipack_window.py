@@ -278,7 +278,10 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
             name="Fixed",
             default=False
             )
-
+    enable_glass = BoolProperty(
+            name="Enable glass",
+            default=True
+            )
     @property
     def window(self):
         verre = 0.005
@@ -292,7 +295,7 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
         y2 = -0.5 * self.frame_y
         y3 = -chanfer
         y4 = chanfer - self.frame_y
-
+        
         if self.fixed:
             # profil carre avec support pour verre
             # p ______       y1
@@ -308,14 +311,22 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
             y3 = y1 - chanfer
             y4 = chanfer + y0
             y2 = (y0 + y2) / 2
+            
+            side_cap_front = -1
+            side_cap_back = -1 
+            
+            if self.enable_glass:
+                side_cap_front = 6
+                side_cap_back = 7
+                
             return WindowPanel(
                 True,  # closed
                 [1, 0, 0, 0, 1, 2, 2, 2, 2],  # x index
                 [x0, x3, x1],
                 [y0, y4, y2, y3, y1, y1, y2 + verre, y2 - verre, y0],
                 [0, 0, 1, 1, 1, 1, 0, 0, 0],  # materials
-                side_cap_front=6,
-                side_cap_back=7      # cap index
+                side_cap_front = side_cap_front,
+                side_cap_back = side_cap_back      # cap index
                 )
         else:
             # profil avec chanfrein et joint et support pour verre
@@ -334,14 +345,22 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
             else:
                 # rail window interior
                 materials = [0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
+            
+            side_cap_front = -1
+            side_cap_back = -1 
+            
+            if self.enable_glass:
+                side_cap_front = 8
+                side_cap_back = 9
+            
             return WindowPanel(
                 True,            # closed shape
                 [1, 0, 0, 0, 1, 2, 2, 3, 3, 3, 3, 2, 2],     # x index
                 [x0, x3, x2, x1],     # unique x positions
                 [y0, y4, y2, y3, y1, y1, y3, y3, y2 + verre, y2 - verre, y4, y4, y0],
                 materials,     # materials
-                side_cap_front=8,
-                side_cap_back=9                  # cap index
+                side_cap_front = side_cap_front,
+                side_cap_back = side_cap_back      # cap index
                 )
 
     @property
@@ -627,7 +646,13 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 ),
             default='FLAT', update=update,
             )
+    enable_glass = BoolProperty(
+            name="Enable glass",
+            default=True,
+            update=update
+            )
     warning = BoolProperty(
+            options={'SKIP_SAVE'},
             name="warning",
             default=False
             )
@@ -1262,6 +1287,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                         frame_x=self.frame_x,
                         frame_y=self.frame_y,
                         angle_y=self.angle_y,
+                        enable_glass=self.enable_glass,
                         material=o.archipack_material[0].material
                     )
                     child = context.active_object
@@ -1291,6 +1317,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                         props.frame_x = self.frame_x
                         props.frame_y = self.frame_y
                         props.angle_y = self.angle_y
+                        props.enable_glass = self.enable_glass
                         props.update(context)
                 # location y + frame width. frame depends on choosen profile (fixed or not)
                 # update linked childs location too
@@ -1559,6 +1586,8 @@ class ARCHIPACK_PT_window(Panel):
             row.prop(prop, "display_detail", icon="TRIA_RIGHT", icon_only=True, text="Components", emboss=False)
 
         if prop.display_detail:
+            box = layout.box()
+            box.prop(prop, 'enable_glass')
             box = layout.box()
             box.label("Frame")
             box.prop(prop, 'frame_x')
@@ -2077,7 +2106,10 @@ class ARCHIPACK_OT_window_panel(Operator):
             name="material",
             default=""
             )
-
+    enable_glass = BoolProperty(
+            name="Enable glass",
+            default=True
+            )
     def draw(self, context):
         layout = self.layout
         row = layout.row()
@@ -2102,6 +2134,7 @@ class ARCHIPACK_OT_window_panel(Operator):
         d.handle = self.handle
         d.handle_model = self.handle_model
         d.handle_altitude = self.handle_altitude
+        d.enable_glass = self.enable_glass
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o

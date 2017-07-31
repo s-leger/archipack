@@ -314,9 +314,12 @@ class MaterialSetManager():
             self.load(object_type)
 
         if object_type not in self.objects.keys():
-            return [('DEFAULT', 'Default', '', 0)]
-
+            self.objects[object_type] = {}
+            
         s_keys = self.objects[object_type].keys()
+        
+        if len(s_keys) < 1:
+            return [('DEFAULT', 'Default', '', 0)]
 
         return [(s.upper(), s.capitalize(), '', i) for i, s in enumerate(s_keys)]
 

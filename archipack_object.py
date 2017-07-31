@@ -118,9 +118,9 @@ class ArchipackObject():
                 o.select = True
         except:
             pass
-
-        self.previously_active.select = True
-        context.scene.objects.active = self.previously_active
+        if self.previously_active is not None:
+            self.previously_active.select = True
+            context.scene.objects.active = self.previously_active
         self.previously_selected = None
         self.previously_active = None
 
