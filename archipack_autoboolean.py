@@ -389,7 +389,7 @@ class ArchipackBoolManager():
                 modif.object = hole
         elif modif is not None:
             wall.modifiers.remove(modif)
-    
+
     def get_basis_type(self, o):
         if o.data is not None:
             if "archipack_wall2" in o.data:
@@ -399,7 +399,7 @@ class ArchipackBoolManager():
             elif "archipack_wall" in o.data:
                 return 'WALL'
         return 'DEFAULT'
-    
+
     def autoboolean(self, context, wall):
         """
             Entry point for multi-boolean operations like
@@ -414,7 +414,7 @@ class ArchipackBoolManager():
 
         # filter roofs when wall is roof
         basis = self.get_basis_type(wall)
-        
+
         # either generate hole or get existing one
         for o in context.scene.objects:
             h = self._generate_hole(context, o, basis)
@@ -481,17 +481,17 @@ class ArchipackBoolManager():
             in use in draw door and windows over wall
             o is either a window or a door
         """
-                
+
         # generate holes for crossing window and doors
         self.itM = wall.matrix_world.inverted()
         basis = self.get_basis_type(wall)
         d = self.datablock(o, basis)
-        
+
         hole = None
         hole_obj = None
         # default mode defined by __init__
         self.detect_mode(context, wall)
-        
+
         if d is not None:
             if self.mode != 'ROBUST':
                 hole = d.interactive_hole(context, o)
@@ -588,8 +588,8 @@ class ARCHIPACK_OT_single_boolean(Operator):
     def poll(cls, context):
         w = context.active_object
         return (w.data is not None and
-            ("archipack_wall2" in w.data or 
-            "archipack_wall" in w.data or 
+            ("archipack_wall2" in w.data or
+            "archipack_wall" in w.data or
             "archipack_roof" in w.data) and
             len(context.selected_objects) == 2
             )
@@ -674,15 +674,15 @@ class ARCHIPACK_OT_generate_hole(Operator):
     bl_description = "Generate interactive hole for doors and windows"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
             manager = ArchipackBoolManager(mode='HYBRID')
             o = context.active_object
-            
+
             # filter roofs when o is roof
             basis = manager.get_basis_type(o)
-        
+
             d = manager.datablock(o, basis)
             if d is None:
                 self.report({'WARNING'}, "Archipack: active object must be a door, a window or a roof")

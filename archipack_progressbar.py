@@ -46,7 +46,7 @@ def update(self, context):
 
 
 def register():
-    Scene.progress_indicator = FloatProperty(
+    Scene.archipack_progress = FloatProperty(
                                     options={'SKIP_SAVE'},
                                     default=-1,
                                     subtype='PERCENTAGE',
@@ -57,31 +57,31 @@ def register():
                                     max=101,
                                     update=update)
 
-    Scene.progress_indicator_text = StringProperty(
+    Scene.archipack_progress_text = StringProperty(
                                     options={'SKIP_SAVE'},
                                     default="Progress",
                                     update=update)
 
     global info_header_draw
     info_header_draw = bpy.types.INFO_HT_header.draw
-    
+
     def info_draw(self, context):
         global info_header_draw
         info_header_draw(self, context)
-        if (context.scene.progress_indicator > -1 and
-            context.scene.progress_indicator < 101) :
+        if (context.scene.archipack_progress > -1 and
+                context.scene.archipack_progress < 101):
             self.layout.separator()
-            text = context.scene.progress_indicator_text
+            text = context.scene.archipack_progress_text
             self.layout.prop(context.scene,
-                                "progress_indicator",
+                                "archipack_progress",
                                 text=text,
                                 slider=True)
-    
+
     bpy.types.INFO_HT_header.draw = info_draw
 
 
 def unregister():
-    del Scene.progress_indicator
-    del Scene.progress_indicator_text
+    del Scene.archipack_progress
+    del Scene.archipack_progress_text
     global info_header_draw
     bpy.types.INFO_HT_header.draw = info_header_draw

@@ -246,13 +246,10 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
         """
             either external or holes cuts
         """
-
-        print("cut parent:%s" % (o.name))
         self.limits()
         for b in o.children:
             d = archipack_slab_cutter.datablock(b)
             if d is not None:
-                print("cut %s" % (b.name))
                 g = d.ensure_direction()
                 g.change_coordsys(b.matrix_world, o.matrix_world)
                 self.slice(g)
@@ -1141,6 +1138,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         # relocate before cutting segs
         self.relocate_childs(context, o, g)
 
+        o.select = True
+        context.scene.objects.active = o
+
         g.cut(context, o)
 
         g.slab(context, o, self)
@@ -1269,19 +1269,14 @@ class archipack_slab_cutter_segment(ArchipackCutterPart, PropertyGroup):
 
 
 class archipack_slab_cutter(ArchipackCutter, ArchipackObject, Manipulable, PropertyGroup):
-    # boundary
     parts = CollectionProperty(type=archipack_slab_cutter_segment)
 
     def update_points(self, context, o, pts, update_parent=False):
-        """
-            Create boundary from roof
-        """
         self.auto_update = False
         self.from_points(pts)
         self.auto_update = True
         if update_parent:
             self.update_parent(context, o)
-        print("update_points")
 
     def update_parent(self, context, o):
 
@@ -1292,7 +1287,6 @@ class archipack_slab_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prope
             d.update(context)
         o.parent.select = False
         context.scene.objects.active = o
-        print("update_parent")
 
 
 class ARCHIPACK_PT_slab(Panel):

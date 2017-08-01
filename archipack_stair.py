@@ -946,7 +946,7 @@ class StairGenerator():
     def make_stair(self, height, step_depth, verts, faces, matids, uvs, nose_y=0):
         n_steps = self.n_steps(step_depth)
         self.set_height(height / n_steps)
-        
+
         for s, stair in enumerate(self.stairs):
             if s < len(self.parts):
                 manipulator = self.parts[s].manipulators[0]
@@ -2804,6 +2804,7 @@ class ARCHIPACK_OT_stair_manipulate(Operator):
 
 
 class ARCHIPACK_OT_stair_preset_menu(PresetMenuOperator, Operator):
+    bl_description = "Show Stair Presets"
     bl_idname = "archipack.stair_preset_menu"
     bl_label = "Stair style"
     preset_subdir = "archipack_stair"
@@ -2818,11 +2819,6 @@ class ARCHIPACK_OT_stair_preset(ArchipackPreset, Operator):
     @property
     def blacklist(self):
         return ['manipulators']
-
-        """
-        'presets', 'n_parts', 'parts', 'width', 'height', 'radius',
-            'total_angle', 'da',
-        """
 
 
 def register():

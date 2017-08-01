@@ -21,26 +21,8 @@
 # <pep8 compliant>
 
 # ----------------------------------------------------------
-# Blender Parametric object skeleton
 # Author: Jacob Morris - Stephen Leger (s-leger)
 # ----------------------------------------------------------
-
-bl_info = {
-    'name': 'Floor',
-    'description': 'Floor parametric object',
-    'author': 's-leger, Jacob Morris',
-    'license': 'GPL',
-    'version': (1, 0, 0),
-    'blender': (2, 7, 8),
-    'location': 'View3D > Tools > Sample',
-    'warning': '',
-    'wiki_url': 'https://github.com/BlendingJake/BlenderFlooringParametricObject/wiki',
-    'tracker_url': 'https://github.com/BlendingJake/BlenderFlooringParametricObject/issues',
-    'link': 'https://github.com/BlendingJake/BlenderFlooringParametricObject',
-    'support': 'COMMUNITY',
-    'category': '3D View'
-    }
-
 
 import bpy
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
@@ -927,8 +909,6 @@ class archipack_floor_part(PropertyGroup):
     """
         A single manipulable polyline like segment
         polyline like segment line or arc based
-        @TODO: share this base class with
-        stair, wall, fence, floor
     """
     type = EnumProperty(
             items=(
@@ -1497,39 +1477,9 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
         g.cut(context, o)
         g.floor(context, o, self)
 
-        # grout
-        """
-        if self.add_grout:
-            # add cube then adjust vertex positions
-            grout_geometry = bmesh.ops.create_cube(bm, size=1.0)
-            z = self.thickness - self.mortar_depth
-
-            for vertex in grout_geometry['verts']:
-                # x
-                if vertex.co.x > 0:
-                    vertex.co.x = self.width
-                elif vertex.co.x < 0:
-                    vertex.co.x = 0
-                # y
-                if vertex.co.y > 0:
-                    vertex.co.y = self.length
-                elif vertex.co.y < 0:
-                    vertex.co.y = 0
-                # z
-                if vertex.co.z > 0:
-                    vertex.co.z = z
-                elif vertex.co.z < 0:
-                    vertex.co.z = 0
-
-                # material id for grout
-                for face in vertex.link_faces:
-                    face.material_index = 1
-        """
-        # create seams
-        # self.create_uv_seams(bm)
-
-        # update manipulators
-        # self.update_manipulators()
+        # enable manipulators rebuild
+        if manipulable_refresh:
+            self.manipulable_refresh = True
 
         # restore context
         self.restore_context(context)
@@ -1584,7 +1534,6 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
 
 
 def update_hole(self, context):
-    # update parent's roof only when manipulated
     self.update(context, update_parent=True)
 
 
@@ -1627,7 +1576,6 @@ class archipack_floor_cutter_segment(ArchipackCutterPart, PropertyGroup):
 
 
 class archipack_floor_cutter(ArchipackCutter, ArchipackObject, Manipulable, PropertyGroup):
-    # boundary
     parts = CollectionProperty(type=archipack_floor_cutter_segment)
 
     def update_points(self, context, o, pts, update_parent=False):
@@ -1639,7 +1587,6 @@ class archipack_floor_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prop
         self.auto_update = True
         if update_parent:
             self.update_parent(context, o)
-        print("update_points")
 
     def update_parent(self, context, o):
 
@@ -1650,7 +1597,6 @@ class archipack_floor_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prop
             d.update(context)
         o.parent.select = False
         context.scene.objects.active = o
-        print("update_parent")
 
 
 # ------------------------------------------------------------------

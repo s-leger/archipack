@@ -338,7 +338,7 @@ class CutAblePolygon():
             max_iter -= 1
 
         if len(segs) > s_nsegs + b_nsegs + 1:
-            print("slice failed found:%s of:%s" % (len(segs), s_nsegs + b_nsegs))
+            # print("slice failed found:%s of:%s" % (len(segs), s_nsegs + b_nsegs))
             return False
 
         for i, s in enumerate(segs):
@@ -403,18 +403,18 @@ class CutAblePolygon():
 
         # no points found at all
         if start < 0:
-            print("no pt inside")
+            # print("no pt inside")
             return
 
         if not slice_res:
-            print("slice fails")
+            # print("slice fails")
             # found more segments than input
             # cutter made more than one loop
             return
 
         if len(store) < 1:
             if is_inside:
-                print("not touching, add as hole")
+                # print("not touching, add as hole")
                 self.holes.append(cutter)
             return
 
@@ -641,7 +641,8 @@ class ArchipackCutter():
             row.prop(self, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
             box.prop(self, 'n_parts')
             for i, part in enumerate(self.parts):
-                part.draw(layout, context, i)
+                if i < self.n_parts:
+                    part.draw(layout, context, i)
         else:
             row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
 
@@ -792,7 +793,7 @@ class ArchipackCutter():
             if da < -pi:
                 da += 2 * pi
             if i >= len(self.parts):
-                print("Too many pts for parts")
+                # print("Too many pts for parts")
                 break
             p = self.parts[i]
             p.length = dp.to_2d().length

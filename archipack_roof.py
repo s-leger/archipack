@@ -1690,7 +1690,7 @@ class RoofGenerator(CutAbleGenerator):
         ttl = len(self.pans)
         step = 100 / ttl
 
-        context.scene.progress_indicator_text = "Build tiles:"
+        context.scene.archipack_progress_text = "Build tiles:"
 
         for i, pan in enumerate(self.pans):
 
@@ -1737,7 +1737,7 @@ class RoofGenerator(CutAbleGenerator):
 
                 progress = step * i + substep * k
                 # print("progress %s" % (progress))
-                context.scene.progress_indicator = progress
+                context.scene.archipack_progress = progress
 
                 y = k * dy
 
@@ -1875,7 +1875,7 @@ class RoofGenerator(CutAbleGenerator):
             bmed.bmesh_join(context, o, [bm], normal_update=True)
             bpy.ops.object.mode_set(mode='OBJECT')
 
-        context.scene.progress_indicator = -1
+        context.scene.archipack_progress = -1
 
     def _rake(self, s, i, boundary, pan,
             width, height, altitude, offset, idmat,
@@ -3676,6 +3676,8 @@ class archipack_roof_segment(ArchipackSegment, PropertyGroup):
                     box.prop(self, "width_right")
                 if self.auto_right in {'ALL', 'SLOPE'}:
                     box.prop(self, "slope_right")
+        elif self.constraint_type == 'HORIZONTAL':
+            box.prop(self, "triangular_end")
 
     def update(self, context, manipulable_refresh=False, update_hole=False):
         props = self.find_in_selection(context)
@@ -4412,7 +4414,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         for child in o.children:
             d = archipack_roof.datablock(child)
             if d is not None and d.t_parent == o.name:
-                print("upate_childs(%s)" % (child.name))
+                # print("upate_childs(%s)" % (child.name))
                 child.select = True
                 context.scene.objects.active = child
                 # regenerate hole
@@ -4755,7 +4757,6 @@ class archipack_roof_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prope
             d.update(context, update_childs=False, update_hole=False)
         o.parent.select = False
         context.scene.objects.active = o
-        print("update_parent")
 
 
 class ARCHIPACK_PT_roof_cutter(Panel):

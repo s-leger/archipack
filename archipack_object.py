@@ -27,7 +27,6 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.types import Object
 from bpy.props import BoolProperty, StringProperty
 from mathutils import Vector, Matrix
 from mathutils.geometry import (

@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 2, 7),
+    'version': (1, 2, 9),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '2d to 3d require shapely python module (see setup in documentation)',
@@ -631,11 +631,11 @@ def draw_menu(self, context):
     layout.operator("archipack.floor_preset_menu",
                     text="Floor",
                     icon_value=icons["floor"].icon_id
-                    )
+                    ).preset_operator = "archipack.floor"
     layout.operator("archipack.roof_preset_menu",
                     text="Roof",
                     icon_value=icons["roof"].icon_id
-                    )
+                    ).preset_operator = "archipack.roof"
 
 
 class ARCHIPACK_create_menu(Menu):

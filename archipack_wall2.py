@@ -155,7 +155,7 @@ class WallGenerator():
             w = self.segs[-1]
             if len(self.segs) > 1:
                 w.line = w.make_offset(offset, self.segs[-2].line)
-            
+
             p1 = self.segs[0].line.p1
             self.segs[0].line = self.segs[0].make_offset(offset, w.line)
             self.segs[0].line.p1 = p1
@@ -1191,21 +1191,6 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         modif.thickness = self.width
         modif.offset = self.x_offset
 
-        hole = self.find_hole(o)
-        if hole is not None:
-            # Throttle update for floor booleans
-            if o.parent is not None:
-                floors = self.find_floors(o)
-                for floor in floors:
-                    m = floor.modifiers.get("AutoBoolean")
-                    if m is not None:
-                        floor.hide = True
-                        # floor.draw_type = 'BOUNDS'
-                        # m.show_viewport = False
-                        bpy.ops.archipack.wall2_throttle_update(name=floor.name)
-
-            self.interactive_hole(context, o)
-
         if manipulable_refresh:
             # print("manipulable_refresh=True")
             self.manipulable_refresh = True
@@ -1620,58 +1605,6 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 return r, r.data.archipack_roof[0]
 
         return None, None
-
-    def find_hole(self, o):
-        if o.parent is not None:
-            for child in o.parent.children:
-                if 'archipack_hole' in child:
-                    return child
-        return None
-
-    def find_floors(self, o):
-        floors = []
-        if o.parent is not None:
-            for child in o.parent.children:
-                if child.data and "archipack_floor" in child.data:
-                    floors.append(child)
-        return floors
-
-    def interactive_hole(self, context, o):
-        """
-            NOTE:
-            Hole has to be child of reference point to avoid
-            floor boolean refresh when adding windows to wall
-        """
-        hole_obj = self.find_hole(o)
-
-        # parenting childs to wall reference point
-        if o.parent is None:
-            bpy.ops.object.select_all(action='DESELECT')
-            x, y, z = o.bound_box[0]
-            context.scene.cursor_location = o.matrix_world * Vector((x, y, z))
-            context.scene.objects.active = o
-            bpy.ops.archipack.reference_point()
-            o.select = True
-            bpy.ops.archipack.parent_to_reference()
-            o.parent.select = False
-            context.scene.objects.active = o
-
-        if hole_obj is None:
-            m = bpy.data.meshes.new("hole")
-            hole_obj = bpy.data.objects.new("hole", m)
-            context.scene.objects.link(hole_obj)
-            hole_obj['archipack_hole'] = True
-            hole_obj.parent = o.parent
-            hole_obj.matrix_world = o.matrix_world.copy()
-
-        hole_obj.data.materials.clear()
-        for mat in o.data.materials:
-            hole_obj.data.materials.append(mat)
-
-        g = self.get_generator()
-        g.make_hole(context, hole_obj, self)
-
-        return hole_obj
 
 
 # Update throttle (hack)
@@ -2131,7 +2064,7 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
             # wait for takeloc being visible when button is over horizon
             rv3d = context.region_data
             viewinv = rv3d.view_matrix.inverted()
-            
+
             if (takeloc * viewinv).z < 0 or not rv3d.is_perspective:
                 # print("STARTING")
                 snap_point(takeloc=takeloc,
@@ -2229,6 +2162,7 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                 context.scene.objects.active = self.o
 
                 # remove last segment with blender mode
+                d = archipack_wall2.datablock(self.o)
                 if not self.max_style_draw_tool:
                     if not d.closed and d.n_parts > 1:
                         d.n_parts -= 1
@@ -2237,7 +2171,6 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                 context.scene.objects.active = self.o
                 # make T child
                 if self.parent is not None:
-                    d = archipack_wall2.datablock(self.o)
                     d.t_part = self.parent
 
                 if bpy.ops.archipack.wall2_manipulate.poll():
