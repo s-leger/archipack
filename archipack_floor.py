@@ -1225,14 +1225,14 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
 
     vary_materials = BoolProperty(
                 name="Vary Material?",
-                default=False,
+                default=True,
                 description="Vary Material indexes",
                 update=update)
     matid = IntProperty(
                 name="#variations",
                 min=1,
                 max=10,
-                default=1,
+                default=7,
                 description="Material index maxi",
                 update=update)
     auto_update = BoolProperty(
@@ -1815,7 +1815,7 @@ class ARCHIPACK_OT_floor(ArchipackCreateTool, Operator):
             # activate manipulators at creation time
             o.select = True
             context.scene.objects.active = o
-            bpy.ops.archipack.floor_manipulate()
+            self.manipulate()
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Option only valid in Object mode")

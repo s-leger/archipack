@@ -486,6 +486,9 @@ class TOOLS_PT_Archipack_Tools(Panel):
         row.prop(wm.archipack, 'render_type', text="")
         row = box.row(align=True)
         row.operator("archipack.render", icon='RENDER_STILL')
+        box = layout.box()
+        box.label("Generate preset thumbs")
+        box.operator("archipack.render_thumbs", icon="ERROR")
 
 
 class TOOLS_PT_Archipack_Create(Panel):
@@ -583,13 +586,13 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
         row.operator("archipack.floor_preset_menu",
-                    text="->Wall", 
+                    text="->Wall",
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor_from_wall"
-        row.operator("archipack.floor_preset_menu", 
+        row.operator("archipack.floor_preset_menu",
                     text="",
                     icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
-        
+
         addon_updater_ops.update_notice_box_ui(self, context)
 
 
@@ -687,7 +690,7 @@ def register():
         name, ext = os.path.splitext(icon)
         icons.load(name, os.path.join(icons_dir, icon), 'IMAGE')
     icons_collection["main"] = icons
-    
+
     archipack_progressbar.register()
     archipack_material.register()
     archipack_snap.register()
