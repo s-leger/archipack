@@ -806,9 +806,6 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         m.set_pts([pt1, pt2, pt3])
 
     def generate_pattern(self, d, verts, faces, matids, uvs):
-        # clear data before refreshing it
-
-        self.uv_factor = 1 / max(self.xmax, self.ymax)  # automatically scale to keep within reasonable bounds
 
         if d.pattern == "boards":
             self.boards(d, verts, faces, matids, uvs)

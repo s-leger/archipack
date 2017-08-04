@@ -55,7 +55,8 @@ def generateThumb(context, cls, preset):
     render.use_transparent_shadows = True
     render.diffuse_bounces = 1
     render.glossy_bounces = 4
-
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
     # create object, loading preset
     getattr(bpy.ops.archipack, cls)('INVOKE_DEFAULT', filepath=preset, auto_manipulate=False)
     
