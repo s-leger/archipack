@@ -41,14 +41,6 @@ from bpy.props import (
 setman = None
 libman = None
 
-"""
-    Importing material library:
-    1 check for default matlib path
-    unzip matlib.blend there
-    register and save material sets
-
-"""
-
 
 class MatLib():
     """
@@ -377,7 +369,6 @@ class archipack_material(PropertyGroup):
 
     def apply_material(self, context, slot_index, name):
         global libman
-        global setman
 
         if libman is None:
             libman = MatlibsManager()

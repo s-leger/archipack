@@ -59,7 +59,7 @@ def generateThumb(context, cls, preset):
     bpy.ops.object.delete()
     # create object, loading preset
     getattr(bpy.ops.archipack, cls)('INVOKE_DEFAULT', filepath=preset, auto_manipulate=False)
-    
+
     o = context.active_object
     size = o.dimensions
     x, y, z = o.bound_box[0]
@@ -171,13 +171,13 @@ def generateThumb(context, cls, preset):
     log("### COMPLETED ############################")
 
 
-preset = ""
+if __name__ == "__main__":
+    preset = ""
 
-for arg in sys.argv:
-    if arg.startswith("cls:"):
-        cls = arg[4:]
-    if arg.startswith("preset:"):
-        preset = arg[7:]
+    for arg in sys.argv:
+        if arg.startswith("cls:"):
+            cls = arg[4:]
+        if arg.startswith("preset:"):
+            preset = arg[7:]
 
-
-generateThumb(bpy.context, cls, preset)
+    generateThumb(bpy.context, cls, preset)
