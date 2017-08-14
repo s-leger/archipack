@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 3, 2),
+    'version': (1, 3, 3),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '2d to 3d require shapely python module (see setup in documentation)',
