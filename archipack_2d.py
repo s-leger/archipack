@@ -116,6 +116,11 @@ class Line(Projection):
         else:
             self.p = Vector((0, 0))
             self.v = Vector((0, 0))
+        self.line = None
+
+    @property
+    def copy(self):
+        return Line(self.p.copy(), self.v.copy())
 
     @property
     def p0(self):
@@ -156,6 +161,10 @@ class Line(Projection):
             2d angle on xy plane
         """
         return atan2(self.v.y, self.v.x)
+
+    @property
+    def a0(self):
+        return self.angle
 
     @property
     def angle_normal(self):
@@ -250,6 +259,20 @@ class Line(Projection):
         t = (c * (line.p - self.p)) / d
         return True, self.lerp(t), t
 
+    def intersect_ext(self, line):
+        """
+            same as intersect, but return param t on both lines
+        """
+        c = line.cross_z
+        d = self.v * c
+        if d == 0:
+            return False, 0, 0, 0
+        dp = line.p - self.p
+        c2 = self.cross_z
+        u = (c * dp) / d
+        v = (c2 * dp) / d
+        return u > 0 and v > 0 and u < 1 and v < 1, self.lerp(u), u, v
+
     def point_sur_segment(self, pt):
         """ _point_sur_segment
             point: Vector 2d
@@ -258,6 +281,8 @@ class Line(Projection):
         """
         dp = pt - self.p
         dl = self.length
+        if dl == 0:
+            return dp.length < 0.00001, 0, 0
         d = (self.v.x * dp.y - self.v.y * dp.x) / dl
         t = (self.v * dp) / (dl * dl)
         return t > 0 and t < 1, d, t
@@ -318,7 +343,19 @@ class Line(Projection):
             Draw Line with open gl in screen space
             aka: coords are in pixels
         """
-        raise NotImplementedError
+        curve = bpy.data.curves.new('LINE', type='CURVE')
+        curve.dimensions = '2D'
+        spline = curve.splines.new('POLY')
+        spline.use_endpoint_u = False
+        spline.use_cyclic_u = False
+        pts = self.pts
+        spline.points.add(len(pts) - 1)
+        for i, p in enumerate(pts):
+            x, y, z = p
+            spline.points[i].co = (x, y, 0, 1)
+        curve_obj = bpy.data.objects.new('LINE', curve)
+        context.scene.objects.link(curve_obj)
+        curve_obj.select = True
 
     def make_offset(self, offset, last=None):
         """
@@ -333,7 +370,7 @@ class Line(Projection):
         if hasattr(last, "r"):
             res, d, t = line.point_sur_segment(last.c)
             c = (last.r * last.r) - (d * d)
-            print("t:%s" % t)
+            # print("t:%s" % t)
             if c <= 0:
                 # no intersection !
                 p0 = line.lerp(t)
@@ -423,8 +460,6 @@ class Arc(Circle):
     """
         Represent a 2d Arc
         TODO:
-            Add some sugar here
-            like being able to set p0 and p1 of line
             make it possible to define an arc by start point end point and center
     """
     def __init__(self, c, radius, a0, da):
@@ -441,6 +476,7 @@ class Arc(Circle):
             stored internally as radians
         """
         Circle.__init__(self, Vector(c).to_2d(), radius)
+        self.line = None
         self.a0 = a0
         self.da = da
 
@@ -543,6 +579,15 @@ class Arc(Circle):
         """
         return self.r * abs(self.da)
 
+    @property
+    def oposite(self):
+        a0 = self.a0 + self.da
+        if a0 > pi:
+            a0 -= 2 * pi
+        if a0 < -pi:
+            a0 += 2 * pi
+        return Arc(self.c, self.r, a0, -self.da)
+
     def normal(self, t=0):
         """
             Perpendicular line starting at t
@@ -581,10 +626,40 @@ class Arc(Circle):
         steps = max(1, round(self.length / length, 0))
         return 1.0 / steps, int(steps)
 
+    def intersect_ext(self, line):
+        """
+            same as intersect, but return param t on both lines
+        """
+        res, p, v = self.intersect(line)
+        v0 = self.p0 - self.c
+        v1 = p - self.c
+        u = self.signed_angle(v0, v1) / self.da
+        return res and u > 0 and v > 0 and u < 1 and v < 1, p, u, v
+
     # this is for wall
     def steps_by_angle(self, step_angle):
         steps = max(1, round(abs(self.da) / step_angle, 0))
         return 1.0 / steps, int(steps)
+
+    def as_lines(self, steps):
+        """
+            convert Arc to lines
+        """
+        res = []
+        p0 = self.lerp(0)
+        for step in range(steps):
+            p1 = self.lerp((step + 1) / steps)
+            s = Line(p0=p0, p1=p1)
+            res.append(s)
+            p0 = p1
+
+        if self.line is not None:
+            p0 = self.line.lerp(0)
+            for step in range(steps):
+                p1 = self.line.lerp((step + 1) / steps)
+                res[step].line = Line(p0=p0, p1=p1)
+                p0 = p1
+        return res
 
     def offset(self, offset):
         """

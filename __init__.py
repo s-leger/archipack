@@ -31,10 +31,10 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': 'shapely',
-    'version': (1, 2, 5),
+    'version': (1, 3, 3),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
-    'warning': '',
+    'warning': '2d to 3d require shapely python module (see setup in documentation)',
     'wiki_url': 'https://github.com/s-leger/archipack/wiki',
     'tracker_url': 'https://github.com/s-leger/archipack/issues',
     'link': 'https://github.com/s-leger/archipack',
@@ -46,6 +46,8 @@ import os
 
 if "bpy" in locals():
     import importlib as imp
+    imp.reload(archipack_progressbar)
+    imp.reload(archipack_material)
     imp.reload(archipack_snap)
     imp.reload(archipack_manipulator)
     imp.reload(archipack_reference_point)
@@ -55,7 +57,7 @@ if "bpy" in locals():
     imp.reload(archipack_stair)
     imp.reload(archipack_wall)
     imp.reload(archipack_wall2)
-    # imp.reload(archipack_roof2d)
+    imp.reload(archipack_roof)
     imp.reload(archipack_slab)
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
@@ -72,6 +74,8 @@ if "bpy" in locals():
 
     print("archipack: reload ready")
 else:
+    from . import archipack_progressbar
+    from . import archipack_material
     from . import archipack_snap
     from . import archipack_manipulator
     from . import archipack_reference_point
@@ -81,7 +85,7 @@ else:
     from . import archipack_stair
     from . import archipack_wall
     from . import archipack_wall2
-    # from . import archipack_roof2d
+    from . import archipack_roof
     from . import archipack_slab
     from . import archipack_fence
     from . import archipack_truss
@@ -146,18 +150,28 @@ class Archipack_Pref(AddonPreferences):
     tools_category = StringProperty(
         name="Tools",
         description="Choose a name for the category of the Tools panel",
-        default="Tools",
+        default="Archipack",
         update=update_panel
     )
     create_category = StringProperty(
         name="Create",
         description="Choose a name for the category of the Create panel",
-        default="Create",
+        default="Archipack",
         update=update_panel
     )
     create_submenu = BoolProperty(
         name="Use Sub-menu",
         description="Put Achipack's object into a sub menu (shift+a)",
+        default=True
+    )
+    max_style_draw_tool = BoolProperty(
+        name="Draw a wall use 3dsmax style",
+        description="Reverse clic / release & drag cycle for Draw a wall",
+        default=True
+    )
+    enable_2d_to_3d = BoolProperty(
+        name="Enable 2d to 3d",
+        description="Enable 2d to 3d module",
         default=True
     )
     # Arrow sizes (world units)
@@ -172,6 +186,11 @@ class Archipack_Pref(AddonPreferences):
             description="Manipulators handle sensitive area size (pixels)",
             min=2,
             default=10
+            )
+    matlib_path = StringProperty(
+            name="Folder path",
+            description="absolute path to material library folder",
+            default=""
             )
     # Font sizes and basic colour scheme
     # kept outside of addon prefs until now
@@ -282,6 +301,20 @@ class Archipack_Pref(AddonPreferences):
         col.prop(self, "create_category")
         col.prop(self, "create_submenu")
         box = layout.box()
+        box.label("Features")
+        box.prop(self, "max_style_draw_tool")
+        box = layout.box()
+        box.label("2d to 3d")
+        if not HAS_POLYLIB:
+            box.label(text="WARNING Shapely python module not found", icon="ERROR")
+            box.label(text="2d to 3d tools are disabled, see setup in documentation")
+        box.prop(self, "enable_2d_to_3d")
+        box = layout.box()
+        row = box.row()
+        col = row.column()
+        col.label(text="Material library:")
+        col.prop(self, "matlib_path")
+        box = layout.box()
         row = box.row()
         split = row.split(percentage=0.5)
         col = split.column()
@@ -318,13 +351,16 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Tools"
+    bl_context = "objectmode"
 
     @classmethod
     def poll(self, context):
 
         global archipack_polylib
-        return HAS_POLYLIB and ((archipack_polylib.vars_dict['select_polygons'] is not None) or
-                (context.object is not None and context.object.type == 'CURVE'))
+        return (HAS_POLYLIB and
+                context.user_preferences.addons[__name__].preferences.enable_2d_to_3d and
+                ((archipack_polylib.vars_dict['select_polygons'] is not None) or
+                (context.object is not None and context.object.type == 'CURVE')))
 
     def draw(self, context):
         global icons_collection
@@ -427,6 +463,7 @@ class TOOLS_PT_Archipack_Tools(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Tools"
+    bl_context = "objectmode"
 
     @classmethod
     def poll(self, context):
@@ -449,6 +486,9 @@ class TOOLS_PT_Archipack_Tools(Panel):
         row.prop(wm.archipack, 'render_type', text="")
         row = box.row(align=True)
         row.operator("archipack.render", icon='RENDER_STILL')
+        box = layout.box()
+        box.label("Generate preset thumbs")
+        box.operator("archipack.render_thumbs", icon="ERROR")
 
 
 class TOOLS_PT_Archipack_Create(Panel):
@@ -457,6 +497,7 @@ class TOOLS_PT_Archipack_Create(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_category = "Create"
+    bl_context = "objectmode"
 
     @classmethod
     def poll(self, context):
@@ -531,21 +572,29 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="->Ceiling",
                     icon_value=icons["slab"].icon_id
                     ).ceiling = True
-
-        addon_updater_ops.update_notice_box_ui(self, context)
-
-        # row = box.row(align=True)
-        # row.operator("archipack.roof", icon='CURVE_DATA')
-
+        row = box.row(align=True)
+        row.operator("archipack.roof_preset_menu",
+                    text="Roof",
+                    icon_value=icons["roof"].icon_id
+                    ).preset_operator = "archipack.roof"
         # toolkit
         # row = box.row(align=True)
         # row.operator("archipack.myobject")
-
         row = box.row(align=True)
         row.operator("archipack.floor_preset_menu",
                     text="Floor",
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
+        row.operator("archipack.floor_preset_menu",
+                    text="->Wall",
+                    icon_value=icons["floor"].icon_id
+                    ).preset_operator = "archipack.floor_from_wall"
+        row.operator("archipack.floor_preset_menu",
+                    text="",
+                    icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
+
+        addon_updater_ops.update_notice_box_ui(self, context)
+
 
 # ----------------------------------------------------
 # ALT + A menu
@@ -585,7 +634,11 @@ def draw_menu(self, context):
     layout.operator("archipack.floor_preset_menu",
                     text="Floor",
                     icon_value=icons["floor"].icon_id
-                    )
+                    ).preset_operator = "archipack.floor"
+    layout.operator("archipack.roof_preset_menu",
+                    text="Roof",
+                    icon_value=icons["roof"].icon_id
+                    ).preset_operator = "archipack.roof"
 
 
 class ARCHIPACK_create_menu(Menu):
@@ -638,6 +691,8 @@ def register():
         icons.load(name, os.path.join(icons_dir, icon), 'IMAGE')
     icons_collection["main"] = icons
 
+    archipack_progressbar.register()
+    archipack_material.register()
     archipack_snap.register()
     archipack_manipulator.register()
     archipack_reference_point.register()
@@ -647,7 +702,7 @@ def register():
     archipack_stair.register()
     archipack_wall.register()
     archipack_wall2.register()
-    # archipack_roof2d.register()
+    archipack_roof.register()
     archipack_slab.register()
     archipack_fence.register()
     archipack_truss.register()
@@ -666,7 +721,6 @@ def register():
     bpy.types.INFO_MT_mesh_add.append(menu_func)
 
     addon_updater_ops.register(bl_info)
-    # bpy.utils.register_module(__name__)
 
 
 def unregister():
@@ -679,6 +733,8 @@ def unregister():
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
     bpy.utils.unregister_class(Archipack_Pref)
     # unregister subs
+    archipack_progressbar.unregister()
+    archipack_material.unregister()
     archipack_snap.unregister()
     archipack_manipulator.unregister()
     archipack_reference_point.unregister()
@@ -688,7 +744,7 @@ def unregister():
     archipack_stair.unregister()
     archipack_wall.unregister()
     archipack_wall2.unregister()
-    # archipack_roof2d.unregister()
+    archipack_roof.unregister()
     archipack_slab.unregister()
     archipack_fence.unregister()
     archipack_truss.unregister()
@@ -708,9 +764,6 @@ def unregister():
 
     addon_updater_ops.unregister()
 
-    # bpy.utils.unregister_module(__name__)
-
 
 if __name__ == "__main__":
     register()
-

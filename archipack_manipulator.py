@@ -776,6 +776,7 @@ class WallSnapManipulator(Manipulator):
                         part.a0 = w.straight(1, 0).angle
                         # move object when point 0
                         self.o.location += sp.delta
+                        self.o.matrix_world.translation += sp.delta
 
                     if "C_" in part.type:
                         part.radius = w.r
@@ -1636,6 +1637,11 @@ class DumbAngleManipulator(AngleManipulator):
         self.line_0.v = -self.line_0.cross.normalized()
         self.line_1.v = right
         self.line_1.v = self.line_1.cross.normalized()
+
+        # prevent ValueError in angle_signed
+        if self.line_0.length == 0 or self.line_1.length == 0:
+            return
+
         self.arc.a0 = self.line_0.angle
         self.arc.da = self.line_1.v.to_2d().angle_signed(self.line_0.v.to_2d())
         self.arc.r = 1.0
@@ -2088,7 +2094,7 @@ class ARCHIPACK_OT_manipulate(Operator):
         return res
 
     def invoke(self, context, event):
-        if context.space_data.type == 'VIEW_3D':
+        if context.space_data is not None and context.space_data.type == 'VIEW_3D':
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
@@ -2207,7 +2213,7 @@ class Manipulable():
 
         # take care of context switching
         # when call from outside of 3d view
-        if context.space_data.type != 'VIEW_3D':
+        if context.space_data is not None and context.space_data.type != 'VIEW_3D':
             for window in bpy.context.window_manager.windows:
                 screen = window.screen
                 for area in screen.areas:

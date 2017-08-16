@@ -28,16 +28,6 @@ import bpy
 from bpy.types import Operator
 from bpy.props import EnumProperty
 from mathutils import Vector
-from .materialutils import MaterialUtils
-
-from os import path
-
-
-def debug_using_gl(context, filename):
-    context.scene.update()
-    temp_path = "C:\\tmp\\"
-    context.scene.render.filepath = path.join(temp_path, filename + ".png")
-    bpy.ops.render.opengl(write_still=True)
 
 
 class ArchipackBoolManager():
@@ -103,11 +93,12 @@ class ArchipackBoolManager():
                 None when not found
         """
         d = None
-        if o.data:
-            if "archipack_window" in o.data:
-                d = o.data.archipack_window[0]
-            elif "archipack_door" in o.data:
-                d = o.data.archipack_door[0]
+        if o.data is None:
+            return
+        if "archipack_window" in o.data:
+            d = o.data.archipack_window[0]
+        elif "archipack_door" in o.data:
+            d = o.data.archipack_door[0]
         return d
 
     def prepare_hole(self, hole):
@@ -224,7 +215,9 @@ class ArchipackBoolManager():
         if wall.parent is not None:
             hole_obj.parent = wall.parent
         hole_obj.matrix_world = wall.matrix_world.copy()
-        MaterialUtils.add_wall2_materials(hole_obj)
+        for mat in wall.data.materials:
+            hole_obj.data.materials.append(mat)
+        # MaterialUtils.add_wall2_materials(hole_obj)
         return hole_obj
 
     def update_hybrid(self, context, wall, childs, holes):
@@ -268,10 +261,10 @@ class ArchipackBoolManager():
             hole_obj = self.create_merge_basis(context, wall)
         else:
             hole_obj = m.object
-        # debug_using_gl(context, "260")
+
         m.object = hole_obj
         self.prepare_hole(hole_obj)
-        # debug_using_gl(context, "263")
+
         to_delete = []
 
         # mixed-> mixed
@@ -284,12 +277,11 @@ class ArchipackBoolManager():
 
         # remove modifier and holes not found in new list
         self.remove_modif_and_object(context, hole_obj, to_delete)
-        # debug_using_gl(context, "276")
+
         # add modifier and holes not found in existing
         for h in holes:
             if h not in existing:
                 self.union(hole_obj, h)
-        # debug_using_gl(context, "281")
 
     # Interactive
     def update_interactive(self, context, wall, childs, holes):
@@ -390,6 +382,16 @@ class ArchipackBoolManager():
             Entry point for multi-boolean operations like
             in T panel autoBoolean and RobustBoolean buttons
         """
+
+        if wall.data is not None and "archipack_wall2" in wall.data:
+            # ensure wall modifier is there before any boolean
+            # to support "revival" of applied modifiers
+            m = wall.modifiers.get("Wall")
+            if m is None:
+                wall.select = True
+                context.scene.objects.active = wall
+                wall.data.archipack_wall2[0].update(context)
+
         bpy.ops.object.select_all(action='DESELECT')
         context.scene.objects.active = None
         childs = []
@@ -403,13 +405,17 @@ class ArchipackBoolManager():
             if h is not None:
                 holes.append(h)
                 childs.append(o)
-        # debug_using_gl(context, "395")
+
         self.sort_holes(wall, holes)
 
         # hole(s) are selected and active after this one
         for hole in holes:
+            # copy wall material to hole
+            hole.data.materials.clear()
+            for mat in wall.data.materials:
+                hole.data.materials.append(mat)
+
             self.prepare_hole(hole)
-        # debug_using_gl(context, "401")
 
         # update / remove / add  boolean modifier
         if self.mode == 'INTERACTIVE':
@@ -430,20 +436,18 @@ class ArchipackBoolManager():
         else:
             wall.parent.select = True
             context.scene.objects.active = wall.parent
-        # debug_using_gl(context, "422")
+
         wall.select = True
         for o in childs:
             if 'archipack_robusthole' in o:
                 o.hide_select = False
             o.select = True
-        # debug_using_gl(context, "428")
 
         bpy.ops.archipack.parent_to_reference()
 
         for o in childs:
             if 'archipack_robusthole' in o:
                 o.hide_select = True
-        # debug_using_gl(context, "435")
 
     def detect_mode(self, context, wall):
         for m in wall.modifiers:
@@ -461,9 +465,11 @@ class ArchipackBoolManager():
             in use in draw door and windows over wall
             o is either a window or a door
         """
+
         # generate holes for crossing window and doors
         self.itM = wall.matrix_world.inverted()
         d = self.datablock(o)
+
         hole = None
         hole_obj = None
         # default mode defined by __init__
@@ -476,6 +482,10 @@ class ArchipackBoolManager():
                 hole = d.robust_hole(context, o.matrix_world)
         if hole is None:
             return
+
+        hole.data.materials.clear()
+        for mat in wall.data.materials:
+            hole.data.materials.append(mat)
 
         self.prepare_hole(hole)
 
@@ -518,11 +528,13 @@ class ArchipackBoolManager():
         bpy.ops.archipack.parent_to_reference()
         wall.select = True
         context.scene.objects.active = wall
-        d = wall.data.archipack_wall2[0]
-        g = d.get_generator()
-        d.setup_childs(wall, g)
-        d.relocate_childs(context, wall, g)
-
+        if "archipack_wall2" in wall.data:
+            d = wall.data.archipack_wall2[0]
+            g = d.get_generator()
+            d.setup_childs(wall, g)
+            d.relocate_childs(context, wall, g)
+        elif "archipack_roof" in wall.data:
+            pass
         if hole_obj is not None:
             self.prepare_hole(hole_obj)
 
@@ -559,7 +571,9 @@ class ARCHIPACK_OT_single_boolean(Operator):
     def poll(cls, context):
         w = context.active_object
         return (w.data is not None and
-            "archipack_wall2" in w.data and
+            ("archipack_wall2" in w.data or
+            "archipack_wall" in w.data or
+            "archipack_roof" in w.data) and
             len(context.selected_objects) == 2
             )
 
@@ -648,9 +662,10 @@ class ARCHIPACK_OT_generate_hole(Operator):
         if context.mode == "OBJECT":
             manager = ArchipackBoolManager(mode='HYBRID')
             o = context.active_object
+
             d = manager.datablock(o)
             if d is None:
-                self.report({'WARNING'}, "Archipack: active object must be a door or a window")
+                self.report({'WARNING'}, "Archipack: active object must be a door, a window or a roof")
                 return {'CANCELLED'}
             bpy.ops.object.select_all(action='DESELECT')
             o.select = True
