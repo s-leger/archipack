@@ -518,7 +518,7 @@ class Panel():
                 size, Vector((radius.x - x, radius.y - x)), x, pivot, shape_z[i]) for i, x in enumerate(self.x)]
         elif path_type == 'QUADRI':
             coords = [self._get_vertical_rectangular_trapezoid_coords(offset, center, origin,
-                size, radius.x, x, pivot) for i, x in enumerate(self.x)]
+                size, radius.x, x, pivot, shape_z[i]) for i, x in enumerate(self.x)]
         elif path_type == 'HORIZONTAL':
             coords = [self._get_horizontal_coords(offset, size, x, pivot)
                 for i, x in enumerate(self.x)]
