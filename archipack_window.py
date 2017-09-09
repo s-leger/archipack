@@ -1146,7 +1146,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             if order[i] < 0:
                 p = bpy.data.objects.new("Panel", child.data)
                 context.scene.objects.link(p)
-                p.lock_location[0] = True
                 p.lock_location[1] = True
                 p.lock_location[2] = True
                 p.lock_rotation[1] = True
@@ -1160,6 +1159,8 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 m.material = o.archipack_material[0].material
             else:
                 p = l_childs[order[i]]
+
+            self.synch_locks(p)
 
             # update handle
             handle = self.find_handle(child)
@@ -1190,6 +1191,11 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             l_hole.location = hole.location.copy()
         else:
             l_hole.data = hole.data
+
+    def synch_locks(self, p):
+        p.lock_location[0] = self.window_type != 'RAIL'
+        p.lock_rotation[0] = self.window_type == 'RAIL'
+        p.lock_rotation[2] = self.window_type == 'RAIL'
 
     def synch_childs(self, context, o):
         """
@@ -1321,6 +1327,8 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 # update linked childs location too
                 child.location = Vector((origin[panel].x, origin[panel].y + location_y + self.frame_y,
                     self.altitude + offset.y))
+
+                self.synch_locks(child)
 
                 if not row.fixed[panel]:
                     handle = 'NONE'
@@ -2167,7 +2175,6 @@ class ARCHIPACK_OT_window_panel(Operator):
         m = o.archipack_material.add()
         m.category = "window"
         m.material = self.material
-        o.lock_location[0] = True
         o.lock_location[1] = True
         o.lock_location[2] = True
         o.lock_rotation[1] = True
