@@ -237,7 +237,7 @@ class FenceGenerator():
         segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, len(self.segs) - 1)
         self.segments.append(segment)
 
-    def setup_user_defined_post(self, o, post_x, post_y, post_z):
+    def setup_user_defined_post(self, o, post_x, post_y, post_z, post_rotation):
         self.user_defined_post = o
         x = o.bound_box[6][0] - o.bound_box[0][0]
         y = o.bound_box[6][1] - o.bound_box[0][1]
@@ -257,15 +257,25 @@ class FenceGenerator():
             self.user_defined_uvs = [[(0, 0) for i in p.vertices] for p in m.polygons]
         # material ids
         self.user_defined_mat = [p.material_index for p in m.polygons]
+        ca = cos(post_rotation)
+        sa = sin(post_rotation)
+        self.user_rM = Matrix([
+            [ca, -sa, 0, 0],
+            [sa, ca, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ])
 
     def get_user_defined_post(self, tM, z0, z1, z2, slope, post_z, verts, faces, matids, uvs):
         f = len(verts)
         m = self.user_defined_post.data
+
         for i, g in enumerate(self.vertex_groups):
             co = m.vertices[i].co.copy()
             co.x *= self.user_defined_post_scale.x
             co.y *= self.user_defined_post_scale.y
             co.z *= self.user_defined_post_scale.z
+            co = self.user_rM * co
             if 'Slope' in g:
                 co.z += co.y * slope
             verts.append(tM * co)
@@ -882,6 +892,14 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+    post_rotation = FloatProperty(
+            name="Rotation",
+            min=-pi,
+            max=pi,
+            default=pi / 2,
+            subtype='ANGLE', unit='ROTATION',
+            update=update
+            )
     user_defined_post_enable = BoolProperty(
             name="User",
             update=update,
@@ -949,6 +967,14 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 ('LINEAR', 'Linear', '', 1),
                 ),
             default='STEP',
+            update=update
+            )
+    subs_rotation = FloatProperty(
+            name="Rotation",
+            min=-pi,
+            max=pi,
+            default=pi / 2,
+            subtype='ANGLE', unit='ROTATION',
             update=update
             )
     user_defined_subs_enable = BoolProperty(
@@ -1361,7 +1387,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             # user defined posts
             user_def_post = context.scene.objects.get(self.user_defined_post)
             if user_def_post is not None and user_def_post.type == 'MESH':
-                g.setup_user_defined_post(user_def_post, self.post_x, self.post_y, self.post_z)
+                g.setup_user_defined_post(user_def_post, self.post_x, self.post_y, self.post_z, self.post_rotation)
 
         if self.post:
             g.make_post(0.5 * self.post_x, 0.5 * self.post_y, self.post_z,
@@ -1375,7 +1401,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
         if self.user_defined_subs_enable:
             user_def_subs = context.scene.objects.get(self.user_defined_subs)
             if user_def_subs is not None and user_def_subs.type == 'MESH':
-                g.setup_user_defined_post(user_def_subs, self.subs_x, self.subs_y, self.subs_z)
+                g.setup_user_defined_post(user_def_subs, self.subs_x, self.subs_y, self.subs_z, self.subs_rotation)
 
         if self.subs:
             g.make_subs(0.5 * self.subs_x, 0.5 * self.subs_y, self.subs_z,
@@ -1541,7 +1567,10 @@ class ARCHIPACK_PT_fence(Panel):
             box.prop(prop, 'post_alt')
             row = box.row(align=True)
             row.prop(prop, 'user_defined_post_enable', text="")
+            row.operator("archipack.fence_subpart_dimensions", text="", icon='BBOX').part = "POST"
             row.prop_search(prop, "user_defined_post", scene, "objects", text="")
+            if prop.user_defined_post:
+                box.prop(prop, 'post_rotation')
 
         box = layout.box()
         row = box.row(align=True)
@@ -1560,7 +1589,10 @@ class ARCHIPACK_PT_fence(Panel):
             box.prop(prop, 'subs_offset_x')
             row = box.row(align=True)
             row.prop(prop, 'user_defined_subs_enable', text="")
+            row.operator("archipack.fence_subpart_dimensions", text="", icon='BBOX').part = "SUB"
             row.prop_search(prop, "user_defined_subs", scene, "objects", text="")
+            if prop.user_defined_subs:
+                box.prop(prop, 'subs_rotation')
 
         box = layout.box()
         row = box.row(align=True)
@@ -1717,6 +1749,7 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+
 # ------------------------------------------------------------------
 # Define operator class to manipulate object
 # ------------------------------------------------------------------
@@ -1761,6 +1794,43 @@ class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
         return ['manipulators', 'n_parts', 'parts', 'user_defined_path', 'user_defined_spline']
 
 
+class ARCHIPACK_OT_fence_subpart_dimensions(Operator):
+
+    bl_idname = "archipack.fence_subpart_dimensions"
+    bl_label = "Dimension"
+    bl_description = "Use object's dimensions"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    part = StringProperty()
+
+    @classmethod
+    def poll(cls, context):
+        return archipack_fence.filter(context.active_object)
+
+    def execute(self, context):
+        d = archipack_fence.datablock(context.active_object)
+
+        if d is None:
+            self.report({'WARNING'}, "Archipack: Operator only valid with fence")
+            return {'CANCELLED'}
+
+        if self.part == "SUB":
+            part_obj = bpy.data.objects.get(d.user_defined_subs)
+            if part_obj is None:
+                self.report({'WARNING'}, "Archipack: User defined sub object not found")
+                return {'CANCELLED'}
+            d.subs_x, d.subs_y, d.subs_z = part_obj.dimensions.x, part_obj.dimensions.y, part_obj.dimensions.z
+        else:
+            part_obj = bpy.data.objects.get(d.user_defined_post)
+            if part_obj is None:
+                self.report({'WARNING'}, "Archipack: User defined post object not found")
+                return {'CANCELLED'}
+            d.post_x, d.post_y, d.post_z = part_obj.dimensions.x, part_obj.dimensions.y, part_obj.dimensions.z
+
+        return {'FINISHED'}
+
+
 def register():
     bpy.utils.register_class(archipack_fence_material)
     bpy.utils.register_class(archipack_fence_part)
@@ -1773,6 +1843,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_fence_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_fence_curve_update)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_subpart_dimensions)
 
 
 def unregister():
@@ -1787,3 +1858,4 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_curve_update)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_subpart_dimensions)
