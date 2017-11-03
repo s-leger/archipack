@@ -47,14 +47,8 @@ import time
 import bpy
 import bgl
 import numpy as np
-from math import cos, sin, pi, atan2
+from math import cos, sin, pi, atan2, sqrt
 import bmesh
-
-# let shapely import raise ImportError when missing
-import shapely.ops
-import shapely.prepared
-from shapely.geometry import Point as ShapelyPoint
-from shapely.geometry import Polygon as ShapelyPolygon
 
 try:
     import shapely.speedups
@@ -62,6 +56,76 @@ try:
         shapely.speedups.enable()
 except:
     pass
+
+HAS_PYGEOS = False
+try:
+    # let shapely import raise ImportError when missing
+    import shapely.ops.polygonize_full as polygonize_full
+    import shapely.ops.cascaded_union as cascaded_union
+    import shapely.prepared as prepared
+    prepare = prepared.prep
+    from shapely.geometry import (
+        LineString,
+        GeometryCollection
+        )
+    from shapely.geometry import Point as ShapelyPoint
+    from shapely.geometry import Polygon as ShapelyPolygon   
+    
+    class GeometryFactory():
+        """
+         * Abstraction layer for geometry
+        """
+        def createCoordinate(self, co):
+            return co
+        
+        def createPoint(self, co):
+            return ShapelyPoint(co)
+        
+        def createLineString(self, coords):
+            return LineString(coords)
+        
+        def createPolygon(self, coords):
+            return ShapelyPolygon(coords)
+            
+        def createLinearRing(coords):
+            return coords
+            
+    def createGeometryCollection(geoms=None):
+        return GeometryCollection(geoms)
+    
+    print("archipack: shapely found")
+    
+except ImportError:
+    
+    HAS_PYGEOS = True
+    from .pygeos.op_polygonize import PolygonizeOp
+    from .pygeos.geom import GeometryFactory
+    # @TODO:
+    # expose shapely counterparts
+    # from .pygeos.op_linemerge import LineMergeOp
+    # from .pygeos.op_overlay import OverlayOp
+    # @TODO:
+    # prepared seem not working as expected
+    # crossing selections are failing  
+    from .pygeos.prepared import PreparedGeometryFactory
+    # @TODO:
+    # Use UnaryUnion instead
+    from .pygeos.op_union import CascadedUnion
+    # @TODO:
+    # Expose shapely buffer oOp
+    # from .pygeos.op_buffer import BufferOp
+    
+    polygonize_full = PolygonizeOp.polygonize_full
+    cascaded_union = CascadedUnion.union
+    prepare = PreparedGeometryFactory.prepare
+    
+    def createGeometryCollection(geoms=None):
+        return geoms
+        
+    print("archipack: shapely missing, fallback to pyGEOS")
+    
+    pass
+    
 
 from .bitarray import BitArray
 from .pyqtree import _QuadTree
@@ -79,6 +143,8 @@ from .archipack_gl import (
     GlLine,
     GlPolyline
 )
+
+gf = None
 
 # module globals vars dict
 vars_dict = {
@@ -98,6 +164,83 @@ EPSILON = 1.0e-4
 # Qtree params
 MAX_ITEMS = 10
 MAX_DEPTH = 20
+
+
+class OutputFactory():
+    """
+     * pygeos output to blender
+     * no support Point entity
+    """
+    def __init__(self, context, wM):
+        self.context = context
+        self.wM = wM
+        
+    def _spline(self, geom, curve_data):
+        """
+         * add a spline to curve with current coords
+         * @param geom: a geometry or collection
+        """
+        cls = type(geom).__name__
+        if cls == 'Polygon':
+            self._spline(geom.exterior, curve_data)
+            if geom.interiors is not None:
+                for hole in geom.interiors:
+                    self._spline(hole, curve_data)
+
+        elif 'Multi' in cls or 'Collection' in cls:
+            for g in geom.geoms:
+                self._spline(g, curve_data)
+
+        elif cls in {'LineString', 'LinearRing'}:
+            spline = curve_data.splines.new('POLY')
+            spline.use_endpoint_u = False
+            spline.use_cyclic_u = geom.isClosed
+            coords = list(geom.coords)
+            # remove last when equals first one
+            if geom.isClosed:
+                coords.pop()
+            spline.points.add(len(coords) - 1)
+            for i, p in enumerate(coords):
+                spline.points[i].co = (p.x, p.y, 0, 1)
+
+    def _curve_data(self):
+        curve_data = bpy.data.curves.new('LINE', type='CURVE')
+        curve_data.dimensions = '2D'
+        return curve_data
+
+    def _curve_obj(self, curve_data):
+        curve_obj = bpy.data.objects.new('LINE', curve_data)
+        curve_obj.matrix_world = self.wM
+        self.context.scene.objects.link(curve_obj)
+        return curve_obj
+
+    def _curve(self, geom, name):
+        """
+         * create a curve with data spline
+        """
+        curve_data = self._curve_data()
+        self._spline(geom, curve_data)
+        curve = self._curve_obj(curve_data)
+        curve.name = name
+        return curve
+
+    def output(self, geoms, name="output", multiple=True):
+
+        # ensure geoms are iterable
+        try:
+            iter(geoms)
+        except TypeError:
+            geoms = [geoms]
+        
+        if multiple:
+            return [self._curve(geom, name) for geom in geoms]
+
+        if len(geoms) > 0:
+            curve_data = self._curve_data()
+            [self._spline(geom, curve_data) for geom in geoms if geom is not None]
+            curve = self._curve_obj(curve_data)
+            curve.name = name
+            return curve
 
 
 class CoordSys(object):
@@ -172,20 +315,55 @@ class Point():
         self.users = 0
         self.co = tuple(co)
         x, y, z = co
+        self.x = x
+        self.y = y
+        self.z = z
         self.shapeIds = []
         self.bounds = (x - precision, y - precision, x + precision, y + precision)
 
     @property
     def geom(self):
-        return ShapelyPoint(self.co)
+        return gf.createPoint(gf.createCoordinate(self.co))
 
     def vect(self, point):
         """ vector from this point to another """
         return np.subtract(point.co, self.co)
 
-    def distance(self, point):
-        """ euclidian distance between points """
-        return np.linalg.norm(self.vect(point))
+    def compareTo(self, other) -> int:
+        if self.x < other.x:
+            return -1
+        if self.x > other.x:
+            return 1
+        if self.y < other.y:
+            return -1
+        if self.y > other.y:
+            return 1
+        return 0
+
+    def distance(self, other):
+        dx = self.x - other.x
+        dy = self.y - other.y
+        return sqrt(dx * dx + dy * dy)
+
+    def equals2D(self, other):
+        if self.x != other.x or self.y != other.y:
+            return False
+        return True
+
+    def clone(self):
+        return Point(self.x, self.y, self.z)
+
+    def __hash__(self):
+        return hash((self.x, self.y))
+
+    def __eq__(self, other) -> bool:
+        return self.equals2D(other)
+
+    def __ne__(self, other) -> bool:
+        return not self.equals2D(other)
+
+    def __str__(self) -> str:
+        return "({0:.4f}, {1:.4f})".format(self.x, self.y)
 
     def add_user(self):
         self.users += 1
@@ -472,12 +650,12 @@ class Qtree(_QuadTree):
         t = time.time()
         self._geoms = geoms
         for i, geom in enumerate(geoms):
-            self._insert(i, geom.bounds)
+            self._insert(i, self.getbounds(geom))
         print("Qtree.build() :%.2f seconds" % (time.time() - t))
 
     def insert(self, id, geom):
         self._geoms.append(geom)
-        self._insert(id, geom.bounds)
+        self._insert(id, self.getbounds(geom))
 
     def newPoint(self, co):
         point = Point(co, self._extend)
@@ -506,9 +684,16 @@ class Qtree(_QuadTree):
                 return old_seg.opposite
         self.insert(self.ngeoms, new_seg)
         return new_seg
-
+    
+    def getbounds(self, geom):
+        if hasattr(geom, 'bounds'):
+            return geom.bounds
+        else:
+            _b = geom.envelope
+            return (_b.minx, _b.miny, _b.maxx, _b.maxy)
+            
     def intersects(self, geom):
-        selection = list(self._intersect(geom.bounds))
+        selection = list(self._intersect(self.getbounds(geom)))
         count = len(selection)
         return count, sorted(selection)
 
@@ -528,8 +713,11 @@ class Io():
     def _to_geom(shape):
         if not shape.valid:
             raise RuntimeError('Cant convert invalid shape to Shapely LineString')
-        return shapely.geometry.LineString(shape.coords)
-
+        if HAS_PYGEOS:
+            return gf.createLineString(shape.points)
+        else:
+            return gf.createLineString(shape.coords)
+       
     @staticmethod
     def shapes_to_geoms(shapes):
         return [Io._to_geom(shape) for shape in shapes]
@@ -607,7 +795,7 @@ class Io():
         wM = invert_world * curve.matrix_world
         for spline in curve.data.splines:
             pts = Io._coords_from_spline(wM, resolution, spline)
-            geom = shapely.geometry.LineString(pts)
+            geom = gf.createLineString(pts)
             geoms.append(geom)
 
     @staticmethod
@@ -708,7 +896,7 @@ class Io():
                     if len(f.verts) > 3:
                         nfaces = i
                         break
-                # walls without holes are inside
+                # walls without interiors are inside
                 mat_index = 0 if n_int > 0 else 1
                 for i in range(nfaces, nfaces + n_ext - 1):
                     bm.faces[i].material_index = mat_index
@@ -733,7 +921,7 @@ class Io():
         spline.use_cyclic_u = coords[0] == coords[-1]
         spline.points.add(len(coords) - 1)
         for i, coord in enumerate(coords):
-            x, y, z = Vector(coord).to_3d()
+            x, y, z = coord.x, coord.y, coord.z
             spline.points[i].co = (x, y, z, 1)
 
     @staticmethod
@@ -860,12 +1048,12 @@ class ShapelyOps():
         """
         print("Ops.detect_polygons()")
         t = time.time()
-        result, dangles, cuts, invalids = shapely.ops.polygonize_full(geoms)
+        result, dangles, cuts, invalids = polygonize_full(geoms)
         print("Ops.detect_polygons() :%.2f seconds" % (time.time() - t))
         return result, dangles, cuts, invalids
 
     @staticmethod
-    def optimize(geoms, tolerance=0.001, preserve_topology=True):
+    def optimize(geoms, tolerance=0.001, preserve_topology=False):
         """ optimize
         """
         t = time.time()
@@ -882,8 +1070,8 @@ class ShapelyOps():
         """
         t = time.time()
         geoms = Io.ensure_iterable(geoms)
-        collection = shapely.geometry.GeometryCollection(geoms)
-        union = shapely.ops.cascaded_union(collection)
+        collection = createGeometryCollection(geoms)
+        union = cascaded_union(collection)
         print("Ops.union() :%.2f seconds" % (time.time() - t))
         return union
 
@@ -1133,11 +1321,11 @@ class Selectable(object):
         t = time.time()
         point = self._position_3d_from_coord(context, coord)
         selection = []
-        pt = ShapelyPoint(point)
-        prepared_pt = shapely.prepared.prep(pt)
+        pt = gf.createPoint(point)
+        prepared_pt = prepare(pt)
         count, gids = self.tree.intersects(pt)
         selection = [i for i in gids if prepared_pt.intersects(self.geoms[i])]
-        print("Selectable._contains() :%.2f seconds" % (time.time() - t))
+        print("Selectable._contains() :%.2f seconds selected:%s" % (time.time() - t, len(selection)))
         if event.shift:
             self._unselect(selection)
         else:
@@ -1150,14 +1338,14 @@ class Selectable(object):
         c1 = self._position_3d_from_coord(context, (coord[0], event.mouse_region_y))
         c2 = self._position_3d_from_coord(context, (event.mouse_region_x, event.mouse_region_y))
         c3 = self._position_3d_from_coord(context, (event.mouse_region_x, coord[1]))
-        poly = ShapelyPolygon([c0, c1, c2, c3])
-        prepared_poly = shapely.prepared.prep(poly)
+        poly = gf.createPolygon(gf.createLinearRing([c0, c1, c2, c3, c0]))
+        prepared_poly = prepare(poly)
         count, gids = self.tree.intersects(poly)
         if event.ctrl:
             selection = [i for i in gids if prepared_poly.contains(self.geoms[i])]
         else:
             selection = [i for i in gids if prepared_poly.intersects(self.geoms[i])]
-        print("Selectable._intersects() :%.2f seconds" % (time.time() - t))
+        print("Selectable._intersects() :%.2f seconds selected:%s" % (time.time() - t, len(selection)))
         if event.shift:
             self._unselect(selection)
         else:
@@ -1318,7 +1506,7 @@ class SelectPoints(Selectable):
                     y0 = -h / 2.0
                     x1 = w / 2.0
                     y1 = h / 2.0
-                    poly = shapely.geometry.LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
+                    poly = LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
                                                         (x0, y1, 0), (x0, y0, 0)])
                     result = Io.to_curve(scene, self.coordsys, poly, 'points')
                     result.matrix_world = self.coordsys.world * tM
@@ -1339,7 +1527,7 @@ class SelectPoints(Selectable):
                     y0 = -h / 2.0
                     x1 = w / 2.0
                     y1 = h / 2.0
-                    poly = shapely.geometry.LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
+                    poly = LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
                                                         (x0, y1, 0), (x0, y0, 0)])
                     result = Io.to_curve(scene, self.coordsys, poly, 'points')
                     result.matrix_world = self.coordsys.world * tM
@@ -1360,7 +1548,7 @@ class SelectPoints(Selectable):
                     y0 = -h / 2.0
                     x1 = w / 2.0
                     y1 = h / 2.0
-                    poly = shapely.geometry.LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
+                    poly = LineString([(x0, y0, 0), (x1, y0, 0), (x1, y1, 0),
                                                         (x0, y1, 0), (x0, y0, 0)])
                     result = Io.to_curve(scene, self.coordsys, poly, 'points')
                     result.matrix_world = self.coordsys.world * tM
@@ -1604,6 +1792,7 @@ class SelectPolygons(Selectable):
                 union = ShapelyOps.union(selection)
                 resopt = ShapelyOps.optimize(union)
                 result = Io.to_curve(scene, self.coordsys, resopt, 'union')
+                # result = Io.to_curve(scene, self.coordsys, union, 'union')
                 scene.objects.active = result
             elif self.action == 'wall':
                 union = ShapelyOps.union(selection)
@@ -1621,7 +1810,7 @@ class SelectPolygons(Selectable):
                 # over selection
                 if self.object_location is not None:
                     tM, w, h, l_pts, w_pts = self.object_location
-                    poly = shapely.geometry.LineString(l_pts)
+                    poly = LineString(l_pts)
                     result = Io.to_curve(scene, self.coordsys, poly, 'rectangle')
                     result.matrix_world = self.coordsys.world * tM
                     scene.objects.active = result
@@ -2060,6 +2249,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
             obj.select = False
         lines = []
         coordsys = Io.curves_to_geoms(objs, wm.resolution, lines)
+        gf.outputFactory = OutputFactory(context, coordsys.world)
         offset = []
         for line in lines:
             res = line.parallel_offset(wm.offset_distance, wm.offset_side, resolution=wm.offset_resolution,
@@ -2222,6 +2412,8 @@ class archipack_polylib(PropertyGroup):
 @persistent
 def load_handler(dummy):
     global vars_dict
+    global gf 
+    gf = GeometryFactory()
     vars_dict['select_polygons'] = None
     vars_dict['select_lines'] = None
     vars_dict['seg_tree'] = None
@@ -2230,6 +2422,8 @@ def load_handler(dummy):
 
 def register():
     global vars_dict
+    global gf 
+    gf = GeometryFactory()
     vars_dict = {
         # spacial tree for segments and points
         'seg_tree': None,
@@ -2256,6 +2450,8 @@ def register():
 def unregister():
     global vars_dict
     del vars_dict
+    global gf
+    gf = None
     bpy.utils.unregister_class(ARCHIPACK_OP_PolyLib_Pick2DPolygons)
     bpy.utils.unregister_class(ARCHIPACK_OP_PolyLib_Pick2DLines)
     bpy.utils.unregister_class(ARCHIPACK_OP_PolyLib_Pick2DPoints)
