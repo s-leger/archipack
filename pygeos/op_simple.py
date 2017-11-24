@@ -25,11 +25,12 @@
 
 from .geomgraph import (
     GeometryGraph
-)
+    )
 from .algorithms import (
     BoundaryNodeRule,
     LineIntersector
-)
+    )
+from .shared import GeomTypeId
 
 
 class EndpointInfo():
@@ -65,7 +66,7 @@ class IsSimpleOp():
      *  - Valid polygonal geometries are simple by definition, so
      *    is_simple trivially returns true.
      *    (Hint: in order to check if a polygonal geometry has self-intersections,
-     *    use {Geometry::is_valid}).
+     *    use {Geometry.is_valid}).
      *
      *  - Linear geometries are simple iff they do not self-intersect at points
      *    other than boundary points.
@@ -78,7 +79,7 @@ class IsSimpleOp():
      *
      *  - Empty Geometrys are always simple
      *
-     * @see algorithm::BoundaryNodeRule
+     * @see algorithm.BoundaryNodeRule
     """
     def __init__(self, geom, boundaryNodeRule=None):
         """
@@ -110,12 +111,16 @@ class IsSimpleOp():
          * @return true if the geometry is simple
         """
         self._nonSimpleLocation = None
-        cls = type(self._geom).__name__
+        
+        type_id = self._geom.type_id
 
-        if cls in {'LineString', 'MultiLineString'}:
+        if type_id in [
+                GeomeTypeId.GEOS_LINESTRING,
+                GeomeTypeId.GEOS_MULTILINESTRING
+                ]:
             return self.isSimpleLinearGeometry(self._geom)
 
-        if cls == 'MultiPoint':
+        if type_id == GeomeTypeId.GEOS_MULTIPOINT:
             return self.isSimpleMultiPoint(self._geom)
 
         # all other geometry types are simple by definition

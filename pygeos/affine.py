@@ -30,30 +30,30 @@
 # <pep8 compliant>
 
 
-from .constants import Coordinate
+from .shared import Coordinate, GeomTypeId
 
 
 def affine_transform(geom, matrix):
     """Returns a transformed geometry using an affine transformation matrix.
     The coefficient matrix is provided as a list or tuple with 6 or 12 items
     for 2D or 3D transformations, respectively.
-    For 2D affine transformations, the 6 parameter matrix is::
+    For 2D affine transformations, the 6 parameter matrix is.
         [a, b, d, e, xoff, yoff]
-    which represents the augmented matrix::
+    which represents the augmented matrix.
                             / a  b xoff \ 
         [x' y' 1] = [x y 1] | d  e yoff |
                             \ 0  0   1  /
-    or the equations for the transformed coordinates::
+    or the equations for the transformed coordinates.
         x' = a * x + b * y + xoff
         y' = d * x + e * y + yoff
-    For 3D affine transformations, the 12 parameter matrix is::
+    For 3D affine transformations, the 12 parameter matrix is.
         [a, b, c, d, e, f, g, h, i, xoff, yoff, zoff]
-    which represents the augmented matrix::
+    which represents the augmented matrix.
                                  / a  b  c xoff \ 
         [x' y' z' 1] = [x y z 1] | d  e  f yoff |
                                  | g  h  i zoff |
                                  \ 0  0  0   1  /
-    or the equations for the transformed coordinates::
+    or the equations for the transformed coordinates.
         x' = a * x + b * y + c * z + xoff
         y' = d * x + e * y + f * z + yoff
         z' = g * x + h * y + i * z + zoff
@@ -94,19 +94,30 @@ def affine_transform(geom, matrix):
                 yield Coordinate(xp, yp, zp)
 
     # Process coordinates from each supported geometry type
-    if geom.geom_type in ('Point', 'LineString', 'LinearRing'):
-        return type(geom)(list(affine_pts(geom.coords)), geom._factory)
-    elif geom.geom_type == 'Polygon':
+    if geom.type_id == GeomTypeId.GEOS_POINT:
+        return geom._factory.createPoint(list(affine_pts(geom.coords)))
+    
+    elif geom.type_id == GeomTypeId.GEOS_LINESTRING:
+        return geom._factory.createLineString(list(affine_pts(geom.coords)))
+    
+    elif geom.type_id == GeomTypeId.GEOS_LINEARRING:
+        return geom._factory.createLinearRing(list(affine_pts(geom.coords)))
+        
+    elif geom.type_id == GeomTypeId.GEOS_POLYGON:
         ring = geom.exterior
-        shell = type(ring)(list(affine_pts(ring.coords)), geom._factory)
+        shell = geom._factory.createLinearRing(list(affine_pts(ring.coords)))
         holes = list(geom.interiors)
         for pos, ring in enumerate(holes):
-            holes[pos] = type(ring)(list(affine_pts(ring.coords)), geom._factory)
-        return type(geom)(shell, holes, geom._factory)
-    elif geom.geom_type.startswith('Multi') or geom.geom_type == 'GeometryCollection':
-        # Recursive call
-        # TODO: fix GeometryCollection constructor
-        return type(geom)([affine_transform(part, matrix)
-                           for part in geom.geoms], geom._factory)
+            holes[pos] = geom._factory.createLinearRing(list(affine_pts(ring.coords)))
+        return geom._factory.createPolygon(shell, holes)
+    
+    elif geom.type_id in [
+            GeomTypeId.GEOS_MULTIPOINT,
+            GeomTypeId.GEOS_MULTILINESTRING,
+            GeomTypeId.GEOS_MULTIPOLYGON,
+            GeomTypeId.GEOS_GEOMETRYCOLLECTION
+            ]:
+        return geom._factory.buildGeometry([affine_transform(part, matrix)
+                           for part in geom.geoms])
     else:
-        raise ValueError('Type %r not recognized' % geom.geom_type)
+        raise ValueError('Type %r not recognized' % geom.geom_id)

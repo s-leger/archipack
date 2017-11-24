@@ -24,7 +24,7 @@
 # ----------------------------------------------------------
 
 
-from .constants import (
+from .shared import (
     logger,
     TopologyException,
     Location,
@@ -32,9 +32,9 @@ from .constants import (
     Envelope,
     Coordinate,
     GeometryTransformer,
-    GeometryTypeId,
+    GeomTypeId,
     PrecisionModel
-)
+    )
 from .geomgraph import (
     Label,
     PlanarGraph,
@@ -42,8 +42,9 @@ from .geomgraph import (
     Node,
     DirectedEdgeStar,
     EdgeRing,
-    EdgeList
-)
+    EdgeList,
+    EdgeNodingValidator
+    )
 from .algorithms import (
     CGAlgorithms,
     PointLocator,
@@ -54,7 +55,7 @@ from .precision import CommonBitsRemover
 
 
 class GeomPtrPair():
-    # geom::GeomPtrPair
+    # geom.GeomPtrPair
     def __init__(self):
         self.first = None
         self.second = None
@@ -85,7 +86,7 @@ class LineStrigSnapper():
     """
     def __init__(self, coords, snapTolerance: float):
         """
-            * Creates a new snapper using the given points
+         * Creates a new snapper using the given points
          * as source points to be snapped.
          *
          * @param nSrcPts the points to snap
@@ -104,8 +105,11 @@ class LineStrigSnapper():
         return coordList
 
     def snapVertices(self, srcCoords, snapPts) -> None:
+
         # Modifies first arg
         end = len(srcCoords)
+
+        # nothing to do if there are no source coords..
         if end == 0:
             return
 
@@ -119,10 +123,11 @@ class LineStrigSnapper():
             if vertpos == end:
                 continue
 
-            if srcCoords[vertpos] == srcCoords[0] and self.isClosed:
-                vertpos -= 1
-
             srcCoords[vertpos] = snapPt
+
+            # keep final closing point in synch (rings only)
+            if vertpos == 0 and self.isClosed:
+                srcCoords[-1] = snapPt
 
     def findSnapForVertex(self, pt, snapPts):
         # not used internally
@@ -130,12 +135,15 @@ class LineStrigSnapper():
         candidate = end
         minDist = self.snapTolerance
         for i, coord in enumerate(snapPts):
+
             if coord == pt:
                 return end
+
             dist = coord.distance(pt)
             if dist < minDist:
                 minDist = dist
                 candidate = i
+
         return candidate
 
     def snapSegments(self, srcCoords, snapPts)-> None:
@@ -160,12 +168,13 @@ class LineStrigSnapper():
 
         for i, coord in enumerate(snapPts):
 
-            end = len(srcCoords)
+            end = len(srcCoords) - 1
 
             segpos = self.findSegmentToSnap(coord, srcCoords, 0, end)
+
             if segpos == end:
                 continue
-            # Check if the snap point falls outside of the segment */
+            # Check if the snap point falls outside of the segment
             # If the snap point is outside, this means that an endpoint
             # was not snap where it should have been
             # so what we should do is re-snap the endpoint to this
@@ -179,7 +188,8 @@ class LineStrigSnapper():
             if pf >= 1.0:
 
                 newSnapPt = Coordinate(seg.p1.x, seg.p1.y)
-                srcCoords[to] = seg.p1 = coord
+                seg.p1 = coord
+                srcCoords[to] = coord
 
                 # now snap from-to (segpos) or to-next (segpos++) to newSnapPt
                 if to == end:
@@ -198,10 +208,12 @@ class LineStrigSnapper():
                 else:
                     segpos += 1
                     srcCoords.insert(segpos, newSnapPt)
+
             elif pf <= 0.0:
 
                 newSnapPt = Coordinate(seg.p0.x, seg.p0.y)
-                srcCoords[segpos] = seg.p0 = coord
+                seg.p0 = coord
+                srcCoords[segpos] = coord
 
                 # now snap prev-from (--segpos) or from-to (segpos) to newSnapPt
                 if segpos == 0:
@@ -282,11 +294,13 @@ class LineStrigSnapper():
             dist = seg.distance(snapPt)
             if dist >= minDist:
                 continue
+
             if dist == 0.0:
                 return start
 
             match = start
             minDist = dist
+
         return match
 
     def findVertexToSnap(self, snapPt, srcCoords: list, start: int, end: int) -> int:
@@ -320,6 +334,9 @@ class GeometrySnapper():
      * is safe to snap.
      * This can result in some potential snaps being omitted, however.
     """
+    # eventually this will be determined from the geometry topology
+    snapPrecisionFactor = 10e-9
+
     def __init__(self, geom):
         """
          * Creates a new snapper acting on the given geometry
@@ -327,9 +344,6 @@ class GeometrySnapper():
          * @param g the geometry to snap
         """
         self.geom = geom
-        # eventually this will be determined from the geometry topology
-        # static const double snapTol; #  = 0.000001;
-        self.snapPrecisionFactor = 10e-10
 
     @staticmethod
     def snap(g0, g1, snapTolerance: float, ret) -> None:
@@ -364,7 +378,7 @@ class GeometrySnapper():
         """
         snapPts = self.extractTargetCoordinates(geom)
         snapTrans = SnapTransformer(snapTolerance, snapPts)
-        return snapTrans.transform(geom)
+        return snapTrans.transform(self.geom)
 
     def _snapToSelf(self, snapTolerance: float, cleanResult: bool=False):
         """
@@ -380,9 +394,9 @@ class GeometrySnapper():
         snapTrans = SnapTransformer(snapTolerance, snapPts)
         result = snapTrans.transform(self.geom)
         if (cleanResult and
-                self.geom.geometryTypeId in [
-                    GeometryTypeId.GEOS_POLYGON,
-                    GeometryTypeId.GEOS_MULTIPOLYGON
+                self.geom.type_id in [
+                    GeomTypeId.GEOS_POLYGON,
+                    GeomTypeId.GEOS_MULTIPOLYGON
                     ]):
 
             result = None
@@ -420,12 +434,12 @@ class GeometrySnapper():
                     GeometrySnapper.computeOverlaySnapTolerance(g2))
 
     @staticmethod
-    def computeSizeBasedSnapTolerance(self, geom) -> float:
+    def computeSizeBasedSnapTolerance(geom) -> float:
         """
         """
         env = geom.envelope
         minDimension = min(env.width, env.height)
-        snapTol = minDimension * self.snapPrecisionFactor
+        snapTol = minDimension * GeometrySnapper.snapPrecisionFactor
         return snapTol
 
     def extractTargetCoordinates(self, geom) -> list:
@@ -470,7 +484,7 @@ class SnapOverlayOp():
         return SnapOverlayOp.overlayOp(g0, g1, OverlayOp.opSYMDIFFERENCE)
 
     def getResultGeometry(self, opCode: int):
-        # geom::GeomPtrPair
+        # geom.GeomPtrPair
         prepGeom = GeomPtrPair()
         self.snap(prepGeom)
         result = OverlayOp.overlayOp(prepGeom.first, prepGeom.second, opCode)
@@ -481,13 +495,14 @@ class SnapOverlayOp():
         self.snapTolerance = GeometrySnapper.computeOverlaySnapTolerance(self.geom0, self.geom1)
 
     def snap(self, ret) -> None:
-        # geom::GeomPtrPair
+        # geom.GeomPtrPair
         remGeom = GeomPtrPair()
+        # clone geometry
         self.removeCommonBits(self.geom0, self.geom1, remGeom)
         GeometrySnapper.snap(remGeom.first, remGeom.second, self.snapTolerance, ret)
 
     def removeCommonBits(self, geom0, geom1, ret) -> None:
-        self.cbr.reset(CommonBitsRemover())
+        self.cbr = CommonBitsRemover()
         self.cbr.add(geom0)
         self.cbr.add(geom1)
         ret.first = self.cbr.removeCommonBits(geom0.clone())
@@ -498,6 +513,70 @@ class SnapOverlayOp():
         self.cbr.addCommonBits(geom)
 
 
+class SnapIfNeededOverlayOp():
+    """
+     * Performs an overlay operation using snapping and enhanced precision
+     * to improve the robustness of the result.
+     * This class only uses snapping
+     * if an error is detected when running the standard JTS overlay code.
+     * Errors detected include thrown exceptions
+     * (in particular, {@link TopologyException})
+     * and invalid overlay computations.
+     *
+     * @author Martin Davis
+     * @version 1.7
+    """
+    def __init__(self, g0, g1) -> None:
+        self.geom0 = g0
+        self.geom1 = g1
+
+    @staticmethod
+    def overlayOp(g0, g1, opCode: int):
+        op = SnapIfNeededOverlayOp(g0, g1)
+        return op.getResultGeometry(opCode)
+
+    @staticmethod
+    def intersection(g0, g1):
+        return SnapIfNeededOverlayOp.overlayOp(g0, g1, OverlayOp.opINTERSECTION)
+
+    @staticmethod
+    def union(g0, g1):
+        return SnapIfNeededOverlayOp.overlayOp(g0, g1, OverlayOp.opUNION)
+
+    @staticmethod
+    def difference(g0, g1):
+        return SnapIfNeededOverlayOp.overlayOp(g0, g1, OverlayOp.opDIFFERENCE)
+
+    @staticmethod
+    def symDifference(g0, g1):
+        return SnapIfNeededOverlayOp.overlayOp(g0, g1, OverlayOp.opSYMDIFFERENCE)
+
+    def getResultGeometry(self, opCode: int):
+        result = None
+        isSuccess = False
+        savedException = None
+        try:
+            # try basic operation with input geometries
+            result = OverlayOp.overlayOp(self.geom0, self.geom1, opCode)
+            # isValid = True
+            # not needed if noding validation is used
+            #  boolean isValid = OverlayResultValidator.isValid(geom[0], geom[1], OverlayOp.INTERSECTION, result);
+            isSuccess = True
+        except TopologyException as ex:
+            savedException = ex
+            # ignore this exception, since the operation will be rerun
+
+        if not isSuccess:
+            # this may still throw an exception
+            # if so, throw the original exception since it has the input coordinates
+            try:
+                result = SnapOverlayOp.overlayOp(self.geom0, self.geom1, opCode)
+            except:
+                raise savedException
+
+        return result
+
+
 class MinimalEdgeRing(EdgeRing):
     """
      * A ring of Edges with the property that no node
@@ -506,7 +585,7 @@ class MinimalEdgeRing(EdgeRing):
      * These are the form of rings required
      * to represent polygons under the OGC SFS spatial data model.
      *
-     * @see operation::overlay::MaximalEdgeRing
+     * @see operation.overlay.MaximalEdgeRing
     """
     def __init__(self, start, factory):
         EdgeRing.__init__(self, start, factory)
@@ -568,7 +647,7 @@ class MaximalEdgeRing(EdgeRing):
             # Node
             node = de.node
             # DirectedEdgeStar
-            star = node.edges
+            star = node.star
             star.linkMinimalDirectedEdges(self)
             de = de.next
             if de is self.startDe:
@@ -577,7 +656,7 @@ class MaximalEdgeRing(EdgeRing):
 
 class PolygonBuilder():
     """
-     * Forms Polygon out of a graph of geomgraph::DirectedEdge.
+     * Forms Polygon out of a graph of geomgraph.DirectedEdge.
      *
      * The edges to use are marked as being in the result Area.
     """
@@ -599,7 +678,7 @@ class PolygonBuilder():
             # Node
             nodes = list(graph.nodes)
 
-            logger.debug("PolygonBuilder::add() PlanarGraph has %s EdgeEnds and %s Nodes\n", len(dirEdges), len(nodes))
+            logger.debug("PolygonBuilder.add() PlanarGraph has %s EdgeEnds and %s Nodes", len(dirEdges), len(nodes))
 
             self.add(dirEdges, nodes)
 
@@ -625,6 +704,15 @@ class PolygonBuilder():
 
             self.sortShellsAndHoles(edgeRings, self._exteriorList, freeHoleList)
             self.placeFreeHoles(self._exteriorList, freeHoleList)
+            """
+            logger.debug("PolygonBuilder.add() dirEdges: %s nodes:%s maxEdgeRings:%s _exteriorList:%s freeholeList:%s",
+                len(dirEdges),
+                len(nodes),
+                len(maxEdgeRings),
+                len(self._exteriorList),
+                len(freeHoleList),
+                )
+            """
 
     def getPolygons(self) -> list:
         return self.computePolygons(self._exteriorList)
@@ -647,11 +735,11 @@ class PolygonBuilder():
          *   Formed MaximalEdgeRings will be pushed to this vector.
          *   Ownership of the elements is transferred to caller.
         """
-        logger.debug("PolygonBuilder::buildMaximalEdgeRings got %s dirEdges", len(dirEdges))
-        oldSize = len(maxEdgeRings)
+        logger.debug("PolygonBuilder.buildMaximalEdgeRings got %s dirEdges", len(dirEdges))
+        # oldSize = len(maxEdgeRings)
 
         for i, de in enumerate(dirEdges):
-
+            """
             logger.debug("%s %s inResult:%s isArea:%s label:%s %s",
                 type(de).__name__,
                 i,
@@ -659,7 +747,7 @@ class PolygonBuilder():
                 de.label.isArea(),
                 de.label,
                 de.printEdge())
-
+            """
             if de.isInResult and de.label.isArea():
                 # if this edge has not yet been processed
                 if de.edgeRing is None:
@@ -668,7 +756,7 @@ class PolygonBuilder():
                     maxEdgeRings.append(er)
                     er.isInResult = True
 
-        logger.debug("pushed %s maxEdgeRings\n", len(maxEdgeRings) - oldSize)
+        # logger.debug("pushed %s maxEdgeRings", len(maxEdgeRings) - oldSize)
 
     def buildMinimalEdgeRings(self,
             maxEdgeRings: list,
@@ -681,7 +769,7 @@ class PolygonBuilder():
         """
         for i, er in enumerate(maxEdgeRings):
 
-            logger.debug("PolygonBuilder::buildMinimalEdgeRings(): maxEdgeRing %s has maxNodeDegree %s\n",
+            logger.debug("PolygonBuilder.buildMinimalEdgeRings(): maxEdgeRing %s has maxNodeDegree %s",
                 i,
                 er.maxNodeDegree)
 
@@ -713,10 +801,10 @@ class PolygonBuilder():
          * The other possibility is that they are a series of connected
          * interiors, in which case no exterior is returned.
          *
-         * @return the exterior geomgraph::EdgeRing, if there is one
+         * @return the exterior geomgraph.EdgeRing, if there is one
          * @return NULL, if all the rings are interiors
         """
-        logger.debug("PolygonBuilder::findShell got %s minEdgeRings\n", len(minEdgeRings))
+        logger.debug("PolygonBuilder.findShell got %s minEdgeRings\n", len(minEdgeRings))
         exteriorCount = 0
         exterior = None
 
@@ -754,7 +842,7 @@ class PolygonBuilder():
          * Due to the way the DirectedEdges were linked,
          * a ring is a exterior if it is oriented CW, a hole otherwise.
         """
-        logger.debug("PolygonBuilder::sortShellsAndHoles() edgeRings:%s", len(edgeRings))
+        logger.debug("PolygonBuilder.sortShellsAndHoles() edgeRings:%s", len(edgeRings))
 
         for i, er in enumerate(edgeRings):
 
@@ -792,14 +880,14 @@ class PolygonBuilder():
                         rIt.toPolygon(self._factory)
                     hole.toPolygon(self._factory)
                     """
-                    raise TopologyException("PolygonBuilder::placeFreeHoles() unable to assign hole to a exterior")
+                    raise TopologyException("PolygonBuilder.placeFreeHoles() unable to assign hole to a exterior")
 
                 hole.setShell(exterior)
 
     def findEdgeRingContaining(self, testEr, newShellList: list):
         """
-         * Find the innermost enclosing exterior geomgraph::EdgeRing containing the
-         * argument geomgraph::EdgeRing, if any.
+         * Find the innermost enclosing exterior geomgraph.EdgeRing containing the
+         * argument geomgraph.EdgeRing, if any.
          *
          * The innermost enclosing ring is the <i>smallest</i> enclosing ring.
          * The algorithm used depends on the fact that:
@@ -812,8 +900,8 @@ class PolygonBuilder():
          * (which is guaranteed to be the case if the hole does not touch
          * its exterior)
          *
-         * @return containing geomgraph::EdgeRing, if there is one
-         * @return NULL if no containing geomgraph::EdgeRing is found
+         * @return containing geomgraph.EdgeRing, if there is one
+         * @return NULL if no containing geomgraph.EdgeRing is found
         """
         # LinearRing
         testRing = testEr.getLinearRing()
@@ -855,7 +943,7 @@ class PolygonBuilder():
 
     def computePolygons(self, newShellList: list) -> list:
 
-        logger.debug("PolygonBuilder::computePolygons: got %s exteriors\n", len(newShellList))
+        logger.debug("PolygonBuilder.computePolygons: got %s exteriors", len(newShellList))
 
         # Geometry
         resultPolyList = []
@@ -869,7 +957,7 @@ class PolygonBuilder():
 
 class LineBuilder():
     """
-     * Forms LineStrings out of a the graph of geomgraph::DirectedEdge
+     * Forms LineStrings out of a the graph of geomgraph.DirectedEdge
      * created by an OverlayOp.
     """
     def __init__(self, newOp, newFactory, newPtLocator):
@@ -884,7 +972,7 @@ class LineBuilder():
         # LineString
         self._resultLineList = []
 
-    def build(self, opCode):
+    def build(self, opCode: int) -> list:
         """
          * @return a list of the LineStrings in the result of the specified overlay operation
         """
@@ -893,7 +981,7 @@ class LineBuilder():
         self.buildLines(opCode)
         return self._resultLineList
 
-    def collectLineEdge(self, de, opCode, edges):
+    def collectLineEdge(self, de, opCode: int, edges: list) -> None:
         """
          * Collect line edges which are in the result.
          *
@@ -906,18 +994,19 @@ class LineBuilder():
          * @param edges the list of included line edges.
         """
         # DirectedEdge
+        # include L edges which are in the result
         if de.isLineEdge:
             # Label
             label = de.label
             # Edge
             ed = de.edge
-            if (not de.isVisited and
+            if ((not de.isVisited) and
                     OverlayOp.isResultOfOp(label, opCode) and
-                    not ed.isCovered):
+                    (not ed.isCovered)):
                 edges.append(ed)
                 de.setVisitedEdge(True)
 
-    def findCorevedLineEdges(self):
+    def findCorevedLineEdges(self) -> None:
         """
          * Find and mark L edges which are "covered" by the result area (if any).
          * L edges at nodes which also have A edges can be checked by checking
@@ -929,7 +1018,7 @@ class LineBuilder():
         nodes = self._op._graph.nodes
         for node in nodes:
             # DirectedEdgeStar
-            star = node.edges
+            star = node.star
             star.findCoveredLineEdges()
         """
          * For all L edges which weren't handled by the above,
@@ -937,23 +1026,24 @@ class LineBuilder():
         """
         ee = self._op._graph._edgeEnds
         for de in ee:
+            # Edge
             ed = de.edge
-            if de.isLineEdge and not ed.isCovered:
+            if de.isLineEdge and not ed.isCoveredSet:
                 ed.isCovered = self._op.isCoveredByA(de.coord)
 
-    def collectLines(self, opCode):
+    def collectLines(self, opCode: int) -> None:
         ee = self._op._graph._edgeEnds
         for de in ee:
             self.collectLineEdge(de, opCode, self._lineEdgesList)
             self.collectBoundaryTouchEdge(de, opCode, self._lineEdgesList)
 
-    def buildLines(self, opCode):
+    def buildLines(self, opCode: int) -> None:
         for ed in self._lineEdgesList:
-            line = self._factory.createLineString(ed.coords)
+            line = self._factory.createLineString(ed.coords.clone())
             self._resultLineList.append(line)
             ed.isInResult = True
 
-    def labelIsolatedLines(self, edgesList):
+    def labelIsolatedLines(self, edgesList: list) -> None:
         for ed in edgesList:
             label = ed.label
             if ed.isIsolated:
@@ -962,7 +1052,7 @@ class LineBuilder():
                 else:
                     self.labelIsolatedLine(ed, 1)
 
-    def collectBoundaryTouchEdge(self, de, opCode, edges):
+    def collectBoundaryTouchEdge(self, de, opCode: int, edges: list) -> None:
         """
          * Collect edges from Area inputs which should be in the result but
          * which have not been included in a result area.
@@ -988,15 +1078,15 @@ class LineBuilder():
 
         # include the linework if it's in the result of the operation
         label = de.label
-        if OverlayOp.isResultOfOp(label, opCode) and opCode == OverlayOp.opINTERSECTION:
+        if opCode == OverlayOp.opINTERSECTION and OverlayOp.isResultOfOp(label, opCode):
             edges.append(de.edge)
             de.setVisitedEdge(True)
 
-    def labelIsolatedLine(self, edge, targetIndex):
+    def labelIsolatedLine(self, edge, targetIndex: int) -> None:
         """
          * Label an isolated node with its relationship to the target geometry.
         """
-        loc = self._ptLocator.locate(edge.coord, self._op.getArgGeometry(targetIndex))
+        loc = self._ptLocator.locate(edge.coord, self._op.arg[targetIndex].geom)
         edge.label.setLocation(targetIndex, loc)
 
     def propagateZ(self, coords):
@@ -1024,15 +1114,10 @@ class PointBuilder():
         return []
 
 
-class EdgeNodingValidator():
-    """
-    """
-
-
 class OverlayNodeFactory():
     """
-     * Creates nodes for use in the geomgraph::PlanarGraph constructed during
-     * overlay operations. NOTE: also used by operation::valid
+     * Creates nodes for use in the geomgraph.PlanarGraph constructed during
+     * overlay operations. NOTE: also used by operation.valid
     """
     def createNode(self, coord):
         return Node(coord, DirectedEdgeStar())
@@ -1063,7 +1148,7 @@ class OverlayOp(GeometryGraphOperation):
         # Geometry
         self._resultGeom = None
 
-        # geomgraph::PlanarGraph
+        # geomgraph.PlanarGraph
         self._graph = PlanarGraph(OverlayNodeFactory())
 
         # EdgeList of Edges
@@ -1092,15 +1177,19 @@ class OverlayOp(GeometryGraphOperation):
          * @return the result of the overlay operation
          * @throws TopologyException if a robustness problem is encountered
         """
-        gov = OverlayOp(geom0, geom1)
-        logger.debug("***************************\n\nOverlayOp.overlayOp(%s)\n", gov.toOperationName(opCode))
-        return gov.getResultGeometry(opCode)
+        op = OverlayOp(geom0, geom1)
+        logger.debug("******************************\n")
+        logger.debug("OverlayOp.overlayOp(%s)\n", op.toOperationName(opCode))
+        logger.debug("******************************")
+        geom = op.getResultGeometry(opCode)
+        return geom
 
     @staticmethod
     def _isResultOfOp(loc0: int, loc1: int, opCode: int) -> bool:
 
         if loc0 == Location.BOUNDARY:
             loc0 = Location.INTERIOR
+
         if loc1 == Location.BOUNDARY:
             loc1 = Location.INTERIOR
 
@@ -1188,33 +1277,36 @@ class OverlayOp(GeometryGraphOperation):
         if existingEdge is not None:
 
             # If an identical edge already exists, simply update its label
-            logger.debug("OverlayOp::insertUniqueEdge() found identical edge\n%s", edge)
+            # logger.debug("OverlayOp.insertUniqueEdge() found identical edge\n%s", edge)
 
-            existingLabel = existingEdge.label
-            labelToMerge = Label(edge.label)
+            label = existingEdge.label
+            labelToMerge = edge.label
 
             if not existingEdge.isPointwiseEqual(edge):
+                labelToMerge = Label(edge.label)
                 labelToMerge.flip()
 
             depth = existingEdge.depth
+
             if depth.isNull():
-                depth.add(existingLabel)
+                depth.add(label)
 
             depth.add(labelToMerge)
-            existingLabel.merge(labelToMerge)
+            label.merge(labelToMerge)
         else:
-            logger.debug("OverlayOp::insertUniqueEdge() no matching existing edge\n%s", edge)
+            # logger.debug("OverlayOp.insertUniqueEdge() no matching existing edge\n%s", edge)
             self._edgeList.add(edge)
 
     def computeOverlay(self, opCode: int) -> None:
         env = None
-        env0 = self._arg[0]._parentGeom.envelope
-        env1 = self._arg[1]._parentGeom.envelope
+        env0 = self.arg[0].geom.envelope
+        env1 = self.arg[1].geom.envelope
 
         # Envelope-based optimization only works in floating precision
         if opCode == OverlayOp.opINTERSECTION:
             env = Envelope()
             env0.intersection(env1, env)
+
         elif opCode == OverlayOp.opDIFFERENCE:
             env = Envelope(env0)
 
@@ -1225,31 +1317,34 @@ class OverlayOp(GeometryGraphOperation):
         self.copyPoints(1, env)
 
         # node the input Geometries
-        self._arg[0].computeSelfNodes(self._li, False, env)
-        self._arg[1].computeSelfNodes(self._li, False, env)
+        self.arg[0].computeSelfNodes(self._li, False, env)
+        self.arg[1].computeSelfNodes(self._li, False, env)
 
-        logger.debug("OverlayOp::computeOverlay: computed SelfNodes\n")
+        logger.debug("OverlayOp.computeOverlay: computed SelfNodes")
 
         # compute intersections between edges of the two input geometries
-        self._arg[0].computeEdgeIntersections(self._arg[1], self._li, True, env)
+        self.arg[0].computeEdgeIntersections(self.arg[1], self._li, True, env)
 
-        logger.debug("OverlayOp::computeOverlay: computed EdgeIntersections")
-        logger.debug("OverlayOp::computeOverlay: li: %s\n", self._li)
+        logger.debug("OverlayOp.computeOverlay: computed EdgeIntersections")
+        # logger.debug("OverlayOp.computeOverlay: li: %s", self._li)
 
         # Edge
         baseSplitEdges = []
-        self._arg[0].computeSplitEdges(baseSplitEdges)
-        self._arg[1].computeSplitEdges(baseSplitEdges)
+        self.arg[0].computeSplitEdges(baseSplitEdges)
+        self.arg[1].computeSplitEdges(baseSplitEdges)
 
         # add the noded edges to this result graph
-        logger.debug("OverlayOp::insertUniqueEdges() at call time:\n%s", "\n".join([str(edge) for edge in baseSplitEdges]))
+        # logger.debug("OverlayOp.insertUniqueEdges() at call time:\n%s", "\n".join(
+        #     [str(edge) for edge in baseSplitEdges]))
         self.insertUniqueEdges(baseSplitEdges, env)
-        logger.debug("OverlayOp::insertUniqueEdges() result:\n%s", "\n".join([str(edge) for edge in self._edgeList]))
-        
-        logger.debug("OverlayOp::computeLabelsFromDepths()")
+        logger.debug("OverlayOp.insertUniqueEdges() result:\n%s", "\n".join(
+             [str(edge) for edge in self._edgeList]))
+
+        logger.debug("OverlayOp.computeLabelsFromDepths()")
         self.computeLabelsFromDepths()
-        
-        logger.debug("OverlayOp::replaceCollapsedEdges() at call time:\n%s", "\n".join([str(edge) for edge in self._edgeList]))
+
+        # logger.debug("OverlayOp.replaceCollapsedEdges() at call time:\n%s", "\n".join(
+        #     [str(edge) for edge in self._edgeList]))
         self.replaceCollapsedEdges()
 
         """
@@ -1262,17 +1357,16 @@ class OverlayOp(GeometryGraphOperation):
          * the problem.
          * In the future hopefully a faster check can be developed.
         """
-        try:
-            EdgeNodingValidator.checkValid(self._edgeList)
-        except:
-            pass
-        
-        logger.debug("OverlayOp::_graph.addEdges() at call time:\n%s", "\n".join([str(edge) for edge in self._edgeList]))
+        EdgeNodingValidator.checkValid(self._edgeList)
+
+        # logger.debug("OverlayOp._graph.addEdges() at call time:\n%s", "\n".join(
+        #     [str(edge) for edge in self._edgeList]))
         self._graph.addEdges(self._edgeList)
-        logger.debug("OverlayOp::_graph.addEdges() after:\n%s", "\n".join([str(edge) for edge in self._edgeList]))
-        
+        # logger.debug("OverlayOp._graph.addEdges() after:\n%s", "\n".join(
+        #     [str(edge) for edge in self._edgeList]))
+
         # this can throw TopologyException
-        logger.debug("OverlayOp::computeLabelling()")
+        logger.debug("OverlayOp.computeLabelling()")
         self.computeLabelling()
         self.labelIncompleteNodes()
         """
@@ -1287,6 +1381,7 @@ class OverlayOp(GeometryGraphOperation):
 
         polyBuilder = PolygonBuilder(self._factory)
         polyBuilder.add(self._graph)
+
         # Geometry
         self._resultPolyList = polyBuilder.getPolygons()
 
@@ -1330,8 +1425,8 @@ class OverlayOp(GeometryGraphOperation):
             # Edge
             label = edge.label
             depth = edge.depth
-            
-            logger.debug("OverlayOp.computeLabelsFromDepths() before Label:%s depth:%s", label, depth)
+
+            # logger.debug("OverlayOp.computeLabelsFromDepths() before Label:%s depth:%s", label, depth)
             """
              * Only check edges for which there were duplicates,
              * since these are the only ones which might
@@ -1363,9 +1458,9 @@ class OverlayOp(GeometryGraphOperation):
 
                         assert(not depth.isNull(i, Position.RIGHT)), "depth of RIGHT side has not been initialized"
                         label.setLocation(i, Position.RIGHT, depth.getLocation(i, Position.RIGHT))
-            
+
             logger.debug("OverlayOp.computeLabelsFromDepths() result Label:%s depth:%s", label, depth)
-                       
+
     def replaceCollapsedEdges(self) -> None:
         """
          * If edges which have undergone dimensional collapse are found,
@@ -1377,36 +1472,41 @@ class OverlayOp(GeometryGraphOperation):
                 logger.debug(" replacing collapsed edge %s", i)
                 edges[i] = edge.getCollapsedEdge()
 
-    def copyPoints(self, argIndex: int, env=None) -> None:
+    def copyPoints(self, geomIndex: int, env=None) -> None:
         """
          * Copy all nodes from an arg geometry into this graph.
          *
          * The node label in the arg geometry overrides any previously
-         * computed label for that argIndex.
+         * computed label for that geomIndex.
          * (E.g. a node may be an intersection node with
          * a previously computed label of BOUNDARY,
          * but in the original arg Geometry it is actually
          * in the interiors due to the Boundary Determination Rule)
         """
         copied = 0
-        nodes = self._arg[argIndex].nodes
+        nodes = self.arg[geomIndex].nodes
         for node in nodes:
             # Node
             coord = node.coord
-
+            # not in JTS
             if (env is not None) and not env.covers(coord):
                 continue
 
             copied += 1
             # Node
             newNode = self._graph.addNode(coord)
-            newNode.setLabel(argIndex, node.label.getLocation(argIndex))
+            newNode.setLabel(geomIndex, node.label.getLocation(geomIndex))
+        """
+        logger.debug("Source nodes for geom %s \n%s",
+            geomIndex,
+            "\n".join([str(node) for node in nodes]))
 
-        logger.debug("Copied %s nodes out of %s for geom %s \n%s", copied, 
-            len(nodes), 
-            argIndex,
+        logger.debug("Copied %s nodes out of %s for geom %s \n%s", copied,
+            len(nodes),
+            geomIndex,
             "\n".join([str(node) for node in self._graph.nodes]))
-        
+        """
+
     def computeLabelling(self) -> None:
         """
          * Compute initial labelling for all DirectedEdges at each node.
@@ -1418,20 +1518,15 @@ class OverlayOp(GeometryGraphOperation):
         """
         nodes = self._graph.nodes
 
-        logger.debug("OverlayOp::computeLabelling(): at call time:\n%s", self._edgeList)
-        logger.debug("OverlayOp::computeLabelling() scanning %s nodes from map:", len(nodes))
+        # logger.debug("OverlayOp.computeLabelling(): at call time:\n%s", self._edgeList)
+        logger.debug("OverlayOp.computeLabelling() scanning %s nodes from map:", len(nodes))
 
         for node in nodes:
-            logger.debug(" %s has %s edgeEnds", node, len(node.edges))
-            node.edges.computeLabelling(self._arg)
-
-        logger.debug("OverlayOp::computeLabelling(): after edge labelling:\n%s", self._edgeList)
+            # logger.debug(" %s has %s edgeEnds", node, len(node.star))
+            node.star.computeLabelling(self.arg)
 
         self.mergeSymLabels()
-        logger.debug("OverlayOp::computeLabelling(): after labels sym merging:\n%s", self._edgeList)
-
         self.updateNodeLabelling()
-        logger.debug("OverlayOp::computeLabelling(): after node labeling update:\n%s", self._edgeList)
 
     def mergeSymLabels(self) -> None:
         """
@@ -1442,12 +1537,10 @@ class OverlayOp(GeometryGraphOperation):
          * Geometry, so merge the two labels.
         """
         nodes = self._graph.nodes
-        logger.debug("OverlayOp::mergeSymLabels() scanning %s nodes from map:", len(nodes))
+        logger.debug("OverlayOp.mergeSymLabels() scanning %s nodes from map:", len(nodes))
         for node in nodes:
             # DirectedEdgeStar
-            star = node.edges
-            star.mergeSymLabels()
-            logger.debug("%s", node)
+            node.star.mergeSymLabels()
 
     def updateNodeLabelling(self) -> None:
         """
@@ -1457,12 +1550,10 @@ class OverlayOp(GeometryGraphOperation):
          * because it is a point in one of the input geometries)
         """
         nodes = self._graph.nodes
-        logger.debug("OverlayOp::updateNodeLabelling() scanning %s nodes from map:", len(nodes))
+        logger.debug("OverlayOp.updateNodeLabelling() scanning %s nodes from map:", len(nodes))
         for node in nodes:
             # DirectedEdgeStar
-            star = node.edges
-            label = star.label
-            node.label.merge(label)
+            node.label.merge(node.star.label)
             logger.debug("%s", node)
 
     def labelIncompleteNodes(self) -> None:
@@ -1484,7 +1575,7 @@ class OverlayOp(GeometryGraphOperation):
          * incident edges is updated, to complete their labelling as well.
         """
         nodes = self._graph.nodes
-        logger.debug("OverlayOp::labelIncompleteNodes() scanning %s nodes from map:", len(nodes))
+        logger.debug("OverlayOp.labelIncompleteNodes() scanning %s nodes from map:", len(nodes))
         for node in nodes:
             # Label
             label = node.label
@@ -1494,23 +1585,22 @@ class OverlayOp(GeometryGraphOperation):
                     self.labelIncompleteNode(node, 0)
                 else:
                     self.labelIncompleteNode(node, 1)
-            logger.debug("OverlayOp::labelIncompleteNodes() node.label %s", label)
-            # DirectedEdgeStar
-            star = node.edges
-            # now update the labelling for the DirectedEdges incident on this node
-            star.updateLabelling(label)
 
-    def labelIncompleteNode(self, node, targetIndex: int) -> None:
+            # logger.debug("OverlayOp.labelIncompleteNodes() Node[%s].label:%s", id(node), label)
+
+            # now update the labelling for the DirectedEdges incident on this node
+            # DirectedEdgeStar
+            node.star.updateLabelling(label)
+
+    def labelIncompleteNode(self, node, geomIndex: int) -> None:
         """
          * Label an isolated node with its relationship to the target geometry.
         """
-        logger.debug("OverlayOp::labelIncompleteNode() targetIndex:%s\n%s", targetIndex, node)
+        logger.debug("OverlayOp.labelIncompleteNode() geomIndex:%s\n%s", geomIndex, node)
 
-        targetGeom = self._arg[targetIndex]._parentGeom
-        loc = self._ptLocator.locate(node.coord, targetGeom)
-        node.label.setLocation(targetIndex, loc)
-
-        logger.debug(" after location set:\n%s\n", node)
+        geom = self.arg[geomIndex].geom
+        loc = self._ptLocator.locate(node.coord, geom)
+        node.label.setLocation(geomIndex, loc)
 
     def findResultAreaEdges(self, opCode: int) -> None:
         """
@@ -1526,7 +1616,7 @@ class OverlayOp(GeometryGraphOperation):
         """
         # EdgeEnd
         ee = self._graph._edgeEnds
-        logger.debug("OverlayOp::findResultAreaEdges EdgeEnds: %s", len(ee))
+        logger.debug("OverlayOp.findResultAreaEdges EdgeEnds: %s", len(ee))
 
         for i, de in enumerate(ee):
             # mark all dirEdges with the appropriate label
@@ -1539,7 +1629,7 @@ class OverlayOp(GeometryGraphOperation):
                     ):
                 de.isInResult = True
 
-            logger.debug("%s: isArea:%s isInteriorAreaEdge:%s %s", i, label.isArea(), de.isInteriorAreaEdge, de)
+            # logger.debug("%s: isArea:%s isInteriorAreaEdge:%s %s", i, label.isArea(), de.isInteriorAreaEdge, de)
 
     def cancelDuplicateResultEdges(self) -> None:
         """
@@ -1585,7 +1675,7 @@ class OverlayOp(GeometryGraphOperation):
 
 class overlayOp():
     """
-     * OverlayOp::overlayOp Adapter for use with geom::BinaryOp
+     * OverlayOp.overlayOp Adapter for use with geom.BinaryOp
     """
     def __init__(self, opCode: int):
         self.opCode = opCode

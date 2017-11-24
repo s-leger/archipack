@@ -24,7 +24,7 @@
 # ----------------------------------------------------------
 
 
-from .constants import quicksort
+from .shared import quicksort
 
 
 class SortedPackedIntervalRTree():
@@ -47,7 +47,7 @@ class SortedPackedIntervalRTree():
     """
     def __init__(self):
 
-        # IntervalRTreeNode::ConstVect
+        # IntervalRTreeNode.ConstVect
         self.leaves = []
         # IntervalRTreeNode
         self.root = None

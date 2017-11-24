@@ -23,8 +23,11 @@
 #
 # ----------------------------------------------------------
 from math import atan2
-from .constants import (
-    logger,
+import logging
+logger = logging.getLogger("pygeos.geomgraph")
+from .shared import (
+    quicksort,
+    GeomTypeId,
     TopologyException,
     Location,
     Position,
@@ -41,7 +44,11 @@ from .algorithms import (
     BoundaryNodeRule,
     SimplePointInAreaLocator
     )
-from .noding import OrientedCoordinateArray
+from .noding import (
+    BasicSegmentString,
+    FastNodingValidator,
+    OrientedCoordinateArray
+    )
 
 
 class GeometryGraphOperation():
@@ -49,22 +56,19 @@ class GeometryGraphOperation():
     def __init__(self, g0, g1=None, boundaryNodeRule=None):
 
         self._li = LineIntersector()
-        # geomgraph::GeometryGraph
-        self._arg = []
+        # geomgraph.GeometryGraph
+        self.arg = []
 
         if boundaryNodeRule is None:
             boundaryNodeRule = BoundaryNodeRule.getBoundaryOGCSFS()
 
         # PrecisionModel
         self._pm0 = g0.precisionModel
-        self._arg.append(GeometryGraph(0, g0, boundaryNodeRule))
+        self.arg.append(GeometryGraph(0, g0, boundaryNodeRule))
 
         if g1 is not None:
             self._pm1 = g1.precisionModel
-            self._arg.append(GeometryGraph(1, g1, boundaryNodeRule))
-
-    def getArgGeometry(self, index):
-        return self._arg[index]._parentGeom
+            self.arg.append(GeometryGraph(1, g1, boundaryNodeRule))
 
 
 class TopologyLocation():
@@ -83,7 +87,7 @@ class TopologyLocation():
      * topological relationship attribute, ON.
      *
      * The possible values of a topological location are
-     * {Location::UNDEF, Location::EXTERIOR, Location::BOUNDARY, Location::INTERIOR}
+     * {Location.UNDEF, Location.EXTERIOR, Location.BOUNDARY, Location.INTERIOR}
      *
      * The labelling is stored in an array location[j] where
      * where j has the values ON, LEFT, RIGHT
@@ -95,8 +99,8 @@ class TopologyLocation():
          * Geometry.
          *
          * Possible values for the
-         * parameters are Location::UNDEF, Location::EXTERIOR, Location::BOUNDARY,
-         * and Location::INTERIOR.
+         * parameters are Location.UNDEF, Location.EXTERIOR, Location.BOUNDARY,
+         * and Location.INTERIOR.
          *
          * @see Location
         """
@@ -116,8 +120,8 @@ class TopologyLocation():
 
     def get(self, posIndex: int) -> int:
         if posIndex < len(self.location):
-            return int(self.location[posIndex])
-        return int(Location.UNDEF)
+            return self.location[posIndex]
+        return Location.UNDEF
 
     def setLocations(self, on: int, left: int, right: int) -> None:
         self.location[Position.ON] = on
@@ -133,10 +137,10 @@ class TopologyLocation():
     def setAllLocationsIfNull(self, location: int) -> None:
         for i, loc in enumerate(self.location):
             if loc == Location.UNDEF:
-                self.location[i] = int(location)
+                self.location[i] = location
 
     def setAllLocations(self, location: int) -> None:
-        self.location = [int(location) for i in range(len(self.location))]
+        self.location = [location for i in range(len(self.location))]
 
     def merge(self, other) -> None:
         """
@@ -165,7 +169,7 @@ class TopologyLocation():
     @property
     def isAnyNull(self) -> bool:
         """
-         * @return true if any locations is Location::UNDEF
+         * @return true if any locations is Location.UNDEF
         """
         for loc in self.location:
             if loc == Location.UNDEF:
@@ -175,7 +179,7 @@ class TopologyLocation():
     @property
     def isNull(self) -> bool:
         """
-         * @return true if all locations are Location::UNDEF
+         * @return true if all locations are Location.UNDEF
         """
         for loc in self.location:
             if loc != Location.UNDEF:
@@ -199,7 +203,7 @@ class TopologyLocation():
                 Location.toLocationSymbol(self.location[Position.RIGHT])
                 )
         else:
-            return "[{}] {}".format(
+            return "[{}] - {} -".format(
                 id(self),
                 Location.toLocationSymbol(self.location[Position.ON])
                 )
@@ -226,7 +230,7 @@ class Depth():
 
     def add(self, geomIndex, posIndex=None, location=None) -> None:
         logger.debug("Depth.add(%s %s %s) at call time:%s", geomIndex, posIndex, location, self)
-        
+
         if posIndex is None:
             # geomIndex is a Label
             for i in range(2):
@@ -239,9 +243,9 @@ class Depth():
                             self._depth[i][j] += Depth.depthAtLocation(loc)
         elif location == Location.INTERIOR:
             self._depth[geomIndex][posIndex] += 1
-        
+
         logger.debug("Depth.add() reslut:%s", self)
-        
+
     def isNull(self, geomIndex=None, posIndex=None) -> bool:
         """
          * A Depth object is null (has never been initialized) if all depths are null.
@@ -255,7 +259,7 @@ class Depth():
 
         elif posIndex is None:
             posIndex = 1
-        
+
         return self._depth[geomIndex][posIndex] == Depth.NULL_VALUE
 
     def getDepth(self, geomIndex: int, posIndex: int) -> int:
@@ -265,7 +269,7 @@ class Depth():
         self._depth[geomIndex][posIndex] = depthValue
 
     def getLocation(self, geomIndex: int, posIndex: int) -> int:
-        if self._depth[geomIndex][posIndex] < 1:
+        if self._depth[geomIndex][posIndex] <= 0:
             return Location.EXTERIOR
         return Location.INTERIOR
 
@@ -292,8 +296,7 @@ class Depth():
                     self._depth[i][j] = newValue
 
     def getDelta(self, geomIndex: int) -> int:
-        _depth = self._depth[geomIndex]
-        return _depth[Position.RIGHT] - _depth[Position.LEFT]
+        return self._depth[geomIndex][Position.RIGHT] - self._depth[geomIndex][Position.LEFT]
 
     def __str__(self) -> str:
         _d = self._depth
@@ -439,6 +442,13 @@ class Label():
         else:
             self._elt[geomIndex].setAllLocationsIfNull(location)
 
+    def setAllLocations(self, geomIndex: int, location=None) -> None:
+        if location is None:
+            self.setAllLocations(0, geomIndex)
+            self.setAllLocations(1, geomIndex)
+        else:
+            self._elt[geomIndex].setAllLocations(location)
+
     def __str__(self) -> str:
         return "[{}] A:{} B:{}".format(id(self), self._elt[0], self._elt[1])
 
@@ -471,7 +481,7 @@ class PlanarGraph():
         self.edges = []
 
         if nodeFact is None:
-            nodeFact = NodeFactory.instance()
+            nodeFact = NodeFactory()
 
         self._nodes = NodeMap(nodeFact)
 
@@ -502,10 +512,8 @@ class PlanarGraph():
          * find or add a node and link the edge to the node
          * @param: edgeEnd  DirectedEdge
         """
-        # It is critical to add the edge to the edgeEndList first,
-        # then it is safe to follow with any potentially throwing operations.
         self._edgeEnds.append(edgeEnd)
-        self._nodes.add(edgeEnd)
+        self._nodes.addEdge(edgeEnd)
 
     def getNodes(self, nodes) -> None:
         nodes.extend(self._nodes.values())
@@ -516,7 +524,7 @@ class PlanarGraph():
          * @param: node mixed Node or Coordinate
          * @return Node
         """
-        logger.debug("PlanarGraph::addNode(%s)\n", node)
+        logger.debug("PlanarGraph.addNode(%s)\n", node)
         return self._nodes.addNode(node)
 
     def find(self, coord):
@@ -541,13 +549,20 @@ class PlanarGraph():
 
             self.add(de1)
             self.add(de2)
-
+        
+        
+        logger.debug("%s.addEdges(%s)", type(self).__name__, len(self.edges))
+        for node in self._nodes.values():
+            logger.debug("%s", node)
+            for de in node.star.edges:
+                logger.debug("%s", de)
+        
     @staticmethod
     def static_linkResultDirectedEdges(nodes) -> None:
         # NodeMap
         for node in nodes:
             # DirectedEdgeStar
-            star = node.edges
+            star = node.star
             # this might throw an exception
             star.linkResultDirectedEdges()
 
@@ -555,7 +570,7 @@ class PlanarGraph():
         # NodeMap
         for node in self.nodes:
             # DirectedEdgeStar
-            star = node.edges
+            star = node.star
             # this might throw an exception
             star.linkResultDirectedEdges()
 
@@ -563,7 +578,7 @@ class PlanarGraph():
         # NodeMap
         for node in self.nodes:
             # DirectedEdgeStar
-            star = node.edges
+            star = node.star
             star.linkAllDirectedEdges()
 
     def findEdgeEnd(self, edge):
@@ -627,7 +642,7 @@ class PlanarGraph():
         # Edge
         self.edges.append(edge)
 
-    def _matchInSameDirection(p0, p1, ep0, ep1) -> bool:
+    def _matchInSameDirection(self, p0, p1, ep0, ep1) -> bool:
         """
          * The coordinate pairs match if they define line segments
          * lying in the same direction.
@@ -643,6 +658,14 @@ class PlanarGraph():
             return True
 
         return False
+
+    def __str__(self):
+        return "[{}] {}:\nNodes:\n{}\nEdges:\n{}\nDirecedEdges:\n{}".format(
+            id(self),
+            type(self).__name__,
+            str(self._nodes),
+            "\n".join([str(edge) for edge in self.edges]),
+            "\n".join([str(de) for de in self._edgeEnds]))
 
 
 class NodeMap(dict):
@@ -663,19 +686,19 @@ class NodeMap(dict):
 
             coord = newNode.coord
             node = self.find(coord)
-                
+
             if node is None:
                 node = newNode
-                logger.debug("[%s] NodeMap::addNode new node (%s)", id(self), node)
-                self[coord] = node
+                logger.debug("[%s] NodeMap.addNode new node     %s", id(self), node)
+                self[(coord.x, coord.y)] = node
             else:
-                logger.debug("[%s] NodeMap::addNode found node (%s)", id(self), node)
+                logger.debug("[%s] NodeMap.addNode found node   %s", id(self), node)
                 """
                 # debug merge z
                 zvals = newNode.getZ()
                 for z in zvals:
                     node.addZ(z)
-                """            
+                """
                 node.mergeLabel(newNode)
 
         else:
@@ -683,18 +706,18 @@ class NodeMap(dict):
             node = self.find(coord)
 
             if node is None:
-                logger.debug("[%s] NodeMap::addNode new node (%s)", id(self), coord)
+                logger.debug("[%s] NodeMap.addNode new node    %s", id(self), coord)
                 node = self._factory.createNode(coord)
-                self[coord] = node
+                self[(coord.x, coord.y)] = node
             else:
-                logger.debug("[%s] NodeMap::addNode found node (%s)", id(self), coord)
+                logger.debug("[%s] NodeMap.addNode found node  %s = %s", id(self), coord, node.coord)
                 """
                 # add z
                 node.addZ(coord.z)
                 """
         return node
 
-    def add(self, edgeEnd) -> None:
+    def addEdge(self, edgeEnd) -> None:
         coord = edgeEnd.coord
         node = self.addNode(coord)
         node.add(edgeEnd)
@@ -706,14 +729,14 @@ class NodeMap(dict):
         """
         node = self.find(coord)
         if node is not None:
-            del self[coord]
+            del self[(coord.x, coord.y)]
         return node
 
     def find(self, coord):
         """
          * Returns the Node at the given location, or None if no Node was there.
         """
-        return self.get(coord)
+        return self.get((coord.x, coord.y))
 
     def getBoundaryNodes(self, geomIndex: int) -> list:
         nodes = self.values()
@@ -721,8 +744,28 @@ class NodeMap(dict):
             if node.label.getLocation(geomIndex) == Location.BOUNDARY]
 
     def __str__(self):
-        nodes = self.values()
-        return "\n".join([str(node) for node in nodes])
+        return "\n".join([str(node) for node in self.values()])
+
+
+class DirectedEdgeMap(dict):
+
+    def __init__(self):
+        dict.__init__(self)
+        self._edgeList = None
+
+    @property
+    def edges(self):
+        if self._edgeList is None:
+            self._edgeList = sorted(list(self.values()))
+        return self._edgeList
+
+    def add(self, de):
+        key = (de.coord, de.direction)
+        res = self.get(key)
+        if res is None:
+            res = de
+        self[key] = res
+        self._edgeList = None
 
 
 class GraphComponent():
@@ -761,13 +804,13 @@ class Node(GraphComponent):
      * @param newCoord Coordinate
      * @param newEdges EdgeEndStar
     """
-    def __init__(self, newCoord, newEdges):
+    def __init__(self, coord, star):
         GraphComponent.__init__(self)
         # Coordinate
-        self.coord = newCoord
+        self.coord = coord
 
         # EdgeEndStar
-        self.edges = newEdges
+        self.star = star
 
     @property
     def isIsolated(self) -> bool:
@@ -777,11 +820,12 @@ class Node(GraphComponent):
         """
          * Add the edgeEnd to the list of edges at this node
         """
-        logger.debug("[%s] Node:add(%s)\n", id(self), de)
+        # logger.debug("[%s] Node:add(%s)\n", id(self), de)
+
         if de.coord != self.coord:
             raise ValueError("EdgeEnd with coordinate {} invalid for node".format(de.coord))
 
-        self.edges.insert(de)
+        self.star.insert(de)
         de.node = self
         # self.addZ(edgeEnd.coord.z)
 
@@ -802,21 +846,21 @@ class Node(GraphComponent):
             if thisLoc == Location.UNDEF:
                 self.label.setLocation(i, loc)
 
-    def setLabel(self, argIndex: int, onLocation: int) -> None:
+    def setLabel(self, geomIndex: int, onLocation: int) -> None:
         """
 
         """
         if self.label.isNull():
-            self.label = Label(argIndex, onLocation)
+            self.label = Label(geomIndex, onLocation)
         else:
-            self.label.setLocation(argIndex, onLocation)
+            self.label.setLocation(geomIndex, onLocation)
 
-    def setLabelBoundary(self, argIndex: int) -> None:
+    def setLabelBoundary(self, geomIndex: int) -> None:
         """
          * Updates the label of a node to BOUNDARY,
          * obeying the mod-2 boundaryDetermination rule.
         """
-        loc = self.label.getLocation(argIndex)
+        loc = self.label.getLocation(geomIndex)
         if loc == Location.BOUNDARY:
             newLoc = Location.INTERIOR
 
@@ -826,9 +870,9 @@ class Node(GraphComponent):
         else:
             newLoc = Location.BOUNDARY
 
-        self.label.setLocation(argIndex, newLoc)
+        self.label.setLocation(geomIndex, newLoc)
 
-    def computeMergedLocation(self, other, argIndex: int) -> int:
+    def computeMergedLocation(self, other, geomIndex: int) -> int:
         """
          * The location for a given eltIndex for a node will be one
          * of { null, INTERIOR, BOUNDARY }.
@@ -837,9 +881,9 @@ class Node(GraphComponent):
          * in the boundary.
          * The merged location is the maximum of the two input values.
         """
-        loc = self.label.getLocation(argIndex)
-        if loc != Location.BOUNDARY and not other.isNull(argIndex):
-            loc = other.getLocation(argIndex)
+        loc = self.label.getLocation(geomIndex)
+        if loc != Location.BOUNDARY and not other.isNull(geomIndex):
+            loc = other.getLocation(geomIndex)
         return loc
 
     @property
@@ -855,10 +899,10 @@ class Node(GraphComponent):
          * @return true if any indicident edge in the in
          *         the result
         """
-        if self.edges is None:
+        if self.star is None:
             return False
 
-        for de in self.edges:
+        for de in self.star:
             # DirectedEdge
             if de.edge.isInResult:
                 return True
@@ -868,9 +912,9 @@ class Node(GraphComponent):
     def testInvariant(self) -> None:
         # Each EdgeEnd in the star has this Node's
         # coordinate as first coordinate
-        for de in self.edges:
+        for de in self.star:
             if de.coord != self.coord:
-                raise TopologyException("eInvariant")
+                raise TopologyException("eInvariant", self.coord)
 
     def computeIM(self, im) -> None:
         # Basic nodes do not compute IMs
@@ -884,10 +928,6 @@ class NodeFactory():
 
     def createNode(self, coord):
         return Node(coord, None)
-
-    @staticmethod
-    def instance():
-        return NodeFactory()
 
 
 class EdgeEnd():
@@ -907,7 +947,7 @@ class EdgeEnd():
         if newLabel is None:
             self.label = Label()
         else:
-            self.label = newLabel
+            self.label = Label(newLabel)
 
         # Edge: the parent edge of this edge end
         self.edge = newEdge
@@ -968,23 +1008,26 @@ class EdgeEnd():
 
         self.quadrant = Quadrant.quadrant(self.dx, self.dy)
 
-    def __gt__(self, other) -> bool:
-        return self.compareDirection(other) > 0
-
-    def __lt__(self, other) -> bool:
-        return self.compareDirection(other) < 0
-
-    def __eq__(self, other) -> bool:
-        return self.compareDirection(other) == 0
-
     def __str__(self) -> str:
-        return "{}: {}-{} {}:{:.3f} {}".format(
+        return "{}: {}:{:.3f} {} {}-{} ".format(
             type(self).__name__,
-            self.coord,
-            self.direction,
             self.quadrant,
             atan2(self.dy, self.dx),
-            self.label)
+            self.label,
+            self.coord,
+            self.direction)
+
+    def __eq__(self, other) -> bool:
+        return self.compareTo(other) == 0
+
+    def __ne__(self, other) -> bool:
+        return self.compareTo(other) != 0
+
+    def __gt__(self, other) -> bool:
+        return self.compareTo(other) == 1
+
+    def __lt__(self, other) -> bool:
+        return self.compareTo(other) == -1
 
 
 class EdgeRing():
@@ -1001,7 +1044,7 @@ class EdgeRing():
 
         # label stores the locations of each geometry on the
         # face surrounded by this ring
-        self.label = Label()
+        self.label = Label(Location.UNDEF)
 
         # LinearRing
         self._ring = None
@@ -1126,9 +1169,9 @@ class EdgeRing():
 
             self.edges.append(de)
             deLabel = de.label
-            
+
             assert (de.label.isArea()), "de label must be area"
-            
+
             self.mergeLabel(deLabel)
             self.addPoints(de.edge, de.isForward, isFirstEdge)
             isFirstEdge = False
@@ -1155,15 +1198,15 @@ class EdgeRing():
             self.mergeLabel(deLabel, 1)
         else:
             loc = deLabel.getLocation(geomIndex, Position.RIGHT)
-            
+
             # no information to be had from this label
             if loc == Location.UNDEF:
                 return
-                
+
             # if there is no current RHS value, set it
             if self.label.getLocation(geomIndex) == Location.UNDEF:
                 self.label.setLocation(geomIndex, loc)
-            
+
     def addPoints(self, edge, isForward: bool, isFirstEdge: bool) -> None:
         coords = edge.coords
         nCoords = len(coords)
@@ -1191,7 +1234,7 @@ class EdgeRing():
         while (True):
             node = de.node
             # DirectedEdgeStar
-            star = node.edges
+            star = node.star
             degree = star.getOutgoingDegree(self)
             if degree > self._maxNodeDegree:
                 self._maxNodeDegree = degree
@@ -1228,10 +1271,10 @@ class EdgeList(list):
             self.add(edge)
 
     def findEqualEdge(self, edge):
-        # noding::OrientedCoordinateArray
+        # noding.OrientedCoordinateArray
         oca = OrientedCoordinateArray(edge.coords)
-        logger.debug("EdgeList.findEqualEdge %s %s", hash(oca), edge.coords)
-        return self._ocaMap.get(hash(oca))
+        found = self._ocaMap.get(hash(oca))
+        return found
 
     def get(self, index: int):
         return self[index]
@@ -1277,13 +1320,17 @@ class Edge(GraphComponent):
         self.eiList = EdgeIntersectionList(self)
 
     @property
+    def intersections(self):
+        return self.eiList.intersections
+
+    @property
     def maximumSegmentIndex(self) -> int:
         return len(self.coords) - 1
 
     @property
     def monotoneChainEdge(self):
         """
-         * Return this Edge's index::MonotoneChainEdge,
+         * Return this Edge's index.MonotoneChainEdge,
          * ownership is retained by this object.
         """
         if self._mce is None:
@@ -1324,19 +1371,20 @@ class Edge(GraphComponent):
          * to use the higher of the two possible segmentIndexes
          * @param li LineIntersector
         """
-        
+
         # Coordinate
         intPt = li.getIntersection(intIndex)
         normalizedSegmentIndex = segmentIndex
         dist = li.getEdgeDistance(geomIndex, intIndex)
-        
-        logger.debug("[%s] Edge::addIntersection(%s, geom:%s, seg:%s, int:%s, dist:%s)",
+        """
+        logger.debug("[%s] Edge.addIntersection(%s, geom:%s, seg:%s, int:%s, dist:%s)",
             id(self),
             li,
             geomIndex,
             segmentIndex,
             intIndex,
             dist)
+        """
         nextPt = None
         # normalize the intersection point location
         nextSegIndex = normalizedSegmentIndex + 1
@@ -1348,15 +1396,15 @@ class Edge(GraphComponent):
             if intPt == nextPt:
                 normalizedSegmentIndex = nextSegIndex
                 dist = 0.0
-
-        logger.debug("Edge::addIntersection point %s, next:%s, seg(norm):%s, dist(norm):%s normalize:%s pt==next:%s", 
+        """
+        logger.debug("Edge.addIntersection point %s, next:%s, seg(norm):%s, dist(norm):%s normalize:%s pt==next:%s",
             intPt,
             nextPt,
             normalizedSegmentIndex,
             dist,
             nextSegIndex < npts,
             intPt == nextPt)
-            
+        """
         # Add the intersection point to edge intersection list
         self.eiList.add(intPt, normalizedSegmentIndex, dist)
 
@@ -1371,13 +1419,7 @@ class Edge(GraphComponent):
 
     def isPointwiseEqual(self, edge) -> bool:
         # return true if the coordinate sequences of the Edges are identical
-        if len(self.coords) != len(edge.coords):
-            return False
-
-        for i, coord in enumerate(self.coords):
-            if coord != edge.coords[i]:
-                return False
-        return True
+        return self.coords == edge.coords
 
     def equals(self, edge)-> bool:
         """
@@ -1387,21 +1429,7 @@ class Edge(GraphComponent):
          * <b>iff</b>
          * the coordinates of e1 are the same or the reverse of the coordinates in e2
         """
-        nCoords = len(self.coords)
-        if nCoords != len(edge.coords):
-            return False
-
-        isEqualForward = True
-        isEqualReverse = True
-        nCoords -= 1
-        for i, coord in enumerate(self.coords):
-            if coord != edge.coords[i]:
-                isEqualForward = False
-            if coord != edge.coords[nCoords - i]:
-                isEqualReverse = False
-            if (not isEqualForward) and (not isEqualReverse):
-                return False
-        return True
+        return CoordinateSequence.equals_unoriented(self.coords, edge.coords)
 
     @property
     def envelope(self):
@@ -1431,7 +1459,7 @@ class Edge(GraphComponent):
                                   2)
 
     def __str__(self) -> str:
-        return "{}: label:{} depthDelta:{} LineString({})".format(
+        return "{}: label:{} depthDelta:{} coords:{}".format(
             type(self).__name__,
             self.label,
             self.depthDelta,
@@ -1489,16 +1517,24 @@ class DirectedEdge(EdgeEnd):
             self.init(coords[-1], coords[-2])
 
         self._computeDirectedLabel()
-
+    
     def setVisitedEdge(self, isVisited: bool) -> None:
         self.isVisited = isVisited
         self.sym.isVisited = isVisited
 
     def setDepth(self, position: int, newDepth: int) -> None:
-        
+
         if self._depth[position] != -999:
             if self._depth[position] != newDepth:
-                raise TopologyException("assigned depths do not match new:{} current:{}".format(newDepth, self._depth[position]))
+                raise TopologyException("{} [{}] assigned depths do not match new:{} current:{} Depth:{}/{}".format(
+                        type(self).__name__,
+                        id(self),
+                        newDepth,
+                        self._depth[position],
+                        self._depth[Position.LEFT],
+                        self._depth[Position.RIGHT]
+                        ),
+                    self.coord)
 
         self._depth[position] = newDepth
 
@@ -1554,7 +1590,7 @@ class DirectedEdge(EdgeEnd):
         if not self.isForward:
             self.label.flip()
 
-    def setEdgeDepths(self, position: int, newDepth: int) -> None:
+    def setEdgeDepths(self, position: int, depth: int) -> None:
         """
          * Set both edge depths.
          *
@@ -1564,16 +1600,19 @@ class DirectedEdge(EdgeEnd):
         """
         # if moving from L to R instead of R to L must change sign of delta
         if position == Position.LEFT:
-            oppositeDepth = newDepth - self.depthDelta
+            oppositeDepth = depth - self.depthDelta
         else:
-            oppositeDepth = newDepth + self.depthDelta
+            oppositeDepth = depth + self.depthDelta
 
         oppositePos = Position.opposite(position)
-        
-        logger.debug("DirectedEdge.setEdgeDepths position:%s depth:%s opposite:%s  opDepth:%s", position, newDepth, oppositePos, oppositeDepth)
-        
-        self.setDepth(position, newDepth)
+        self.setDepth(position, depth)
         self.setDepth(oppositePos, oppositeDepth)
+
+        logger.debug("DirectedEdge.setEdgeDepths() [%s] Depth:%s/%s",
+            id(self),
+            self._depth[Position.LEFT],
+            self._depth[Position.RIGHT],
+            )
 
     def depthFactor(self, currLocation: int, nextLocation: int) -> int:
         """
@@ -1590,13 +1629,9 @@ class DirectedEdge(EdgeEnd):
 
     def __str__(self) -> str:
 
-        return "{} Depth:{}/{} depthDelta:({}) isInResult:{} EdgeRing:{}".format(
+        return "{} depthDelta:({})".format(
             EdgeEnd.__str__(self),
-            self._depth[Position.LEFT],
-            self._depth[Position.RIGHT],
-            self.depthDelta,
-            self.isInResult,
-            self.edgeRing)
+            self.depthDelta)
 
     def printEdge(self) -> str:
         if self.isForward:
@@ -1605,7 +1640,7 @@ class DirectedEdge(EdgeEnd):
             return self.edge.printReverse()
 
 
-class EdgeEndStar(list):
+class EdgeEndStar():
     """
      * A EdgeEndStar is an ordered list of EdgeEnds around a node.
      *
@@ -1613,7 +1648,7 @@ class EdgeEndStar(list):
      * around the node for efficient lookup and topology building.
     """
     def __init__(self):
-        list.__init__(self)
+        self._edgeMap = DirectedEdgeMap()
         """
          * The location of the point for this star in
          * Geometry i Areas
@@ -1624,9 +1659,15 @@ class EdgeEndStar(list):
         """
          * Insert a EdgeEnd into this EdgeEndStar
         """
-        self.append(de)
-        self.sort()
+        raise NotImplementedError()
 
+    @property
+    def edges(self):
+        return self._edgeMap.edges
+    
+    def index(self, de):
+        return self.edges.index(de)
+    
     @property
     def coord(self):
         """
@@ -1636,19 +1677,19 @@ class EdgeEndStar(list):
          * a Coordinate owned by the specific EdgeEnd happening
          * to be the first in the star (ordered CCW)
         """
-        if len(self) == 0:
+        if len(self.edges) == 0:
             return None
-        return self[0].coord
+        return self.edges[0].coord
 
     def getNextCW(self, de):
         index = self.find(de)
-        if index is None or index == len(self) - 1:
+        if index is None or index == len(self.edges) - 1:
             return None
-        return self[index - 1]
+        return self.edges[index - 1]
 
     def computeLabelling(self, graphs) -> None:
 
-        self._computeEdgeEndLabels(graphs[0]._boundaryNodeRule)
+        self._computeEdgeEndLabels(graphs[0].boundaryNodeRule)
         # Propagate side labels  around the edges in the star
         # for each parent Geometry
         # these calls can throw a TopologyException
@@ -1694,14 +1735,14 @@ class EdgeEndStar(list):
         """
         hasDimentionalCollapseEdges = [False, False]
         # EdgeEndStar
-        for de in self:
+        for de in self.edges:
             # EdgeEnd
             label = de.label
             for i in range(2):
                 if label.isLine(i) and label.getLocation(i) == Location.BOUNDARY:
                     hasDimentionalCollapseEdges[i] = True
 
-        for de in self:
+        for de in self.edges:
             label = de.label
             for i in range(2):
                 if label.isAnyNull(i):
@@ -1713,8 +1754,10 @@ class EdgeEndStar(list):
                         loc = self._getLocation(i, coord, graphs)
                     label.setAllLocationsIfNull(i, loc)
 
+            logger.debug("EdgeEndStar.computeLabelling()     %s [%s] %s", type(de).__name__, id(de), label)
+
     def isAreaLabelsConsistent(self, geomGraph) -> bool:
-        self._computeEdgeEndLabels(geomGraph._boundaryNodeRule)
+        self._computeEdgeEndLabels(geomGraph.boundaryNodeRule)
         return self._checkAreaLabelsConsistent(0)
 
     def propagateSideLabels(self, geomIndex: int) -> None:
@@ -1724,7 +1767,7 @@ class EdgeEndStar(list):
         startLoc = Location.UNDEF
 
         # initialize loc to location of last L side (if any)
-        for de in self:
+        for de in self.edges:
             label = de.label
             if label.isArea(geomIndex) and label.getLocation(geomIndex, Position.LEFT) != Location.UNDEF:
                 startLoc = label.getLocation(geomIndex, Position.LEFT)
@@ -1735,22 +1778,32 @@ class EdgeEndStar(list):
 
         currLoc = startLoc
 
-        for de in self:
+        for de in self.edges:
             label = de.label
+
             # set null ON values to be in current location
             if label.getLocation(geomIndex, Position.ON) == Location.UNDEF:
                 label.setLocation(geomIndex, Position.ON, currLoc)
 
             # set side labels (if any)
-            # if (label.isArea())  //ORIGINAL
             if label.isArea(geomIndex):
                 leftLoc = label.getLocation(geomIndex, Position.LEFT)
                 rightLoc = label.getLocation(geomIndex, Position.RIGHT)
 
+                # if there is a right location, that is the next
+                # location to propagate
+
                 if rightLoc != Location.UNDEF:
 
                     if rightLoc != currLoc:
-                        raise TopologyException("side location conflict")
+                        raise TopologyException(
+                            "side location conflict left:{} right:{} != current:{} Label:{}".format(
+                                Location.toLocationSymbol(leftLoc),
+                                Location.toLocationSymbol(rightLoc),
+                                Location.toLocationSymbol(currLoc),
+                                label),
+                            self.coord
+                            )
 
                     if leftLoc == Location.UNDEF:
                         assert(0), "found single null side at e->getCoordinate()"
@@ -1772,14 +1825,15 @@ class EdgeEndStar(list):
 
                     label.setLocation(geomIndex, Position.RIGHT, currLoc)
                     label.setLocation(geomIndex, Position.LEFT, currLoc)
+            logger.debug("EdgeEndStar.propagateSideLabels(%s) %s [%s] %s", geomIndex, type(de).__name__, id(de), label)
 
     def _getLocation(self, geomIndex: int, coord, graphs) -> int:
         if self._ptInAreaLocation[geomIndex] == Location.UNDEF:
-            self._ptInAreaLocation[geomIndex] = SimplePointInAreaLocator.locate(coord, graphs[geomIndex]._parentGeom)
+            self._ptInAreaLocation[geomIndex] = SimplePointInAreaLocator.locate(coord, graphs[geomIndex].geom)
         return self._ptInAreaLocation[geomIndex]
 
     def _computeEdgeEndLabels(self, bnr) -> None:
-        for de in self:
+        for de in self.edges:
             # EdgeEnd
             de.computeLabel(bnr)
 
@@ -1789,23 +1843,23 @@ class EdgeEndStar(list):
         # the left side of the edge
 
         # if no edges, trivially consistent
-        if len(self) == 0:
+        if len(self.edges) == 0:
             return True
 
         # initialize startLoc to location of last L side (if any)
-        startLabel = self[0].label
+        startLabel = self.edges[0].label
         startLoc = startLabel.getLocation(geomIndex, Position.LEFT)
         assert(startLoc != Location.UNDEF), "Found unlabelled area edge"
 
         currLoc = startLoc
 
-        for de in self:
-            eLabel = de.label
+        for de in self.edges:
+            label = de.label
             # we assume that we are only checking a area
-            assert(eLabel.isArea(geomIndex)), "Found non-area edge"
+            assert(label.isArea(geomIndex)), "Found non-area edge"
 
-            leftLoc = eLabel.getLocation(geomIndex, Position.LEFT)
-            rightLoc = eLabel.getLocation(geomIndex, Position.RIGHT)
+            leftLoc = label.getLocation(geomIndex, Position.LEFT)
+            rightLoc = label.getLocation(geomIndex, Position.RIGHT)
 
             # check that edge is really a boundary between inside and outside!
             if leftLoc == rightLoc:
@@ -1819,21 +1873,30 @@ class EdgeEndStar(list):
 
         return True
 
+    def insertEdgeEnd(self, de) -> None:
+
+        self._edgeMap.add(de)
+        """
+        logger.debug("[%s] %s.insertEdgeEnd(%s)", id(self), type(self).__name__, len(self.edges))
+        for de in self.edges:
+            logger.debug("%s", de)
+        """
+
     @property
     def degree(self) -> int:
-        return len(self)
+        return len(self.edges)
 
     def find(self, de):
-        try:
-            return self.index(de)
-        except:
-            return None
+        for i, candidate in enumerate(self.edges):
+            if candidate == de:
+                return i
+        return None
 
     def __str__(self) -> str:
         return "{} {}\n{}".format(
             type(self).__name__,
             self.coord,
-            "\n".join([str(de) for de in self]))
+            "\n".join([str(de) for de in self.edges]))
 
 
 class DirectedEdgeStar(EdgeEndStar):
@@ -1853,30 +1916,33 @@ class DirectedEdgeStar(EdgeEndStar):
         self._resultAreaEdgeList = None
         self.label = Label()
 
+    def insert(self, de):
+        self.insertEdgeEnd(de)
+
     def getOutgoingDegree(self, edgeRing=None) -> int:
         degree = 0
         if edgeRing is None:
-            for de in self:
+            for de in self.edges:
                 if de.isInResult:
                     degree += 1
         else:
-            for de in self:
+            for de in self.edges:
                 if de.edgeRing == edgeRing:
                     degree += 1
         return degree
 
     def getRightmostEdge(self):
-        if len(self) == 0:
+        if len(self.edges) == 0:
             return None
 
         # DirectedEdge
-        de0 = self[0]
+        de0 = self.edges[0]
 
-        if len(self) == 1:
+        if len(self.edges) == 1:
             return de0
 
         # DirectedEdge
-        deLast = self[-1]
+        deLast = self.edges[-1]
 
         quad0 = de0.quadrant
         quad1 = deLast.quadrant
@@ -1896,7 +1962,7 @@ class DirectedEdgeStar(EdgeEndStar):
 
         return None
 
-    def computeLebelling(self, geomGraphs) -> None:
+    def computeLabelling(self, geomGraphs) -> None:
         """
          * Compute the labelling for all dirEdges in this star, as well
          * as the overall labelling
@@ -1908,7 +1974,7 @@ class DirectedEdgeStar(EdgeEndStar):
         # determine the overall labelling for this DirectedEdgeStar
         # (i.e. for the node it is based at)
         self.label = Label(Location.UNDEF)
-        for de in self:
+        for de in self.edges:
             label = de.edge.label
             for i in range(2):
                 loc = label.getLocation(i)
@@ -1920,17 +1986,20 @@ class DirectedEdgeStar(EdgeEndStar):
          * For each dirEdge in the star,
          * merge the label from the sym dirEdge into the label
         """
-        for de in self:
+        for de in self.edges:
             label = de.label
             labelToMerge = de.sym.label
             label.merge(labelToMerge)
+            logger.debug("DirectedEdgeStar.mergeSymLabels()  %s [%s] %s", type(de).__name__, id(de), label)
 
     def updateLabelling(self, nodeLabel) -> None:
         # Update incomplete dirEdge labels from the labelling for the node
-        for de in self:
+        for de in self.edges:
             label = de.label
-            label.setAllLocationsIfNull(0, nodeLabel.getLocation(0))
-            label.setAllLocationsIfNull(1, nodeLabel.getLocation(1))
+            label.setAllLocationsIfNull(0, location=nodeLabel.getLocation(0))
+            label.setAllLocationsIfNull(1, location=nodeLabel.getLocation(1))
+
+            logger.debug("DirectedEdgeStar.updateLabelling() %s [%s] %s", type(de).__name__, id(de), label)
 
     def linkResultDirectedEdges(self) -> None:
         """
@@ -1960,17 +2029,17 @@ class DirectedEdgeStar(EdgeEndStar):
 
         # link edges in CCW order
         for nextOut in self._resultAreaEdgeList:
-            
+
             assert(nextOut), "Found null edge in resultAreaList"
-            
+
             # skip de's that we're not interested in
             if not nextOut.label.isArea():
                 continue
 
             nextIn = nextOut.sym
-            
+
             assert(nextIn), "Found null edge.sym"
-    
+
             # record first outgoing edge, in order to link the last incoming edge
             if firstOut is None and nextOut.isInResult:
                 firstOut = nextOut
@@ -1998,7 +2067,7 @@ class DirectedEdgeStar(EdgeEndStar):
 
             assert(firstOut.isInResult), "unable to link last incoming dirEdge"
             assert(incoming), "no incoming edge found"
-            
+
             incoming.next = firstOut
 
     def linkMinimalDirectedEdges(self, edgeRing) -> None:
@@ -2043,7 +2112,7 @@ class DirectedEdgeStar(EdgeEndStar):
         firstIn = None
 
         # Link edges in CW order
-        for nextOut in reversed(self):
+        for nextOut in reversed(self.edges):
             nextIn = nextOut.sym
 
             if firstIn is None:
@@ -2071,7 +2140,7 @@ class DirectedEdgeStar(EdgeEndStar):
          * - EXTERIOR if the edge is incoming
         """
         startLoc = Location.UNDEF
-        for nextOut in self:
+        for nextOut in self.edges:
 
             nextIn = nextOut.sym
 
@@ -2095,7 +2164,7 @@ class DirectedEdgeStar(EdgeEndStar):
          * If L edges are found, mark them as covered if they are in the interiors
         """
         currLoc = startLoc
-        for nextOut in self:
+        for nextOut in self.edges:
 
             nextIn = nextOut.sym
 
@@ -2114,22 +2183,32 @@ class DirectedEdgeStar(EdgeEndStar):
 
         startDepth = de.getDepth(Position.LEFT)
         targetLastDepth = de.getDepth(Position.RIGHT)
-        logger.debug("DirectedEdgeStar.computeDepths()\n%s", "\n".join(["RIGHT:{} - LEFT:{}".format(de.getDepth(Position.RIGHT), de.getDepth(Position.LEFT)) for de in self]))
-        
+
         # compute the depths from this edge up to the end of the edge array
-        nextDepth = self._computeDepths(index, len(self), startDepth)
+        nextDepth = self._computeDepths(index + 1, len(self.edges), startDepth)
 
         # compute the depths for the initial part of the array
         lastDepth = self._computeDepths(0, index, nextDepth)
 
+        logger.debug("DirectedEdgeStar.computeDepths(%s) index:%s\n%s",
+            len(self.edges),
+            index,
+            "\n".join(
+            ["[{}] {} LEFT:{} - RIGHT:{} ".format(
+                id(d),
+                i,
+                d.getDepth(Position.LEFT),
+                d.getDepth(Position.RIGHT))
+                for i, d in enumerate(self.edges)]))
+
         if lastDepth != targetLastDepth:
-            raise TopologyException("depth mismatch")
+            raise TopologyException("depth mismatch", self.coord)
 
     def _getResultAreaEdges(self):
 
         if self._resultAreaEdgeList is None:
 
-            self._resultAreaEdgeList = [de for de in self
+            self._resultAreaEdgeList = [de for de in self.edges
                     if de.isInResult or de.sym.isInResult]
 
         return self._resultAreaEdgeList
@@ -2142,7 +2221,7 @@ class DirectedEdgeStar(EdgeEndStar):
         """
         currDepth = startDepth
         for i in range(start, end):
-            de = self[i]
+            de = self.edges[i]
             de.setEdgeDepths(Position.RIGHT, currDepth)
             currDepth = de.getDepth(Position.LEFT)
 
@@ -2152,7 +2231,7 @@ class DirectedEdgeStar(EdgeEndStar):
         return "DirectedEdgeStar {}\n{}".format(
             self.coord,
             "\n".join([
-                "out:{}\nin:{}".format(str(de), str(de.sym)) for de in self
+                "out:{}\nin:{}".format(str(de), str(de.sym)) for de in self.edges
             ])
         )
 
@@ -2187,6 +2266,32 @@ class EdgeIntersection():
             self.segmentIndex,
             self.dist)
 
+    def compareTo(self, other):
+        if self.segmentIndex < other.segmentIndex:
+            return -1
+        elif self.segmentIndex > other.segmentIndex:
+            return 1
+
+        if self.dist < other.dist:
+            return -1
+
+        elif self.dist > other.dist:
+            return 1
+
+        return 0
+
+    def __gt__(self, other):
+        return self.compareTo(other) == 1
+
+    def __lt__(self, other):
+        return self.compareTo(other) == -1
+
+    def __eq__(self, other):
+        return self.compareTo(other) == 0
+
+    def __ne__(self, other):
+        return self.compareTo(other) != 0
+
 
 class EdgeIntersectionList(dict):
     """
@@ -2216,7 +2321,8 @@ class EdgeIntersectionList(dict):
     @property
     def intersections(self) -> list:
         if not self._sorted:
-            self._ei = sorted(self.values(), key=lambda n: (n.segmentIndex, n.dist))
+            self._ei = list(self.values())
+            self._ei.sort()
             self._sorted = True
         return self._ei
 
@@ -2225,8 +2331,8 @@ class EdgeIntersectionList(dict):
         return len(self) < 1
 
     def isIntersection(self, coord) -> bool:
-        for it in self.intersections:
-            if it.coord == coord:
+        for intersection in self.intersections:
+            if intersection.coord == coord:
                 return True
         return False
 
@@ -2272,14 +2378,13 @@ class EdgeIntersectionList(dict):
         # reliable!). The check for point equality is 2D only - Z values
         # are ignored
         useIntPtl = ei1.dist > 0.0 or ei1.coord != lastSegStartPt
-        
+
         end = ei1.segmentIndex + 1
-        
+
         if not useIntPtl:
-            end -= 1 
+            end -= 1
             npts -= 1
 
-        
         # CoordinateSequence
         _coords = self.edge.coords
         #               ei
@@ -2290,18 +2395,23 @@ class EdgeIntersectionList(dict):
         #               x____1____x        x______n
         coords = []
         coords.append(ei0.coord)
-        
-        for i in range(ei0.segmentIndex + 1, end):
-            coords.append(_coords[i])
+
+        coords.extend(_coords[ei0.segmentIndex + 1:end])
 
         coords.append(ei1.coord)
-        
-        logger.debug("[%s] EdgeIntersectionList::createSplitEdge() npts: %s\nei0:%s\nei1:%s\nedge._coords:%s\n coords:%s", id(self), npts, ei0, ei1, _coords, ",".join([str(co) for co in coords]))
-
+        """
+        logger.debug("[%s] EdgeIntersectionList.createSplitEdge() npts:%s\nei0:%s\nei1:%s\nedge.coords:%s\ncoords:%s",
+            id(self),
+            npts,
+            ei0,
+            ei1,
+            _coords,
+            ",".join([str(co) for co in coords]))
+        """
         coords = CoordinateSequence.removeRepeatedPoints(coords)
-        
+
         assert(len(coords) == npts), "Intersection removed multiple points at same location"
-        
+
         label = Label(self.edge.label)
         return Edge(coords, label)
 
@@ -2312,14 +2422,51 @@ class EdgeIntersectionList(dict):
             ]))
 
 
+class EdgeNodingValidator():
+    """
+     * Validates that a collection of SegmentStrings is correctly noded.
+     *
+     * Throws an appropriate exception if an noding error is found.
+    """
+    def __init__(self, edges):
+        # noding.SegmentString
+        self.segStr = []
+        self.nv = FastNodingValidator(self.toSegmentStrings(edges))
+
+    def toSegmentStrings(self, edges):
+        for edge in edges:
+            coords = edge.coords.clone()
+            self.segStr.append(BasicSegmentString(coords, edge))
+        return self.segStr
+
+    @staticmethod
+    def checkValid(edges) -> None:
+        """
+         * Checks whether the supplied {@link Edge}s
+         * are correctly noded.
+         *
+         * Throws a  {@link TopologyException} if they are not.
+         *
+         * @param edges a collection of Edges.
+         * @throws TopologyException if the SegmentStrings are not
+         *         correctly noded
+         *
+        """
+        validator = EdgeNodingValidator(edges)
+        validator._checkValid()
+
+    def _checkValid(self) -> None:
+        self.nv.checkValid()
+
+
 class GeometryGraph(PlanarGraph):
 
-    def __init__(self, newArgIndex: int=-1, newParentGeom=None, boundaryNodeRule=None):
+    def __init__(self, geomIndex: int=-1, geom=None, boundaryNodeRule=None):
 
         PlanarGraph.__init__(self)
 
         # Geometry
-        self._parentGeom = newParentGeom
+        self.geom = geom
         """
          * The lineEdgeMap is a map of the linestring components of the
          * parentGeometry to the edges which are derived from them.
@@ -2340,13 +2487,13 @@ class GeometryGraph(PlanarGraph):
         if boundaryNodeRule is None:
             boundaryNodeRule = BoundaryNodeRule.getBoundaryOGCSFS()
 
-        self._boundaryNodeRule = boundaryNodeRule
+        self.boundaryNodeRule = boundaryNodeRule
 
         """
          * the index of this geometry as an argument to a spatial function
          * (used for labelling)
         """
-        self._argIndex = newArgIndex
+        self.geomIndex = geomIndex
 
         # Cache for fast responses to getBoundaryPoints
         # CoordinateSequence
@@ -2358,13 +2505,10 @@ class GeometryGraph(PlanarGraph):
         self.hasTooFewPoints = False
 
         # Coordinate
-        self._invalidPoint = None
+        self.invalidPoint = None
 
-        if newParentGeom is not None:
-            self._add(newParentGeom)
-
-    def getInvalidPoint(self):
-        return self._invalidPoint
+        if geom is not None:
+            self._add(geom)
 
     def _createEdgeSetIntersector(self):
         # Allocates a new EdgeSetIntersector
@@ -2375,45 +2519,50 @@ class GeometryGraph(PlanarGraph):
         if geom.is_empty:
             return
 
-        cls = type(geom).__name__
+        type_id = geom.type_id
 
-        if cls == 'MultiPolygon':
-            self._useBoundaryDeterminationRule = False
-
-        if cls == 'Polygon':
+        if type_id == GeomTypeId.GEOS_POLYGON:
             self._addPolygon(geom)
 
-        elif cls in {'LineString', 'LinearRing'}:
+        elif type_id in (
+                GeomTypeId.GEOS_LINEARRING,
+                GeomTypeId.GEOS_LINESTRING
+                ):
             # LineString also handles LinearRings
             self._addLineString(geom)
 
-        elif cls == 'Point':
+        elif type_id == GeomTypeId.GEOS_POINT:
             self._addPoint(geom)
 
-        elif 'Multi' in cls or cls == 'GeometryCollection':
+        elif type_id in (
+                GeomTypeId.GEOS_MULTILINESTRING,
+                GeomTypeId.GEOS_MULTIPOINT,
+                GeomTypeId.GEOS_MULTIPOLYGON,
+                GeomTypeId.GEOS_GEOMETRYCOLLECTION
+                ):
             self._addCollection(geom)
 
         else:
-            raise ValueError("GeometryGraph::add(Geometry *): unknown geometry type: ".format(cls))
+            raise ValueError("GeometryGraph.add(Geometry): unknown geometry type:{}".format(type(geom).__name__))
 
     def _addCollection(self, geoms) -> None:
-        for geom in geoms:
+        for geom in geoms.geoms:
             self._add(geom)
 
-    def _addPoint(self, p) -> None:
-        self._insertPoint(self._argIndex, p.coord, Location.INTERIOR)
+    def _addPoint(self, geom) -> None:
+        self._insertPoint(self.geomIndex, geom.coord, Location.INTERIOR)
 
-    def _addPolygonRing(self, lr, cwLeft: int, cwRight: int) -> None:
+    def _addPolygonRing(self, geom, cwLeft: int, cwRight: int) -> None:
 
         # skip empty component
-        if lr.is_empty:
+        if geom.is_empty:
             return
 
-        coords = CoordinateSequence.removeRepeatedPoints(lr.coords)
+        coords = CoordinateSequence.removeRepeatedPoints(geom.coords)
 
         if len(coords) < 4:
             self.hasTooFewPoints = True
-            self._invalidPoint = coords[0]
+            self.invalidPoint = coords[0]
             return
 
         left = cwLeft
@@ -2427,29 +2576,29 @@ class GeometryGraph(PlanarGraph):
         if CGAlgorithms.isCCW(coords):
             left, right = cwRight, cwLeft
 
-        edge = Edge(coords, Label(self._argIndex, Location.BOUNDARY, left, right))
-        self._lineEdgeMap[id(lr)] = edge
+        edge = Edge(coords, Label(self.geomIndex, Location.BOUNDARY, left, right))
+        self._lineEdgeMap[id(geom)] = edge
         self.insertEdge(edge)
-        self._insertPoint(self._argIndex, coords[0], Location.BOUNDARY)
+        self._insertPoint(self.geomIndex, coords[0], Location.BOUNDARY)
 
-    def _addPolygon(self, p) -> None:
+    def _addPolygon(self, geom) -> None:
         # LinearRing
-        lr = p.exterior
-        self._addPolygonRing(lr, Location.EXTERIOR, Location.INTERIOR)
-        if p.interiors is not None:
-            for lr in p.interiors:
-                self._addPolygonRing(lr, Location.INTERIOR, Location.EXTERIOR)
+        linearRing = geom.exterior
+        self._addPolygonRing(linearRing, Location.EXTERIOR, Location.INTERIOR)
+        if geom.interiors is not None:
+            for linearRing in geom.interiors:
+                self._addPolygonRing(linearRing, Location.INTERIOR, Location.EXTERIOR)
 
-    def _addLineString(self, line) -> None:
+    def _addLineString(self, geom) -> None:
 
-        coords = line.coords
+        coords = geom.coords
         if len(coords) < 2:
             self.hasTooFewPoints = True
-            self._invalidPoint = coords[0]
+            self.invalidPoint = coords[0]
             return
 
-        edge = Edge(coords, Label(self._argIndex, Location.INTERIOR))
-        self._lineEdgeMap[id(line)] = edge
+        edge = Edge(coords, Label(self.geomIndex, Location.INTERIOR))
+        self._lineEdgeMap[id(geom)] = edge
         self.insertEdge(edge)
         """
          * Add the boundary points of the LineString, if any.
@@ -2458,25 +2607,25 @@ class GeometryGraph(PlanarGraph):
          * This allows for the case that the node already exists and is
          * a boundary point.
         """
-        self._insertBoundaryPoint(self._argIndex, coords[0])
-        self._insertBoundaryPoint(self._argIndex, coords[-1])
+        self._insertBoundaryPoint(self.geomIndex, coords[0])
+        self._insertBoundaryPoint(self.geomIndex, coords[-1])
 
-    def _insertPoint(self, argIndex: int, coord, onLocation: int) -> None:
+    def _insertPoint(self, geomIndex: int, coord, onLocation: int) -> None:
 
-        logger.debug("GeometryGraph::insertPoint(%s) called\n", coord)
+        logger.debug("GeometryGraph.insertPoint(%s) called", coord)
 
         # Node
         node = self._nodes.addNode(coord)
         label = node.label
         if label.isNull():
-            node.setLabel(argIndex, onLocation)
+            node.label = Label(geomIndex, onLocation)
         else:
-            label.setLocation(argIndex, onLocation)
+            label.setLocation(geomIndex, onLocation)
 
-    def _insertBoundaryPoint(self, argIndex: int, coord) -> None:
+    def _insertBoundaryPoint(self, geomIndex: int, coord) -> None:
         """
          * Adds candidate boundary points using the current
-         * algorithm::BoundaryNodeRule.
+         * algorithm.BoundaryNodeRule.
          *
          * This is used to add the boundary
          * points of dim-1 geometries (Curves/MultiCurves).
@@ -2491,16 +2640,16 @@ class GeometryGraph(PlanarGraph):
         boundaryCount = 1
 
         # determine the current location for the point (if any)
-        loc = label.getLocation(argIndex, Position.ON)
+        loc = label.getLocation(geomIndex, Position.ON)
         if loc == Location.BOUNDARY:
             boundaryCount += 1
 
         # determine the boundary status of the point according to the
         # Boundary Determination Rule
-        newLoc = GeometryGraph.determineBoundary(boundaryCount, self._boundaryNodeRule)
-        label.setLocation(argIndex, newLoc)
+        newLoc = GeometryGraph.determineBoundary(boundaryCount, self.boundaryNodeRule)
+        label.setLocation(geomIndex, newLoc)
 
-    def _addSelfIntersectionNodes(self, argIndex: int) -> None:
+    def _addSelfIntersectionNodes(self, geomIndex: int) -> None:
         """
          * Add a node for a self-intersection.
          *
@@ -2509,21 +2658,21 @@ class GeometryGraph(PlanarGraph):
          * Otherwise, just add it as a regular node.
         """
         for edge in self.edges:
-            eLoc = edge.label.getLocation(argIndex)
+            loc = edge.label.getLocation(geomIndex)
             # EdgeIntersectionList
-            eil = edge.eiList.intersections
-            for ei in eil:
-                self._addSelfIntersectionNode(argIndex, ei.coord, eLoc)
+            intersections = edge.intersections
+            for intersection in intersections:
+                self._addSelfIntersectionNode(geomIndex, intersection.coord, loc)
 
-    def _addSelfIntersectionNode(self, argIndex: int, coord, loc: int) -> None:
+    def _addSelfIntersectionNode(self, geomIndex: int, coord, loc: int) -> None:
         #  if this node is already a boundary node, don't change it
-        if self.isBoundaryNode(argIndex, coord):
+        if self.isBoundaryNode(geomIndex, coord):
             return
 
         if loc == Location.BOUNDARY and self._useBoundaryDeterminationRule:
-            self._insertBoundaryPoint(argIndex, coord)
+            self._insertBoundaryPoint(geomIndex, coord)
         else:
-            self._insertPoint(argIndex, coord, loc)
+            self._insertPoint(geomIndex, coord, loc)
 
     @staticmethod
     def isInBoundary(boundaryCount: int) -> bool:
@@ -2559,7 +2708,7 @@ class GeometryGraph(PlanarGraph):
     def boundaryNodes(self) -> list:
 
         if self._boundaryNodes is None:
-            self._boundaryNodes = self._nodes.getBoundaryNodes(self._argIndex)
+            self._boundaryNodes = self._nodes.getBoundaryNodes(self.geomIndex)
 
         return self._boundaryNodes
 
@@ -2581,16 +2730,16 @@ class GeometryGraph(PlanarGraph):
     def computeSplitEdges(self, edgelist: list) -> None:
 
         oldListLen = len(edgelist)
-        logger.debug("[%s] GeometryGraph::computeSplitEdges() scanning %s local and %s provided edges",
+        logger.debug("[%s] GeometryGraph.computeSplitEdges() scanning %s local and %s provided edges",
             id(self),
             len(self.edges),
             oldListLen)
 
         for edge in self.edges:
-            logger.debug("Adding split edges for %s", edge)
+            # logger.debug("Adding split edges for %s", edge)
             edge.eiList.addSplitEdges(edgelist)
 
-        logger.debug("[%s] GeometryGraph::computeSplitEdges() completed add:%s Edges\n",
+        logger.debug("[%s] GeometryGraph.computeSplitEdges() completed add:%s Edges",
             id(self),
             len(edgelist) - oldListLen)
 
@@ -2603,8 +2752,8 @@ class GeometryGraph(PlanarGraph):
         # CoordinateSequence
         coords = edge.coords
         # insert the endpoint as a node, to mark that it is on the boundary
-        self._insertPoint(self._argIndex, coords[0], Location.BOUNDARY)
-        self._insertPoint(self._argIndex, coords[-1], Location.BOUNDARY)
+        self._insertPoint(self.geomIndex, coords[0], Location.BOUNDARY)
+        self._insertPoint(self.geomIndex, coords[-1], Location.BOUNDARY)
 
     def addPoint(self, coord) -> None:
         """
@@ -2612,7 +2761,7 @@ class GeometryGraph(PlanarGraph):
          * Point Geometry part, which has a location of INTERIOR.
          * @param coord Coordinate
         """
-        self._insertPoint(self._argIndex, coord, Location.INTERIOR)
+        self._insertPoint(self.geomIndex, coord, Location.INTERIOR)
 
     def computeSelfNodes(self, li, computeRingSelfNodes: bool, isDoneIfProperInt=False, env=None):
         """
@@ -2629,11 +2778,11 @@ class GeometryGraph(PlanarGraph):
          * @return the SegmentIntersector used, containing information about
          *  the intersections found
         """
-        logger.debug("[%s] GeometryGraph::computeSelfNodes() for geom:%s", id(self), self._argIndex)
+        logger.debug("[%s] GeometryGraph.computeSelfNodes(%s) nodes:%s", id(self), self.geomIndex, len(self.nodes))
 
         if env is None and type(isDoneIfProperInt).__name__ == 'Envelope':
             env, isDoneIfProperInt = isDoneIfProperInt, False
-
+        # li, includeProper, recordIsolated
         si = SegmentIntersector(li, True, False)
         si.isDoneWhenProperInt = isDoneIfProperInt
 
@@ -2643,23 +2792,21 @@ class GeometryGraph(PlanarGraph):
         # Edge
         edges = self.edges
 
-        if (env is not None) and not env.covers(self._parentGeom.envelope):
+        if (env is not None) and not env.covers(self.geom.envelope):
             edges = [edge for edge in edges if edge.envelope.intersects(env)]
 
-        isRings = type(self._parentGeom).__name__ in {
-            'LinearRing',
-            'Polygon',
-            'MultiPolygon'}
+        isRings = self.geom.type_id in (
+            GeomTypeId.GEOS_LINEARRING,
+            GeomTypeId.GEOS_POLYGON,
+            GeomTypeId.GEOS_MULTIPOLYGON)
 
         computeAllSegments = computeRingSelfNodes or not isRings
 
         esi.computeSelfIntersections(edges, si, computeAllSegments)
 
-        logger.debug("SegmentIntersector # tests = %s", si.numTests)
+        self._addSelfIntersectionNodes(self.geomIndex)
 
-        self._addSelfIntersectionNodes(self._argIndex)
-
-        logger.debug("[%s] GeometryGraph::computeSelfNodes() completed\n", id(self))
+        logger.debug("[%s] GeometryGraph.computeSelfNodes() completed # tests = %s nodes:%s", id(self), si.numTests, len(self.nodes))
 
         return si
 
@@ -2676,15 +2823,12 @@ class GeometryGraph(PlanarGraph):
 
         if env is not None:
 
-            if not env.covers(self._parentGeom.envelope):
+            if not env.covers(self.geom.envelope):
                 se = [edge for edge in se if edge.envelope.intersects(env)]
 
-            if not env.covers(graph._parentGeom.envelope):
+            if not env.covers(graph.geom.envelope):
                 oe = [edge for edge in oe if edge.envelope.intersects(env)]
 
         esi.computeIntersections(se, oe, si)
 
         return si
-
-    def getBoundaryNodeRules(self):
-        return self._boundaryNodeRule

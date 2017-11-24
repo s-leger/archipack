@@ -33,33 +33,33 @@ class Interval():
     """
     def __init__(self, nmin=None, nmax=None):
 
-        if nmax is None:
-            mi, ma = nmin._mini, nmin._maxi
-        elif nmin is None:
+        if nmin is None:
             mi, ma = 0.0, 0.0
+        elif nmax is None:
+            mi, ma = nmin.mini, nmin.maxi
         else:
             mi, ma = nmin, nmax
 
         if mi > ma:
             mi, ma = ma, mi
 
-        self._mini = mi
-        self._maxi = ma
+        self.mini = mi
+        self.maxi = ma
 
     def getWidth(self):
-        return self._maxi - self._mini
+        return self.maxi - self.mini
 
     def expandToInclude(self, interval):
-        if interval._maxi > self._maxi:
-            self._maxi = interval._maxi
-        if interval._mini < self._mini:
-            self._mini = interval._mini
+        if interval.maxi > self.maxi:
+            self.maxi = interval.maxi
+        if interval.mini < self.mini:
+            self.mini = interval.mini
 
     def overlaps(self, nmin, nmax=None):
         if nmax is None:
-            nmin, nmax = nmin._mini, nmin._maxi
+            nmin, nmax = nmin.mini, nmin.maxi
 
-        if self._mini > nmax or self._maxi < nmin:
+        if self.mini > nmax or self.maxi < nmin:
             return False
         return True
 
@@ -67,10 +67,10 @@ class Interval():
         if nmax is None:
             cls = type(nmin).__name__
             if cls == 'Interval':
-                nmin, nmax = nmin._mini, nmin._maxi
+                nmin, nmax = nmin.mini, nmin.maxi
             else:
-                return self._mini <= nmin <= self._maxi
-        return self._mini <= nmin and nmax <= self._maxi
+                return self.mini <= nmin <= self.maxi
+        return self.mini <= nmin and nmax <= self.maxi
 
 
 class Key():
@@ -105,7 +105,7 @@ class Key():
 
     def computeInterval(self, level, itemInterval):
         size = pow(2.0, level)
-        self._pt = floor(itemInterval._mini / size) * size
+        self._pt = floor(itemInterval.mini / size) * size
         self._interval.__init__(self._pt, self._pt + size)
 
 
@@ -132,9 +132,9 @@ class NodeBase():
          * If none does, returns -1.
         """
         subnodeIndex = -1
-        if interval._mini >= centre:
+        if interval.mini >= centre:
             subnodeIndex = 1
-        if interval._maxi <= centre:
+        if interval.maxi <= centre:
             subnodeIndex = 0
         return subnodeIndex
 
@@ -191,7 +191,7 @@ class Node(NodeBase):
     def __init__(self, newInterval, newLevel):
         NodeBase.__init__(self)
         self._interval = newInterval
-        self._centre = (newInterval._mini + newInterval._maxi) / 2.0
+        self._centre = (newInterval.mini + newInterval.maxi) / 2.0
         self._level = newLevel
 
     def _getSubNode(self, index):
@@ -202,11 +202,11 @@ class Node(NodeBase):
     def _createSubNode(self, index):
         mi, ma = 0.0, 0.0
         if index == 0:
-            mi = self._interval._mini
+            mi = self._interval.mini
             ma = self._centre
         else:
             mi = self._centre
-            ma = self._interval._maxi
+            ma = self._interval.maxi
         subInt = Interval(mi, ma)
         return Node(subInt, self._level - 1)
 
@@ -282,7 +282,7 @@ class Root(NodeBase):
          * to infinite recursion. Instead, use a heuristic of simply returning
          * the smallest existing node containing the query
         """
-        isZeroArea = itemInterval._mini - itemInterval._maxi == 0
+        isZeroArea = itemInterval.mini - itemInterval.maxi == 0
         if isZeroArea:
             node = tree.find(itemInterval)
         else:

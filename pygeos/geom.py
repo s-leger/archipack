@@ -26,16 +26,18 @@
 
 from itertools import islice
 from math import sqrt
-import bpy
-from mathutils import Matrix
-from .constants import (
-    GeometryTypeId,
+from .shared import (
+    GeomTypeId,
     Dimension,
     Envelope,
     PrecisionModel,
     Coordinate,
     CoordinateSequence,
+    CoordinateSequenceFilter,
     CoordinateFilter,
+    GeometryFilter,
+    CoordinateOperation,
+    GeometryEditor,
     GeometryComponentFilter,
     CAP_STYLE,
     JOIN_STYLE
@@ -46,8 +48,10 @@ from .algorithms import (
     )
 from .op_valid import IsValidOp
 from .op_simple import IsSimpleOp
+from .op_linemerge import LineMerger
 from .op_overlay import OverlayOp, overlayOp
 from .op_binary import BinaryOp
+from .op_union import UnaryUnionOp
 from .op_relate import RelateOp
 from .op_buffer import BufferOp
 from .simplify import (
@@ -55,6 +59,7 @@ from .simplify import (
     DouglasPeukerSimplifier
 )
 from .affine import affine_transform
+from .geomgraph import GeometryGraph
 
 
 class Lineal():
@@ -205,10 +210,10 @@ class Geometry():
             'MultiLinearRing',
             'MultiPolygon',
             'GeometryCollection'
-            )[self.geometryTypeId]
+            )[self.type_id]
 
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
@@ -245,25 +250,29 @@ class Geometry():
         """
          * Returns false if the Geometry not simple.
         """
-        if type(self).__name__ == 'GeometryCollection':
+        if self.type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION:
             raise ValueError("This method does not support GeometryCollection")
 
         return IsSimpleOp(self).is_simple()
-    
+
     @property
     def is_empty(self):
         return False
-        
+
     @property
     def is_rectangle(self):
         return False
-    
+
+    @property
+    def is_ccw(self):
+        return False
+
     def getEnvelope(self):
         """
          * Returns envelope as geometry
         """
         return self._factory.toGeometry(self.envelope)
-    
+
     @property
     def area(self):
         """
@@ -316,6 +325,9 @@ class Geometry():
     def compareToSameClass(self, geom):
         raise NotImplementedError()
 
+    def isEquivalentClass(self, other) -> bool:
+        return self.type_id == other.type_id
+
     def geometryChanged(self):
         self.apply_rw(self.geometryChangedFilter)
 
@@ -357,7 +369,7 @@ class Geometry():
     def getGeometryN(self, index):
         return self
 
-    # relationships
+    # relationships (relate)
     def disjoint(self, other) -> bool:
         if not self.envelope.intersects(other.envelope):
             return True
@@ -429,13 +441,22 @@ class Geometry():
     def convex_hull(self):
         return ConvexHull(self).getConvexHull()
 
-    @property
-    def minimum_rotated_rectangle(self):
+    def computeMinimumRotatedRectangle(self):
+        """
+         * return transformed rectangle,
+         * untransformed rectangle and inverse matrix
+        """
         hull = self.convex_hull
         try:
             coords = hull.exterior.coords
-        except AttributeError:  # may be a Point or a LineString
-            return hull
+        except AttributeError:
+            # may be a Point or a LineString
+            coords = hull.coords
+            pass
+
+        if len(coords) < 2:
+            return None, None, None
+
         # generate the edge vectors between the convex hull's coords
         edges = ((pt2.x - pt1.x, pt2.y - pt1.y) for pt1, pt2 in zip(
             coords, islice(coords, 1, None)))
@@ -460,9 +481,15 @@ class Geometry():
         # check for the minimum area rectangle and return it
         transf_rect, inv_matrix = min(
             _transformed_rects(), key=lambda r: r[0].area)
-        return affine_transform(transf_rect, inv_matrix)
 
-    # Boolean operations
+        return affine_transform(transf_rect, inv_matrix), transf_rect, inv_matrix
+
+    @property
+    def minimum_rotated_rectangle(self):
+        rect, transf_rect, inv_matrix = self.computeMinimumRotatedRectangle()
+        return rect
+
+    # Boolean operations (overlay)
     def intersection(self, other):
         # special case: if one input is empty ==> other input
         if self.is_empty or other.is_empty:
@@ -472,7 +499,10 @@ class Geometry():
 
         return BinaryOp(self, other, overlayOp(OverlayOp.opINTERSECTION))
 
-    def union(self, other):
+    def union(self, other=None):
+
+        if other is None:
+            return UnaryUnionOp.union(self)
 
         # special case: if one input is empty ==> other input
         if self.is_empty:
@@ -553,14 +583,18 @@ class Geometry():
             return
 
         return BufferOp.bufferOp(self,
-                distance,
-                resolution,
-                cap_style,
-                join_style,
-                mitre_limit,
-                single_sided)
-    
-    # simplify 
+                distance=distance,
+                quadrantSegments=resolution,
+                endCapStyle=cap_style,
+                joinStyle=join_style,
+                mitreLimit=mitre_limit,
+                singleSided=single_sided)
+
+    # line merge
+    def line_merge(self):
+        return LineMerger.merge(self)
+
+    # simplify
     def simplify(self, tolerance: float, preserve_topology: bool=True):
         if preserve_topology:
             return TopologyPreservingSimplifier.simplify(self, tolerance)
@@ -574,8 +608,27 @@ class Geometry():
     def apply_rw(self, filter) -> None:
         filter.filter_rw(self)
 
-    
-        
+    def applyComponentFilter(self, filter):
+        """
+         * Apply a fiter to each component of this geometry.
+         * The filter is expected to provide a .filter(const Geometry*)
+         * method.
+        """
+        for i in range(self.numgeoms):
+            filter.filter(self.getGeometryN(i))
+
+    def __geo_interface__(self):
+        """
+        Returns the geojson dictionary representation of the geometry.
+        """
+        geo = dict()
+        coords = []
+        # @TODO: apply a component filter here to get coords
+        geo["type"] = self.geom_type
+        geo["coordinates"] = coords
+        return geo
+
+
 class Point(Geometry, Puntal):
     """
      * Implementation of Point.
@@ -590,27 +643,54 @@ class Point(Geometry, Puntal):
         Geometry.__init__(self, factory)
         self._envelope = None
         self.coord = coord
-    
+
     def computeEnvelope(self):
         if self._envelope is None:
             x = self.coord.x
             y = self.coord.y
             self._envelope = Envelope(x, y, x, y)
         return self._envelope
-    
+
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_POINT
+        return GeomTypeId.GEOS_POINT
 
     def clone(self):
-        return Point(self.coord, self._factory)
+        return Point(self.coord.clone(), self._factory)
 
     @property
     def coords(self):
         return self._factory.coordinateSequenceFactory.create([self.coord])
+
+    def almost_equals(self, other, tolerance):
+        if self.type_id != other.type_id:
+            return False
+        return self.coord.distance(other.coord) < tolerance
+
+    def apply_ro(self, filter) -> None:
+
+        if issubclass(type(filter), CoordinateFilter):
+            self.coords.apply_ro(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+            filter.filter_ro(self.coords, 0)
+        else:
+            filter.filter_ro(self)
+
+    def apply_rw(self, filter) -> None:
+
+        if issubclass(type(filter), CoordinateFilter):
+            self.coords.apply_rw(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+            filter.filter_rw(self.coords, 0)
+            if filter.isGeometryChanged:
+                self.geometryChanged()
+        else:
+            filter.filter_rw(self)
 
 
 class LineString(Geometry, Lineal):
@@ -633,10 +713,12 @@ class LineString(Geometry, Lineal):
     def __init__(self, coords, newFactory):
 
         Geometry.__init__(self, newFactory)
+        if coords is None:
+            coords = []
 
         # Envelope internal cache
         self._envelope = None
-        self._coords = coords
+        self._coords = CoordinateSequence(coords)
 
         self.validateConstruction()
 
@@ -726,8 +808,8 @@ class LineString(Geometry, Lineal):
             return gf.createMultiPoint()
 
         pts = []
-        pts.append(self._coords[0])
-        pts.append(self._coords[-1])
+        pts.append(self._coords[0].clone())
+        pts.append(self._coords[-1].clone())
 
         return gf.createMultiPoint(pts)
 
@@ -740,6 +822,10 @@ class LineString(Geometry, Lineal):
         return self.isClosed and self.is_simple
 
     @property
+    def is_ccw(self):
+        return CGAlgorithms.isCCW(self.coords)
+
+    @property
     def isClosed(self):
         return (not self.is_empty) and self._coords[0] == self._coords[-1]
 
@@ -748,37 +834,70 @@ class LineString(Geometry, Lineal):
         return CGAlgorithms.length(self._coords)
 
     def clone(self):
-        return LineString(list(self._coords), self._factory)
+        return LineString(self._coords.clone(), self._factory)
 
     def reverse(self):
-        return self._factory.createLineSting(reversed(self.coords))
-    
+        return self._factory.createLineSting(reversed(self.coords.clone()))
+
     # Buffer apply to linestring only
-    def parallel_offset(self, distance: float, side: bool, resolution: int, join_style: int, mitre_limit: int):
-        
+    def parallel_offset(self, distance: float, resolution: int, join_style: int, mitre_limit: int):
+
         if self.is_empty:
             return
-            
-        return BufferOp.parallelOp(self, distance, side, resolution, join_style, mitre_limit)
-    
+
+        return BufferOp.offsetCurveOp(self, distance, resolution, join_style, mitre_limit)
+
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_LINESTRING
+        return GeomTypeId.GEOS_LINESTRING
 
     def apply_ro(self, filter) -> None:
+
         if issubclass(type(filter), CoordinateFilter):
             self.coords.apply_ro(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+            if len(self.coords) == 0:
+                return
+            for i, coord in enumerate(self.coords):
+                filter.filter_ro(self.coords, i)
+                if filter.isDone:
+                    break
+
         else:
             filter.filter_ro(self)
 
     def apply_rw(self, filter) -> None:
+
         if issubclass(type(filter), CoordinateFilter):
             self.coords.apply_rw(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+            if len(self.coords) == 0:
+                return
+            for i, coord in enumerate(self.coords):
+                filter.filter_rw(self.coords, i)
+                if filter.isDone:
+                    break
+                if filter.isGeometryChanged:
+                    self.geometryChanged()
+
         else:
             filter.filter_rw(self)
+
+    def __str__(self):
+        return "{} {}".format(type(self).__name__, self.coords)
+
+    def almost_equals(self, other, tolerance):
+        if self.type_id != other.type_id:
+            return False
+        if tolerance == 0:
+            return self.coords == other.coords
+        else:
+            return self.coords.almost_equals(other.coords, tolerance)
 
 
 class LinearRing(LineString):
@@ -797,16 +916,19 @@ class LinearRing(LineString):
      * an ValueError
     """
     def __init__(self, coords, newFactory):
-        _coords = CoordinateSequence.removeRepeatedPoints(coords)
-        LineString.__init__(self, _coords, newFactory)
+        if coords is None:
+            coords = []
+        coords = CoordinateSequence._removeRepeatedPoints(coords)
+        LineString.__init__(self, coords, newFactory)
 
     def clone(self):
-        return LinearRing(self.coords, self._factory)
+        return LinearRing(self._coords.clone(), self._factory)
 
     def validateConstruction(self):
         if 0 < self.numpoints < 4:
             raise ValueError("point array must contain 0 or >3 elements")
-        elif self._coords[0] != self._coords[-1]:
+        elif self.numpoints > 0 and self._coords[0] != self._coords[-1]:
+            # self._factory.output(self, name="not closed")
             raise ValueError("first and last points must be equal")
 
     @property
@@ -826,11 +948,11 @@ class LinearRing(LineString):
         return self._factory.createLinearRing(reversed(self.coords))
 
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_LINEARRING
+        return GeomTypeId.GEOS_LINEARRING
 
 
 class Polygon(Geometry, Polygonal):
@@ -858,7 +980,7 @@ class Polygon(Geometry, Polygonal):
         else:
             if interiors is not None and exterior.is_empty and self.hasNonEmptyElements(interiors):
                 raise ValueError("exterior is empty but interiors are not")
-                
+
             self.exterior = exterior
 
         if interiors is None:
@@ -867,7 +989,7 @@ class Polygon(Geometry, Polygonal):
             if self.hasNullElements(interiors):
                 raise ValueError("interiors must not contain null elements")
             for hole in interiors:
-                if hole.geometryTypeId != GeometryTypeId.GEOS_LINEARRING:
+                if hole.type_id != GeomTypeId.GEOS_LINEARRING:
                     raise ValueError("interiors must be LinearRings")
             self.interiors = interiors
 
@@ -929,9 +1051,9 @@ class Polygon(Geometry, Polygonal):
             return gf.createMultiLineString()
 
         if len(self.interiors) == 0:
-            return gf.createLineString(self.exterior.coords)
+            return gf.createLineString(self.exterior.coords.clone())
 
-        rings = [gf.createLineString(self.exterior.coords)] + [gf.createLineString(hole.coords)
+        rings = [gf.createLineString(self.exterior.coords.clone())] + [gf.createLineString(hole.coords.clone())
                     for hole in self.interiors]
 
         return gf.createMultiLineString(rings)
@@ -973,33 +1095,77 @@ class Polygon(Geometry, Polygonal):
         ring.coords = uniqueCoords
 
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_POLYGON
+        return GeomTypeId.GEOS_POLYGON
 
     def apply_ro(self, filter) -> None:
-        if isinstance(type(filter), CoordinateFilter):
+        if issubclass(type(filter), GeometryFilter):
+            filter.filter_ro(self)
+
+        elif issubclass(type(filter), GeometryComponentFilter):
+            filter.filter_ro(self)
             self.exterior.apply_ro(filter)
             for hole in self.interiors:
                 hole.apply_ro(filter)
+
+        elif issubclass(type(filter), CoordinateFilter):
+            self.exterior.apply_ro(filter)
+            for hole in self.interiors:
+                hole.apply_ro(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+            self.exterior.apply_ro(filter)
+            if not filter.isDone:
+                for hole in self.interiors:
+                    hole.apply_ro(filter)
+
         else:
-            filter.filter_ro(self)
+            raise ValueError("Unknown filter type {}".format(type(filter).__name__))
 
     def apply_rw(self, filter) -> None:
-        if isinstance(type(filter), CoordinateFilter):
+        if issubclass(type(filter), GeometryFilter):
+            filter.filter_rw(self)
+
+        elif issubclass(type(filter), GeometryComponentFilter):
+            filter.filter_rw(self)
             self.exterior.apply_rw(filter)
             for hole in self.interiors:
                 hole.apply_rw(filter)
+
+        elif issubclass(type(filter), CoordinateFilter):
+            self.exterior.apply_rw(filter)
+            for hole in self.interiors:
+                hole.apply_rw(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+            self.exterior.apply_rw(filter)
+            if not filter.isDone:
+                for hole in self.interiors:
+                    hole.apply_rw(filter)
+
         else:
-            filter.filter_rw(self)
+            raise ValueError("Unknown filter type {}".format(type(filter).__name__))
 
     @property
     def convex_hull(self):
         return self.exterior.convex_hull
 
-            
+    def almost_equals(self, other, tolerance=0):
+        if other is None:
+            return False
+        if not self.exterior.almost_equals(other.exterior, tolerance):
+            return False
+        if len(self.interiors) != len(other.interiors):
+            return False
+        for i, hole in enumerate(self.interiors):
+            if not hole.almost_equals(other.interiors[i], tolerance):
+                return False
+        return True
+
+
 class GeometryCollection(Geometry):
     """
      * GeometryCollection
@@ -1010,9 +1176,10 @@ class GeometryCollection(Geometry):
      * represented by GeometryCollection subclasses MultiPoint,
      * MultiLineString, MultiPolygon.
     """
-    def __init__(self, geoms, factory):
+    def __init__(self, geoms=[], factory=None):
         Geometry.__init__(self, factory)
-
+        if geoms is None:
+            geoms = []
         self._envelope = None
         self.geoms = geoms
 
@@ -1037,32 +1204,83 @@ class GeometryCollection(Geometry):
         return dim
 
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_GEOMETRYCOLLECTION
+        return GeomTypeId.GEOS_GEOMETRYCOLLECTION
+
+    def computeEnvelope(self):
+        if self._envelope is None:
+            self._envelope = Envelope()
+            for geom in self.geoms:
+                self._envelope.expandToInclude(geom.envelope)
+        return self._envelope
 
     def getGeometryN(self, index):
         return self.geoms[index]
 
     def apply_ro(self, filter) -> None:
-        if issubclass(type(filter), CoordinateFilter):
-            for geom in self.geoms:
-                geom.apply_ro(filter)
-        else:
+        if issubclass(type(filter), GeometryFilter):
             filter.filter_ro(self)
             for geom in self.geoms:
-                geom.apply_ro(self)
+                geom.apply_ro(filter)
+
+        elif issubclass(type(filter), GeometryComponentFilter):
+            filter.filter_ro(self)
+            for geom in self.geoms:
+                geom.apply_ro(filter)
+
+        elif issubclass(type(filter), CoordinateFilter):
+            for geom in self.geoms:
+                geom.apply_ro(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+
+            for geom in self.geoms:
+                geom.apply_ro(filter)
+                if filter.isDone:
+                    break
+
+        else:
+            raise ValueError("Unknown filter type {}".format(type(filter).__name__))
 
     def apply_rw(self, filter) -> None:
-        if issubclass(type(filter), CoordinateFilter):
-            for geom in self.geoms:
-                geom.apply_rw(filter)
-        else:
+        if issubclass(type(filter), GeometryFilter):
             filter.filter_rw(self)
             for geom in self.geoms:
-                geom.apply_rw(self)
+                geom.apply_rw(filter)
+
+        elif issubclass(type(filter), GeometryComponentFilter):
+            filter.filter_rw(self)
+            for geom in self.geoms:
+                geom.apply_rw(filter)
+
+        elif issubclass(type(filter), CoordinateFilter):
+            for geom in self.geoms:
+                geom.apply_rw(filter)
+
+        elif issubclass(type(filter), CoordinateSequenceFilter):
+
+            for geom in self.geoms:
+                geom.apply_rw(filter)
+                if filter.isDone:
+                    break
+            if filter.isGeometryChanged:
+                self.geometryChanged()
+
+        else:
+            raise ValueError("Unknown filter type {}".format(type(filter).__name__))
+
+    def almost_equals(self, other, tolerance: float=0) -> bool:
+        if len(self.geoms) != len(other.geoms):
+            return False
+        if self.type_id != other.type_id:
+            return False
+        for i, geom in enumerate(self.geoms):
+            if not geom.almost_equals(other.geoms[i], tolerance):
+                return False
+        return True
 
 
 class MultiLineString(GeometryCollection, Lineal):
@@ -1089,11 +1307,19 @@ class MultiLineString(GeometryCollection, Lineal):
         return Dimension.FALSE
 
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_MULTILINESTRING
+        return GeomTypeId.GEOS_MULTILINESTRING
+
+    @property
+    def boundary(self):
+        if self.is_empty:
+            return self._factory.createGeometryCollection(None)
+        gg = GeometryGraph(0, self)
+        coords = gg.boundaryPoints
+        return self._factory.createMultiPoint(coords)
 
 
 class MultiPoint(GeometryCollection, Puntal):
@@ -1117,11 +1343,11 @@ class MultiPoint(GeometryCollection, Puntal):
         return Dimension.FALSE
 
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_MULTIPOINT
+        return GeomTypeId.GEOS_MULTIPOINT
 
 
 class MultiPolygon(GeometryCollection, Polygonal):
@@ -1145,17 +1371,24 @@ class MultiPolygon(GeometryCollection, Polygonal):
         return Dimension.L
 
     @property
-    def geometryTypeId(self):
+    def type_id(self):
         """
          * Return an integer representation of this Geometry type
         """
-        return GeometryTypeId.GEOS_MULTIPOLYGON
+        return GeomTypeId.GEOS_MULTIPOLYGON
 
+    @property
+    def boundary(self):
+        if self.is_empty:
+            return self._factory.createMultiLineString()
+        rings = []
+        for geom in self.geoms:
+            if geom.type_id == GeomTypeId.GEOS_POLYGON:
+                rings.append(geom.boundary)
+            elif geom.type_id == GeomTypeId.GEOS_MULTIPOLYGON:
+                rings.extend([g.boundary for g in geom.geoms])
 
-class CoordinateArraySequence(CoordinateSequence):
-    """
-     * The default implementation of CoordinateSequence
-    """
+        return self._factory.createMultiLineString(rings)
 
 
 class CoordinateSequenceFactory():
@@ -1165,11 +1398,17 @@ class CoordinateSequenceFactory():
      * Used to configure {GeometryFactory}s
      * to provide specific kinds of CoordinateSequences.
     """
-    def create(self, coords=None):
-        if coords is None:
-            return CoordinateSequence()
-        else:
-            return CoordinateSequence(coords)
+    def create(self, coords=None, allowRepeated: bool=True, direction: bool=True):
+        return CoordinateSequence(coords, allowRepeated, direction)
+
+
+class gfCoordinateOperation(CoordinateOperation):
+
+    def __init__(self, gsf):
+        self.gsf = gsf
+
+    def _edit(self, coords, geom):
+        return self.gsf.create(coords)
 
 
 class GeometryFactory():
@@ -1191,16 +1430,24 @@ class GeometryFactory():
         if precisionModel is None:
             precisionModel = PrecisionModel()
         self.precisionModel = precisionModel
-        
+
         self.outputFactory = outputFactory
-        
+
         self.SRID = SRID
 
     @staticmethod
-    def create():
-        return GeometryFactory()
+    def create(precisionModel=None):
+        return GeometryFactory(precisionModel=precisionModel)
 
-    def createGeometryCollection(self, newGeoms):
+    def clone(self, precisionModel=None):
+        if precisionModel is None:
+            precisionModel = self.precisionModel
+        return GeometryFactory(coordinateSequenceFactory=self.coordinateSequenceFactory,
+            SRID=self.SRID,
+            outputFactory=self.outputFactory,
+            precisionModel=precisionModel)
+
+    def createGeometryCollection(self, newGeoms=[]):
         return GeometryCollection(newGeoms, self)
 
     def createMultiLineString(self, fromLines):
@@ -1215,10 +1462,10 @@ class GeometryFactory():
     def createPoint(self, coord):
         return Point(coord, self)
 
-    def createLinearRing(self, fromCoords):
+    def createLinearRing(self, fromCoords=None):
         return LinearRing(fromCoords, self)
 
-    def createLineString(self, fromCoords):
+    def createLineString(self, fromCoords=None):
         ls = LineString(fromCoords, self)
         if len(ls.coords) > 1:
             return ls
@@ -1226,6 +1473,11 @@ class GeometryFactory():
 
     def createPolygon(self, exterior=None, interiors=None):
         return Polygon(exterior, interiors, self)
+
+    def createGeometry(self, geom):
+        editor = GeometryEditor(self)
+        coordOp = gfCoordinateOperation(self.coordinateSequenceFactory)
+        return editor.edit(geom, coordOp)
 
     def buildGeometry(self, newGeoms):
 
@@ -1235,21 +1487,19 @@ class GeometryFactory():
         geomClass = None
 
         for geom in newGeoms:
-            partClass = type(geom).__name__
+            type_id = geom.type_id
+
             if geomClass is None:
-                geomClass = partClass
-            elif geomClass != partClass:
+                geomClass = type_id
+            elif geomClass != type_id:
                 isHeterogeneous = True
-            if partClass in {'GeometryCollection',
-                    'MultiPolygon',
-                    'MultiLineString',
-                    'MultiLinearRing',
-                    'MultiPoint'}:
+
+            if type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION:
                 hasGeometryCollection = True
 
         # for the empty geometry, return an empty GeometryCollection
         if geomClass is None:
-            return self.createGeometryCollection([])
+            return self.createGeometryCollection()
 
         if isHeterogeneous or hasGeometryCollection:
             return self.createGeometryCollection(newGeoms)
@@ -1261,14 +1511,15 @@ class GeometryFactory():
         isCollection = len(newGeoms) > 1
 
         if isCollection:
-            if geomClass == 'Polygon':
+            if geomClass == GeomTypeId.GEOS_POLYGON:
                 return self.createMultiPolygon(newGeoms)
-            elif geomClass == 'LineString':
+
+            elif geomClass == GeomTypeId.GEOS_LINESTRING:
                 return self.createMultiLineString(newGeoms)
-            elif geomClass == 'LinearRing':
-                return self.createMultiLineString(newGeoms)
-            elif geomClass == 'Point':
+
+            elif geomClass == GeomTypeId.GEOS_POINT:
                 return self.createMultiPoint(newGeoms)
+
             else:
                 return self.createGeometryCollection(newGeoms)
 
@@ -1283,21 +1534,15 @@ class GeometryFactory():
             coord = Coordinate(envelope.minx, envelope.miny)
             return self.createPoint(coord)
 
-        cl = self.coordinateSequenceFactory.create()
-        coord = Coordinate(envelope.minx, envelope.miny)
-        cl.add(coord)
-        coord = Coordinate(envelope.maxx, envelope.miny)
-        cl.add(coord)
-        coord = Coordinate(envelope.maxx, envelope.maxy)
-        cl.add(coord)
-        coord = Coordinate(envelope.minx, envelope.maxy)
-        cl.add(coord)
-        coord = Coordinate(envelope.minx, envelope.miny)
-        cl.add(coord)
+        cl = self.coordinateSequenceFactory.create([
+            Coordinate(envelope.minx, envelope.miny),
+            Coordinate(envelope.maxx, envelope.miny),
+            Coordinate(envelope.maxx, envelope.maxy),
+            Coordinate(envelope.minx, envelope.maxy),
+            Coordinate(envelope.minx, envelope.miny)
+            ])
+        return self.createPolygon(self.createLinearRing(cl), None)
 
-        p = self.createPolygon(self.createLinearRing(cl), None)
-        return p
-    
     def createCoordinate(self, co):
         x, y, z = 0, 0, 0
         try:
@@ -1313,22 +1558,12 @@ class GeometryFactory():
         except:
             pass
         return Coordinate(x, y, z)
-        
-    # output geometry as blender curve(s)
+
+    # output geometry using an outputFactory
     def output(self, geoms, name="output", multiple=False):
         if self.outputFactory is not None:
             return self.outputFactory.output(geoms, name, multiple)
 
-
-class GeometryFilter():
-    """
-     * Geometry classes support the concept of applying a Geometry
-     * filter to the Geometry.
-     *
-     * In the case of GeometryCollection
-     * subclasses, the filter is applied to every element Geometry.
-     * A Geometry filter can either record information about the Geometry
-     * or change the Geometry in some way.
-     * Geometry filters implement the interface GeometryFilter.
-     * (GeometryFilter is an example of the Gang-of-Four Visitor pattern).
-    """
+    def outputCoord(self, coord, name):
+        if self.outputFactory is not None:
+            return self.outputFactory.outputCoord(coord, name)

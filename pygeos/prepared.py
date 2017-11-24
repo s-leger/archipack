@@ -30,9 +30,10 @@ from .algorithms import (
     SimplePointInAreaLocator,
     IndexedPointInAreaLocator
     )
-from .constants import (
+from .shared import (
+    logger,
     ComponentCoordinateExtracter,
-    GeometryTypeId,
+    GeomTypeId,
     Location
     )
 from .noding import (
@@ -67,13 +68,13 @@ class RectangleContains():
     def isContainedInBoundary(self, geom) -> bool:
 
         # polygons can never be wholely contained in the boundary
-        if geom.geometryTypeId == GeometryTypeId.GEOS_POLYGON:
+        if geom.type_id == GeomTypeId.GEOS_POLYGON:
             return False
 
-        if geom.geometryTypeId == GeometryTypeId.GEOS_POINT:
+        if geom.type_id == GeomTypeId.GEOS_POINT:
             return self.isPointContainedInBoundary(geom)
 
-        if geom.geometryTypeId == GeometryTypeId.GEOS_LINESTRING:
+        if geom.type_id == GeomTypeId.GEOS_LINESTRING:
             return self.isLineStringContainedInBoundary(geom)
 
         for g in geom.geoms:
@@ -162,162 +163,6 @@ class RectangleContains():
 
 class PreparedGeometry():
     """
-     * An interface for classes which prepare {@link Geometry}s
-     * in order to optimize the performance
-     * of repeated calls to specific geometric operations.
-     *
-     * A given implementation may provide optimized implementations
-     * for only some of the specified methods,
-     * and delegate the remaining methods to the original {@link Geometry} operations.
-     * An implementation may also only optimize certain situations,
-     * and delegate others.
-     * See the implementing classes for documentation about which methods and situations
-     * they optimize.
-    """
-    
-    def contains(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} contains a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry contains the given Geometry
-         *
-         * @see Geometry#contains(Geometry)
-        """
-        raise NotImplementedError()
-
-    def containsProperly(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} properly contains
-         * a given geometry.
-         *
-         * The <code>containsProperly</code> predicate has the following
-         * equivalent definitions:
-         *
-         * - Every point of the other geometry is a point of this
-         *   geometry's interiors.
-         * - The DE-9IM Intersection Matrix for the two geometries matches
-         *   <code>[T**FF*FF*]</code>
-         *
-             * In other words, if the test geometry has any interaction with
-         * the boundary of the target
-             * geometry the result of <tt>containsProperly</tt> is <tt>false</tt>.
-             * This is different semantics to the {@link Geometry::contains}
-         * predicate, * in which test geometries can intersect the target's
-         * boundary and still be contained.
-         *
-             * The advantage of using this predicate is that it can be computed
-             * efficiently, since it avoids the need to compute the full
-         * topological relationship of the input boundaries in cases where
-         * they intersect.
-         *
-             * An example use case is computing the intersections
-             * of a set of geometries with a large polygonal geometry.
-             * Since <tt>intersection</tt> is a fairly slow operation, it can
-         * be more efficient
-             * to use <tt>containsProperly</tt> to filter out test geometries
-         * which lie
-             * wholly inside the area.  In these cases the intersection is
-             * known <i>a priori</i> to be exactly the original test geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry properly contains the given Geometry
-         *
-         * @see Geometry::contains
-        """
-        raise NotImplementedError()
-
-    def coveredBy(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} is covered by a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry is covered by the given Geometry
-         *
-         * @see Geometry#coveredBy(Geometry)
-        """
-        raise NotImplementedError()
-
-    def covers(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} covers a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry covers the given Geometry
-         *
-         * @see Geometry#covers(Geometry)
-        """
-        raise NotImplementedError()
-
-    def crosses(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} crosses a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry crosses the given Geometry
-         *
-         * @see Geometry#crosses(Geometry)
-        """
-        raise NotImplementedError()
-
-    def disjoint(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} is disjoint from a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry is disjoint from the given Geometry
-         *
-         * @see Geometry#disjoint(Geometry)
-        """
-        raise NotImplementedError()
-
-    def intersects(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} intersects a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry intersects the given Geometry
-         *
-         * @see Geometry#intersects(Geometry)
-        """
-        raise NotImplementedError()
-
-    def overlaps(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} overlaps a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry overlaps the given Geometry
-         *
-         * @see Geometry#overlaps(Geometry)
-        """
-        raise NotImplementedError()
-
-    def touches(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} touches a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry touches the given Geometry
-         *
-         * @see Geometry#touches(Geometry)
-        """
-        raise NotImplementedError()
-
-    def within(self, geom) -> bool:
-        """
-         * Tests whether the base {@link Geometry} is within a given geometry.
-         *
-         * @param geom the Geometry to test
-         * @return true if this Geometry is within the given Geometry
-         *
-         * @see Geometry#within(Geometry)
-        """
-        raise NotImplementedError()
-
-
-class BasicPreparedGeometry(PreparedGeometry):
-    """
      * A base class for {@link PreparedGeometry} subclasses.
      *
      * Contains default implementations for methods, which simply delegate
@@ -339,8 +184,9 @@ class BasicPreparedGeometry(PreparedGeometry):
         """
         self.representativePts = []
         ComponentCoordinateExtracter.getCoordinates(geom, self.representativePts)
-
-    def envelopesIntersect(self, geom) -> bool:
+        logger.debug("PreparedGeometry.setGeometry() pts:%s", len(self.representativePts))
+        
+    def envelopeIntersects(self, geom) -> bool:
         """
          * Determines whether a Geometry g interacts with
          * this geometry by testing the geometry envelopes.
@@ -407,14 +253,14 @@ class BasicPreparedGeometry(PreparedGeometry):
         return self.geom.within(geom)
 
 
-class PreparedPoint(BasicPreparedGeometry):
+class PreparedPoint(PreparedGeometry):
     """
      * A prepared version of {@link Point} or {@link MultiPoint} geometries.
      *
      * @author Martin Davis
     """
     def __init__(self, geom):
-        BasicPreparedGeometry.__init__(self, geom)
+        PreparedGeometry.__init__(self, geom)
 
     def intersects(self, geom) -> bool:
         """
@@ -423,14 +269,14 @@ class PreparedPoint(BasicPreparedGeometry):
          * The optimization here is that computing topology for the test
          * geometry is avoided. This can be significant for large geometries.
         """
-        if not self.envelopesIntersect(geom):
+        if not self.envelopeIntersects(geom):
             return False
 
         # This avoids computing topology for the test geometry
         return self.isAnyTargetComponentInTest(geom)
 
 
-class PreparedLineString(BasicPreparedGeometry):
+class PreparedLineString(PreparedGeometry):
     """
      * A prepared version of {@link LinearRing}, {@link LineString} or {@link MultiLineString} geometries.
      *
@@ -438,19 +284,20 @@ class PreparedLineString(BasicPreparedGeometry):
      *
     """
     def __init__(self, geom):
-        BasicPreparedGeometry.__init__(self, geom)
-        # noding::FastSegmentSetIntersectionFinder
-        self.segIntFinder = None
-
-    def getIntersectionFinder(self):
-        if self.segIntFinder is None:
+        PreparedGeometry.__init__(self, geom)
+        # noding.FastSegmentSetIntersectionFinder
+        self._segIntFinder = None
+    
+    @property
+    def intersectionFinder(self):
+        if self._segIntFinder is None:
             segStrings = [] 
             SegmentStringUtil.extractSegmentStrings(self.geom, segStrings)
-            self.segIntFinder = FastSegmentSetIntersectionFinder(segStrings)
-        return self.segIntFinder
+            self._segIntFinder = FastSegmentSetIntersectionFinder(segStrings)
+        return self._segIntFinder
 
     def intersects(self, geom) -> bool:
-        if not self.envelopesIntersect(geom):
+        if not self.envelopeIntersects(geom):
             return False
         return PreparedLineStringIntersects.intersects(self, geom)
 
@@ -491,9 +338,8 @@ class PreparedLineStringIntersects():
         """
         lineSegStr = []
         SegmentStringUtil.extractSegmentStrings(geom, lineSegStr)
-        fssif = self.prepLine.getIntersectionFinder()
         # If any segments intersect, obviously intersects = true
-        segsIntersect = fssif.intersects(lineSegStr)
+        segsIntersect = self.prepLine.intersectionFinder.intersects(lineSegStr)
         if segsIntersect:
             return True
 
@@ -538,9 +384,9 @@ class PreparedPolygonPredicate():
      *
      * @author mbdavis
     """
-    def __init__(self, prepPoly):
+    def __init__(self, prep):
         # PreparedPolygon
-        self.prepPoly = prepPoly
+        self.prep = prep
 
     def isAllTestComponentsInTarget(self, geom) -> bool:
         """
@@ -556,7 +402,7 @@ class PreparedPolygonPredicate():
         pts = []
         ComponentCoordinateExtracter.getCoordinates(geom, pts)
         for pt in pts:
-            loc = self.prepPoly.getPointLocator().locate(pt)
+            loc = self.prep.pointLocator.locate(pt)
             if loc == Location.EXTERIOR:
                 return False
         return True
@@ -575,7 +421,7 @@ class PreparedPolygonPredicate():
         pts = []
         ComponentCoordinateExtracter.getCoordinates(geom, pts)
         for pt in pts:
-            loc = self.prepPoly.getPointLocator().locate(pt)
+            loc = self.prep.pointLocator.locate(pt)
             if loc != Location.INTERIOR:
                 return False
         return True
@@ -594,7 +440,7 @@ class PreparedPolygonPredicate():
         pts = []
         ComponentCoordinateExtracter.getCoordinates(geom, pts)
         for pt in pts:
-            loc = self.prepPoly.getPointLocator().locate(pt)
+            loc = self.prep.pointLocator.locate(pt)
             if loc != Location.EXTERIOR:
                 return True
         return False
@@ -613,7 +459,7 @@ class PreparedPolygonPredicate():
         pts = []
         ComponentCoordinateExtracter.getCoordinates(geom, pts)
         for pt in pts:
-            loc = self.prepPoly.getPointLocator().locate(pt)
+            loc = self.prep.pointLocator.locate(pt)
             if loc == Location.INTERIOR:
                 return True
         return False
@@ -658,8 +504,8 @@ class AbstractPreparedPolygonContains(PreparedPolygonPredicate):
      *
      * @author Martin Davis
     """
-    def __init__(self, prepPoly, requireSomePointInInterior: bool=False):
-        PreparedPolygonPredicate.__init__(self, prepPoly)
+    def __init__(self, prep, requireSomePointInInterior: bool=False):
+        PreparedPolygonPredicate.__init__(self, prep)
         self.hasSegmentIntersection = False
         self.hasProperIntersection = False
         self.hasNonProperIntersection = False
@@ -681,15 +527,15 @@ class AbstractPreparedPolygonContains(PreparedPolygonPredicate):
         # where the interiors of the test intersects the exterior of the target.
         # This implies the test is NOT contained in the target.
 
-        if (geom.geometryTypeId == GeometryTypeId.GEOS_MULTIPOLYGON or
-                geom.geometryTypeId == GeometryTypeId.GEOS_POLYGON):
+        if (geom.type_id == GeomTypeId.GEOS_MULTIPOLYGON or
+                geom.type_id == GeomTypeId.GEOS_POLYGON):
             return True
 
         # A single exterior with no interiors allows concluding that
         # a proper intersection implies not contained
         # (due to the Epsilon-Neighbourhood Exterior Intersection condition)
 
-        if self.isSingleShell(self.prepPoly.geom):
+        if self.isSingleShell(self.prep.geom):
             return True
 
         return False
@@ -708,14 +554,14 @@ class AbstractPreparedPolygonContains(PreparedPolygonPredicate):
         return len(poly.interiors) == 0
 
     def findAndClassifyIntersections(self, geom) -> None:
-        # noding::SegmentString
+        # noding.SegmentString
         lineSegStr = []
         SegmentStringUtil.extractSegmentStrings(geom, lineSegStr)
 
         li = LineIntersector()
         intDetector = SegmentIntersectionDetector(li)
 
-        self.prepPoly.getIntersectionFinder().intersects(lineSegStr, intDetector)
+        self.prep.intersectionFinder.intersects(lineSegStr, intDetector)
 
         self.hasSegmentIntersection = intDetector.hasIntersection
         self.hasProperIntersection = intDetector.hasProperIntersection
@@ -792,9 +638,9 @@ class AbstractPreparedPolygonContains(PreparedPolygonPredicate):
         # This tests for the case where a ring of the target lies inside
         # a test polygon - which implies the exterior of the Target
         # intersects the interiors of the Test, and hence the result is false
-        if (geom.geometryTypeId == GeometryTypeId.GEOS_MULTIPOLYGON or
-                geom.geometryTypeId == GeometryTypeId.GEOS_POLYGON):
-            isTargetInTestArea = self.isAnyTargetComponentInAreaTest(geom, self.prepPoly.representativePts)
+        if (geom.type_id == GeomTypeId.GEOS_MULTIPOLYGON or
+                geom.type_id == GeomTypeId.GEOS_POLYGON):
+            isTargetInTestArea = self.isAnyTargetComponentInAreaTest(geom, self.prep.representativePts)
             if isTargetInTestArea:
                 return False
         return True
@@ -810,7 +656,7 @@ class AbstractPreparedPolygonContains(PreparedPolygonPredicate):
         raise NotImplementedError()
 
 
-class PreparedPolygon(BasicPreparedGeometry):
+class PreparedPolygon(PreparedGeometry):
     """
      * A prepared version of {@link Polygon} or {@link MultiPolygon} geometries.
      *
@@ -818,28 +664,29 @@ class PreparedPolygon(BasicPreparedGeometry):
      *
     """
     def __init__(self, geom):
-        BasicPreparedGeometry.__init__(self, geom)
+        PreparedGeometry.__init__(self, geom)
 
         self.is_rectangle = geom.is_rectangle
 
-        # noding::FastSegmentSetIntersectionFinder
-        self.segIntFinder = None
+        # noding.FastSegmentSetIntersectionFinder
+        self._segIntFinder = None
 
-        # algorithm::locate::PointOnGeometryLocator
-        self.ptOnGeomLoc = None
+        # algorithm.locate.PointOnGeometryLocator
+        self._ptOnGeomLoc = None
 
-
-    def getIntersectionFinder(self):
-        if self.segIntFinder is None:
+    @property    
+    def intersectionFinder(self):
+        if self._segIntFinder is None:
             segStrings = []
             SegmentStringUtil.extractSegmentStrings(self.geom, segStrings)
-            self.segIntFinder = FastSegmentSetIntersectionFinder(segStrings)
-        return self.segIntFinder
+            self._segIntFinder = FastSegmentSetIntersectionFinder(segStrings)
+        return self._segIntFinder
 
-    def getPointLocator(self):
-        if self.ptOnGeomLoc is None:
-            self.ptOnGeomLoc = IndexedPointInAreaLocator(self.geom)
-        return self.ptOnGeomLoc
+    @property    
+    def pointLocator(self):
+        if self._ptOnGeomLoc is None:
+            self._ptOnGeomLoc = IndexedPointInAreaLocator(self.geom)
+        return self._ptOnGeomLoc
 
     def contains(self, geom) -> bool:
 
@@ -864,7 +711,7 @@ class PreparedPolygon(BasicPreparedGeometry):
         return PreparedPolygonCovers.covers(self, geom)
 
     def intersects(self, geom) -> bool:
-        if not self.envelopeCovers(geom):
+        if not self.envelopeIntersects(geom):
             return False
 
         if self.is_rectangle:
@@ -887,7 +734,7 @@ class PreparedPolygonIntersects(PreparedPolygonPredicate):
         """
          * Creates an instance of this operation.
          *
-         * @param prepPoly the PreparedPolygon to evaluate
+         * @param prep the PreparedPolygon to evaluate
         """
         PreparedPolygonPredicate.__init__(self, prep)
 
@@ -911,26 +758,33 @@ class PreparedPolygonIntersects(PreparedPolygonPredicate):
          * @param geom the test geometry
          * @return true if the test geometry intersects
         """
+        # logger.debug("PreparedPolygonIntersects._intersects() type:%s", type(geom).__name__)
+        
         isInPrepGeomArea = self.isAnyTestComponentInTarget(geom)
 
         if isInPrepGeomArea:
             return True
-
-        if geom.geometryTypeId == GeometryTypeId.GEOS_POINT:
+        
+        if (geom.type_id == GeomTypeId.GEOS_POINT or
+                geom.type_id == GeomTypeId.GEOS_MULTIPOINT):
             return False
 
         # if any segment intersect, result is true
-        # noding::SegmentString::ConstVect lineSegStr;
+        # noding.SegmentString.ConstVect lineSegStr;
         lineSegStr = []
         SegmentStringUtil.extractSegmentStrings(geom, lineSegStr)
-
-        segsIntersect = self.prepPoly.getIntersectionFinder().intersects(lineSegStr)
+        # logger.debug("PreparedPolygonIntersects._intersects() lines:%s", len(lineSegStr))
+        segsIntersect = self.prep.intersectionFinder.intersects(lineSegStr)
+        
         if segsIntersect:
             return True
-
+        
+        # If the test has dimension = 2 as well, it is necessary to
+        # test for proper inclusion of the target.
+        # Since no segments intersect, it is sufficient to test representative points.
         if geom.dimension == 2:
 
-            isPrepGeomInArea = self.isAnyTargetComponentInAreaTest(geom, self.prepPoly.representativePts)
+            isPrepGeomInArea = self.isAnyTargetComponentInAreaTest(geom, self.prep.representativePts)
             if isPrepGeomInArea:
                 return True
 
@@ -962,7 +816,7 @@ class PreparedPolygonCovers(AbstractPreparedPolygonContains):
          * @param geom the test geometry
          * @return true if this prepared polygon covers the test geometry
         """
-        return self.prepPoly.geom.covers(geom)
+        return self.prep.geom.covers(geom)
 
     @staticmethod
     def covers(prep, geom) -> bool:
@@ -1004,9 +858,9 @@ class PreparedPolygonContains(AbstractPreparedPolygonContains):
         """
          * Creates an instance of this operation.
          *
-         * @param prepPoly the PreparedPolygon to evaluate
+         * @param prep the PreparedPolygon to evaluate
         """
-        AbstractPreparedPolygonContains.__init__(self, prep)
+        AbstractPreparedPolygonContains.__init__(self, prep, True)
 
     @staticmethod
     def contains(prep, geom) -> bool:
@@ -1038,7 +892,7 @@ class PreparedPolygonContains(AbstractPreparedPolygonContains):
          * @param geom the test geometry
          * @return true if this prepared polygon contains the test geometry
         """
-        return self.prepPoly.geom.contains(geom)
+        return self.prep.geom.contains(geom)
 
 
 class PreparedPolygonContainsProperly(PreparedPolygonPredicate):
@@ -1064,7 +918,7 @@ class PreparedPolygonContainsProperly(PreparedPolygonPredicate):
         """
          * Creates an instance of this operation.
          *
-         * @param prepPoly the PreparedPolygon to evaluate
+         * @param prep the PreparedPolygon to evaluate
         """
         AbstractPreparedPolygonContains.__init__(self, prep)
 
@@ -1097,10 +951,10 @@ class PreparedPolygonContainsProperly(PreparedPolygonPredicate):
             return False
 
         # If any segments intersect, result is false
-        # noding::SegmentString::ConstVect
+        # noding.SegmentString.ConstVect
         lineSegStr = []
         SegmentStringUtil.extractSegmentStrings(geom, lineSegStr)
-        segsIntersect = self.prepPoly.getIntersectionFinder().intersects(lineSegStr)
+        segsIntersect = self.prep.intersectionFinder.intersects(lineSegStr)
 
         if segsIntersect:
             return False
@@ -1110,11 +964,11 @@ class PreparedPolygonContainsProperly(PreparedPolygonPredicate):
          * is contained in some test component.
          * the test is NOT properly contained.
          """
-        if (geom.geometryTypeId == GeometryTypeId.GEOS_MULTIPOLYGON or
-                geom.geometryTypeId == GeometryTypeId.GEOS_POLYGON):
+        if (geom.type_id == GeomTypeId.GEOS_MULTIPOLYGON or
+                geom.type_id == GeomTypeId.GEOS_POLYGON):
             # TODO: generalize this to handle GeometryCollections
 
-            isTargetGeomInTestArea = self.isAnyTargetComponentInAreaTest(geom, self.prepPoly.representativePts)
+            isTargetGeomInTestArea = self.isAnyTargetComponentInAreaTest(geom, self.prep.representativePts)
             if isTargetGeomInTestArea:
                 return False
 
@@ -1156,25 +1010,25 @@ class PreparedGeometryFactory():
          * @param geom the geometry to prepare
          * @return the prepared geometry
         """
-        tid = geom.geometryTypeId
+        tid = geom.type_id
 
         if tid in [
-                GeometryTypeId.GEOS_MULTIPOINT,
-                GeometryTypeId.GEOS_POINT
+                GeomTypeId.GEOS_MULTIPOINT,
+                GeomTypeId.GEOS_POINT
                 ]:
             return PreparedPoint(geom)
 
         if tid in [
-                GeometryTypeId.GEOS_LINEARRING,
-                GeometryTypeId.GEOS_LINESTRING,
-                GeometryTypeId.GEOS_MULTILINESTRING
+                GeomTypeId.GEOS_LINEARRING,
+                GeomTypeId.GEOS_LINESTRING,
+                GeomTypeId.GEOS_MULTILINESTRING
                 ]:
             return PreparedLineString(geom)
 
         if tid in [
-                GeometryTypeId.GEOS_POLYGON,
-                GeometryTypeId.GEOS_MULTIPOLYGON
+                GeomTypeId.GEOS_POLYGON,
+                GeomTypeId.GEOS_MULTIPOLYGON
                 ]:
             return PreparedPolygon(geom)
 
-        return BasicPreparedGeometry(geom)
+        return PreparedGeometry(geom)

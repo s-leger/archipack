@@ -25,7 +25,7 @@
 
 
 from math import atan2
-from .constants import Quadrant
+from .shared import Quadrant
 from .algorithms import CGAlgorithms
 
 

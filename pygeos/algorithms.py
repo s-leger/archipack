@@ -23,12 +23,12 @@
 #
 # ----------------------------------------------------------
 
-
+import logging
+logger = logging.getLogger("pygeos.algorithms")
 from math import floor, isfinite, sqrt, pi, atan2
-from .constants import (
-    logger,
+from .shared import (
     quicksort,
-    GeometryTypeId,
+    GeomTypeId,
     Location,
     Envelope,
     Quadrant,
@@ -46,9 +46,13 @@ from .index_intervaltree import (
     )
 
 
-# index    
-    
-    
+# index
+EPSILON_SINGLE = 1e-5
+EPSILON = 1e-12
+EPSILON_SQUARE = EPSILON * EPSILON
+USE_FUZZY_LINE_INTERSECTOR = False
+
+
 class ItemVisitor():
     """
      * A visitor for items in an index.
@@ -59,7 +63,7 @@ class ItemVisitor():
 
 # index/chain
 
-        
+
 class MonotoneChain():
     """
      * Monotone Chains are a way of partitioning the segments of a linestring to
@@ -163,13 +167,15 @@ class MonotoneChain():
             mco.overlap(self, start0, mc, start1)
             return
 
-        p0 = self.coords[start0]
-        p1 = self.coords[end0]
-        p2 = mc.coords[start1]
-        p3 = mc.coords[end1]
+        p1 = self.coords[start0]
+        p2 = self.coords[end0]
+        q1 = mc.coords[start1]
+        q2 = mc.coords[end1]
         # nothing to do if the envelopes of these chains don't overlap
-        mco.tempEnv1.__init__(p0, p1)
-        mco.tempEnv2.__init__(p2, p3)
+        # MonotoneChainOverlapAction
+        mco.tempEnv1.__init__(p1, p2)
+        mco.tempEnv2.__init__(q1, q2)
+
         if not mco.tempEnv1.intersects(mco.tempEnv2):
             return
 
@@ -188,6 +194,9 @@ class MonotoneChain():
             if mid1 < end1:
                 self._computeOverlaps(mid0, end0, mc, mid1, end1, mco)
 
+    def __str__(self):
+        return "MonotonChain {} {}-{}".format(self.id, self.start, self.end)
+
 
 class MonotoneChainBuilder():
     """
@@ -203,11 +212,18 @@ class MonotoneChainBuilder():
         """
         startIndex = []
         MonotoneChainBuilder.getChainStartIndices(coords, startIndex)
-        n = len(startIndex) - 1
-        for i in range(n):
-            mc = MonotoneChain(coords, startIndex[i], startIndex[i + 1], context)
-            mcList.append(mc)
+        n = len(startIndex)
 
+        if n > 0:
+            for i in range(n - 1):
+                mc = MonotoneChain(coords, startIndex[i], startIndex[i + 1], context)
+                mcList.append(mc)
+
+        logger.debug("MonotoneChainBuilder.getChains(%s) for coords:%s\n%s",
+            len(mcList),
+            coords,
+            "\n".join([str(mc) for mc in mcList]))
+            
         return mcList
 
     @staticmethod
@@ -242,12 +258,12 @@ class MonotoneChainBuilder():
          *
          * NOTE: aborts if 'start' is >= pts.getSize()
         """
-        npts = len(coords)
         safeStart = start
-
+        npts = len(coords)
+        
         # skip any zero-length segments at the start of the sequence
         # (since they cannot be used to establish a quadrant)
-        while (safeStart < npts - 1 and coords[safeStart] is coords[safeStart + 1]):
+        while (safeStart < npts - 1 and coords[safeStart] == coords[safeStart + 1]):
             safeStart += 1
 
         # check if there are NO non-zero-length segments
@@ -259,8 +275,9 @@ class MonotoneChainBuilder():
 
         last = start + 1
         while last < npts:
-            if coords[last - 1] is not coords[last]:
+            if coords[last - 1] != coords[last]:
                 quad = Quadrant.quadrant(coords[last - 1], coords[last])
+                # logger.debug("MonotoneChainBuilder._findChainEnd() Quadrants: %s %s", chainQuad, quad)
                 if quad != chainQuad:
                     break
             last += 1
@@ -271,7 +288,7 @@ class MonotoneChainBuilder():
 class MonotoneChainSelectAction():
 
     def __init__(self):
-        # geom::LineSegment
+        # geom.LineSegment
         self._selectedSegment = LineSegment()
         # these envelopes are used during the MonotoneChain search process
         self.tempEnv1 = Envelope()
@@ -294,7 +311,7 @@ class MonotoneChainOverlapAction():
      * overlap queries on a MonotoneChain
     """
     def __init__(self):
-        # geom::LineSegment
+        # geom.LineSegment
         self.overlapSeg1 = LineSegment()
         self.overlapSeg2 = LineSegment()
 
@@ -311,9 +328,9 @@ class MonotoneChainOverlapAction():
          * @param start2 the index of the start of the overlapping segment
          *               from mc2
         """
-        mc1.getLineSegment(start1, self._overlapSeg1)
-        mc2.getLineSegment(start2, self._overlapSeg2)
-        self._overlap(self._overlapSeg1, self._overlapSeg2)
+        mc1.getLineSegment(start1, self.overlapSeg1)
+        mc2.getLineSegment(start2, self.overlapSeg2)
+        self._overlap(self.overlapSeg1, self.overlapSeg2)
 
     def _overlap(self, seg1, seg2) -> None:
         """
@@ -353,26 +370,33 @@ class MonotoneChainIndexer():
 
 class LineSegment():
     """
-     * depends on CGAlgorithms
+     * A line segment
     """
     def __init__(self, x0=None, y0=None, x1=None, y1=None):
+
         if x0 is None:
-            self.p0 = Coordinate()
-            self.p1 = Coordinate()
-            return
-        if y0 is None:
-            self.p0 = y0.p0
-            self.p1 = y0.p1
+            x0, y0, x1, y1 = 0, 0, 0, 0
+
+        elif y0 is None:
+            y1 = x0.p1.y
+            x1 = x0.p1.x
+            y0 = x0.p0.y
+            x0 = x0.p0.x
+
         elif x1 is None:
-            self.p0 = x0
-            self.p1 = y0
-        else:
-            self.p0 = Coordinate(x0, y0)
-            self.p1 = Coordinate(x1, y1)
+            y1 = y0.y
+            x1 = y0.x
+            y0 = x0.y
+            x0 = x0.x
+
+        self.p0 = Coordinate(x0, y0)
+        self.p1 = Coordinate(x1, y1)
 
     def setCoordinates(self, p0, p1):
-        self.p0 = p0
-        self.p1 = p1
+        self.p0.x = p0.x
+        self.p0.y = p0.y
+        self.p1.x = p1.x
+        self.p1.y = p1.y
 
     @property
     def length(self):
@@ -408,6 +432,48 @@ class LineSegment():
         len2 = dx * dx + dy * dy
         r = ((p.x - p0.x) * dx + (p.y - p0.y) * dy) / len2
         return r
+
+    def orientationIndex(self, seg) -> int:
+        orient0 = CGAlgorithms.orientationIndex(self.p0, self.p1, seg.p0)
+        orient1 = CGAlgorithms.orientationIndex(self.p0, self.p1, seg.p1)
+        # this handles the case where the points are L or collinear
+        if orient0 >= 0 and orient1 >= 0:
+            return max(orient0, orient1)
+        # this handles the case where the points are R or collinear
+        if orient0 <= 0 and orient1 <= 0:
+            return max(orient0, orient1)
+        # points lie on opposite sides ==> indeterminate orientation
+        return 0
+
+    def pointAlongOffset(self, t: float, offsetDistance: float, res) -> None:
+
+        dx = self.p1.x - self.p0.x
+        dy = self.p1.y - self.p0.y
+
+        # the point on the segment line
+        segx = self.p0.x + t * dx
+        segy = self.p0.y + t * dy
+
+        length = sqrt(dx * dx + dy * dy)
+
+        ux = 0.0
+        uy = 0.0
+
+        if offsetDistance != 0.0:
+            if length <= 0.0:
+                raise ValueError("Cannot compute offset from zero-length line segment")
+            # u is the vector that is the length of the offset,
+            # in the direction of the segment
+            ux = offsetDistance * dx / length
+            uy = offsetDistance * dy / length
+
+        # the offset point is the seg point plus the offset
+        # vector rotated 90 degrees CCW
+        res.x = segx - uy
+        res.y = segy + ux
+
+    def __str__(self):
+        return "{} - {}".format(self.p0, self.p1)
 
 
 class UniqueCoordinateArrayFilter(CoordinateFilter):
@@ -456,8 +522,8 @@ class ReallyLessThen():
         return 0
 
 
-# algorithms        
-        
+# algorithms
+
 
 class Angle():
     """
@@ -570,7 +636,7 @@ class Angle():
 
         return delta
 
-        
+
 class ConvexHull():
     """
      * Computes the convex hull of a Geometry.
@@ -587,7 +653,7 @@ class ConvexHull():
 
     def toCoordinateSequence(self, coords):
         """
-         * Create a CoordinateSequence from the Coordinate::ConstVect
+         * Create a CoordinateSequence from the Coordinate.ConstVect
          * This is needed to construct the geometries.
          * Here coordinate copies happen
         """
@@ -858,12 +924,6 @@ class PointLocator():
         if geom.is_empty:
             return Location.EXTERIOR
 
-        cls = type(geom).__name__
-        if cls == 'Polygon':
-            return self._locateInPolygon(coord, geom)
-        elif cls == 'LineString':
-            return self._locateInLineString(coord, geom)
-
         self._isIn = False
         self._numBoundaries = 0
         self._computeLocation(coord, geom)
@@ -884,6 +944,11 @@ class PointLocator():
         """
         return self.locate(coord, geom) != Location.EXTERIOR
 
+    def _locateInPoint(self, coord, geom):
+        if geom.coord == coord:
+            return Location.INTERIOR
+        return Location.EXTERIOR
+
     def _locateInLineString(self, coord, geom):
         coords = geom.coords
         if not geom.isClosed:
@@ -893,19 +958,24 @@ class PointLocator():
             return Location.INTERIOR
         return Location.EXTERIOR
 
-    def _locateInPoint(self, coord, geom):
+    def _locateInLinearRing(self, coord, ring):
+        coords = ring.coords
+        if CGAlgorithms.isOnLine(coord, coords):
+            return Location.BOUNDARY
+        if CGAlgorithms.isPointInRing(coord, coords):
+            return Location.INTERIOR
         return Location.EXTERIOR
 
     def _locateInPolygon(self, coord, geom):
         exterior = geom.exterior
-        exteriorLoc = self._locateInPolygonRing(coord, exterior)
+        exteriorLoc = self._locateInLinearRing(coord, exterior)
         if exteriorLoc == Location.EXTERIOR:
             return Location.EXTERIOR
         if exteriorLoc == Location.BOUNDARY:
             return Location.BOUNDARY
 
         for hole in geom.interiors:
-            holeLoc = self._locateInPolygonRing(coord, hole)
+            holeLoc = self._locateInLinearRing(coord, hole)
             if holeLoc == Location.INTERIOR:
                 return Location.EXTERIOR
             if holeLoc == Location.BOUNDARY:
@@ -913,14 +983,30 @@ class PointLocator():
         return Location.INTERIOR
 
     def _computeLocation(self, coord, geom):
-        cls = type(geom).__name__
-        if cls == 'Polygon':
-            loc = self.locate(coord, geom)
+        type_id = geom.type_id
+        
+        if type_id == GeomTypeId.GEOS_POINT:
+            loc = self._locateInPoint(coord, geom)
             self._updateLocationInfo(loc)
-        elif cls == 'LineString':
-            loc = self.locate(coord, geom)
+
+        elif type_id == GeomTypeId.GEOS_LINESTRING:
+            loc = self._locateInLineString(coord, geom)
             self._updateLocationInfo(loc)
-        elif 'Multi' in cls or 'Collection' in cls:
+
+        elif type_id == GeomTypeId.GEOS_LINEARRING:
+            loc = self._locateInLinearRing(coord, geom)
+            self._updateLocationInfo(loc)
+
+        elif type_id == GeomTypeId.GEOS_POLYGON:
+            loc = self._locateInPolygon(coord, geom)
+            self._updateLocationInfo(loc)
+
+        elif type_id in [
+                GeomTypeId.GEOS_MULTIPOINT,
+                GeomTypeId.GEOS_MULTILINESTRING,
+                GeomTypeId.GEOS_MULTIPOLYGON,
+                GeomTypeId.GEOS_GEOMETRYCOLLECTION
+                ]:
             for g in geom.geoms:
                 self._computeLocation(coord, g)
 
@@ -930,23 +1016,14 @@ class PointLocator():
         if loc == Location.BOUNDARY:
             self._numBoundaries += 1
 
-    def _locateInPolygonRing(self, coord, ring):
-        coords = ring.coords
-        if CGAlgorithms.isOnLine(coord, coords):
-            return Location.BOUNDARY
-        if CGAlgorithms.isPointInRing(coord, coords):
-            return Location.INTERIOR
-        return Location.EXTERIOR
-
 
 class HCoordinate():
     @staticmethod
     def intersection(p1, p2, q1, q2, ret):
-
         px = p1.y - p2.y
         py = p2.x - p1.x
         pw = p1.x * p2.y - p2.x * p1.y
-
+        
         qx = q1.y - q2.y
         qy = q2.x - q1.x
         qw = q1.x * q2.y - q2.x * q1.y
@@ -981,7 +1058,7 @@ class RobustDeterminant():
     """
 
     @staticmethod
-    def signOfDet2x2(x1, y1, x2, y2):
+    def signOfDet2x2(x1: float, y1: float, x2: float, y2: float) -> int:
         """
             returns -1 if the determinant is negative,
             returns  1 if the determinant is positive,
@@ -1191,12 +1268,12 @@ class RayCrossingCounter():
             rcc.countSegment(p1, p2)
 
             if rcc._isPointOnSegment:
-                return rcc.getLocation()
+                return rcc.location
 
-        return rcc.getLocation()
+        return rcc.location
 
     @staticmethod
-    def orientationIndex(p1, p2, q):
+    def orientationIndex(p1, p2, q) -> int:
         """
          * Returns the index of the direction of the point q
          * relative to a vector specified by p1-p2.
@@ -1232,7 +1309,7 @@ class RayCrossingCounter():
             return
 
         # check if the point is equal to the current ring vertex
-        if p2.x == point.x and p2.y == point.y:
+        if p2 == point:
             self._isPointOnSegment = True
             return
 
@@ -1246,7 +1323,7 @@ class RayCrossingCounter():
             if minx > maxx:
                 minx, maxx = maxx, minx
 
-            if point.x >= minx and point.x <= maxx:
+            if maxx >= point.x >= minx:
                 self._isPointOnSegment = True
 
             return
@@ -1275,7 +1352,8 @@ class RayCrossingCounter():
             if sign > 0:
                 self._crossingCount += 1
 
-    def getLocation(self):
+    @property
+    def location(self):
         """
          * Gets the {Location} of the point relative to
          * the ring, polygon
@@ -1307,12 +1385,12 @@ class RayCrossingCounter():
          *
          * @return true if the point lies in or on the supplied polygon
         """
-        return self.getLocation() != Location.EXTERIOR
+        return self.location != Location.EXTERIOR
 
 
 class CGAlgorithms():
 
-    # constants
+    # shared
     CLOCKWISE = -1
     COLLINEAR = 0
     COUNTERCLOCKWISE = 1
@@ -1325,12 +1403,13 @@ class CGAlgorithms():
     def isOnLine(p, coords):
         if len(coords) == 0:
             return False
-        pp = coords[0]
+            
+        p0 = coords[0]
         for i in range(1, len(coords)):
             p1 = coords[i]
-            if LineIntersector._hasIntersection(p, pp, p1):
+            if LineIntersector._hasIntersection(p, p0, p1):
                 return True
-            pp = p1
+            p0 = p1
         return False
 
     @staticmethod
@@ -1688,7 +1767,7 @@ class BoundaryNodeRule():
     def getBoundaryOGCSFS():
         return BoundaryNodeRule.getBoundaryRuleMod2()
 
-        
+
 class PointInRing():
     """
     """
@@ -1710,8 +1789,8 @@ class MCPointInRing(PointInRing):
         self._crossings = 0
         # test all segments intersected by ray from pt in positive x direction
         rayEnv = Envelope(-1e64, 1e64, coord.y, coord.y)
-        self._interval._mini = coord.y
-        self._interval._maxi = coord.y
+        self._interval.mini = coord.y
+        self._interval.maxi = coord.y
         segs = self._tree.query(self._interval)
         mcSelecter = MCSelecter(coord, self)
         for mc in segs:
@@ -1743,8 +1822,8 @@ class MCPointInRing(PointInRing):
         mcList = MonotoneChainBuilder.getChains(coords)
         for mc in mcList:
             mcEnv = mc.envelope
-            self._interval._mini = mcEnv._miny
-            self._interval._maxi = mcEnv._maxy
+            self._interval.mini = mcEnv.miny
+            self._interval.maxi = mcEnv.maxy
             self._tree.insert(self._interval, mc)
 
     def testMonotoneChain(self, rayEnv, mcSelecter, mc):
@@ -1784,6 +1863,7 @@ class LineIntersector():
         # the corresponding line
         self._intLineIndex = [[0, 0], [0, 0]]
 
+    @property
     def isInteriorIntersection(self):
         """
          * Tests whether either intersection point is an interiors point of
@@ -1807,7 +1887,7 @@ class LineIntersector():
          * the interiors of the input segment
         """
         for i in range(self.intersections):
-            if ((self.intersectionPts[i] != self._inputLines[inputLineIndex][0]) or
+            if not ((self.intersectionPts[i] == self._inputLines[inputLineIndex][0]) or
                     (self.intersectionPts[i] == self._inputLines[inputLineIndex][1])):
                 return True
         return False
@@ -1876,7 +1956,7 @@ class LineIntersector():
         dy = abs(p1.y - p0.y)
         # sentinel value
         dist = -1.0
-        
+
         if p == p0:
             dist = 0.0
 
@@ -1893,14 +1973,13 @@ class LineIntersector():
                 dist = pdx
             else:
                 dist = pdy
-                
+
             # hack to ensure that non-endpoints always have a non-zero distance
             if dist == 0.0 and not (p == p0):
                 dist = max(pdx, pdy)
-        
-        
+
         assert(dist > 0.0 or p == p0), "Bad distance calculation"
-        
+
         return dist
 
     def computeIntersection(self, p, p1, p2):
@@ -1916,10 +1995,10 @@ class LineIntersector():
             if (CGAlgorithms.orientationIndex(p1, p2, p) == 0 and
                     CGAlgorithms.orientationIndex(p2, p1, p) == 0):
                 self._isProper = True
-                
-                if (p.x == p1.x and p.y == p1.y) or (p.x == p2.x and p.y == p2.y):
+
+                if (p == p1) or (p == p2):
                     self._isProper = False
-                
+
                 self.intersectionPts[0] = p
 
                 self.intersections = LineIntersector.POINT_INTERSECTION
@@ -1938,8 +2017,199 @@ class LineIntersector():
     def computeLinesIntersection(self, p1, p2, q1, q2):
         # Computes the intersection of the lines p1-p2 and p3-p4
         self._inputLines = [[p1, p2], [q1, q2]]
-        logger.debug("computeLinesIntersection %s", self)
-        self.intersections = self._computeIntersect(p1, p2, q1, q2)
+        # logger.debug("computeLinesIntersection %s", self)
+        if USE_FUZZY_LINE_INTERSECTOR:
+            self.intersections = self._fuzzy_computeIntersect(p1, p2, q1, q2)
+        else:
+            self.intersections = self._computeIntersect(p1, p2, q1, q2)
+
+    def _fuzzy_computeIntersect(self, p1, p2, q1, q2):
+        """ point_sur_segment return
+            p: point d'intersection
+            u: param t de l'intersection sur le segment courant
+            v: param t de l'intersection sur le segment segment
+            d: perpendicular distance of segment.p
+        """
+        self._isProper = False
+
+        if Envelope.static_intersects(p1, p2, q1, q2):
+
+            # vector seg 1
+            vx = p2.x - p1.x
+            vy = p2.y - p1.y
+
+            # cross seg 2
+            qx = q2.y - q1.y
+            qy = q1.x - q2.x
+
+            # dot product
+            d = qx * vx + qy * vy
+
+            # vector delta p1 q1
+            dx = q1.x - p1.x
+            dy = q1.y - p1.y
+
+            # logger.debug("d:%s", d)
+
+            # almost parallel, check for real proximity of points
+            if d != 0 and abs(d) < 0.001:
+                dx2 = q2.x - p2.x
+                dy2 = q2.y - p2.y
+                l = sqrt(vx * vx + vy * vy)
+                dist0 = abs(vx * dy - vy * dx) / l
+                if dist0 < EPSILON_SINGLE:
+                    dist1 = abs(vy * dx2 - vx * dy2) / l
+                    if dist1 < EPSILON_SINGLE:
+                        vqx = q2.x - q1.x
+                        vqy = q2.y - q1.y
+                        l = sqrt(vqx * vqx + vqy * vqy)
+                        dist2 = abs(vqy * dx - vqx * dy) / l
+                        dist3 = abs(vqx * dy2 - vqy * dx2) / l
+                        logger.debug("Almost parallel d0:%s d1:%s d2:%s d3:%s", dist0, dist1, dist2, dist3)
+                        if (dist2 < EPSILON_SINGLE and
+                                dist3 < EPSILON_SINGLE):
+                            d = 0
+
+            if d == 0:
+                return self._computeCollinearIntersection(p1, p2, q1, q2)
+                """
+                # check for distance between segments
+                l = sqrt(vx * vx + vy * vy)
+                d = abs(vx * dy - vy * dx) / l
+                if d < EPSILON_SINGLE:
+                    # logger.debug("Parallel")
+
+                    if vx > vy:
+                        if p1.x > p2.x:
+                            p1, p2 = p2, p1
+                        if q1.x > q2.x:
+                            q1, q2 = q2, q1
+                        pq1 = p1.x <= q1.x <= p2.x
+                        pq2 = p1.x <= q2.x <= p2.x
+                        qp1 = q1.x <= p1.x <= q2.x
+                        qp2 = q1.x <= p2.x <= q2.x
+
+                    else:
+                        if p1.y > p2.y:
+                            p1, p2 = p2, p1
+                        if q1.y > q2.y:
+                            q1, q2 = q2, q1
+                        pq1 = p1.y <= q1.y <= p2.y
+                        pq2 = p1.y <= q2.y <= p2.y
+                        qp1 = q1.y <= p1.y <= q2.y
+                        qp2 = q1.y <= p2.y <= q2.y
+
+                    if pq1 and pq2:
+                        # q1 and q2 between p1 and p2
+                        self.intersectionPts[0] = q1
+                        self.intersectionPts[1] = q2
+                        logger.debug("COLLINEAR_INTERSECTION q1:%s q2:%s", q1, q2)
+                        return LineIntersector.COLLINEAR_INTERSECTION
+
+                    if qp1 and qp2:
+                        self.intersectionPts[0] = p1
+                        self.intersectionPts[1] = p2
+                        logger.debug("COLLINEAR_INTERSECTION p1:%s p2:%s", p1, p2)
+                        return LineIntersector.COLLINEAR_INTERSECTION
+
+                    if pq1 and qp1:
+                        self.intersectionPts[0] = q1
+                        self.intersectionPts[1] = p1
+                        if (q1 == p1) and not pq2 and not qp2:
+                            logger.debug("POINT_INTERSECTION q1 == p1:%s", q1)
+                            return LineIntersector.POINT_INTERSECTION
+                        else:
+                            logger.debug("COLLINEAR_INTERSECTION q1:%s p1:%s", q1, p1)
+                            return LineIntersector.COLLINEAR_INTERSECTION
+
+                    if pq1 and qp2:
+                        self.intersectionPts[0] = q1
+                        self.intersectionPts[1] = p2
+                        if (q1 == p2) and not pq2 and not qp1:
+                            logger.debug("POINT_INTERSECTION q1 == p2:%s", q1)
+                            return LineIntersector.POINT_INTERSECTION
+                        else:
+                            logger.debug("COLLINEAR_INTERSECTION q1:%s p2:%s", q1, p2)
+                            return LineIntersector.COLLINEAR_INTERSECTION
+
+                    if pq2 and qp1:
+                        self.intersectionPts[0] = q2
+                        self.intersectionPts[1] = p1
+                        if (q2 == p1) and not pq1 and not qp2:
+                            logger.debug("POINT_INTERSECTION q2 == p1:%s", q2)
+                            return LineIntersector.POINT_INTERSECTION
+                        else:
+                            logger.debug("COLLINEAR_INTERSECTION q2:%s p1:%s", q2, p1)
+                            return LineIntersector.COLLINEAR_INTERSECTION
+
+                    if pq2 and qp2:
+                        self.intersectionPts[0] = q2
+                        self.intersectionPts[1] = p2
+                        if (q2 == p2) and not pq1 and not qp1:
+                            logger.debug("POINT_INTERSECTION q2 == p2:%s", q2)
+                            return LineIntersector.POINT_INTERSECTION
+                        else:
+                            logger.debug("COLLINEAR_INTERSECTION q2:%s p2:%s", q2, p2)
+                            return LineIntersector.COLLINEAR_INTERSECTION
+                else:
+                    return LineIntersector.NO_INTERSECTION
+                """
+                
+            # logger.debug("Point intersection")
+            # cross seg 1
+            py = p1.x - p2.x
+            px = p2.y - p1.y
+
+            u = (qx * dx + qy * dy) / d
+            v = (px * dx + py * dy) / d
+            if 0 <= u <= 1 and 0 <= v <= 1:
+
+                # check for distance between end points and intersection
+                pt = p1 + Coordinate(vx, vy) * u
+                
+                if u < 0.5:
+                    # near segment 1 start point
+                    # distance p1 intersection
+                    if  p1.distance(pt) < EPSILON:
+                        self.u = 0
+                        self.intersectionPts[0] = p1
+                        logger.debug("POINT_INTERSECTION p1:%s", p1)
+                        return LineIntersector.POINT_INTERSECTION
+
+                elif u > 0.5:
+                    # near segment 1 end point
+                    if p2.distance(pt) < EPSILON:
+                        self.u = 1
+                        self.intersectionPts[0] = p2
+                        logger.debug("POINT_INTERSECTION p2:%s", p2)
+
+                        return LineIntersector.POINT_INTERSECTION
+
+                if v < 0.5:
+                    # near segment 1 start point
+                    # distance p1 intersection
+                    if q1.distance(pt) < EPSILON:
+                        self.v = 0
+                        self.intersectionPts[0] = q1
+                        logger.debug("POINT_INTERSECTION q1:%s", q1)
+                        return LineIntersector.POINT_INTERSECTION
+
+                elif v > 0.5:
+                    # near segment 1 end point
+                    if q2.distance(pt) < EPSILON:
+                        self.v = 1
+                        self.intersectionPts[0] = q2
+                        logger.debug("POINT_INTERSECTION q2:%s", q2)
+                        return LineIntersector.POINT_INTERSECTION
+
+                self._isProper = True
+                logger.debug("POINT_INTERSECTION pt:%s", pt)
+                self.intersectionPts[0] = pt
+
+                return LineIntersector.POINT_INTERSECTION
+
+        logger.debug("NO_INTERSECTION")
+        return LineIntersector.NO_INTERSECTION
 
     @property
     def hasIntersection(self):
@@ -2037,7 +2307,7 @@ class LineIntersector():
          *
          * @return the edge distance of the intersection point
         """
-        logger.debug("getEdgeDistance %s", self)
+        # logger.debug("getEdgeDistance %s", self)
         return self.computeEdgeDistance(
             self.intersectionPts[intIndex],
             self._inputLines[segmentIndex][0],
@@ -2069,35 +2339,34 @@ class LineIntersector():
     def _computeIntersect(self, p1, p2, q1, q2):
 
         self._isProper = False
-        logger.debug("LineIntersector.computeIntersect(p1:%s, p2:%s, q1:%s, q2:%s)", p1, p2, q1, q2)
-        logger.debug("LineIntersector.computeIntersect(%s)", self)
+        # logger.debug("LineIntersector.computeIntersect(p1:%s, p2:%s, q1:%s, q2:%s)", p1, p2, q1, q2)
+        # logger.debug("LineIntersector.computeIntersect(%s)", self)
         if not Envelope.static_intersects(p1, p2, q1, q2):
-            logger.debug("NO_INTERSECTION")
+            logger.debug("NO_INTERSECTION env p1:%s p2:%s q1:%s q2:%s", p1, p2, q1, q2)
             return LineIntersector.NO_INTERSECTION
-        
+
         # for each endpoint, compute which side of the other segment it lies
         # if both endpoints lie on the same side of the other segment,
         # the segments do not intersect
-        
+
         pq1 = CGAlgorithms.orientationIndex(p1, p2, q1)
         pq2 = CGAlgorithms.orientationIndex(p1, p2, q2)
 
         if (pq1 > 0 and pq2 > 0) or (pq1 < 0 and pq2 < 0):
-            logger.debug("NO_INTERSECTION")
+            logger.debug("NO_INTERSECTION p side p1:%s p2:%s q1:%s q2:%s", p1, p2, q1, q2)
             return LineIntersector.NO_INTERSECTION
-        
+
         qp1 = CGAlgorithms.orientationIndex(q1, q2, p1)
         qp2 = CGAlgorithms.orientationIndex(q1, q2, p2)
 
         if (qp1 > 0 and qp2 > 0) or (qp1 < 0 and qp2 < 0):
-            logger.debug("NO_INTERSECTION")
+            logger.debug("NO_INTERSECTION q side p1:%s p2:%s q1:%s q2:%s", p1, p2, q1, q2)
             return LineIntersector.NO_INTERSECTION
-            
-            
+
         collinear = pq1 == 0 and pq2 == 0 and qp1 == 0 and qp2 == 0
         if collinear:
             return self._computeCollinearIntersection(p1, p2, q1, q2)
-            
+
         """
          * At this point we know that there is a single intersection point
          * (since the lines are not collinear).
@@ -2131,52 +2400,58 @@ class LineIntersector():
             """
             if p1 == q1 or p1 == q2:
                 self.intersectionPts[0] = p1
+                logger.debug("POINT_INTERSECTION p1:%s", p1)
             elif p2 == q1 or p2 == q2:
                 self.intersectionPts[0] = p2
+                logger.debug("POINT_INTERSECTION p2:%s", p2)
             elif pq1 == 0:
                 # Now check to see if any endpoint lies on the interiors of the other segment
                 self.intersectionPts[0] = q1
+                logger.debug("POINT_INTERSECTION q1:%s", q1)
             elif pq2 == 0:
                 self.intersectionPts[0] = q2
+                logger.debug("POINT_INTERSECTION q2:%s", q2)
             elif qp1 == 0:
                 self.intersectionPts[0] = p1
+                logger.debug("POINT_INTERSECTION p1:%s", p1)
             elif qp2 == 0:
                 self.intersectionPts[0] = p2
-
+                logger.debug("POINT_INTERSECTION p2:%s", p2)
+                        
         else:
             self._isProper = True
             self.intersectionPts[0] = Coordinate(0, 0)
             self._intersection(p1, p2, q1, q2, self.intersectionPts[0])
-        
-        logger.debug("POINT_INTERSECTION pt:%s", self.intersectionPts[0])
-            
+
+            logger.debug("POINT_INTERSECTION pt:%s", self.intersectionPts[0])
+
         return LineIntersector.POINT_INTERSECTION
 
     def _computeCollinearIntersection(self, p1, p2, q1, q2):
-        
-        logger.debug("LineIntersector._computeCollinearIntersection()")
-        
+
+        # logger.debug("LineIntersector._computeCollinearIntersection()")
+
         pq1 = Envelope.static_intersects(p1, p2, q1)
         pq2 = Envelope.static_intersects(p1, p2, q2)
         qp1 = Envelope.static_intersects(q1, q2, p1)
         qp2 = Envelope.static_intersects(q1, q2, p2)
-        
+
         if pq1 and pq2:
             # q1 and q2 between p1 and p2
-            self.intersectionPts[0] = q1
-            self.intersectionPts[1] = q2
-            logger.debug("COLLINEAR_INTERSECTION q1:%s q2:%s", q1, q2)
+            self.intersectionPts[0] = q1.clone()
+            self.intersectionPts[1] = q2.clone()
+            logger.debug("COLLINEAR_INTERSECTION q1:%s q2:%s between p1:%s p2:%s", q1, q2, p1, p2)
             return LineIntersector.COLLINEAR_INTERSECTION
 
         if qp1 and qp2:
-            self.intersectionPts[0] = p1
-            self.intersectionPts[1] = p2
-            logger.debug("COLLINEAR_INTERSECTION p1:%s p2:%s", p1, p2)
+            self.intersectionPts[0] = p1.clone()
+            self.intersectionPts[1] = p2.clone()
+            logger.debug("COLLINEAR_INTERSECTION p1:%s p2:%s between q1:%s q2:%s", p1, p2, q1, q2)
             return LineIntersector.COLLINEAR_INTERSECTION
 
         if pq1 and qp1:
-            self.intersectionPts[0] = q1
-            self.intersectionPts[1] = p1
+            self.intersectionPts[0] = q1.clone()
+            self.intersectionPts[1] = p1.clone()
             if (q1 == p1) and not pq2 and not qp2:
                 logger.debug("POINT_INTERSECTION q1 == p1:%s", q1)
                 return LineIntersector.POINT_INTERSECTION
@@ -2185,8 +2460,8 @@ class LineIntersector():
                 return LineIntersector.COLLINEAR_INTERSECTION
 
         if pq1 and qp2:
-            self.intersectionPts[0] = q1
-            self.intersectionPts[1] = p2
+            self.intersectionPts[0] = q1.clone()
+            self.intersectionPts[1] = p2.clone()
             if (q1 == p2) and not pq2 and not qp1:
                 logger.debug("POINT_INTERSECTION q1 == p2:%s", q1)
                 return LineIntersector.POINT_INTERSECTION
@@ -2195,8 +2470,8 @@ class LineIntersector():
                 return LineIntersector.COLLINEAR_INTERSECTION
 
         if pq2 and qp1:
-            self.intersectionPts[0] = q2
-            self.intersectionPts[1] = p1
+            self.intersectionPts[0] = q2.clone()
+            self.intersectionPts[1] = p1.clone()
             if (q2 == p1) and not pq1 and not qp2:
                 logger.debug("POINT_INTERSECTION q2 == p1:%s", q2)
                 return LineIntersector.POINT_INTERSECTION
@@ -2205,16 +2480,16 @@ class LineIntersector():
                 return LineIntersector.COLLINEAR_INTERSECTION
 
         if pq2 and qp2:
-            self.intersectionPts[0] = q2
-            self.intersectionPts[1] = p2
+            self.intersectionPts[0] = q2.clone()
+            self.intersectionPts[1] = p2.clone()
             if (q2 == p2) and not pq1 and not qp1:
                 logger.debug("POINT_INTERSECTION q2 == p2:%s", q2)
                 return LineIntersector.POINT_INTERSECTION
             else:
                 logger.debug("COLLINEAR_INTERSECTION q2:%s p2:%s", q2, p2)
                 return LineIntersector.COLLINEAR_INTERSECTION
-        
-        logger.debug("NO_INTERSECTION")
+
+        logger.debug("NO_INTERSECTION collinear p1:%s p2:%s q1:%s q2:%s", p1, p2, q1, q2)
         return LineIntersector.NO_INTERSECTION
 
     def _intersection(self, p1, p2, q1, q2, intPtOut):
@@ -2379,7 +2654,7 @@ class LineIntersector():
 class IntervalIndexedGeometry():
     def __init__(self, geom):
 
-        # index::intervalrtree::SortedPackedIntervalRTree
+        # index.intervalrtree.SortedPackedIntervalRTree
         self.index = SortedPackedIntervalRTree()
         self.init(geom)
 
@@ -2406,11 +2681,11 @@ class IntervalIndexedGeometry():
 class SegmentVisitor(ItemVisitor):
     def __init__(self, counter):
         ItemVisitor.__init__(self)
-        # algorithm::RayCrossingCounter
+        # algorithm.RayCrossingCounter
         self.counter = counter
 
     def visitItem(self, item) -> None:
-        self.counter.countSegment(item[0], item[1])
+        self.counter.countSegment(item.p0, item.p1)
 
 
 class IndexedPointInAreaLocator():
@@ -2431,9 +2706,9 @@ class IndexedPointInAreaLocator():
         """
         # Geometry
         self.geom = geom
-        if geom.geometryTypeId not in [
-                GeometryTypeId.GEOS_POLYGON,
-                GeometryTypeId.GEOS_MULTIPOLYGON
+        if geom.type_id not in [
+                GeomTypeId.GEOS_POLYGON,
+                GeomTypeId.GEOS_MULTIPOLYGON
                 ]:
             raise ValueError("Argument must be Polygonal")
 
@@ -2454,7 +2729,7 @@ class IndexedPointInAreaLocator():
         rcc = RayCrossingCounter(coord)
         visitor = SegmentVisitor(rcc)
         self.index.query(coord.y, coord.y, visitor)
-        return rcc.getLocation()
+        return rcc.location
 
 
 class SimplePointInAreaLocator():
@@ -2468,11 +2743,11 @@ class SimplePointInAreaLocator():
 
     @staticmethod
     def containsPoint(p, geom):
-        cls = type(geom).__name__
-        if cls == 'Polygon':
+        type_id = geom.type_id
+        if type_id == GeomTypeId.GEOS_POLYGON:
             return SimplePointInAreaLocator.containsPointInPolygon(p, geom)
 
-        elif cls == 'GeometryCollection':
+        elif type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION:
             for g in geom.geoms:
                 if SimplePointInAreaLocator.containsPoint(p, g):
                     return True
@@ -2584,18 +2859,18 @@ class SegmentIntersector():
         # CoordinateSequence
         c0 = e0.coords
         # Coordinate
-        p0 = c0[segIndex0]
-        p1 = c0[segIndex0 + 1]
+        p1 = c0[segIndex0]
+        p2 = c0[segIndex0 + 1]
 
         # CoordinateSequence
         c1 = e1.coords
         # Coordinate
-        p2 = c1[segIndex1]
-        p3 = c1[segIndex1 + 1]
+        q1 = c1[segIndex1]
+        q2 = c1[segIndex1 + 1]
 
         # LineIntersector
         _li = self._li
-        _li.computeLinesIntersection(p0, p1, p2, p3)
+        _li.computeLinesIntersection(p1, p2, q1, q2)
         """
          * Always record any non-proper intersections.
          * If includeProper is true, record any proper intersections as well.
@@ -2607,30 +2882,30 @@ class SegmentIntersector():
                 e1.isIsolated = False
 
             self.numIntersections += 1
-            
+
             # If the segments are adjacent they have at least one trivial
             # intersection, the shared endpoint.
             # Don't bother adding it if it is the
             # only intersection.
             if not self.isTrivialIntersection(e0, segIndex0, e1, segIndex1):
-                
+
                 self.hasIntersection = True
 
                 if self._includeProper or not _li.isProper:
-                    
-                    logger.debug("SegmentIntersector::addIntersections(): (icludeProper: %s || !li.isProper: %s)", 
-                        self._includeProper, 
+
+                    logger.debug("SegmentIntersector.addIntersections(): (icludeProper: %s || !li.isProper: %s)",
+                        self._includeProper,
                         not _li.isProper)
-                        
+
                     e0.addIntersections(_li, segIndex0, 0)
                     e1.addIntersections(_li, segIndex1, 1)
-                    
+
                 if _li.isProper:
 
                     self.properIntersectionPoint = _li.getIntersection(0)
 
                     self.hasProper = True
-                    logger.debug("SegmentIntersector::addIntersections(): properIntersectionPoint: %s",
+                    logger.debug("SegmentIntersector.addIntersections(): properIntersectionPoint: %s",
                         self.properIntersectionPoint)
 
                     if self.isDoneWhenProperInt:
@@ -2638,7 +2913,7 @@ class SegmentIntersector():
 
                     if not self.isBoundaryPoint(_li, self._bdyNodes):
                         self.hasProperInterior = True
-            
+
     def isAdjacentSegments(self, i1, i2):
         return abs(i1 - i2) == 1
 
@@ -2656,18 +2931,18 @@ class SegmentIntersector():
         if e0 == e1:
             # only one intersection detected
             if self._li.intersections == 1:
-                
+
                 # is between consecutive segments
                 if self.isAdjacentSegments(segIndex0, segIndex1):
                     return True
-                    
+
                 # is between last and first segment of closed shape
                 if e0.isClosed:
                     maxSegIndex = len(e0.coords) - 1
                     if ((segIndex0 == 0 and segIndex1 == maxSegIndex) or
                             (segIndex1 == 0 and segIndex0 == maxSegIndex)):
                         return True
-                        
+
         return False
 
     def _isBoundaryPoint(self, li, tstBdyNodes):
@@ -2690,28 +2965,28 @@ class SegmentIntersector():
             return True
 
         return False
-     
-        
+
+
 class SweepLineEvent():
 
     INSERT_EVENT = 1
     DELETE_EVENT = 2
 
-    def __init__(self, newEdgeSet, x, newInsertEvent, newObj):
+    def __init__(self, edgeSet, x, insertEvent, newObj):
 
-        self.edgeSet = newEdgeSet
+        self.edgeSet = edgeSet
         # SweepLineSegment
         self._obj = newObj
-        self.xValue = x
+        self.x = x
         # SweepLineEvent INSERT_EVENT
-        self._insertEvent = newInsertEvent
+        self._insertEvent = insertEvent
         self._deleteEventIndex = 0
-        if newInsertEvent is None:
+        if insertEvent is None:
             self.eventType = SweepLineEvent.INSERT_EVENT
         else:
             self.eventType = SweepLineEvent.DELETE_EVENT
 
-    def compareTo(self, sle):
+    def compareTo(self, other):
         """
          * ProjectionEvents are ordered first by their x-value, and then by their
          * eventType.
@@ -2719,13 +2994,13 @@ class SweepLineEvent():
          * items whose Insert and Delete events occur at the same x-value will be
          * correctly handled.
         """
-        if self.xValue < sle.xValue:
+        if self.x < other.x:
             return -1
-        elif self.xValue > sle.xValue:
+        elif self.x > other.x:
             return 1
-        elif self.eventType < sle.eventType:
+        elif self.eventType < other.eventType:
             return -1
-        elif self.eventType > sle.eventType:
+        elif self.eventType > other.eventType:
             return 1
         else:
             return 0
@@ -2801,6 +3076,7 @@ class MonotoneChainEdge():
         self._env2 = Envelope()
         mcb = MonotoneChainIndexer()
         mcb.getChainStartIndices(self.coords, self._startIndex)
+        logger.debug("MonotoneChainEdge.indices %s", ", ".join([str(i) for i in self._startIndex]))
 
     def getMinX(self, chainIndex):
         x1 = self.coords[self._startIndex[chainIndex]].x
@@ -2823,19 +3099,28 @@ class MonotoneChainEdge():
             for j in range(len(mce._startIndex) - 1):
                 self.computeIntersectsForChain(i, mce, j, si)
 
-    def computeIntersectsForChain(self, chainIndex0, mce, chainIndex1, si):
-        self._computeIntersectsForChain(self._startIndex[chainIndex0],
+    def computeIntersectsForChain(self, chainIndex0: int, mce, chainIndex1: int, si):
+        self._computeIntersectsForChain(
+            self._startIndex[chainIndex0],
             self._startIndex[chainIndex0 + 1],
             mce,
             mce._startIndex[chainIndex1],
             mce._startIndex[chainIndex1 + 1],
             si)
 
-    def _computeIntersectsForChain(self, start0, end0, mce, start1, end1, si):
+    def _computeIntersectsForChain(self,
+            start0: int, end0: int,
+            mce,
+            start1: int, end1: int,
+            si) -> None:
+
         # terminating condition for the recursion
         if end0 - start0 == 1 and end1 - start1 == 1:
+            # SegmentIntersector
+            logger.debug("MonotoneChainEdge._computeIntersectsForChain indexes: %s  / %s", start0, start1)
             si.addIntersections(self._edge, start0, mce._edge, start1)
             return
+
 
         p1 = self.coords[start0]
         p2 = self.coords[end0]
@@ -2845,10 +3130,12 @@ class MonotoneChainEdge():
         self._env2.__init__(q1, q2)
 
         if not self._env1.intersects(self._env2):
+            logger.debug("MonotoneChainEdge._computeIntersectsForChain env dosent intersect")
             return
 
         mid0 = int((start0 + end0) / 2)
         mid1 = int((start1 + end1) / 2)
+        logger.debug("MonotoneChainEdge._computeIntersectsForChain indexes: %s - %s - %s  / %s - %s - %s", start0, mid0, end0, start1, mid1, end1)
 
         if start0 < mid0:
             if start1 < mid1:
@@ -2899,7 +3186,8 @@ class SimpleMCSweepLineIntersector(EdgeSetIntersector):
         if testAllSegments:
             self.addEdges(edges, None)
         else:
-            self.addEdges(edges)
+            for edge in edges:
+                self._add(edge, edge)
         self._computeIntersections(si)
 
     def computeIntersections(self, edges0, edges1, si):
@@ -2925,20 +3213,15 @@ class SimpleMCSweepLineIntersector(EdgeSetIntersector):
          * it is possible to compute exactly the range of events which must be
          * compared to a given Insert event object.
         """
-        self.events = sorted(self.events, key=lambda ev: (ev.xValue, ev.eventType))
+        self.events = sorted(self.events, key=lambda ev: (ev.x, ev.eventType))
         for i, ev in enumerate(self.events):
             if ev.isDelete:
                 ev._insertEvent._deleteEventIndex = i
 
     def addEdges(self, edges, edgeSet=None):
-        if edgeSet is None:
-            for edge in edges:
-                self._add(edge, edge)
-        else:
-            for edge in edges:
-                self._add(edge, edgeSet)
-
-    """    
+        for edge in edges:
+            self._add(edge, edgeSet)
+    """
     def _add(self, edge, edgeSet):
         mce = edge.coords
         for i in range(len(mce) - 1):
@@ -2947,7 +3230,7 @@ class SimpleMCSweepLineIntersector(EdgeSetIntersector):
             self.events.append(insertEvent)
             self.events.append(SweepLineEvent(edgeSet, mc.maxx, insertEvent, mc))
     """
-    
+
     def _add(self, edge, edgeSet):
         mce = edge.monotoneChainEdge
         for i in range(len(mce._startIndex) - 1):

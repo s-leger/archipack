@@ -25,11 +25,11 @@
 
 
 from math import pi, cos, sin, log, pow, atan2, sqrt
-from .constants import (
+from .shared import (
     logger,
     quicksort,
     TopologyException,
-    GeometryTypeId,
+    GeomTypeId,
     PrecisionModel,
     Location,
     Position,
@@ -40,6 +40,7 @@ from .constants import (
     CAP_STYLE,
     JOIN_STYLE
     )
+from .precision import GeometryPrecisionReducer
 from .algorithms import (
     Angle,
     CGAlgorithms,
@@ -54,6 +55,7 @@ from .geomgraph import (
     Label
     )
 from .noding import (
+    ScaledNoder,
     NodedSegmentString,
     IntersectionAdder,
     MCIndexNoder
@@ -68,7 +70,7 @@ from .op_linemerge import (
     LineMerger
     )
 
-    
+
 class BUFFER_DEFAULT():
     # The default number of facets into which to divide a fillet
     # of 90 degrees.
@@ -87,9 +89,9 @@ class BUFFER_DEFAULT():
 class BufferParameters():
 
     def __init__(self,
-            quadrantSegments: int=BUFFER_DEFAULT.QUADRANT_SEGMENTS,
+            quadrantSegments=BUFFER_DEFAULT.QUADRANT_SEGMENTS,
             endCapStyle: int=CAP_STYLE.round,
-            jointStyle: int=JOIN_STYLE.round,
+            joinStyle: int=JOIN_STYLE.round,
             mitreLimit: float=BUFFER_DEFAULT.MITRE_LIMIT
             ):
         if type(quadrantSegments).__name__ == 'BufferParameters':
@@ -99,7 +101,7 @@ class BufferParameters():
             # Defaults to CAP_ROUND
             self.endCapStyle = bp.endCapStyle
             # Defaults to JOIN_ROUND
-            self.jointStyle = bp.jointStyle
+            self.joinStyle = bp.joinStyle
             # Defaults to MITRE_LIMIT
             self.mitreLimit = bp.mitreLimit
             """
@@ -116,7 +118,7 @@ class BufferParameters():
             # Defaults to CAP_ROUND
             self.endCapStyle = endCapStyle
             # Defaults to JOIN_ROUND
-            self.jointStyle = jointStyle
+            self.joinStyle = joinStyle
             # Defaults to MITRE_LIMIT
             self.mitreLimit = mitreLimit
             """
@@ -126,13 +128,13 @@ class BufferParameters():
             """
             if quadrantSegments != BUFFER_DEFAULT.QUADRANT_SEGMENTS:
                 self.setQuadrantSegments(quadrantSegments)
-            
-            if jointStyle != JOIN_STYLE.round:
-                self.jointStyle = jointStyle
-            
+
+            if joinStyle != JOIN_STYLE.round:
+                self.joinStyle = joinStyle
+
             if mitreLimit != BUFFER_DEFAULT.MITRE_LIMIT:
                 self.mitreLimit = mitreLimit
-            
+
             self.isSingleSided = False
 
     def setQuadrantSegments(self, quadSegs: int) -> None:
@@ -148,10 +150,10 @@ class BufferParameters():
          * mitreLimit = |qs|
         """
         if quadSegs == 0:
-            self.jointStyle = JOIN_STYLE.bevel
+            self.joinStyle = JOIN_STYLE.bevel
 
         elif quadSegs < 0:
-            self.jointStyle = JOIN_STYLE.mitre
+            self.joinStyle = JOIN_STYLE.mitre
             self.mitreLimit = abs(quadSegs)
 
         if quadSegs <= 0:
@@ -160,7 +162,7 @@ class BufferParameters():
          * If join style was set by the quadSegs value,
          * use the default for the actual quadrantSegments value.
         """
-        if self.jointStyle != JOIN_STYLE.round:
+        if self.joinStyle != JOIN_STYLE.round:
             self.quadrantSegments = BUFFER_DEFAULT.QUADRANT_SEGMENTS
 
     @staticmethod
@@ -236,7 +238,7 @@ class BufferOp():
 
         # Geometry
         self.result = None
-
+        
     def computeGeometry(self) -> None:
         self.bufferOriginalPrecision()
 
@@ -247,12 +249,18 @@ class BufferOp():
 
     def bufferOriginalPrecision(self) -> None:
         bufBuilder = BufferBuilder(self.bufParams)
-        # try:
-        self.result = bufBuilder.buffer(self.geom, self.distance)
-        # except TopologyException as ex:
-        #    self.saveException = ex
-        # don't propagate the exception - it will be detected by fact that resultGeometry is null
-        #    pass
+        try:
+            self.result = bufBuilder.buffer(self.geom, self.distance)
+            logger.debug("Buffer original precision success")
+
+        except TopologyException as ex:
+            self.saveException = ex
+            logger.warning("Buffer original precision failed %s", ex)
+
+            # self.geom._factory.output(self.geom, "buffer error", False)
+
+            # don't propagate the exception - it will be detected by fact that resultGeometry is null
+            pass
 
     def bufferReducedPrecision(self) -> None:
         # try and compute with decreasing precision,
@@ -260,10 +268,16 @@ class BufferOp():
         for precDigits in range(BufferOp.MAX_PRECISION_DIGITS, BufferOp.MIN_PRECISION_DIGITS, -1):
             try:
                 self._bufferReducedPrecision(precDigits)
+                logger.debug("Buffer reduced precision success with %s digits", precDigits)
             except TopologyException as ex:
                 self.saveException = ex
+                logger.warning("Buffer reduced precision failed digits:%s %s", precDigits, ex)
+
+                # self.geom._factory.output(self.geom, "buffer error", False)
+
                 # don't propagate the exception - it will be detected by fact that resultGeometry is null
                 pass
+
             if self.result is not None:
                 return
         # tried everything - have to bail
@@ -271,18 +285,51 @@ class BufferOp():
 
     def _bufferReducedPrecision(self, precisionDigits: int) -> None:
         sizeBasedScaleFactor = BufferOp.precisionScaleFactor(self.geom, self.distance, precisionDigits)
-        fixedPM = PrecisionModel(sizeBasedScaleFactor)
+        fixedPM = PrecisionModel(scale=sizeBasedScaleFactor)
         self.bufferFixedPrecision(fixedPM)
 
     def bufferFixedPrecision(self, fixedPM):
-        raise NotImplementedError()
+        pm = PrecisionModel(scale=1.0)
+
+        # MCIndexSnapRounder seems to be still bogus
+        # inoder = MCIndexSnapRounder(pm)
+        
+        li = LineIntersector(pm)
+        ia = IntersectionAdder(li)
+        inoder = MCIndexNoder(ia)
+        noder = ScaledNoder(inoder, scale=fixedPM.scale)
+        bufBuilder = BufferBuilder(self.bufParams)
+        bufBuilder.workingPrecisionModel = fixedPM
+        bufBuilder.workingNoder = noder
+
+        # Reduce precision of the input geometry
+        #
+        # NOTE: this reduction is not in JTS and should supposedly
+        #       not be needed because the PrecisionModel we pass
+        #       to the BufferBuilder above (with setWorkingPrecisionModel)
+        #       should be used to round coordinates emitted by the
+        #       OffsetCurveBuilder, thus effectively producing a fully
+        #       rounded input to the noder.
+        #       Nonetheless the amount of scrambling done by rounding here
+        #       is known to fix at least one case in which MCIndexNoder
+        #       would fail: http://trac.osgeo.org/geos/ticket/605
+        #
+        # TODO: follow JTS in MCIndexSnapRounder usage
+
+        argPm = self.geom._factory.precisionModel
+        workGeom = self.geom
+        if argPm.modelType != PrecisionModel.FIXED or argPm.scale != fixedPM.scale:
+            # prevent Topology check infinite loop
+            workGeom = GeometryPrecisionReducer.reduce(self.geom, precisionModel=fixedPM, preventTopologyCheck=False)
+
+        self.result = bufBuilder.buffer(workGeom, self.distance)
 
     @staticmethod
     def bufferOp(geom,
             distance: float,
             quadrantSegments: int=BUFFER_DEFAULT.QUADRANT_SEGMENTS,
             endCapStyle: int=CAP_STYLE.round,
-            jointStyle: int=JOIN_STYLE.round,
+            joinStyle: int=JOIN_STYLE.round,
             mitreLimit: float=BUFFER_DEFAULT.MITRE_LIMIT,
             singleSided: bool=False
             ):
@@ -298,28 +345,46 @@ class BufferOp():
         """
         bufParams = BufferParameters(quadrantSegments,
                         endCapStyle,
-                        jointStyle,
+                        joinStyle,
                         mitreLimit)
         bufParams.isSingleSided = singleSided
         bufOp = BufferOp(geom, bufParams)
+        logger.debug("******************************\n")
+        logger.debug("BufferOp.bufferOp(%s)\n", distance)
+        logger.debug("******************************")
         return bufOp.getResultGeometry(distance)
 
     @staticmethod
-    def parallelOp(geom,
+    def offsetCurveOp(geom,
             distance: float,
-            leftSide: bool=False,
             quadrantSegments: int=BUFFER_DEFAULT.QUADRANT_SEGMENTS,
-            jointStyle: int=JOIN_STYLE.round,
+            joinStyle: int=JOIN_STYLE.round,
             mitreLimit: float=BUFFER_DEFAULT.MITRE_LIMIT,
             ):
+
+        if joinStyle > JOIN_STYLE.bevel:
+            joinStyle = JOIN_STYLE.bevel
+
         bufParams = BufferParameters(quadrantSegments,
                         CAP_STYLE.flat,
-                        jointStyle,
+                        joinStyle,
                         mitreLimit)
+
+        isLeftSide = True
+
         bufParams.isSingleSided = True
+
+        if distance < 0:
+            isLeftSide = False
+            distance = -distance
+
         bufBuilder = BufferBuilder(bufParams)
-        return bufBuilder.bufferLineSingleSided(geom, distance, leftSide)
-        
+        logger.debug("******************************\n")
+        logger.debug("BufferOp.offsetCurveOp(%s)\n", distance)
+        logger.debug("******************************")
+
+        return bufBuilder.bufferLineSingleSided(geom, distance, isLeftSide)
+
     def setQuadrantSegments(self, quadSegs: int) -> None:
         """
          * Specifies the end cap style of the generated buffer.
@@ -361,7 +426,7 @@ class BufferOp():
          * @param isSingleSided true if a single-sided buffer
          *                      should be constructed
         """
-        self.bufParams.singleSided = singleSided
+        self.bufParams.isSingleSided = singleSided
 
     def getResultGeometry(self, distance: float):
         """
@@ -405,7 +470,7 @@ class BufferOp():
         buffEnvMax = envMax + 2 * expandByDistance
 
         # the smallest power of 10 greater than the buffer envelope
-        buffEnvPrecisionDigits = int(log(buffEnvMax) / log(10.0) + 1.0)
+        buffEnvPrecisionDigits = int(log(buffEnvMax) / log(10) + 1.0)
         minUnitLog10 = maxPrecisionDigits - buffEnvPrecisionDigits
 
         scaleFactor = pow(10, minUnitLog10)
@@ -419,7 +484,7 @@ def bufferSubgraphGT(first, second) -> bool:
 
 class RightmostEdgeFinder():
     """
-     * A RightmostEdgeFinder find the geomgraph::DirectedEdge in a list which has
+     * A RightmostEdgeFinder find the geomgraph.DirectedEdge in a list which has
      * the highest coordinate, and which is oriented L to R at that point.
      * (I.e. the right side is on the RHS of the edge.)
     """
@@ -427,18 +492,18 @@ class RightmostEdgeFinder():
         # int
         self.minIndex = -1
 
-        # geom::Coordinate minCoord
+        # geom.Coordinate minCoord
         self.coord = None
 
-        # geomgraph::DirectedEdge
+        # geomgraph.DirectedEdge
         self.minDe = None
 
-        # geomgraph::DirectedEdge orientedDe
+        # geomgraph.DirectedEdge orientedDe
         self.edge = None
 
     def findRightmostEdgeAtNode(self) -> None:
         node = self.minDe.node
-        star = node.edges
+        star = node.star
         # Warning! NULL could be returned if the star is empty!
         self.minDe = star.getRightmostEdge()
 
@@ -494,7 +559,7 @@ class RightmostEdgeFinder():
                 self.coord = coord
 
     def getRightmostSide(self, de, index: int) -> int:
-    
+
         side = self.getRightmostSideOfSegment(de, index)
 
         if side < 0:
@@ -509,29 +574,29 @@ class RightmostEdgeFinder():
     def getRightmostSideOfSegment(self, de, i: int) -> int:
         edge = de.edge
         coords = edge.coords
-        
+
         if i < 0 or i + 1 >= len(coords):
             return -1
-            
+
         # indicates edge is parallel to x-axis
         if coords[i].y == coords[i + 1].y:
             return -1
-        
+
         pos = Position.LEFT
-        
+
         if coords[i].y < coords[i + 1].y:
             pos = Position.RIGHT
-        
+
         return pos
 
-    def findEdge(self, dirEdgeList: list) -> None:
-        
+    def findEdge(self, edgeEnds: list) -> None:
+
         checked = 0
-        
+
         # Check all forward DirectedEdges only.  This is still general,
         # because each edge has a forward DirectedEdge.
-        
-        for de in dirEdgeList:
+
+        for de in edgeEnds:
             if not de.isForward:
                 continue
             self.checkForRightmostCoordinate(de)
@@ -550,7 +615,7 @@ class RightmostEdgeFinder():
 
         # now check that the extreme side is the R side.
         # If not, use the sym instead.
-        
+
         self.edge = self.minDe
         rightmostSide = self.getRightmostSide(self.minDe, self.minIndex)
         if rightmostSide == Position.LEFT:
@@ -559,7 +624,7 @@ class RightmostEdgeFinder():
 
 class BufferSubGraph():
     """
-     * A connected subset of the graph of DirectedEdge and geomgraph::Node.
+     * A connected subset of the graph of DirectedEdge and geomgraph.Node.
      *
      * Its edges will generate either
      * - a single polygon in the complete buffer, with zero or more interiors, or
@@ -568,13 +633,13 @@ class BufferSubGraph():
     def __init__(self):
 
         self.finder = RightmostEdgeFinder()
-        # geomgraph::DirectedEdge
-        self.dirEdgeList = []
-        # geomgraph::Node
+        # geomgraph.DirectedEdge
+        self._edgeEnds = []
+        # geomgraph.Node
         self.nodes = []
-        # geom::Coordinate
+        # geom.Coordinate
         self.rightMostCoord = None
-        # geom::Envelope
+        # geom.Envelope
         self._env = None
 
     def addReachable(self, startNode) -> None:
@@ -599,9 +664,9 @@ class BufferSubGraph():
         """
         node.isVisited = True
         self.nodes.append(node)
-        ees = node.edges
-        for de in ees:
-            self.dirEdgeList.append(de)
+        star = node.star
+        for de in star.edges:
+            self._edgeEnds.append(de)
             sym = de.sym
             symNode = sym.node
             """
@@ -613,17 +678,17 @@ class BufferSubGraph():
                 nodeStack.append(symNode)
 
     def clearVisitedEdges(self) -> None:
-        for de in self.dirEdgeList:
+        for de in self._edgeEnds:
             de.isVisited = False
 
     def computeDepth(self, outsideDepth: int) -> None:
         self.clearVisitedEdges()
-        
+
         # find an outside edge to assign depth to
         de = self.finder.edge
-        
+
         logger.debug("BufferSubGraph.computeDepth(outside depth:%s)", outsideDepth)
-        
+
         # right side of line returned by finder is on the outside
         de.setEdgeDepths(Position.RIGHT, outsideDepth)
         self.copySymDepths(de)
@@ -641,37 +706,34 @@ class BufferSubGraph():
         nodeQueue = []
         startNode = startEdge.node
         nodeQueue.append(startNode)
-        nodesVisited[id(startNode)] = startNode
-
         startEdge.isVisited = True
 
         while (len(nodeQueue) > 0):
-            n = nodeQueue.pop(0)
-            
-            nodesVisited[id(n)] = n
-            
+            node = nodeQueue.pop(0)
+
+            nodesVisited[id(node)] = node
+
             # compute depths around node, starting at this edge since it has depths assigned
-            self.computeNodeDepth(n)
-            
+            self.computeNodeDepth(node)
+
             # add all adjacent nodes to process queue,
             # unless the node has been visited already
-            star = n.edges
-            for de in star:
+            star = node.star
+            for de in star.edges:
                 sym = de.sym
                 if sym.isVisited:
                     continue
                 adjNode = sym.node
                 if nodesVisited.get(id(adjNode)) is None:
                     nodeQueue.append(adjNode)
-                    nodesVisited[id(adjNode)] = adjNode
 
     def computeNodeDepth(self, node) -> None:
         # find a visited dirEdge to start at
         # DirectedEdge
         startEdge = None
         # DirectedEdgeStar
-        star = node.edges
-        for de in star:
+        star = node.star
+        for de in star.edges:
             if de.isVisited or de.sym.isVisited:
                 startEdge = de
                 break
@@ -682,16 +744,16 @@ class BufferSubGraph():
                 "unable to find edge to compute depths at",
                 node.coord
                 )
-        
+
         star.computeDepths(startEdge)
-        
+
         # copy depths to sym edges
-        for de in star:
+        for de in star.edges:
             de.isVisited = True
             self.copySymDepths(de)
 
     def copySymDepths(self, de) -> None:
-        logger.debug("BufferSubGraph.copySymDepths() %s, %s", de.getDepth(Position.LEFT), de.getDepth(Position.RIGHT) )
+        # logger.debug("BufferSubGraph.copySymDepths() %s, %s", de.getDepth(Position.LEFT), de.getDepth(Position.RIGHT))
         sym = de.sym
         sym.setDepth(Position.LEFT, de.getDepth(Position.RIGHT))
         sym.setDepth(Position.RIGHT, de.getDepth(Position.LEFT))
@@ -706,9 +768,9 @@ class BufferSubGraph():
          * @param node a node to start the graph traversal from
         """
         self.addReachable(node)
-        # We are assuming that dirEdgeList
+        # We are assuming that _edgeEnds
         # contains *at leas* ONE forward DirectedEdge
-        self.finder.findEdge(self.dirEdgeList)
+        self.finder.findEdge(self._edgeEnds)
         self.rightMostCoord = self.finder.coord
 
     def findResultEdges(self) -> None:
@@ -723,7 +785,7 @@ class BufferSubGraph():
          * Interior Area edges are the result of dimensional collapses.
          * They do not form part of the result area boundary.
         """
-        for de in self.dirEdgeList:
+        for de in self._edgeEnds:
             """
              * Select edges which have an interiors depth on the RHS
              * and an exterior depth on the LHS.
@@ -731,12 +793,15 @@ class BufferSubGraph():
              * edges which have negative depths!  Negative depths
              * count as "outside".
             """
-            logger.debug("BufferSubGraph.findResultEdges() isInterior:%s dirEdge:%s\ndepth left:%s\ndepth right:%s", 
-                de.isInteriorAreaEdge, 
-                de, 
-                de.getDepth(Position.LEFT), 
+
+            """
+            logger.debug("BufferSubGraph.findResultEdges() isInterior:%s dirEdge:%s\ndepth left:%s\ndepth right:%s",
+                de.isInteriorAreaEdge,
+                de,
+                de.getDepth(Position.LEFT),
                 de.getDepth(Position.RIGHT))
-            
+            """
+
             if (de.getDepth(Position.RIGHT) >= 1 and
                     de.getDepth(Position.LEFT) <= 0 and
                     not de.isInteriorAreaEdge):
@@ -773,7 +838,7 @@ class BufferSubGraph():
         """
         if self._env is None:
             self._env = Envelope()
-            for de in self.dirEdgeList:
+            for de in self._edgeEnds:
                 coords = de.edge.coords
                 for co in coords:
                     self._env.expandToInclude(co)
@@ -862,7 +927,7 @@ class SubgraphDepthLocater():
 
         # BufferSubgraph
         self.subgraphs = subgraphs
-        # geom::LineSegment
+        # geom.LineSegment
         self.seg = LineSegment()
 
     def getDepth(self, coord) -> int:
@@ -890,7 +955,7 @@ class SubgraphDepthLocater():
             env = bsg.envelope
             if not env.contains(stabbingRayLeftPt):
                 continue
-            self._findStabbedSegments(stabbingRayLeftPt, bsg.dirEdgeList, stabbedSegments)
+            self._findStabbedSegments(stabbingRayLeftPt, bsg._edgeEnds, stabbedSegments)
 
     def _findStabbedSegments(self, stabbingRayLeftPt, dirEdges: list, stabbedSegments: list) -> None:
         """
@@ -987,8 +1052,8 @@ class OffsetSegmentString():
         self.precisionModel.makePrecise(pt)
         if self.isRedundant(pt):
             return
-        # we ask to allow repeated as we checked this ourself
-        self.coords.add(pt, True)
+        # allow repeated as we checked this ourself
+        self.coords.append(pt)
 
     def addPts(self, coords, isForward) -> None:
         if isForward:
@@ -1003,7 +1068,7 @@ class OffsetSegmentString():
             return
         if self.coords[0] == self.coords[-1]:
             return
-        self.coords.add(self.coords[0], True)
+        self.coords.append(self.coords[0])
 
     def isRedundant(self, coord) -> bool:
         """
@@ -1082,15 +1147,19 @@ class BufferInputLineSimplifier():
 
     def _simplify(self, distance):
         self.distance = abs(distance)
+
         if distance < 0:
             self.angleOrientation = CGAlgorithms.CLOCKWISE
+
         startValue = BufferInputLineSimplifier.INIT
         self.isDeleted = [startValue for i in range(len(self.coords))]
+
         isChanged = False
         while (True):
             isChanged = self.deleteShallowConcavities()
             if not isChanged:
                 break
+
         return self.collapseLine()
 
     def deleteShallowConcavities(self) -> bool:
@@ -1142,10 +1211,10 @@ class BufferInputLineSimplifier():
         return next
 
     def collapseLine(self):
-        coords = [co for i, co in enumerate(self.coords)
+        coords = [co.clone() for i, co in enumerate(self.coords)
             if self.isDeleted[i] != BufferInputLineSimplifier.DELETE]
         return CoordinateSequence(coords)
-        
+
     def isDeletable(self, i0: int, i1: int, i2: int, distanceTol: float) -> bool:
         p0 = self.coords[i0]
         p1 = self.coords[i1]
@@ -1280,14 +1349,14 @@ class OffsetSegmentGenerator():
          * so don't use them.  In any case, non-round joins
          * only really make sense for relatively small buffer distances.
         """
-        if bufParams.quadrantSegments >= 8 and bufParams.jointStyle == JOIN_STYLE.round:
+        if bufParams.quadrantSegments >= 8 and bufParams.joinStyle == JOIN_STYLE.round:
             self.closingSegLengthFactor = OffsetSegmentGenerator.MAX_CLOSING_SEG_LEN_FACTOR
 
         """
          * Owned by this object, destroyed by dtor
          * This actually gets created multiple times
          * and each of the old versions is pushed
-         * to the ptLists std::vector to ensure all
+         * to the ptLists std.vector to ensure all
          * created CoordinateSequences are properly
          * destroyed.
         """
@@ -1296,21 +1365,21 @@ class OffsetSegmentGenerator():
 
         self.distance = distance
 
-        # geom::PrecisionModel
+        # geom.PrecisionModel
         self.precisionModel = precisionModel
 
         # BufferParameters
         self.bufParams = bufParams
 
-        # algorithm::LineIntersector
+        # algorithm.LineIntersector
         self.li = LineIntersector()
 
-        # geom::Coordinate
+        # geom.Coordinate
         self.s0 = Coordinate()
         self.s1 = Coordinate()
         self.s2 = Coordinate()
 
-        # geom::LineSegment
+        # geom.LineSegment
         self.seg0 = LineSegment()
         self.seg1 = LineSegment()
         self.offset0 = LineSegment()
@@ -1318,13 +1387,6 @@ class OffsetSegmentGenerator():
 
         self.side = 0
 
-        self.hasNarrowConcaveAngle = False
-        # Not in JTS, used for single-sided buffers
-        self.endCapIndex = 0
-
-        self.init(distance)
-
-    def hasNarrowConcaveAngle(self) -> bool:
         """
          * Tests whether the input has a narrow concave angle
          * (relative to the offset distance).
@@ -1337,22 +1399,26 @@ class OffsetSegmentGenerator():
          *
          * @return true if the input has a narrow concave angle
         """
-        return self._hasNarrowConcaveAngle
+        self.hasNarrowConcaveAngle = False
 
-    def initSideSegments(self, ns1, ns2, nSide: int) -> None:
-        self.s1 = ns1
-        self.s2 = ns2
-        self.side = nSide
-        self.seg1.setCoordinates(ns1, ns2)
-        self.computeOffsetSegment(self.seg1, nSide, self.distance, self.offset1)
+        # Not in JTS, used for single-sided buffers
+        self.endCapIndex = 0
+
+        self.init(distance)
+
+    def initSideSegments(self, s1, s2, side: int) -> None:
+        self.s1 = s1
+        self.s2 = s2
+        self.side = side
+        self.seg1.setCoordinates(s1, s2)
+        self.computeOffsetSegment(self.seg1, side, self.distance, self.offset1)
 
     def getCoordinates(self, coordList: list) -> None:
         """
          * Get coordinates by taking ownership of them
         """
         # segList : OffsetSegmentString
-        coords = self.segList.coords
-        coordList.append(coords)
+        coordList.append(self.segList.coords)
 
     def closeRing(self) -> None:
         self.segList.closeRing()
@@ -1371,7 +1437,7 @@ class OffsetSegmentGenerator():
         self.segList.addPt(Coordinate(coord.x - distance, coord.y - distance))
         self.segList.addPt(Coordinate(coord.x - distance, coord.y + distance))
         self.segList.closeRing()
-        
+
     def addFirstSegment(self) -> None:
         # Add first offset point
         self.segList.addPt(self.offset1.p0)
@@ -1384,21 +1450,27 @@ class OffsetSegmentGenerator():
         # do nothing if points are equal
         if self.s2 == coord:
             return
+
         # s0-s1-s2 are the coordinates of the previous segment
         # and the current one
+
         self.s0 = self.s1
         self.s1 = self.s2
         self.s2 = coord
+
         self.seg0.setCoordinates(self.s0, self.s1)
         self.computeOffsetSegment(self.seg0, self.side, self.distance, self.offset0)
-        
+
         self.seg1.setCoordinates(self.s1, self.s2)
         self.computeOffsetSegment(self.seg1, self.side, self.distance, self.offset1)
 
         orientation = CGAlgorithms.computeOrientation(self.s0, self.s1, self.s2)
-        
+
         outsideTurn = ((orientation == CGAlgorithms.CLOCKWISE and self.side == Position.LEFT) or
             (orientation == CGAlgorithms.COUNTERCLOCKWISE and self.side == Position.RIGHT))
+
+        self.index += 1
+        logger.debug("segment: %s outsideTurn:%s orientation:%s", self.index, outsideTurn, orientation)
 
         if orientation == 0:
             self.addCollinear(addStartPoint)
@@ -1426,18 +1498,18 @@ class OffsetSegmentGenerator():
             self.segList.addPt(offsetL.p1)
             self._addFillet(p1, angle + pi / 2.0, angle - pi / 2.0, CGAlgorithms.CLOCKWISE, self.distance)
             self.segList.addPt(offsetR.p1)
-            
+
         elif self.bufParams.endCapStyle == CAP_STYLE.flat:
             # only offset segment points are added
             self.segList.addPt(offsetL.p1)
             self.segList.addPt(offsetR.p1)
-        
+
         elif self.bufParams.endCapStyle == CAP_STYLE.square:
             # add a square defined by extensions of the offset
-            # segment endpoints 
+            # segment endpoints
             x = abs(self.distance) * cos(angle)
             y = abs(self.distance) * sin(angle)
-            
+
             squareCapLOffset = Coordinate(
                 offsetL.p1.x + x,
                 offsetL.p1.y + y
@@ -1446,7 +1518,7 @@ class OffsetSegmentGenerator():
                 offsetR.p1.x + x,
                 offsetR.p1.y + y
                 )
-                
+
             self.segList.addPt(squareCapLOffset)
             self.segList.addPt(squareCapROffset)
 
@@ -1476,12 +1548,15 @@ class OffsetSegmentGenerator():
              * have two consecutive segments which are parallel but
              * reversed, because that would be a self intersection).
             """
-            if (self.bufParams.jointStyle == JOIN_STYLE.bevel or
-                    self.bufParams.jointStyle == JOIN_STYLE.mitre):
+            if (self.bufParams.joinStyle == JOIN_STYLE.bevel or
+                    self.bufParams.joinStyle == JOIN_STYLE.mitre):
+
                 if addStartPoint:
                     self.segList.addPt(self.offset0.p1)
+
                 self.segList.addPt(self.offset1.p0)
             else:
+
                 self.addFillet(self.s1,
                     self.offset0.p1,
                     self.offset1.p0,
@@ -1510,19 +1585,19 @@ class OffsetSegmentGenerator():
             HCoordinate.intersection(offset0.p0, offset0.p1,
                 offset1.p0, offset1.p1,
                 intPt)
-                
+
             if distance <= 0.0:
                 mitreRatio = 1.0
             else:
                 mitreRatio = intPt.distance(coord) / abs(distance)
-                
+
             if mitreRatio > self.bufParams.mitreLimit:
                 isMitreWithinLimit = False
-        
+
         except:
             isMitreWithinLimit = False
             pass
-            
+
         if isMitreWithinLimit:
             self.segList.addPt(intPt)
         else:
@@ -1598,6 +1673,9 @@ class OffsetSegmentGenerator():
         self.maxCurveSegmentError = distance * (1 - cos(self.filletAngleQuantum / 2.0))
         self.segList.reset()
         self.segList.precisionModel = self.precisionModel
+        # debug
+        self.index = 0
+
         """
          * Choose the min vertex separation as a small fraction of
          * the offset distance.
@@ -1622,12 +1700,12 @@ class OffsetSegmentGenerator():
             self.segList.addPt(self.offset0.p1)
             return
 
-        if self.bufParams.jointStyle == JOIN_STYLE.mitre:
+        if self.bufParams.joinStyle == JOIN_STYLE.mitre:
             self.addMitreJoin(self.s1, self.offset0, self.offset1, self.distance)
-            
-        elif self.bufParams.jointStyle == JOIN_STYLE.bevel:
+
+        elif self.bufParams.joinStyle == JOIN_STYLE.bevel:
             self.addBevelJoin(self.offset0, self.offset1)
-        
+
         else:
             # add a circular fillet connecting the endpoints
             # of the offset segments
@@ -1646,8 +1724,11 @@ class OffsetSegmentGenerator():
         # add intersection point of offset segments (if any)
         self.li.computeLinesIntersection(self.offset0.p0, self.offset0.p1, self.offset1.p0, self.offset1.p1)
         if self.li.hasIntersection:
+            logger.debug("has Intersection")
             self.segList.addPt(self.li.intersectionPts[0])
             return
+        logger.debug("no intersection found %s %s", self.offset0, self.offset1)
+
         """
          * If no intersection is detected, it means the angle is so small
          * and/or the offset so large that the offsets segments don't
@@ -1674,6 +1755,7 @@ class OffsetSegmentGenerator():
          * If the offset points are very close, don't add closing segments
          * but simply use one of the offset points
         """
+        self.hasNarrowConcaveAngle = True
         if (self.offset0.p1.distance(self.offset1.p0) <
                 self.distance * OffsetSegmentGenerator.INSIDE_TURN_VERTEX_SNAP_DISTANCE_FACTOR):
             self.segList.addPt(self.offset0.p1)
@@ -1681,25 +1763,26 @@ class OffsetSegmentGenerator():
             # add endpoint of this segment offset
             self.segList.addPt(self.offset0.p1)
             # Add "closing segment" of required length.
+
             if self.closingSegLengthFactor > 0:
-                
+
                 mid0 = Coordinate(
                     (self.closingSegLengthFactor * self.offset0.p1.x + self.s1.x) / (self.closingSegLengthFactor + 1),
                     (self.closingSegLengthFactor * self.offset0.p1.y + self.s1.y) / (self.closingSegLengthFactor + 1)
                 )
                 self.segList.addPt(mid0)
-                
+
                 mid1 = Coordinate(
                     (self.closingSegLengthFactor * self.offset1.p0.x + self.s1.x) / (self.closingSegLengthFactor + 1),
                     (self.closingSegLengthFactor * self.offset1.p0.y + self.s1.y) / (self.closingSegLengthFactor + 1)
                 )
                 self.segList.addPt(mid1)
-            
+
             else:
 
                 # This branch is not expected to be used
                 self.segList.addPt(self.s1)
-                
+
             # add start point of next segment offset
             self.segList.addPt(self.offset1.p0)
 
@@ -1720,17 +1803,17 @@ class OffsetSegmentGenerator():
             sideSign = 1
         else:
             sideSign = -1
-        
+
         dx = seg.p1.x - seg.p0.x
         dy = seg.p1.y - seg.p0.y
-        
+
         length = sqrt(dx * dx + dy * dy)
-        
+
         # u is the vector that is the length of the offset
         # in the direction of the segment
         ux = sideSign * distance * dx / length
         uy = sideSign * distance * dy / length
-        
+
         offset.p0.x = seg.p0.x - uy
         offset.p0.y = seg.p0.y + ux
         offset.p1.x = seg.p1.x - uy
@@ -1751,7 +1834,7 @@ class OffsetSegmentGenerator():
         dx0 = p0.x - coord.x
         dy0 = p0.y - coord.y
         startAngle = atan2(dy0, dx0)
-        
+
         dx1 = p1.x - coord.x
         dy1 = p1.y - coord.y
         endAngle = atan2(dy1, dx1)
@@ -1759,7 +1842,7 @@ class OffsetSegmentGenerator():
         if direction == CGAlgorithms.CLOCKWISE:
             if startAngle <= endAngle:
                 startAngle += 2.0 * pi
-                
+
         elif startAngle >= endAngle:
             # direction==COUNTERCLOCKWISE
             startAngle -= 2.0 * pi
@@ -1798,8 +1881,8 @@ class OffsetSegmentGenerator():
         pt = Coordinate()
         while currAngle < totalAngle:
             angle = startAngle + directionFactor * currAngle
-            pt.x = coord.x + radius * cos(angle)
-            pt.y = coord.y + radius * sin(angle)
+            pt.x = coord.x + (radius * cos(angle))
+            pt.y = coord.y + (radius * sin(angle))
             self.segList.addPt(pt)
             currAngle += currAngleInc
 
@@ -1813,7 +1896,7 @@ class OffsetCurveBuilder():
      * it may contain self-intersections (and usually will).
      * The final buffer polygon is computed by forming a topological graph
      * of all the noded raw curves and tracing outside contours.
-     * The points in the raw curve are rounded to a given geom::PrecisionModel.
+     * The points in the raw curve are rounded to a given geom.PrecisionModel.
     """
 
     """
@@ -1841,7 +1924,7 @@ class OffsetCurveBuilder():
          * Lines are assumed to <b>not</b> be closed (the function will not
          * fail for closed lines, but will generate superfluous line caps).
          *
-         * @param lineList the std::vector to which the newly created
+         * @param lineList the std.vector to which the newly created
          *                 CoordinateSequences will be pushed_back.
          *                 Caller is responsible to delete these new elements.
         """
@@ -1877,7 +1960,7 @@ class OffsetCurveBuilder():
          * Lines are assumed to <b>not</b> be closed (the function will not
          * fail for closed lines, but will generate superfluous line caps).
          *
-         * @param lineList the std::vector to which newly created
+         * @param lineList the std.vector to which newly created
          *                 CoordinateSequences will be pushed_back.
          *                 Caller will be responsible to delete them.
          * @param leftSide indicates that the left side buffer will be
@@ -1905,13 +1988,13 @@ class OffsetCurveBuilder():
             n1 = len(simp1)
             if n1 < 2:
                 raise ValueError("Cannot get offset of single-vertex line")
-                
+
             segGen.initSideSegments(simp1[0], simp1[1], Position.LEFT)
             segGen.addFirstSegment()
-            
+
             for i in range(2, n1):
                 segGen.addNextSegment(simp1[i], True)
-            
+
             segGen.addLastSegment()
 
         if rightSide:
@@ -1921,13 +2004,13 @@ class OffsetCurveBuilder():
             n2 = len(simp2)
             if n2 < 2:
                 raise ValueError("Cannot get offset of single-vertex line")
-                
+
             segGen.initSideSegments(simp2[-1], simp2[-2], Position.LEFT)
             segGen.addFirstSegment()
-            
+
             for i in range(n2 - 3, -1, -1):
                 segGen.addNextSegment(simp2[i], True)
-            
+
             segGen.addLastSegment()
 
         segGen.getCoordinates(lineList)
@@ -1937,7 +2020,7 @@ class OffsetCurveBuilder():
          * This method handles the degenerate cases of single points and lines,
          * as well as rings.
          *
-         * @param lineList the std::vector to which CoordinateSequences will
+         * @param lineList the std.vector to which CoordinateSequences will
          *                 be pushed_back
         """
         self.distance = distance
@@ -1966,20 +2049,20 @@ class OffsetCurveBuilder():
 
     def computeLineBufferCurve(self, coords, segGen) -> None:
         distTol = self.simplifyTolerance(self.distance)
-        
+
         # --------- compute points for left side of line
         # Simplify the appropriate side of the line before generating
         # CoordinateSequence
         simp1 = BufferInputLineSimplifier.simplify(coords, distTol)
-        
+
         n1 = len(simp1)
         segGen.initSideSegments(simp1[0], simp1[1], Position.LEFT)
-        
+
         for i in range(2, n1):
             segGen.addNextSegment(simp1[i], True)
-        
+
         segGen.addLastSegment()
-        
+
         # add line cap for end of line
         segGen.addLineEndCap(simp1[-2], simp1[-1])
 
@@ -1987,15 +2070,15 @@ class OffsetCurveBuilder():
         # Simplify the appropriate side of the line before generating
         # CoordinateSequence
         simp2 = BufferInputLineSimplifier.simplify(coords, -distTol)
-        
+
         n2 = len(simp2)
         segGen.initSideSegments(simp2[-1], simp2[-2], Position.LEFT)
-        
+
         for i in range(n2 - 3, -1, -1):
             segGen.addNextSegment(simp2[i], True)
-        
+
         segGen.addLastSegment()
-        
+
         # add line cap for end of line
         segGen.addLineEndCap(simp2[1], simp2[0])
 
@@ -2007,30 +2090,30 @@ class OffsetCurveBuilder():
         if isRightSide:
             # add original line
             segGen.addSegments(coords, True)
-            
+
             # ---------- compute points for right side of line
             # Simplify the appropriate side of the line before generating
             simp2 = BufferInputLineSimplifier.simplify(coords, -distTol)
-            
+
             n2 = len(simp2)
             segGen.initSideSegments(simp2[-1], simp2[-2], Position.LEFT)
             segGen.addFirstSegment()
-            
+
             for i in range(n2 - 3, -1, -1):
                 segGen.addNextSegment(simp2[i], True)
 
         else:
             # add original line
-            segGen.addSegments(coords, True)
-            
+            segGen.addSegments(coords, False)
+
             # ---------- compute points for left side of line
             # Simplify the appropriate side of the line before generating
             simp1 = BufferInputLineSimplifier.simplify(coords, distTol)
-            
+
             n1 = len(simp1)
             segGen.initSideSegments(simp1[0], simp1[1], Position.LEFT)
             segGen.addFirstSegment()
-            
+
             for i in range(2, n1):
                 segGen.addNextSegment(simp1[i], True)
 
@@ -2039,34 +2122,34 @@ class OffsetCurveBuilder():
 
     def computeRingBufferCurve(self, coords, side: int, segGen) -> None:
         distTol = self.simplifyTolerance(self.distance)
-        
+
         if side == Position.RIGHT:
             distTol = -distTol
-        
+
         simp = BufferInputLineSimplifier.simplify(coords, distTol)
-        
+
         n = len(simp)
         segGen.initSideSegments(simp[-2], simp[0], side)
-        
+
         for i in range(1, n):
             addStartPoint = i != 1
             segGen.addNextSegment(simp[i], addStartPoint)
-            
+
         segGen.closeRing()
 
     def getSegGen(self, dist: float):
         # OffsetSegmentGenerator
         return OffsetSegmentGenerator(self.precisionModel, self.bufParams, dist)
-        
+
     def computePointCurve(self, coord, segGen) -> None:
-    
+
         if self.bufParams.endCapStyle == CAP_STYLE.round:
             segGen.createCircle(coord, self.distance)
-            
+
         elif self.bufParams.endCapStyle == CAP_STYLE.square:
             segGen.createSquare(coord, self.distance)
-        
-  
+
+
 class OffsetCurveSetBuilder():
     """
      * Creates all the raw offset curves for a buffer of a Geometry.
@@ -2083,21 +2166,15 @@ class OffsetCurveSetBuilder():
         # OffsetCurveBuilder
         self.curveBuilder = curveBuilder
 
-        # To keep track of newly-created Labels.
-        # Labels will be relesed by object dtor
-        # geomgraph::Label
-        self.labels = []
-
         # The raw offset curves computed.
-        # This class holds ownership of std::vector elements.
-        # noding::SegmentString
+        # noding.SegmentString
         self.curveList = []
 
     def addCurve(self, coords, leftLoc: int, rightLoc: int) -> None:
         """
-         * Creates a noding::SegmentString for a coordinate list which is a raw
+         * Creates a noding.SegmentString for a coordinate list which is a raw
          * offset curve, and adds it to the list of buffer curves.
-         * The noding::SegmentString is tagged with a geomgraph::Label
+         * The noding.SegmentString is tagged with a geomgraph.Label
          * giving the topology of the curve.
          * The curve may be oriented in either direction.
          * If the curve is oriented CW, the locations will be:
@@ -2108,41 +2185,40 @@ class OffsetCurveSetBuilder():
         """
         if len(coords) < 2:
             return
-            
+
         # add the edge for a coordinate list which is a raw offset curve
         label = Label(0, Location.BOUNDARY, leftLoc, rightLoc)
-        
+
         ss = NodedSegmentString(coords, label)
-        
-        self.labels.append(label)
+
         self.curveList.append(ss)
 
     def add(self, geom) -> None:
-        
+
         if geom.is_empty:
             return
-        
-        if geom.geometryTypeId == GeometryTypeId.GEOS_POINT:
+
+        if geom.type_id == GeomTypeId.GEOS_POINT:
             self.addPoint(geom)
-        
-        elif geom.geometryTypeId in (
-                GeometryTypeId.GEOS_LINESTRING, 
-                GeometryTypeId.GEOS_LINEARRING):
+
+        elif geom.type_id in (
+                GeomTypeId.GEOS_LINESTRING,
+                GeomTypeId.GEOS_LINEARRING):
             self.addLineString(geom)
-            
-        elif geom.geometryTypeId == GeometryTypeId.GEOS_POLYGON:    
+
+        elif geom.type_id == GeomTypeId.GEOS_POLYGON:
             self.addPolygon(geom)
-        
-        elif geom.geometryTypeId in (
-                GeometryTypeId.GEOS_MULTIPOINT,
-                GeometryTypeId.GEOS_MULTILINESTRING,
-                GeometryTypeId.GEOS_MULTIPOLYGON,
-                GeometryTypeId.GEOS_GEOMETRYCOLLECTION):
+
+        elif geom.type_id in (
+                GeomTypeId.GEOS_MULTIPOINT,
+                GeomTypeId.GEOS_MULTILINESTRING,
+                GeomTypeId.GEOS_MULTIPOLYGON,
+                GeomTypeId.GEOS_GEOMETRYCOLLECTION):
             self.addCollection(geom)
-        
+
         else:
-            raise ValueError("GeometryGraph::add(Geometry): unknown geometry type: {}".format(type(geom).__name))
-            
+            raise ValueError("GeometryGraph.add(Geometry): unknown geometry type: {}".format(type(geom).__name))
+
     def addCollection(self, geoms) -> None:
         for geom in geoms.geoms:
             self.add(geom)
@@ -2171,13 +2247,13 @@ class OffsetCurveSetBuilder():
     def addPolygon(self, p) -> None:
         offsetDistance = self.distance
         offsetSide = Position.LEFT
-        
+
         if self.distance < 0.0:
             offsetDistance = -self.distance
             offsetSide = Position.RIGHT
-        
+
         exterior = p.exterior
-        
+
         # optimization - don't bother computing buffer
         # if the polygon would be completely eroded
         if self.distance < 0.0 and self.isErodedCompletely(exterior, self.distance):
@@ -2235,7 +2311,7 @@ class OffsetCurveSetBuilder():
 
         if len(coords) > 3 and CGAlgorithms.isCCW(coords):
             leftLoc, rightLoc = rightLoc, leftLoc
-            side = Position.oposite(side)
+            side = Position.opposite(side)
 
         lineList = []
         self.curveBuilder.getRingCurve(coords, side, offsetDistance, lineList)
@@ -2314,7 +2390,7 @@ class OffsetCurveSetBuilder():
         """
          * Computes the set of raw offset curves for the buffer.
          *
-         * Each offset curve has an attached {@link geomgraph::Label} indicating
+         * Each offset curve has an attached {@link geomgraph.Label} indicating
          * its left and right location.
          *
          * @return a Collection of SegmentStrings representing the raw
@@ -2330,6 +2406,7 @@ class OffsetCurveSetBuilder():
          * @param lineList is a list of CoordinateSequence, ownership
          *       of which is transferred here.
         """
+        # logger.debug("OffsetCurveSetBuilder.addCurves(%s)", len(lineList))
         for coords in lineList:
             self.addCurve(coords, leftLoc, rightLoc)
 
@@ -2366,28 +2443,34 @@ class BufferBuilder():
         # LineIntersector
         self.li = None
         # IntersectionNodeAdder
-        self.intersectionAdder = None
+        self.si = None
         # Noder
         self.workingNoder = None
         # GeometryFactory
         self._factory = None
-        # geomgraph::EdgeList
+        # geomgraph.EdgeList
         self.edgeList = EdgeList()
-        # geomgraph::Label
+        # geomgraph.Label
         self.newLabels = []
-
+        
     def buffer(self, geom, distance: float):
         precisionModel = self.workingPrecisionModel
         if precisionModel is None:
             precisionModel = geom.precisionModel
+
         # factory must be the same as the one used by the input
         self._factory = geom._factory
 
         curveBuilder = OffsetCurveBuilder(precisionModel, self.bufParams)
         curveSetBuilder = OffsetCurveSetBuilder(geom, distance, curveBuilder)
-
         # SegmentString
         bufferSegStrList = curveSetBuilder.getCurves()
+
+
+        # blines = self._factory.buildGeometry([self._factory.createLineString(ns.coords) for ns in bufferSegStrList])
+        # self._factory.output(blines, name="bufferSegStrList")
+
+        logger.debug("OffsetCurveSetBuilder got %s curves", len(bufferSegStrList))
 
         # short circuit tester
         if len(bufferSegStrList) <= 0:
@@ -2402,10 +2485,14 @@ class BufferBuilder():
         # BufferSubGraph
         subGraphList = []
 
+        logger.debug("BufferBuilder.edgeList %s", self.edgeList)
+
         graph = PlanarGraph(OverlayNodeFactory())
+
         graph.addEdges(self.edgeList)
 
         self.createSubGraphs(graph, subGraphList)
+        logger.debug("BufferBuilder.subGraphList %s", len(subGraphList))
 
         polyBuilder = PolygonBuilder(self._factory)
         self.buildSubGraphs(subGraphList, polyBuilder)
@@ -2417,7 +2504,7 @@ class BufferBuilder():
         resultGeom = self._factory.buildGeometry(resultPolyList)
 
         return resultGeom
-    
+
     def bufferLineSingleSided(self, geom, distance: float, leftSide: bool):
         """
          * Generates offset curve for linear geometry.
@@ -2432,14 +2519,14 @@ class BufferBuilder():
          *       For right-side offset curve, it'll be at the right side
          *       and in the opposite direction.
          *
-         * @note BufferParameters::setSingleSided parameter, which is specific to
+         * @note BufferParameters.setSingleSided parameter, which is specific to
          *       areal geometries only, is ignored by this routine.
         """
 
         # Returns the line used to create a single-sided buffer.
         # Input requirement: Must be a LineString.
-        if geom.geometryTypeId != GeometryTypeId.GEOS_LINESTRING:
-            raise ValueError("BufferBuilder::bufferLineSingleSided only accept linestrings")
+        if geom.type_id != GeomTypeId.GEOS_LINESTRING:
+            raise ValueError("BufferBuilder.bufferLineSingleSided only accept linestrings")
 
         if distance == 0:
             # Nothing to do for a distance of zero
@@ -2450,22 +2537,22 @@ class BufferBuilder():
             precisionModel = geom.precisionModel
 
         self._factory = geom._factory
+
         # BufferParameters
         modParams = BufferParameters(self.bufParams)
         modParams.endCapStyle = CAP_STYLE.flat
-        
-        # ignore parameter for areal-only geometries
-        modParams.singleSided = False
 
+        # ignore parameter for areal-only geometries
+        modParams.isSingleSided = False
+        # """
         tmp = BufferBuilder(modParams)
         buf = tmp.buffer(geom, distance)
-        
-        self._factory.output(buf, name="buffer")
+        # self._factory.output(buf, name="buffer")
+
         # Create MultiLineStrings from this polygon.
         bufLineString = buf.boundary
-        
-        self._factory.output(bufLineString, name="boundary")
-        
+        # self._factory.output(bufLineString, name="boundary")
+
         # Then, get the raw (i.e. unnoded) single sided offset curve.
         curveBuilder = OffsetCurveBuilder(precisionModel, modParams)
 
@@ -2473,21 +2560,22 @@ class BufferBuilder():
         lineList = []
         coords = geom.coords
         curveBuilder.getSingleSidedLineCurve(coords, distance, lineList, leftSide, not leftSide)
-        coords.clear()
 
         # SegmentString
-        curveList = [NodedSegmentString(seq, None) for seq in lineList]
-        lineList.clear()
+        curveList = [NodedSegmentString(line, None) for line in lineList]
+        # lineList.clear()
 
         # Noder
         noder = self.getNoder(precisionModel)
-        noder.computeNode(curveList)
+        noder.computeNodes(curveList)
 
         # SegmentString
         nodedEdges = noder.getNodedSubStrings()
+
         # Geometry
         singleSidedNodedEdges = [self._factory.createLineString(ss.coords.clone()) for ss in nodedEdges]
         singleSided = self._factory.createMultiLineString(singleSidedNodedEdges)
+        # self._factory.output(singleSided, name="singleSided")
 
         # Use the boolean operation intersect to obtain the line segments lying
         # on both the butt-cap buffer and this multi-line.
@@ -2495,11 +2583,17 @@ class BufferBuilder():
         # NOTE: we use Snapped overlay because the actual buffer boundary might
         #       diverge from original offset curves due to the addition of
         #       intersections with caps and joins curves
-        intersectedLines = SnapOverlayOp.overlayOp(singleSided, bufLineString, OverlayOp.opINTERSECTION)
+        intersectedLines = SnapOverlayOp.intersection(singleSided, bufLineString)
+        # self._factory.output(intersectedLines, name="intersectedLines")
+
         lineMerge = LineMerger()
         lineMerge.add(intersectedLines)
+
         # LineString
         mergedLines = lineMerge.getMergedLineStrings()
+        merged = self._factory.createMultiLineString(mergedLines)
+        # self._factory.output(merged, name="merged")
+
         # Geometry
         mergedLinesGeom = []
         startPoint = geom.coords[0]
@@ -2549,13 +2643,13 @@ class BufferBuilder():
                     coords.pop(0)
 
                 # Clean up the back of the list.
-                while len(coords) > 1 and coords[0].distance(startPoint) < ptDistAllowance:
+                while len(coords) > 1 and coords[-1].distance(startPoint) < ptDistAllowance:
                     segLength = coords[-1].distance(coords[-2])
                     if len(coords) <= 1 or segLength > segLengthAllowance:
                         break
                     coords.pop()
 
-                while len(coords) > 1 and coords[0].distance(endPoint) < ptDistAllowance:
+                while len(coords) > 1 and coords[-1].distance(endPoint) < ptDistAllowance:
                     segLength = coords[-1].distance(coords[-2])
                     if len(coords) <= 1 or segLength > segLengthAllowance:
                         break
@@ -2568,7 +2662,7 @@ class BufferBuilder():
                         )
 
                 mergedLines.pop()
-
+        
         if len(mergedLinesGeom) > 1:
             return self._factory.createMultiLineString(mergedLinesGeom)
         elif len(mergedLinesGeom) == 1:
@@ -2591,18 +2685,23 @@ class BufferBuilder():
 
     def computeNodeEdges(self, bufferSegStrList: list, precisionModel) -> None:
         noder = self.getNoder(precisionModel)
+
         noder.computeNodes(bufferSegStrList)
+
         # SegmentString
         nodedSegStrings = noder.getNodedSubStrings()
+        logger.debug("buffer.computeNodeEdges noder:%s nodedSegStrings:%s", id(noder), len(nodedSegStrings))
         for segStr in nodedSegStrings:
+
             # Label
-            oldLabel = segStr.context
+            label = Label(segStr.context)
             # CoordinateSequence
             cs = CoordinateSequence.removeRepeatedPoints(segStr.coords)
             if len(cs) < 2:
+                logger.debug("buffer.computeNodeEdges cs:%s", cs)
                 continue
 
-            edge = Edge(cs, oldLabel)
+            edge = Edge(cs, label)
             self.insertUniqueEdge(edge)
 
     def insertUniqueEdge(self, edge) -> None:
@@ -2612,6 +2711,8 @@ class BufferBuilder():
          * If so, the edge is not inserted, but its label is merged
          * with the existing edge.
         """
+        # logger.debug("buffer.insertUniqueEdge()")
+
         existingEdge = self.edgeList.findEqualEdge(edge)
         if existingEdge is not None:
             existingLabel = existingEdge.label
@@ -2656,31 +2757,31 @@ class BufferBuilder():
          * The subgraph list must be sorted in rightmost-coordinate order.
          *
          * @param subgraphList the subgraphs to build
-         * @param polyBuilder the overlay::PolygonBuilder which will build
+         * @param polyBuilder the overlay.PolygonBuilder which will build
          *        the final polygons
         """
         # BufferSubgraph
         processedGraphs = []
-        for subgraph in subGraphList:
+        for i, subgraph in enumerate(subGraphList):
             # Coordinate
             p = subgraph.rightMostCoord
 
             # SubgraphDepthLocater
             locater = SubgraphDepthLocater(processedGraphs)
             outsideDepth = locater.getDepth(p)
-
+            
             subgraph.computeDepth(outsideDepth)
             subgraph.findResultEdges()
 
             processedGraphs.append(subgraph)
 
-            polyBuilder.add(subgraph.dirEdgeList, subgraph.nodes)
+            polyBuilder.add(subgraph)
 
     def getNoder(self, precisionModel):
         """
-         * Return the externally-set noding::Noder OR a newly created
+         * Return the externally-set noding.Noder OR a newly created
          * one using the given precisionModel.
-         * NOTE: if an externally-set noding::Noder is available no
+         * NOTE: if an externally-set noding.Noder is available no
          * check is performed to ensure it will use the
          * given PrecisionModel
         """
@@ -2696,9 +2797,9 @@ class BufferBuilder():
 
         else:
             self.li = LineIntersector(precisionModel)
-            self.intersectionAdder = IntersectionAdder(self.li)
+            self.si = IntersectionAdder(self.li)
 
-        noder = MCIndexNoder(self.intersectionAdder)
+        noder = MCIndexNoder(self.si)
         return noder
 
     def createEmptyResultGeometry(self):

@@ -32,7 +32,11 @@ from .algorithms import (
     MonotoneChainBuilder,
     MonotoneChainOverlapAction
     )
-from .constants import (
+from .shared import (
+    logger,
+    quicksort,
+    TopologyException,
+    CoordinateFilter,
     CoordinateSequence,
     LinearComponentExtracter
     )
@@ -181,7 +185,7 @@ class OrientedCoordinateArray():
             _co = tuple(reversed(self.coords))
         return hash((_co))
 
-                    
+
 class SegmentPointComparator():
     """
      * Implements a robust method of comparing the relative position of two
@@ -201,16 +205,16 @@ class SegmentPointComparator():
         xSign = SegmentPointComparator.relativeSign(p0.x, p1.x)
         ySign = SegmentPointComparator.relativeSign(p0.y, p1.y)
 
-        return {
-            0: SegmentPointComparator.compareValue(xSign, ySign),
-            1: SegmentPointComparator.compareValue(ySign, xSign),
-            2: SegmentPointComparator.compareValue(ySign, -xSign),
-            3: SegmentPointComparator.compareValue(-xSign, ySign),
-            4: SegmentPointComparator.compareValue(-xSign, -ySign),
-            5: SegmentPointComparator.compareValue(-ySign, -xSign),
-            6: SegmentPointComparator.compareValue(-ySign, xSign),
-            7: SegmentPointComparator.compareValue(xSign, -ySign)
-            }[octant]
+        return [
+            SegmentPointComparator.compareValue(xSign, ySign),
+            SegmentPointComparator.compareValue(ySign, xSign),
+            SegmentPointComparator.compareValue(ySign, -xSign),
+            SegmentPointComparator.compareValue(-xSign, ySign),
+            SegmentPointComparator.compareValue(-xSign, -ySign),
+            SegmentPointComparator.compareValue(-ySign, -xSign),
+            SegmentPointComparator.compareValue(-ySign, xSign),
+            SegmentPointComparator.compareValue(xSign, -ySign)
+            ][octant]
 
     @staticmethod
     def relativeSign(x0: float, x1: float) -> int:
@@ -233,6 +237,13 @@ class SegmentPointComparator():
         return 0
 
 
+def segmentNodeLT(s1, s2):
+    """
+     * sort segment nodes
+    """
+    return s1.compareTo(s2) < 0
+
+
 class SegmentNode():
     """
      * Represents an intersection point between two NodedSegmentString
@@ -241,6 +252,7 @@ class SegmentNode():
 
         # NodedSegmentString
         self.segString = edge
+        # Coordinate
         self.coord = coord
         self.segmentIndex = segmentIndex
         self.segmentOctant = segmentOctant
@@ -270,6 +282,9 @@ class SegmentNode():
 
         return SegmentPointComparator.compare(self.segmentOctant, self.coord, other.coord)
 
+    def __str__(self):
+        return "{} seg#={} octant#={}".format(self.coord, self.segmentIndex, self.segmentOctant)
+
 
 class SegmentNodeMap(dict):
     """
@@ -278,27 +293,35 @@ class SegmentNodeMap(dict):
     def __init__(self):
         dict.__init__(self)
         self._sorted = False
+        # SegmentNode
         self._nodes = []
 
     @property
     def nodes(self):
         if not self._sorded:
             self._sorted = True
-            self._nodes = sorted(list(self.values()), key=lambda n: n.segmentIndex)
+            self._nodes = list(self.values())
+            quicksort(self._nodes, segmentNodeLT)
+        # SegmentNode
         return self._nodes
 
     def insert(self, newNode):
         """
          * Adds a Node to the map, replacing any that is already at that location.
+         * NOTE:
+         * The above statement conflicts with SegmentNodeList.add()
+         * return -> SegmentIntersection found or added
          * @param newNode
         """
-
-        node = self.get(newNode.segmentIndex)
+        key = (newNode.segmentIndex, newNode.coord.x, newNode.coord.y)
+        node = self.get(key)
 
         if node is None:
             node = newNode
-            self[newNode.segmentIndex] = node
-            self._sorded = False
+
+        self._sorded = False
+
+        self[key] = node
 
         return node
 
@@ -329,6 +352,9 @@ class SegmentNodeList():
          *
          * @param splitEdges the split edges for this edge (in order)
         """
+        if len(splitEdges) == 0:
+            return
+
         # CoordinateSequence
         coords = self.edge.coords
 
@@ -352,8 +378,10 @@ class SegmentNodeList():
          * ownership of return value is transferred
         """
         coords = self.edge.coords
-        npts = ei0.segmentIndex - ei0.segmentIndex + 2
+        npts = ei1.segmentIndex - ei0.segmentIndex + 2
+        # Coordinate
         lastSegStartPt = coords[ei1.segmentIndex]
+
         # if the last intersection point is not equal to the its
         # segment start pt, add it to the points list as well.
         # (This check is needed because the distance metric is not
@@ -363,21 +391,26 @@ class SegmentNodeList():
 
         # Added check for npts being == 2 as in that case NOT using second point
         # would mean creating a SegmentString with a single point
-        useIntPt1 = npts == 2 or (ei1.isInterior or not ei1.coord == lastSegStartPt)
+        useIntPt1 = npts == 2 or (ei1.isInterior or ei1.coord != lastSegStartPt)
 
         if not useIntPt1:
             npts -= 1
 
         pts = CoordinateSequence()
-        ipt = 1
-        pts.append(ei0.coord)
-        for i in range(ei0.segmentIndex + 1, ei1.segmentIndex + 1):
-            pts.append(coords[ipt])
-            ipt += 1
-        if useIntPt1:
-            pts.append(ei1.coord)
-            ipt += 1
+        # ipt = 1
+        pts.append(ei0.coord.clone())
+        pts.extend(coords[ei0.segmentIndex + 1:ei1.segmentIndex + 1])
 
+        if useIntPt1:
+            pts.append(ei1.coord.clone())
+
+        logger.debug("SegmentNodeList.createSplitEdge(%s) s0:%s s1:%s %s-%s",
+            len(pts),
+            ei0.segmentIndex,
+            ei1.segmentIndex, 
+            pts[0],
+            pts[-1]
+            )
         return NodedSegmentString(pts, self.edge.context)
 
     def addCollapsedNodes(self) -> None:
@@ -392,6 +425,7 @@ class SegmentNodeList():
         collapsedVertexIndexes = []
         self.findCollapsesFromInsertedNodes(collapsedVertexIndexes)
         self.findCollapsesFromExistingVertices(collapsedVertexIndexes)
+
         # Node the collapses
         coords = self.edge.coords
         for vertexIndex in collapsedVertexIndexes:
@@ -403,6 +437,7 @@ class SegmentNodeList():
          * which are pre-existing in the vertex list.
         """
         coords = self.edge.coords
+        # or we'll never exit the loop below
         if len(coords) < 2:
             return
         for i in range(len(coords) - 2):
@@ -420,7 +455,10 @@ class SegmentNodeList():
          * the vertex must be added as a node as well.
         """
         nodes = self.nodes
+        # SegmentNode
         eiPrev = nodes[0]
+        # there should always be at least two entries in the list,
+        # since the endpoints are nodes
         for i in range(1, len(nodes)):
             ei = nodes[i]
             collapsedVertexIndex = self.findCollapseIndex(eiPrev, ei)
@@ -474,6 +512,10 @@ class SegmentNodeList():
          * Adds the edges to the input list (this is so a single list
          * can be used to accumulate all split edges for a Geometry).
         """
+
+        # @NOTE: debug only, should remove
+        testingSplitEdges = []
+
         # ensure that the list has entries for the first and last
         # since the endpoints are nodes
         self.addEndpoints()
@@ -481,15 +523,35 @@ class SegmentNodeList():
 
         # there should always be at least two entries in the list
         # since the endpoints are nodes
+        logger.debug("SegmentNodeList.addSplitEdges edgelist:%s", len(edgeList))
+
         nodes = self.nodes
         eiPrev = nodes[0]
         for i in range(1, len(nodes)):
             ei = nodes[i]
+
             if not ei.compareTo(eiPrev):
                 continue
+
+            # SegmentString
             newEdge = self.createSplitEdge(eiPrev, ei)
             edgeList.append(newEdge)
+            # @NOTE: debug only, should remove
+            testingSplitEdges.append(newEdge)
             eiPrev = ei
+
+        # @NOTE: debug only, should remove
+        logger.debug("SegmentNodeList.addSplitEdges(%s) for %s Nodes check for correctness",
+            len(edgeList),
+            len(nodes))
+
+        self.checkSplitEdgesCorrectness(testingSplitEdges)
+
+    def __str__(self):
+        return "Intersections: ({}):\n{}".format(
+            len(self.nodes),
+            "\n".join([str(n) for n in self.nodes])
+            )
 
 
 class SegmentIntersector():
@@ -542,9 +604,9 @@ class SegmentIntersectionDetector(SegmentIntersector):
         self.hasIntersection = False
         self.hasProperIntersection = False
         self.hasNonProperIntersection = False
-        # geom::Coordinate
+        # geom.Coordinate
         self.intPt = None
-        # geom::CoordinateSequence
+        # geom.CoordinateSequence
         self.intSegments = None
 
     def isDone(self) -> bool:
@@ -573,12 +635,12 @@ class SegmentIntersectionDetector(SegmentIntersector):
         if e0 == e1 and segIndex0 == segIndex1:
             return
 
-        p00 = e0.coords[segIndex0]
-        p01 = e0.coords[segIndex0 + 1]
-        p10 = e1.coords[segIndex1]
-        p11 = e1.coords[segIndex1 + 1]
+        p0 = e0.coords[segIndex0]
+        p1 = e0.coords[segIndex0 + 1]
+        q0 = e1.coords[segIndex1]
+        q1 = e1.coords[segIndex1 + 1]
 
-        self.li.computeLinesIntersection(p00, p01, p10, p11)
+        self.li.computeLinesIntersection(p0, p1, q0, q1)
 
         if self.li.hasIntersection:
 
@@ -606,11 +668,7 @@ class SegmentIntersectionDetector(SegmentIntersector):
                 self.intPt = self.li.intersectionPts[0]
 
                 # record intersecting segments
-                self.intSegments = CoordinateSequence()
-                self.intSegments.add(p00, True)
-                self.intSegments.add(p01, True)
-                self.intSegments.add(p10, True)
-                self.intSegments.add(p11, True)
+                self.intSegments = CoordinateSequence([p0, p1, q0, q1])
 
 
 class SegmentSetMutualIntersector():
@@ -628,7 +686,7 @@ class SegmentSetMutualIntersector():
     """
     def __init__(self):
         # SegmentIntersector
-        self.segInt = None
+        self.si = None
 
     def setBaseSegments(self, segStrings) -> None:
         """
@@ -683,6 +741,7 @@ class MCIndexSegmentSetMutualIntersector(SegmentSetMutualIntersector):
         self.intersectChains()
 
     def addToIndex(self, segStr) -> None:
+        # MonoChains
         segChains = []
         MonotoneChainBuilder.getChains(segStr.coords, segStr, segChains)
         for mc in segChains:
@@ -691,7 +750,7 @@ class MCIndexSegmentSetMutualIntersector(SegmentSetMutualIntersector):
             self.index.insert(mc.envelope, mc)
 
     def intersectChains(self) -> None:
-        overlapAction = SegmentOverlapAction(self.segInt)
+        overlapAction = SegmentOverlapAction(self.si)
 
         for queryChain in self.monoChains:
             overlapChains = []
@@ -700,7 +759,8 @@ class MCIndexSegmentSetMutualIntersector(SegmentSetMutualIntersector):
             for testChain in overlapChains:
                 queryChain.computeOverlaps(testChain, overlapAction)
                 self.nOverlaps += 1
-                if self.segInt.isDone:
+
+                if self.si.isDone:
                     return
 
     def addToMonoChains(self, segStr) -> None:
@@ -736,9 +796,142 @@ class FastSegmentSetIntersectionFinder():
         if intDetector is None:
             intDetector = SegmentIntersectionDetector(self.li)
 
-        self.si.segInt = intDetector
+        self.si.si = intDetector
         self.si.process(segStrings)
+        logger.debug("FastSegmentSetIntersectionFinder.intersects(intersect:%s) lines:%s",
+            intDetector.hasIntersection, len(segStrings))
         return intDetector.hasIntersection
+
+
+class SingleInteriorIntersectionFinder(SegmentIntersector):
+    """
+     * Finds an interior intersection in a set of SegmentString,
+     * if one exists.  Only the first intersection found is reported.
+     *
+     * @version 1.7
+    """
+    def __init__(self, li):
+        """
+         * Creates an intersection finder which finds an interior intersection
+         * if one exists
+         *
+         * @param li the LineIntersector to use
+        """
+        self.li = li
+        self.interiorIntersection = None
+        self.intSegments = []
+
+    @property
+    def hasIntersection(self) -> bool:
+        """
+         * Tests whether an intersection was found.
+         *
+         * @return true if an intersection was found
+        """
+        return self.interiorIntersection is not None
+
+    def processIntersections(self, e0, segIndex0: int, e1, segIndex1: int) -> None:
+        """
+         * This method is called by clients
+         * of the {@link SegmentIntersector} class to process
+         * intersections for two segments of the {@link SegmentStrings} being intersected.
+         *
+         * Note that some clients (such as {@link MonotoneChain}s) may optimize away
+         * this call for segment pairs which they have determined do not intersect
+         * (e.g. by an disjoint envelope test).
+        """
+        if self.hasIntersection:
+            return
+
+        # don't bother intersecting a segment with itself
+        if e0 == e1 and segIndex0 == segIndex1:
+            return
+
+        p0 = e0.coords[segIndex0]
+        p1 = e0.coords[segIndex0 + 1]
+        q0 = e1.coords[segIndex1]
+        q1 = e1.coords[segIndex1 + 1]
+
+        self.li.computeLinesIntersection(p0, p1, q0, q1)
+
+        if self.li.hasIntersection:
+            if self.li.isInteriorIntersection:
+                self.intSegments = [p0, p1, q0, q1]
+                self.interiorIntersection = self.li.intersectionPts[0]
+
+    @property
+    def isDone(self) -> bool:
+        return self.interiorIntersection is not None
+
+
+class FastNodingValidator():
+    """
+     * Validates that a collection of {@link SegmentString}s is correctly noded.
+     *
+     * Uses indexes to improve performance.
+     * Does NOT check a-b-a collapse situations.
+     * Also does not check for endpt-interior vertex intersections.
+     * This should not be a problem, since the noders should be
+     * able to compute intersections between vertices correctly.
+     * User may either test the valid condition, or request that a
+     * {@link TopologyException}
+     * be thrown.
+     *
+     * @version 1.7
+    """
+    def __init__(self, segStrings: list) -> None:
+        self.li = LineIntersector()
+        self.segStrings = segStrings
+        self.si = None
+        self._isValid = True
+
+    @property
+    def isValid(self) -> bool:
+        """
+         * Checks for an intersection and
+         * reports if one is found.
+         *
+         * @return true if the arrangement contains an interior intersection
+        """
+        self.execute()
+        return self._isValid
+
+    def getErrorMessage(self) -> str:
+        """
+         * Returns an error message indicating the segments containing
+         * the intersection.
+         *
+         * @return an error message documenting the intersection location
+        """
+        if self._isValid:
+            return "no intersection found"
+
+        return "found non noded intersection"
+
+    def checkValid(self) -> None:
+        """
+         * Checks for an intersection and throws
+         * a TopologyException if one is found.
+         *
+         * @throws TopologyException if an intersection is found
+        """
+        self.execute()
+        if not self._isValid:
+            raise TopologyException(self.getErrorMessage(), self.si.interiorIntersection)
+
+    def execute(self) -> None:
+        if self.si is not None:
+            return
+        self.checkInteriorIntersections()
+
+    def checkInteriorIntersections(self):
+        self._isValid = True
+        self.si = SingleInteriorIntersectionFinder(self.li)
+        noder = MCIndexNoder(self.si)
+        noder.computeNodes(self.segStrings)
+        if self.si.hasIntersection:
+            self._isValid = False
+            return
 
 
 class IntersectionAdder(SegmentIntersector):
@@ -817,10 +1010,10 @@ class IntersectionAdder(SegmentIntersector):
 
         p0 = e0.coords[segIndex0]
         p1 = e0.coords[segIndex0 + 1]
-        p2 = e1.coords[segIndex1]
-        p3 = e1.coords[segIndex1 + 1]
+        q0 = e1.coords[segIndex1]
+        q1 = e1.coords[segIndex1 + 1]
 
-        _li.computeLinesIntersection(p0, p1, p2, p3)
+        _li.computeLinesIntersection(p0, p1, q0, q1)
 
         # No intersection, nothing to do
         if not _li.hasIntersection:
@@ -839,7 +1032,7 @@ class IntersectionAdder(SegmentIntersector):
         if not self.isTrivialIntersection(e0, segIndex0, e1, segIndex1):
 
             self.hasIntersection = True
-
+            logger.debug("seg1:%s seg2:%s", segIndex0, segIndex1)
             e0.addIntersections(_li, segIndex0, 0)
             e1.addIntersections(_li, segIndex1, 1)
 
@@ -888,7 +1081,7 @@ class SegmentStringUtil():
         lines = []
 
         LinearComponentExtracter.getLines(geom, lines)
-
+        logger.debug("SegmentStringUtil.extractSegmentStrings(%s)", len(lines))
         for line in lines:
             segStr.append(NodedSegmentString(line.coords, geom))
 
@@ -938,7 +1131,7 @@ class NodedSegmentString(SegmentString):
      * for preserving topological or parentage information.
      * All noded substrings are initialized with the same context object.
     """
-    def __init__(self, coords, context):
+    def __init__(self, coords, context=None):
         """
          * Creates a new segment string from a list of vertices.
          *
@@ -1000,7 +1193,7 @@ class NodedSegmentString(SegmentString):
         if index >= self.size - 1:
             return -1
 
-        return Octant.octant(self.coords[index], self.coords[index + 1])
+        return NodedSegmentString.safeOctant(self.coords[index], self.coords[index + 1])
 
     def addIntersections(self, li, segmentIndex: int, geomIndex: int) -> None:
         """
@@ -1019,7 +1212,7 @@ class NodedSegmentString(SegmentString):
          * of the SegmentString is normalized
          * to use the higher of the two possible segmentIndexes
         """
-        coord = li.getIntersection(intIndex)
+        coord = li.intersectionPts[intIndex]
         self._addIntersection(coord, segmentIndex)
 
     def _addIntersection(self, coord, segmentIndex: int) -> None:
@@ -1031,12 +1224,15 @@ class NodedSegmentString(SegmentString):
          * to use the higher of the two possible segmentIndexes
         """
         normalizedSegmentIndex = segmentIndex
+        size = self.size
 
-        if segmentIndex > self.size - 2:
-            raise ValueError("SegmentString::addIntersection: SegmentIndex out of range")
+        if segmentIndex > size - 2:
+            raise ValueError("SegmentString.addIntersection: SegmentIndex out of range")
+
         # normalize the intersection point location
         nextSegIndex = normalizedSegmentIndex + 1
-        if nextSegIndex < self.size:
+
+        if nextSegIndex < size:
             # Coordinate
             nextPt = self.coords[nextSegIndex]
 
@@ -1057,10 +1253,12 @@ class NodedSegmentString(SegmentString):
         return Octant.octant(p0, p1)
 
     @staticmethod
-    def getNodedSubstrings(segStrings: list, resultEdgeList: list=[]) -> list:
+    def getNodedSubStrings(segStrings: list, resultEdgeList: list=[]) -> list:
 
         for ss in segStrings:
             ss.nodeList.addSplitEdges(resultEdgeList)
+
+        logger.debug("NodedSegmentString.getNodedSubStrings(%s)", len(resultEdgeList))
 
         return resultEdgeList
 
@@ -1075,7 +1273,7 @@ class SinglePassNoder():
     """
     def __init__(self, nSegInt=None):
         # SegmentIntersector
-        self.segInt = nSegInt
+        self.si = nSegInt
 
 
 class SegmentOverlapAction(MonotoneChainOverlapAction):
@@ -1086,6 +1284,7 @@ class SegmentOverlapAction(MonotoneChainOverlapAction):
         self.si = si
 
     def overlap(self, mc1, start1: int, mc2, start2: int) -> None:
+        # SegmentString
         ss1 = mc1.context
         ss2 = mc2.context
         self.si.processIntersections(ss1, start1, ss2, start2)
@@ -1094,14 +1293,14 @@ class SegmentOverlapAction(MonotoneChainOverlapAction):
 class MCIndexNoder(SinglePassNoder):
     """
      * Nodes a set of SegmentString using a index based
-     * on index::chain::MonotoneChain and a index::SpatialIndex.
+     * on index.chain.MonotoneChain and a index.SpatialIndex.
      *
      * The {@link SpatialIndex} used should be something that supports
-     * envelope (range) queries efficiently (such as a index::quadtree::Quadtree
-     * or index::strtree::STRtree.
+     * envelope (range) queries efficiently (such as a index.quadtree.Quadtree
+     * or index.strtree.STRtree.
     """
-    def __init__(self, segInt=None):
-        SinglePassNoder.__init__(self, segInt)
+    def __init__(self, si=None):
+        SinglePassNoder.__init__(self, si)
         self.idCounter = 0
         # SegmentString
         self.nodedSegStrings = None
@@ -1117,12 +1316,19 @@ class MCIndexNoder(SinglePassNoder):
             self.add(segStr)
 
         self.intersectChains()
+        logger.debug("noder:[%s] index:[%s] MCIndexNoder.computeNodes(%s) overlaps:%s",
+            id(self),
+            id(self.index),
+            len(self.monoChains),
+            self.nOverlaps)
 
     def getNodedSubStrings(self) -> list:
-        return NodedSegmentString.getNodedSubstrings(self.nodedSegStrings)
+        res = []
+        NodedSegmentString.getNodedSubStrings(self.nodedSegStrings, res)
+        return res
 
     def intersectChains(self) -> None:
-        overlapAction = SegmentOverlapAction(self.segInt)
+        overlapAction = SegmentOverlapAction(self.si)
 
         for queryChain in self.monoChains:
             #
@@ -1138,7 +1344,7 @@ class MCIndexNoder(SinglePassNoder):
                     queryChain.computeOverlaps(testChain, overlapAction)
                     self.nOverlaps += 1
 
-                if self.segInt.isDone:
+                if self.si.isDone:
                     return
 
     def add(self, segStr) -> None:
@@ -1152,3 +1358,68 @@ class MCIndexNoder(SinglePassNoder):
             self.idCounter += 1
             self.index.insert(mc.envelope, mc)
             self.monoChains.append(mc)
+
+
+class ScaledNoder():
+    """
+     * Wraps a {@link Noder} and transforms its input
+     * into the integer domain.
+     *
+     * This is intended for use with Snap-Rounding noders,
+     * which typically are only intended to work in the integer domain.
+     * Offsets can be provided to increase the number of digits of
+     * available precision.
+     *
+    """
+    def __init__(self, noder, scale: float=1.0, offsetX: float=0.0, offsetY: float=0.0):
+        # Noder
+        self.noder = noder
+        self.scale = scale
+        self.offsetX = offsetX
+        self.offsetY = offsetY
+        self.isScaled = scale != 1.0
+
+    @property
+    def isIntegerPrecision(self) -> bool:
+        return self.scale == 1.0
+
+    def getNodedSubStrings(self):
+        splitSS = self.noder.getNodedSubStrings()
+        if self.isScaled:
+            self._rescale(splitSS)
+        return splitSS
+
+    def computeNodes(self, inputSegStr):
+        if self.isScaled:
+            self._scale(inputSegStr)
+        self.noder.computeNodes(inputSegStr)
+
+    def _rescale(self, segStrings) -> None:
+        rescaler = ScaledNoderRescaler(self)
+        for ss in segStrings:
+            ss.coords.apply_rw(rescaler)
+
+    def _scale(self, segStrings) -> None:
+        rescaler = ScaledNoderScaler(self)
+        for ss in segStrings:
+            coords = ss.coords.clone()
+            coords.apply_rw(rescaler)
+            ss.coords = CoordinateSequence.removeRepeatedPoints(coords)
+
+
+class ScaledNoderScaler(CoordinateFilter):
+    def __init__(self, scaleNoder):
+        self.sn = scaleNoder
+
+    def filter_rw(self, coord):
+        coord.x = round((coord.x - self.sn.offsetX) * self.sn.scale)
+        coord.y = round((coord.y - self.sn.offsetY) * self.sn.scale)
+
+
+class ScaledNoderRescaler(CoordinateFilter):
+    def __init__(self, scaleNoder):
+        self.sn = scaleNoder
+
+    def filter_rw(self, coord):
+        coord.x = coord.x / self.sn.scale + self.sn.offsetX
+        coord.y = coord.y / self.sn.scale + self.sn.offsetY

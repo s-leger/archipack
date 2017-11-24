@@ -24,17 +24,19 @@
 # ----------------------------------------------------------
 
 
-from .constants import (
+from .shared import (
+    logger,
+    Envelope,
+    GeomTypeId,
     GeometryComponentFilter,
     GeometryTransformer
     )
 from .algorithms import (
-    LineSegment
+    LineSegment,
+    LineIntersector,
+    ItemVisitor
     )
-
-
-# @TODO: turn this into an Op
-# depends on geometry.buffer
+from .index_quadtree import Quadtree
 
 
 class DouglasPeuckerLineSimplifier():
@@ -60,21 +62,33 @@ class DouglasPeuckerLineSimplifier():
             return self.coords
         self.usePt = [True for i in range(nCoords)]
         self.simplifySection(0, nCoords - 1)
-        
+
         # S.L add : remove first/last point of closed curves when apply
         if self.coords[0] == self.coords[-1] and nCoords > 2:
             c = self.coords
-            seg = LineSegment(c[-2], c[1])
-            distance = seg.distance(c[0])
-            # remove first point
-            if distance < self.tolerance:
-                self.usePt[0] = False
-                self.usePt[-1] = False
-                newCoords = [coord for i, coord in enumerate(self.coords) if self.usePt[i]]
-                # close the ring
-                newCoords.append(newCoords[0])
-                return newCoords
-                
+
+            # find one valid points on both ends
+            start = -1
+            end = 1
+
+            while not self.usePt[start] and nCoords + start > end:
+                start -= 1
+
+            while not self.usePt[end] and nCoords + start > end:
+                end += 1
+
+            if self.usePt[end] and self.usePt[start]:
+                seg = LineSegment(c[start], c[end])
+                distance = seg.distance(c[0])
+                # remove first and last point
+                if distance < self.tolerance:
+                    self.usePt[0] = False
+                    self.usePt[-1] = False
+                    newCoords = [coord for i, coord in enumerate(self.coords) if self.usePt[i]]
+                    # close the ring
+                    newCoords.append(newCoords[0])
+                    return newCoords
+
         return [coord for i, coord in enumerate(self.coords) if self.usePt[i]]
 
     def simplifySection(self, i: int, j: int) -> None:
@@ -116,7 +130,7 @@ class DPTransformer(GeometryTransformer):
     def transformPolygon(self, geom, parent):
         roughGeom = GeometryTransformer.transformPolygon(self, geom, parent)
 
-        if type(parent).__name__ == 'MultiPolygon':
+        if parent.type_id == GeomTypeId.GEOS_MULTIPOLYGON:
             return roughGeom
 
         return self.createValidArea(roughGeom)
@@ -140,7 +154,7 @@ class DPTransformer(GeometryTransformer):
          *        self-intersections
          * @return a valid area geometry
         """
-        return roughAreaGeom.buffer(0.0)
+        return roughAreaGeom.buffer(0)
 
 
 class DouglasPeukerSimplifier():
@@ -175,6 +189,9 @@ class DouglasPeukerSimplifier():
     @staticmethod
     def simplify(geom, tolerance: float):
         dps = DouglasPeukerSimplifier(geom)
+        logger.debug("******************************\n")
+        logger.debug("DouglasPeukerSimplifier.simplify()\n")
+        logger.debug("******************************")
         dps.tolerance = tolerance
         return dps.getResultGeometry()
 
@@ -194,13 +211,15 @@ class LineStringTransformer(GeometryTransformer):
 
     def transformCoordinates(self, coords, parent):
 
-        if type(parent).__name__ == 'Linestring':
+        if parent.type_id == GeomTypeId.GEOS_LINESTRING:
             taggedLine = self.linestringMap.find(parent)
-            return taggedLine.getResultCoorinates()
+            newCoords = taggedLine.resultCoordinates
+            logger.debug("LineStringTransformer.transformCoordinates(%s)", len(newCoords))
+            return newCoords
 
         else:
             # for anything else (e.g. points) just copy the coordinates
-            return GeometryTransformer.transformCoordinates(coords, parent)
+            return GeometryTransformer.transformCoordinates(self, coords, parent)
 
 
 class LineStringMapBuilderFilter(GeometryComponentFilter):
@@ -221,7 +240,7 @@ class LineStringMapBuilderFilter(GeometryComponentFilter):
         self.linestringMap = linestringMap
 
     def filter_ro(self, geom):
-        if type(geom).__name__ == 'LineString':
+        if geom.type_id == GeomTypeId.GEOS_LINESTRING:
             if geom.isClosed:
                 minSize = 4
             else:
@@ -232,14 +251,47 @@ class LineStringMapBuilderFilter(GeometryComponentFilter):
             return
 
 
+class LineSegmentVisitor(ItemVisitor):
+
+    def __init__(self, seg):
+        ItemVisitor.__init__(self),
+        self.seg = seg
+        self.items = []
+
+    def visitItem(self, seg):
+        if Envelope.static_intersects(seg.p0, seg.p1, self.seg.p0, self.seg.p1):
+            self.items.append(seg)
+
+
 class LineSegmentIndex():
     """
     """
+    def __init__(self):
+        self.index = Quadtree()
+
+    def add(self, line):
+        for seg in line.segs:
+            self.addSegment(seg)
+
+    def addSegment(self, seg):
+        env = Envelope(seg.p0, seg.p1)
+        self.index.insert(env, seg)
+
+    def remove(self, seg):
+        env = Envelope(seg.p0, seg.p1)
+        self.index.remove(env, seg)
+
+    def query(self, seg):
+        env = Envelope(seg.p0, seg.p1)
+        visitor = LineSegmentVisitor(seg)
+        self.index.visit(env, visitor)
+        # LineSegment
+        return visitor.items
 
 
 class TaggedLineSegment(LineSegment):
     """
-     * A geom::LineSegment which is tagged with its location in a geom::Geometry.
+     * A geom.LineSegment which is tagged with its location in a geom.Geometry.
      *
      * Used to index the segments in a geometry and recover the segment locations
      * from the index.
@@ -257,15 +309,210 @@ class TaggedLineSegment(LineSegment):
 
 class TaggedLineString():
     """
+     * Contains and owns a list of TaggedLineSegments
     """
+    def __init__(self, parent, minimumSize: int=2) -> None:
+        # Linestring
+        self.parent = parent
+        self.minimumSize = minimumSize
+        # TaggedLineSegments
+        self.segs = []
+        self.result = []
+        self.init()
+
+    def init(self) -> None:
+        coords = self.parent.coords
+        if len(coords) > 0:
+            for i in range(len(coords) - 1):
+                seg = TaggedLineSegment(coords[i], coords[i + 1], self.parent, i)
+                self.segs.append(seg)
+
+    @property
+    def resultCoordinates(self):
+        coords = self.extractCoordinates(self.result)
+        return self.parent._factory.coordinateSequenceFactory.create(coords)
+
+    def asLineString(self):
+        return self.parent._factory.createLineString(self.resultCoordinates)
+
+    def asLinearRing(self):
+        return self.parent._factory.createLinearRing(self.resultCoordinates)
+
+    @property
+    def resultSize(self) -> int:
+        res = len(self.result)
+        if res > 0:
+            res += 1
+        return res
+
+    def addToResult(self, seg):
+        self.result.append(seg)
+
+    def extractCoordinates(self, segs):
+        coords = [seg.p0 for seg in segs]
+        coords.append(segs[-1].p1)
+        return coords
 
 
 class TaggedLineStringSimplifier():
     """
+     * Simplifies a TaggedLineString, preserving topology
+     * (in the sense that no new intersections are introduced).
+     * Uses the recursive Douglas-Peucker algorithm.
     """
+    def __init__(self, inputIndex, outputIndex) -> None:
+        self.inputIndex = inputIndex
+        self.outputIndex = outputIndex
+        self.li = LineIntersector()
+        # TaggedLineString
+        self.line = None
+        self.coords = None
+        self.tolerance = 0
+
+    def simplify(self, line) -> None:
+        """
+         * Simplifies the given {@link TaggedLineString}
+         * using the distance tolerance specified.
+         *
+         * @param line the linestring to simplify
+        """
+        self.line = line
+        self.coords = line.parent.coords
+        if len(self.coords) == 0:
+            logger.warning("TaggedLineStringSimplifier.simplify parent.coords == 0")
+            return
+        self.simplifySection(0, len(self.coords) - 1, 0)
+        logger.debug("TaggedLineStringSimplifier.simplify segs:%s result:%s", len(self.line.segs), self.line.resultSize)
+            
+    def simplifySection(self, i: int, j: int, depth: int) -> None:
+        depth += 1
+        sectionIndex = [0, 0]
+        if i + 1 == j:
+            self.line.addToResult(self.line.segs[i])
+            # leave this segment in the input index, for efficiency
+            return
+
+        isValidToSimplify = True
+        """
+         * Following logic ensures that there is enough points in the
+         * output line.
+         * If there is already more points than the minimum, there's
+         * nothing to check.
+         * Otherwise, if in the worst case there wouldn't be enough points,
+         * don't flatten this segment (which avoids the worst case scenario)
+        """
+        if self.line.resultSize < self.line.minimumSize:
+            worstCaseSize = depth + 1
+            if worstCaseSize < self.line.minimumSize:
+                isValidToSimplify = False
+
+        furthestPtIndex, distance = self.findFurthestPoint(self.coords, i, j)
+
+        # flattening must be less than distanceTolerance
+        if distance > self.tolerance:
+            isValidToSimplify = False
+
+        candidateSeg = LineSegment(self.coords[i], self.coords[j])
+        sectionIndex[0] = i
+        sectionIndex[1] = j
+
+        if self.hasBadIntersection(self.line, sectionIndex, candidateSeg):
+            isValidToSimplify = False
+
+        if isValidToSimplify:
+            # TaggedLineSegment
+            newSeg = self.flatten(i, j)
+            self.line.addToResult(newSeg)
+            return
+
+        self.simplifySection(i, furthestPtIndex, depth)
+        self.simplifySection(furthestPtIndex, j, depth)
+
+    def findFurthestPoint(self, coords, i: int, j: int):
+        seg = LineSegment(coords[i], coords[j])
+        maxDist = -1.0
+        maxIndex = i
+        for k in range(i + 1, j):
+            midPt = coords[k]
+            distance = seg.distance(midPt)
+            if distance > maxDist:
+                maxDist = distance
+                maxIndex = k
+
+        return maxIndex, maxDist
+
+    def hasBadIntersection(self, parentLine, sectionIndex: list, candidateSeg) -> bool:
+
+        if self.hasBadOutputIntersection(candidateSeg):
+            return True
+
+        if self.hasBadInputIntersection(parentLine, sectionIndex, candidateSeg):
+            return True
+
+        return False
+
+    def hasBadInputIntersection(self, parentLine, sectionIndex: list, candidateSeg) -> bool:
+        querySegs = self.inputIndex.query(candidateSeg)
+        for seg in querySegs:
+            if self.hasInteriorIntersection(seg, candidateSeg):
+                if self.isInLineSection(parentLine, sectionIndex, seg):
+                    continue
+                return True
+        return False
+
+    def hasBadOutputIntersection(self, candidateSeg) -> bool:
+        querySegs = self.outputIndex.query(candidateSeg)
+        for seg in querySegs:
+            if self.hasInteriorIntersection(seg, candidateSeg):
+                return True
+        return False
+
+    def hasInteriorIntersection(self, seg0, seg1) -> bool:
+        self.li.computeLinesIntersection(seg0.p0, seg0.p1, seg1.p0, seg1.p1)
+        return self.li.isInteriorIntersection
+
+    def flatten(self, start: int, end: int):
+        p0 = self.coords[start]
+        p1 = self.coords[end]
+        newSeg = TaggedLineSegment(p0, p1)
+        self.remove(self.line, start, end)
+        self.outputIndex.addSegment(newSeg)
+        return newSeg
+
+    def isInLineSection(self, parentLine, sectionIndex: list, seg) -> bool:
+        """
+         * Tests whether a segment is in a section of a TaggedLineString
+         *
+         * @param line
+         * @param sectionIndex
+         * @param seg
+         * @return
+        """
+        if seg.parent is not self.line.parent:
+            return False
+
+        segIndex = seg.index
+        if segIndex >= sectionIndex[0] and segIndex < sectionIndex[1]:
+            return True
+
+        return False
+
+    def remove(self, line, start: int, end: int) -> None:
+        """
+         * Remove the segs in the section of the line
+         *
+         * @param line
+         * @param pts
+         * @param sectionStartIndex
+         * @param sectionEndIndex
+        """
+        for i in range(start, end):
+            seg = line.segs[i]
+            self.inputIndex.remove(seg)
 
 
 class TaggedLinesSimplifier():
+    
     def __init__(self):
 
         # LineSegmentIndex
@@ -297,17 +544,16 @@ class TaggedLinesSimplifier():
 
 class LinesMap(dict):
 
-    def __init__(self, geom, minSize):
+    def __init__(self):
         dict.__init__(self)
 
     def insert(self, geom, taggedLine):
-        tl = self.find(geom)
+        tl = self.find(id(geom))
         if tl is None:
-            self[geom] = taggedLine
-            tl = taggedLine
-
+            self[id(geom)] = taggedLine
+            
     def find(self, geom):
-        return self.get(geom)
+        return self.get(id(geom))
 
 
 class TopologyPreservingSimplifier():
@@ -346,7 +592,7 @@ class TopologyPreservingSimplifier():
     @staticmethod
     def simplify(geom, tolerance):
         tps = TopologyPreservingSimplifier(geom)
-        tps.tolerance = tolerance
+        tps.lineSimplifier.tolerance = tolerance
         return tps.getResultGeometry()
 
     def getResultGeometry(self):
@@ -359,8 +605,9 @@ class TopologyPreservingSimplifier():
         lsmbf = LineStringMapBuilderFilter(linestringMap)
         self.geom.apply_ro(lsmbf)
 
-        linestrings = linestringMap.values()
+        linestrings = list(linestringMap.values())
+        logger.debug("TopologyPreservingSimplifier.getResultGeometry linestrings:%s", len(linestrings))
         self.lineSimplifier.simplify(linestrings, 0, len(linestrings))
 
-        trans = LineStringTransformer(linestrings)
+        trans = LineStringTransformer(linestringMap)
         return trans.transform(self.geom)

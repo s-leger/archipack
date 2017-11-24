@@ -30,8 +30,8 @@ implement nearestneighboor and BoundablePair
 """
 
 
-from .constants import Envelope
-from math import ceil
+from .shared import Envelope
+from math import ceil, sqrt
 
 
 class Interval():
@@ -111,12 +111,12 @@ class SpatialIndex():
         raise NotImplementedError()
 
 
-class ItemsListItem():  
-     
-     item_is_geometry = 0
-     item_is_list = 1
-     
-     def __init__(self, item):
+class ItemsListItem():
+
+    item_is_geometry = 0
+    item_is_list = 1
+
+    def __init__(self, item):
         self.g = None
         self.l = None
         if type(item).__name__ == 'ItemsList':
@@ -125,39 +125,39 @@ class ItemsListItem():
         else:
             self.t = ItemsListItem.item_is_geometry
             self.g = item
-     
-     def get_itemlist(self):
+
+    def get_itemlist(self):
         assert(self.t == ItemsListItem.item_is_list), "wrong type"
         return self.l
-        
-     def get_geometry(self):
+
+    def get_geometry(self):
         assert(self.t == ItemsListItem.item_is_geometry), "wrong type"
         return self.g
-        
-     def __str__(self): 
+
+    def __str__(self):
         if self.t == ItemsListItem.item_is_list:
             return "ItemsListItem t:{}\n{}".format(self.t, str(self.t))
         else:
             return "ItemsListItem t:{} {}".format(self.t, type(self.g).__name__)
-       
-       
+
+
 class ItemsList(list):
-     # list contains boundables or lists of boundables. The lists are owned by
-     # this class, the plain boundables are held by reference only.
-     def __init__(self):
+    # list contains boundables or lists of boundables. The lists are owned by
+    # this class, the plain boundables are held by reference only.
+    def __init__(self):
         list.__init__(self)
-     
-     def delete_item(self, item):
+
+    def delete_item(self, item):
         if ItemsListItem.item_is_list == item.t:
             del item.l
-     
-     def add(self, item):
+
+    def add(self, item):
         self.append(ItemsListItem(item))
-     
-     def __str__(self):
+
+    def __str__(self):
         return "ItemsList {}".format("\n".join([str(item) for item in self]))
-     
-     
+
+
 class Boundable():
     """
      * Returns a representation of space that encloses this Boundable,
@@ -170,12 +170,12 @@ class Boundable():
      * @return an Envelope (for STRtrees), an Interval (for SIRtrees),
      * or other object (for other subclasses of AbstractSTRtree)
      *
-     * @see AbstractSTRtree::IntersectsOp
+     * @see AbstractSTRtree.IntersectsOp
     """
     @property
     def bounds(self):
         return self._bounds
-    
+
 
 class ItemBoundable(Boundable):
     """
@@ -234,7 +234,7 @@ class AbstractNode(Boundable):
          * @return an Envelope (for STRtrees), an Interval (for SIRtrees),
          *  or other object (for other subclasses of AbstractSTRtree)
          *
-         * @see AbstractSTRtree::IntersectsOp
+         * @see AbstractSTRtree.IntersectsOp
         """
         if self._bounds is None:
             self._bounds = self._computeBounds()
@@ -261,7 +261,7 @@ class AbstractSTRtree():
      * because the STR algorithm operates on both nodes and
      * data, both of which are treated here as Boundables.
     """
-    def __init__(self, nodeCapacity):
+    def __init__(self, nodeCapacity: int):
 
         self._built = False
 
@@ -280,7 +280,7 @@ class AbstractSTRtree():
         """
         self._intersectOp = None
 
-    def _createHigherLevels(self, childsOfALevel, level):
+    def _createHigherLevels(self, childsOfALevel, level: int):
         """
          * Creates the levels higher than the given level
          *
@@ -342,10 +342,10 @@ class AbstractSTRtree():
             node.childs.pop(i)
             return True
 
-    def _createNode(self, level):
+    def _createNode(self, level: int):
         raise NotImplementedError()
 
-    def _createParentBoundables(self, childs, newLevel):
+    def _createParentBoundables(self, childs: list, newLevel: int) -> list:
         """
          * Sorts the childs then divides them into groups of size M, where
          * M is the node capacity.
@@ -353,17 +353,18 @@ class AbstractSTRtree():
         # BoundableList
         parentBoundables = []
         parentBoundables.append(self._createNode(newLevel))
-        sortedChildBoundables = self._sortBoundables(childs)
-        for child in sortedChildBoundables:
+        sortedChilds = self._sortBoundables(childs)
+        for child in sortedChilds:
             # AbstractNode
             last = self._lastNode(parentBoundables)
             if len(last.childs) == self.nodeCapacity:
                 last = self._createNode(newLevel)
                 parentBoundables.append(last)
             last.addChild(child)
+            
         return parentBoundables
 
-    def _lastNode(self, nodeList):
+    def _lastNode(self, nodeList: list):
         return nodeList[-1]
 
     def insert(self, bounds, item):
@@ -374,11 +375,15 @@ class AbstractSTRtree():
         if not self._built:
             self.build()
         if self._intersectOp.intersects(self.root.bounds, searchBounds):
-            if hasattr(foundItems, '__iter__'):
-                self._query(searchBounds, self.root, foundItems)
-            else:
-                self._visitor(searchBounds, self.root, foundItems)
-
+            self._query(searchBounds, self.root, foundItems)
+            
+    def visit(self, searchBounds, visitor):
+        # Also builds the tree, if necessary.
+        if not self._built:
+            self.build()
+        if self._intersectOp.intersects(self.root.bounds, searchBounds):
+            self._visit(searchBounds, self.root, visitor)
+    
     def build(self):
         """
          * Creates parent nodes, grandparent nodes, and so forth up to the root
@@ -395,7 +400,7 @@ class AbstractSTRtree():
             self.root = self._createHigherLevels(self.itemBoundables, -1)
         self._built = True
 
-    def _visitor(self, searchBounds, node, visitor):
+    def _visit(self, searchBounds, node, visitor):
         childs = node.childs
         for child in childs:
             if not self._intersectOp.intersects(child.bounds, searchBounds):
@@ -403,7 +408,7 @@ class AbstractSTRtree():
 
             cls = type(child)
             if issubclass(cls, AbstractNode):
-                self._visitor(searchBounds, child, visitor)
+                self._visit(searchBounds, child, visitor)
             elif issubclass(cls, ItemBoundable):
                 visitor.visiteItem(child.item)
 
@@ -476,21 +481,21 @@ class AbstractSTRtree():
          * @note The caller is responsible for releasing the list
          *
          * @return a List of items and/or Lists
-        """        
+        """
         if not self._built:
             self.build()
         # ItemsList
         valuesTree = self._itemsTree(self.root)
-        
+
         if valuesTree is None:
             return ItemsList()
-        
+
         return valuesTree
 
     def _itemsTree(self, node):
 
         valuesTreeForNode = ItemsList()
-        
+
         for child in node.childs:
             # Boundable
             cls = type(child)
@@ -553,12 +558,12 @@ class STRtree(AbstractSTRtree, SpatialIndex):
      * Databases With Application To GIS. Morgan Kaufmann, San Francisco, 2002.
      *
     """
-    def __init__(self, nodeCapacity=10):
+    def __init__(self, nodeCapacity: int=10):
         SpatialIndex.__init__(self)
         AbstractSTRtree.__init__(self, nodeCapacity)
         self._intersectOp = STRIntersectsOp()
 
-    def _createParentBoundables(self, childs, newLevel):
+    def _createParentBoundables(self, childs: list, newLevel: int) -> list:
         """
          * Creates the parent level for the given child level. First, orders the items
          * by the x-values of the midpoints, and groups them into vertical slices.
@@ -571,10 +576,10 @@ class STRtree(AbstractSTRtree, SpatialIndex):
         # BoundableList
         sortedChildBoundables = self._sortBoundables(childs)
         # BoundableList
-        verticalSlices = self._verticalSlices(sortedChildBoundables, minLeafCount)
+        verticalSlices = self._verticalSlices(sortedChildBoundables, int(ceil(sqrt(minLeafCount))))
         return self._createParentBoundablesFromVerticalSlices(verticalSlices, newLevel)
 
-    def _createParentBoundablesFromVerticalSlices(self, verticalSlices, newLevel):
+    def _createParentBoundablesFromVerticalSlices(self, verticalSlices: list, newLevel: int) -> list:
         """
         """
         parentBoundables = []
@@ -585,13 +590,13 @@ class STRtree(AbstractSTRtree, SpatialIndex):
 
         return parentBoundables
 
-    def _sortBoundables(self, input):
+    def _sortBoundables(self, input: list) -> list:
         return list(sorted(input, key=lambda n: (n.bounds.miny + n.bounds.maxy) / 2.0))
-        
-    def _createParentBoundablesFromVerticalSlice(self, childs, newLevel):
+
+    def _createParentBoundablesFromVerticalSlice(self, childs: list, newLevel: int) -> list:
         return AbstractSTRtree._createParentBoundables(self, childs, newLevel)
 
-    def _verticalSlices(self, childs, sliceCount):
+    def _verticalSlices(self, childs: list, sliceCount: int) -> list:
         """
          * @param childs Must be sorted by the x-value of
          *        the envelope midpoints
@@ -600,25 +605,31 @@ class STRtree(AbstractSTRtree, SpatialIndex):
         nchilds = len(childs)
         sliceCapacity = int(ceil(nchilds / sliceCount))
         slices = []
+        
         start = 0
         end = sliceCapacity
+        
         for j in range(sliceCount):
+            
             if end > nchilds:
                 end = nchilds
+            
             slices.append(childs[start:end])
             start += sliceCapacity
             end += sliceCapacity
+            
         return slices
 
-    def _createNode(self, level):
+    def _createNode(self, level: int):
         an = STRAbstractNode(level, self.nodeCapacity)
         self.nodes.append(an)
         return an
 
-    def avg(a, b):
+    @staticmethod    
+    def avg(a: float, b: float) -> float:
         return (a + b) / 2.0
 
-    def centreY(self, env):
+    def centreY(self, env) -> float:
         return STRtree.avg(env.miny, env.maxy)
 
     def nearestNeighbour(self, env, item, itemDist):

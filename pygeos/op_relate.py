@@ -37,7 +37,8 @@ from .geomgraph import (
     EdgeEndStar,
     EdgeEnd
     )
-from .constants import (
+from .shared import (
+    logger,
     Position,
     Location,
     IntersectionMatrix
@@ -46,8 +47,8 @@ from .constants import (
 
 class EdgeEndBuilder():
     """
-     * Computes the geomgraph::EdgeEnd objects which arise
-     * from a noded geomgraph::Edge.
+     * Computes the geomgraph.EdgeEnd objects which arise
+     * from a noded geomgraph.Edge.
     """
     def computeEdgeEnds(self, edgeEnds):
         # EdgeEnd
@@ -61,18 +62,22 @@ class EdgeEndBuilder():
          * Creates stub edges for all the intersections in this
          * Edge (if any) and inserts them into the graph.
         """
-        # EdgeIntersectionList
-        eiList = edge.eiList
+
         # ensure that the list has entries for the first and last point of the edge
-        eiList.addEndpoints()
+        edge.eiList.addEndpoints()
+
+        # EdgeIntersectionList
+        itList = edge.intersections
+
+        maxi = len(itList)
 
         # no intersections, so there is nothing to do
-        if eiList[0] == eiList[-1]:
+        if maxi < 3:
             return
 
         i = 0
         # EdgeIntersectionList
-        eiNext = eiList[i]
+        eiNext = itList[i]
         i += 1
         eiPrev = None
         eiCurr = None
@@ -80,8 +85,8 @@ class EdgeEndBuilder():
             eiPrev = eiCurr
             eiCurr = eiNext
             eiNext = None
-            if eiList[i] is not eiList[-1]:
-                eiNext = eiList[i]
+            if i < maxi:
+                eiNext = itList[i]
                 i += 1
             if eiCurr is not None:
                 self._createEdgeEndForPrev(edge, edgeEnds, eiCurr, eiPrev)
@@ -89,7 +94,7 @@ class EdgeEndBuilder():
             if eiCurr is None:
                 break
 
-    def _createEdgeEndForPrev(self, edge, l, eiCurr, eiPrev):
+    def _createEdgeEndForPrev(self, edge, edgeEnds, eiCurr, eiPrev):
         """
          * Create a EdgeStub for the edge before the intersection eiCurr.
          * The previous intersection is provided
@@ -104,15 +109,15 @@ class EdgeEndBuilder():
                 return
             iPrev -= 1
         # Coordinate
-        pPrev = edge._coords[iPrev]
+        pPrev = edge.coords[iPrev]
         if eiPrev is not None and eiPrev.segmentIndex >= iPrev:
-            pPrev = eiPrev._coord
+            pPrev = eiPrev.coord
         label = Label(edge.label)
         label.flip()
-        ee = EdgeEnd(edge, eiCurr._coord, pPrev, label)
-        l.append(ee)
+        ee = EdgeEnd(edge, eiCurr.coord, pPrev, label)
+        edgeEnds.append(ee)
 
-    def _createEdgeEndForNext(self, edge, l, eiCurr, eiNext):
+    def _createEdgeEndForNext(self, edge, edgeEnds, eiCurr, eiNext):
         """
          * Create a StubEdge for the edge after the intersection eiCurr.
          * The next intersection is provided
@@ -123,15 +128,16 @@ class EdgeEndBuilder():
         """
         iNext = eiCurr.segmentIndex + 1
         # if there is no next edge there is nothing to do
-        if iNext >= len(edge._coords) and eiNext is None:
+        if iNext >= len(edge.coords) and eiNext is None:
             return
         # Coordinate
-        pNext = edge._coords[iNext]
+        pNext = edge.coords[iNext]
         # if the next intersection is in the same segment as the current, use it as the endpoint
         if eiNext is not None and eiNext.segmentIndex == eiCurr.segmentIndex:
-            pNext = eiNext._coord
-        ee = EdgeEnd(edge, eiCurr._coord, pNext, edge.label)
-        l.append(ee)
+            pNext = eiNext.coord
+        
+        ee = EdgeEnd(edge, eiCurr.coord, pNext, edge.label)
+        edgeEnds.append(ee)
 
 
 class EdgeEndBundleStar(EdgeEndStar):
@@ -152,24 +158,31 @@ class EdgeEndBundleStar(EdgeEndStar):
          * added to the bundle.  Otherwise, a new EdgeEndBundle is created
          * to contain the EdgeEnd.
         """
-        edgeBundle = self.find(edgeEnd)
-        if edgeBundle is None:
+
+        edgeIndex = self.find(edgeEnd)
+        if edgeIndex is None:
             edgeBundle = EdgeEndBundle(edgeEnd)
             self.insertEdgeEnd(edgeBundle)
         else:
-            edgeBundle.insert(edgeEnd)
+            self[edgeIndex].insert(edgeEnd)
+
+        logger.debug("[%s] %s.insertEdgeEnd(%s)\n%s",
+            id(self),
+            type(self).__name__,
+            len(self),
+            "\n".join([str(de) for de in self]))
 
     def updateIM(self, im):
         """
          * Update the IM with the contribution for the EdgeStubs around the node.
         """
-        for esb in self.edges:
+        for esb in self:
             esb.updateIM(im)
 
 
 class EdgeEndBundle(EdgeEnd):
     """
-     * A collection of geomgraph::EdgeEnd objects which
+     * A collection of geomgraph.EdgeEnd objects which
      * originate at the same point and have the same direction.
     """
     def __init__(self, edgeEnd):
@@ -189,26 +202,32 @@ class EdgeEndBundle(EdgeEnd):
         # create the label.  If any of the edges belong to areas,
         # the label must be an area label
         isArea = False
+        logger.debug("EdgeEndBundle.computeLabel() before: %s", self.label)
 
-        for e in self._edgeEnds:
-            if e.label.isArea():
+        for de in self._edgeEnds:
+            if de.label.isArea():
                 isArea = True
+                break
+
         if isArea:
             self.label = Label(Location.UNDEF, Location.UNDEF, Location.UNDEF)
         else:
             self.label = Label(Location.UNDEF)
+
         # compute the On label, and the side labels if present
         for i in range(2):
             self._computeLabelOn(i, bnr)
             if isArea:
                 self._computeLabelSides(i)
+                
+        logger.debug("EdgeEndBundle.computeLabel() after:  %s", self.label)
 
     def updateIM(self, im):
         """
          * Update the IM with the contribution for the computed label for
          * the EdgeStubs.
         """
-        Edge.updateIM(self, im)
+        Edge.updateIM(self, self.label, im)
 
     def _computeLabelOn(self, geomIndex, bnr):
         """
@@ -221,7 +240,7 @@ class EdgeEndBundle(EdgeEnd):
          * OR in the interiors (e.g. segment of a LineString)
          * of their parent Geometry.
          *
-         * In addition, GeometryCollections use a algorithm::BoundaryNodeRule
+         * In addition, GeometryCollections use a algorithm.BoundaryNodeRule
          * to determine whether a segment is on the boundary or not.
          *
          * Finally, in GeometryCollections it can occur that an edge
@@ -244,8 +263,8 @@ class EdgeEndBundle(EdgeEnd):
         boundaryCount = 0
         foundInterior = False
 
-        for e in self._edgeEnds:
-            loc = e.label.getLocation(geomIndex)
+        for de in self._edgeEnds:
+            loc = de.label.getLocation(geomIndex)
             if loc == Location.BOUNDARY:
                 boundaryCount += 1
             if loc == Location.INTERIOR:
@@ -254,13 +273,20 @@ class EdgeEndBundle(EdgeEnd):
         loc = Location.UNDEF
         if foundInterior:
             loc = Location.INTERIOR
+
         if boundaryCount > 0:
-            loc = GeometryGraph.determineBoundary(bnr, boundaryCount)
+            loc = GeometryGraph.determineBoundary(boundaryCount, bnr)
+
         self.label.setLocation(geomIndex, loc)
+        logger.debug("EdgeEndBundle._computeLabelOn(%s)     %s", geomIndex, self.label)
 
     def _computeLabelSides(self, geomIndex):
+        """
+         * Compute the labelling for each side
+        """
         self._computeLabelSide(geomIndex, Position.LEFT)
         self._computeLabelSide(geomIndex, Position.RIGHT)
+        logger.debug("EdgeEndBundle._computeLabelSides(%s)  %s", geomIndex, self.label)
 
     def _computeLabelSide(self, geomIndex, side):
         """
@@ -277,15 +303,20 @@ class EdgeEndBundle(EdgeEnd):
          *  along an edge.  This is the reason for Interior-primacy rule above - it
          *  results in the summary label having the Geometry interiors on <b>both</b> sides.
         """
-        for e in self._edgeEnds:
-            if e.label.isArea():
-                loc = e.label.getLocation(geomIndex, side)
+        for de in self._edgeEnds:
+            if de.label.isArea():
+                loc = de.label.getLocation(geomIndex, side)
                 if loc == Location.INTERIOR:
                     self.label.setLocation(geomIndex, side, Location.INTERIOR)
                     return
                 elif loc == Location.EXTERIOR:
                     self.label.setLocation(geomIndex, side, Location.EXTERIOR)
-                    return
+
+    def __str__(self):
+        return "[{}] {} Edges:\n{}".format(
+            id(self),
+            EdgeEnd.__str__(self),
+            "\n".join([str(de) for de in self._edgeEnds]))
 
 
 class RelateNode(Node):
@@ -293,17 +324,17 @@ class RelateNode(Node):
      * Represents a node in the topological graph used to compute spatial
      * relationships.
     """
-    def __init__(self, coord, edges):
-        Node.__init__(self, coord, edges)
+    def __init__(self, coord, star):
+        Node.__init__(self, coord, star)
 
     def updateIMFromEdges(self, im):
         """
          * Update the IM with the contribution for the EdgeEnds incident on this node.
         """
         # EdgeEndBundleStar
-        self.edges.updateIM(im)
+        self.star.updateIM(im)
 
-    def _computeIM(self, im):
+    def computeIM(self, im):
         """
          * Update the IM with the contribution for this component.
          * A component only contributes if it has a labelling for both parent geometries
@@ -313,7 +344,7 @@ class RelateNode(Node):
 
 class RelateNodeFactory():
     """
-     * Used by the geomgraph::NodeMap in a RelateNodeGraph to create RelateNode objects.
+     * Used by the geomgraph.NodeMap in a RelateNodeGraph to create RelateNode objects.
     """
     def createNode(self, coords):
         return RelateNode(coords, EdgeEndBundleStar())
@@ -322,7 +353,7 @@ class RelateNodeFactory():
 class RelateNodeGraph():
 
     """
-     * Implements the simple graph of Nodes and geomgraph::EdgeEnd which is all that is
+     * Implements the simple graph of Nodes and geomgraph.EdgeEnd which is all that is
      * required to determine topological relationships between Geometries.
      *
      * Also supports building a topological graph of a single Geometry, to
@@ -338,7 +369,7 @@ class RelateNodeGraph():
      * that is, nodes which occur at existing vertices of the Geometries.
      * Proper intersections (e.g. ones which occur between the interiors of
      * line segments)
-     * have their topology determined implicitly, without creating a geomgraph::Node object
+     * have their topology determined implicitly, without creating a geomgraph.Node object
      * to represent them.
     """
     def __init__(self):
@@ -367,7 +398,7 @@ class RelateNodeGraph():
 
         self.insertEdgeEnds(eeList)
 
-    def computeIntersectionNodes(self, geomGraph, argIndex):
+    def computeIntersectionNodes(self, geomGraph, geomIndex):
         """
          * Insert nodes for all intersections on the edges of a Geometry.
          * Label the created nodes the same as the edge label if they do not
@@ -380,23 +411,24 @@ class RelateNodeGraph():
         """
         edges = geomGraph.edges
         for edge in edges:
-            eLoc = edge.label.getLocation(argIndex)
-            eiL = edge.eiList
-            for ei in eiL:
+            loc = edge.label.getLocation(geomIndex)
+            intersections = edge.intersections
+            for intersection in intersections:
                 # RelateNode
-                n = self._nodes.addNode(ei.coord)
+                node = self._nodes.addNode(intersection.coord)
 
-                if eLoc == Location.BOUNDARY:
-                    n.setLabelBoundary(argIndex)
+                if loc == Location.BOUNDARY:
+                    node.setLabelBoundary(geomIndex)
                 else:
-                    if n.label.isNull(argIndex):
-                        n.setLabel(argIndex, Location.INTERIOR)
+                    if node.label.isNull(geomIndex):
+                        node.setLabel(geomIndex, Location.INTERIOR)
+                logger.debug("RelateNodeGraph.computeIntersectionNodes() Node.label:%s", node.label)
 
-    def copyNodesAndLabels(self, geomGraph, argIndex):
+    def copyNodesAndLabels(self, geomGraph, geomIndex):
         """
          * Copy all nodes from an arg geometry into this graph.
          * The node label in the arg geometry overrides any previously computed
-         * label for that argIndex.
+         * label for that geomIndex.
          * (E.g. a node may be an intersection node with
          * a computed label of BOUNDARY,
          * but in the original arg Geometry it is actually
@@ -404,8 +436,9 @@ class RelateNodeGraph():
         """
         nodes = geomGraph.nodes
         for node in nodes:
-            newNode = self._nodes.addNode(node.coords)
-            newNode.setLabel(argIndex, node.label.getLocation(argIndex))
+            newNode = self._nodes.addNode(node.coord)
+            newNode.setLabel(geomIndex, node.label.getLocation(geomIndex))
+            logger.debug("RelateNodeGraph.copyNodesAndLabels() Node[%s].label:%s", id(newNode), newNode.label)
 
     def insertEdgeEnds(self, edgeEnds):
         for edgeEnd in edgeEnds:
@@ -434,35 +467,45 @@ class RelateComputer():
         self.li = LineIntersector()
         self.ptLocator = PointLocator()
 
-        # geomgraph::NodeMap
-        self.nodes = NodeMap(RelateNodeFactory())
+        # geomgraph.NodeMap
+        self._nodes = NodeMap(RelateNodeFactory())
 
         # this intersection matrix will hold the results compute for the relate
         # IntersectionMatrix
         self.im = IntersectionMatrix()
 
-        # geomgraph::Edge
+        # geomgraph.Edge
         self.isolatedEdges = []
         # The intersection point found (if any)
         self.invalidPoint = None
+
+    @property
+    def nodes(self):
+        return sorted(list(self._nodes.values()), key=lambda n: (n.coord.x, n.coord.y))
 
     def computeIM(self):
         # since Geometries are finite and embedded in a 2-D space, the EE element must always be 2
         self.im.set(Location.EXTERIOR, Location.EXTERIOR, 2)
         # if the Geometries don't overlap there is nothing to do
-        env0 = self.arg[0]._parentGeom.envelope
-        env1 = self.arg[1]._parentGeom.envelope
+        env0 = self.arg[0].geom.envelope
+        env1 = self.arg[1].geom.envelope
 
         if not env0.intersects(env1):
             self.computeDisjointIM(self.im)
             return self.im
 
         # SegmentIntersector
+        logger.debug("RelateComputer.computeIM() computing self nodes 1")
         self.arg[0].computeSelfNodes(self.li, False)
+
+        logger.debug("RelateComputer.computeIM() computing self nodes 2")
         self.arg[1].computeSelfNodes(self.li, False)
 
+        # compute intersections between edges of the two input geometries
+        logger.debug("RelateComputer.computeIM() computing edge intersections")
         intersector = self.arg[0].computeEdgeIntersections(self.arg[1], self.li, False)
 
+        logger.debug("RelateComputer.computeIM() copying intersection nodes")
         self.computeIntersectionNodes(0)
         self.computeIntersectionNodes(1)
 
@@ -471,6 +514,7 @@ class RelateComputer():
          * These override any labels determined by intersections
          * between the geometries.
         """
+        logger.debug("RelateComputer.computeIM() copying nodes and labels")
         self.copyNodesAndLabels(0)
         self.copyNodesAndLabels(1)
 
@@ -478,12 +522,14 @@ class RelateComputer():
          * complete the labelling for any nodes which only have a
          * label for a single geometry
         """
+        logger.debug("RelateComputer.computeIM() labeling isolated nodes")
         self.labelIsolatedNodes()
 
         """
          * If a proper intersection was found, we can set a lower bound
          * on the IM.
         """
+        logger.debug("RelateComputer.computeIM() computing proper intersection matrix")
         self.computeProperIntersectionIM(intersector, self.im)
 
         """
@@ -493,12 +539,20 @@ class RelateComputer():
          * We need to compute the edge graph at all nodes to determine
          * the IM.
         """
+        logger.debug("RelateComputer.computeIM() computing improper intersection")
         eeBuilder = EdgeEndBuilder()
+
         ee0 = eeBuilder.computeEdgeEnds(self.arg[0].edges)
+
+        logger.debug("RelateComputer.computeIM() insert edge ends for geom1")
         self.insertEdgeEnds(ee0)
+
         ee1 = eeBuilder.computeEdgeEnds(self.arg[1].edges)
+
+        logger.debug("RelateComputer.computeIM() insert edge ends for geom2")
         self.insertEdgeEnds(ee1)
 
+        logger.debug("RelateComputer.computeIM() label nodes edges")
         self.labelNodeEdges()
 
         """
@@ -512,22 +566,26 @@ class RelateComputer():
          * since isolated components will not have been replaced by new
          * components formed by intersections.
         """
+        logger.debug("RelateComputer.computeIM() label isolated edges")
         self.labelIsolatedEdges(0, 1)
         self.labelIsolatedEdges(1, 0)
+
         # update the IM from all components
+        logger.debug("RelateComputer.computeIM() update Im")
         self.updateIM(self.im)
+
         return self.im
 
-    def insertEdgeEnds(self, ee) -> None:
-        for de in ee:
-            self.nodes.add(de)
+    def insertEdgeEnds(self, edgeEnds) -> None:
+        for de in edgeEnds:
+            self._nodes.add(de)
 
     def computeProperIntersectionIM(self, intersector, im) -> None:
         # If a proper intersection is found, we can set a lower bound on the IM.
-        dimA = self.arg[0]._parentGeom.dimension
-        dimB = self.arg[1]._parentGeom.dimension
-        hasProper = intersector.hasProperIntersection
-        hasProperInterior = intersector.hasProperInteriorIntersection
+        dimA = self.arg[0].geom.dimension
+        dimB = self.arg[1].geom.dimension
+        hasProper = intersector.hasProper
+        hasProperInterior = intersector.hasProperInterior
         # For Geometry's of dim 0 there can never be proper intersections.
         """
          * If edge segments of Areas properly intersect, the areas must properly overlap.
@@ -568,22 +626,22 @@ class RelateComputer():
             if hasProperInterior:
                 im.setAtLeast("0FFFFFFFF")
 
-    def copyNodesAndLabels(self, argIndex: int) -> None:
+    def copyNodesAndLabels(self, geomIndex: int) -> None:
         """
          * Copy all nodes from an arg geometry into this graph.
          * The node label in the arg geometry overrides any previously computed
-         * label for that argIndex.
+         * label for that geomIndex.
          * (E.g. a node may be an intersection node with
          * a computed label of BOUNDARY,
          * but in the original arg Geometry it is actually
          * in the interiors due to the Boundary Determination Rule)
         """
-        nodes = self.arg[argIndex].nodes
+        nodes = sorted(list(self.arg[geomIndex].nodes), key=lambda n: (n.coord.x, n.coord.y))
         for node in nodes:
-            newNode = self.nodes.addNode(node.coord)
-            newNode.setLabel(argIndex, node.label.getLocation(argIndex))
+            newNode = self._nodes.addNode(node.coord)
+            newNode.setLabel(geomIndex, node.label.getLocation(geomIndex))
 
-    def computeIntersectionNodes(self, argIndex: int) -> None:
+    def computeIntersectionNodes(self, geomIndex: int) -> None:
         """
          * Insert nodes for all intersections on the edges of a Geometry.
          * Label the created nodes the same as the edge label if they do not
@@ -592,19 +650,22 @@ class RelateComputer():
          * mutual intersections to be labelled.
          * Endpoint nodes will already be labelled from when they were inserted.
         """
-        edges = self.arg[argIndex].edges
+        # Edge
+        edges = self.arg[geomIndex].edges
         for edge in edges:
-            loc = edge.label.getLocation(argIndex)
-            eil = edge.eiList
-            for ei in eil:
-                node = self.nodes.addNode(ei.coord)
+            loc = edge.label.getLocation(geomIndex)
+            # EdgeIntersection
+            intersections = edge.intersections
+            for intersection in intersections:
+                # RelateNode
+                node = self._nodes.addNode(intersection.coord)
                 if loc == Location.BOUNDARY:
-                    node.setLabelBoundary(argIndex)
+                    node.setLabelBoundary(geomIndex)
                 else:
-                    if node.label.isNull(argIndex):
-                        node.setLabel(argIndex, Location.INTERIOR)
+                    if node.label.isNull(geomIndex):
+                        node.setLabel(geomIndex, Location.INTERIOR)
 
-    def labelIntersectionNodes(self, argIndex: int) -> None:
+    def labelIntersectionNodes(self, geomIndex: int) -> None:
         """
          * For all intersections on the edges of a Geometry,
          * label the corresponding node IF it doesn't already have a label.
@@ -612,37 +673,38 @@ class RelateComputer():
          * mutual intersections to be labelled.
          * Endpoint nodes will already be labelled from when they were inserted.
         """
-        edges = self.arg[argIndex].edges
+        edges = self.arg[geomIndex].edges
         for edge in edges:
-            loc = edge.label.getLocation(argIndex)
-            eil = edge.eiList
-            for ei in eil:
-                node = self.nodes.find(ei.coord)
-                if node.label.isNull(argIndex):
+            loc = edge.label.getLocation(geomIndex)
+            intersections = edge.intersections
+            for intersection in intersections:
+                node = self._nodes.find(intersection.coord)
+                if node.label.isNull(geomIndex):
                     if loc == Location.BOUNDARY:
-                        node.setLabelBoundary(argIndex)
+                        node.setLabelBoundary(geomIndex)
                     else:
-                        node.setLabel(argIndex, Location.INTERIOR)
+                        node.setLabel(geomIndex, Location.INTERIOR)
 
     def computeDisjointIM(self, im) -> None:
         """
          * If the Geometries are disjoint, we need to enter their dimension and
          * boundary dimension in the Ext rows in the IM
         """
-        ga = self.arg[0]._parentGeom
+        ga = self.arg[0].geom
         if not ga.is_empty:
             im.set(Location.INTERIOR, Location.EXTERIOR, ga.dimension)
             im.set(Location.BOUNDARY, Location.EXTERIOR, ga.boundaryDimension)
 
-        gb = self.arg[1]._parentGeom
+        gb = self.arg[1].geom
         if not gb.is_empty:
             im.set(Location.EXTERIOR, Location.INTERIOR, gb.dimension)
             im.set(Location.EXTERIOR, Location.BOUNDARY, gb.boundaryDimension)
 
     def labelNodeEdges(self) -> None:
-        nodes = sorted(list(self.nodes.values()), key=lambda n: (n.coord.x, n.coord.y))
+        nodes = self.nodes
         for node in nodes:
-            node.edges.computeLabelling(self.arg)
+            logger.debug("RelateComputer.labelNodeEdges() Node Edges:\n%s", node.star)
+            node.star.computeLabelling(self.arg)
 
     def updateIM(self, im) -> None:
         """
@@ -650,24 +712,26 @@ class RelateComputer():
         """
         for edge in self.isolatedEdges:
             edge.updateIM(im)
-        nodes = sorted(list(self.nodes.values()), key=lambda n: (n.coord.x, n.coord.y))
+
+        nodes = self.nodes
         for node in nodes:
+            # RelateNode
             node.updateIM(im)
             node.updateIMFromEdges(im)
 
-    def labelIsolatedEdges(self, thisIndex: int, targetIndex: int) -> None:
+    def labelIsolatedEdges(self, geomIndex: int, targetIndex: int) -> None:
         """
-         * Processes isolated edges by computing their labelling and adding them
+         * Processes isolated star by computing their labelling and adding them
          * to the isolated edges list.
          * Isolated edges are guaranteed not to touch the boundary of the target
          * (since if they
          * did, they would have caused an intersection to be computed and hence would
          * not be isolated)
         """
-        edges = self.arg[thisIndex].edges
+        edges = self.arg[geomIndex].edges
         for edge in edges:
             if edge.isIsolated:
-                self.labelIsolatedEdge(edge, targetIndex, self.arg[targetIndex]._parentGeom)
+                self.labelIsolatedEdge(edge, targetIndex, self.arg[targetIndex].geom)
                 self.isolatedEdges.append(edge)
 
     def labelIsolatedEdge(self, edge, targetIndex: int, target) -> None:
@@ -698,9 +762,12 @@ class RelateComputer():
          * To complete the labelling we need to check for nodes that lie in the
          * interiors of edges, and in the interiors of areas.
         """
-        nodes = self.nodes.values()
+        nodes = self.nodes
         for node in nodes:
             label = node.label
+            # isolated nodes should always have at least one geometry in their label
+            assert(label.geometryCount > 0), "node with empty label found"
+
             if node.isIsolated:
                 if label.isNull(0):
                     self.labelIsolatedNode(node, 0)
@@ -711,24 +778,45 @@ class RelateComputer():
         """
          * Label an isolated node with its relationship to the target geometry.
         """
-        loc = self.ptLocator.locate(node.coord, self.arg[targetIndex]._parentGeom)
+        loc = self.ptLocator.locate(node.coord, self.arg[targetIndex].geom)
         node.label.setAllLocations(targetIndex, loc)
 
 
 class RelateOp(GeometryGraphOperation):
-
+    """
+     * Implements the SFS <tt>relate()</tt> operation on two
+     * geom.Geometry objects.
+     *
+     * This class supports specifying a custom algorithm.BoundaryNodeRule
+     * to be used during the relate computation.
+     *
+     * <b>Note:</b> custom Boundary Node Rules do not (currently)
+     * affect the results of other Geometry methods (such
+     * as {@link Geometry.getBoundary}.  The results of
+     * these methods may not be consistent with the relationship computed by
+     * a custom Boundary Node Rule.
+     *
+    """
     def __init__(self, g0, g1, boundaryNodeRule=None):
+        """
+         * Creates a new Relate operation with a specified
+         * Boundary Node Rule.
+         *
+         * @param g0 a Geometry to relate. Ownership left to caller.
+         * @param g1 another Geometry to relate. Ownership to caller.
+         * @param boundaryNodeRule the Boundary Node Rule to use
+        """
         GeometryGraphOperation.__init__(self, g0, g1, boundaryNodeRule)
-        self.relateComp = RelateComputer([g0, g1])
+        self.relateComp = RelateComputer(self.arg)
 
     def getIntersectionMatrix(self):
         return self.relateComp.computeIM()
 
     @staticmethod
-    def relate(a, b, boundaryNodeRule=None):
+    def relate(g0, g1, boundaryNodeRule=None):
         """
-         * Computes the geom::IntersectionMatrix for the spatial relationship
-         * between two geom::Geometry objects, using a specified
+         * Computes the geom.IntersectionMatrix for the spatial relationship
+         * between two geom.Geometry objects, using a specified
          * Boundary Node Rule
          *
          * @param a a Geometry to test. Ownership left to caller.
@@ -738,5 +826,8 @@ class RelateOp(GeometryGraphOperation):
          * @return the IntersectionMatrix for the spatial relationship
          *         between the geometries. Ownership transferred.
         """
-        relOp = RelateOp(a, b, boundaryNodeRule)
-        return relOp.getIntersectionMatrix()
+        logger.debug("******************************\n")
+        logger.debug("RelateOp\n")
+        logger.debug("******************************")
+        op = RelateOp(g0, g1, boundaryNodeRule)
+        return op.getIntersectionMatrix()

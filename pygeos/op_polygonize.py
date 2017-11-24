@@ -27,15 +27,15 @@
 import time
 from .algorithms import (
     CGAlgorithms
-)
+    )
 from .planargraph import (
     PlanarGraph,
     DirectedEdge,
     Edge,
     Node
-)
+    )
 from .geom import GeometryFactory
-from .constants import logger
+from .shared import logger
 
 
 class EdgeRing():
@@ -340,7 +340,7 @@ class PolygonizeGraph(PlanarGraph):
     def deleteAllEdges(node) -> None:
         """
         * Deletes all edges at a node
-        * @param node: planargraph::Node
+        * @param node: planargraph.Node
         """
         # DirectedEdge
         edges = node.deStar.edges
@@ -355,7 +355,7 @@ class PolygonizeGraph(PlanarGraph):
     def addEdge(self, line) -> None:
         """
         * Add a LineString forming an edge of the polygon graph.
-        * @param line the geom::LineString to add
+        * @param line the geom.LineString to add
         """
         if line.is_empty:
             return
@@ -427,7 +427,7 @@ class PolygonizeGraph(PlanarGraph):
     @staticmethod
     def _getDegreeNonDeleted(node) -> int:
         """
-            @param node: Planargraph::Node
+            @param node: Planargraph.Node
         """
         # DirectedEdge
         edges = node.deStar.edges
@@ -697,7 +697,7 @@ class PolygonizeGraph(PlanarGraph):
         de = startDE
         # EdgeRing *
         er = EdgeRing(self._factory)
-        
+
         while (True):
             er.add(de)
             de.edgeRing = er
@@ -924,28 +924,23 @@ class Polygonizer():
         exterior = EdgeRing.findEdgeRingContaining(hole, exteriorList)
         if exterior is not None:
             exterior.addHole(hole.getLinearRing())
-    
-    def showErrors(self, context, wM):
-        GeometryFactory.output(self.getCutEdges(), context, wM, "Error:cutEdges")
-        GeometryFactory.output(self.getDangles(), context, wM, "Error:Dangles")
 
-        
+
 class PolygonizeOp():
-    
+
     @staticmethod
     def polygonize_full(geoms: list):
-        pol = Polygonizer()
-        pol.addGeometryList(geoms)
-        dangles = pol.getDangles()
-        cuts = pol.getCutEdges()
-        invalids = pol.getInvalidRingLines()
-        result = pol.getPolygons()
+        op = Polygonizer()
+        op.addGeometryList(geoms)
+        dangles = op.getDangles()
+        cuts = op.getCutEdges()
+        invalids = op.getInvalidRingLines()
+        result = op.getPolygons()
         return result, dangles, cuts, invalids
-        
+
     @staticmethod
     def polygonize(geoms: list):
-        pol = Polygonizer()
-        pol.addGeometryList(geoms)
-        result = pol.getPolygons()
+        op = Polygonizer()
+        op.addGeometryList(geoms)
+        result = op.getPolygons()
         return result
-        

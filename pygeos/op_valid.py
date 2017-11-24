@@ -25,6 +25,7 @@
 
 
 from .geomgraph import (
+    PlanarGraph,
     GeometryGraph,
     EdgeRing,
     Node,
@@ -35,20 +36,37 @@ from .algorithms import (
     LineIntersector,
     MCPointInRing
     )
-from .constants import (
+from .index_strtree import STRtree
+from .shared import (
     logger,
+    GeomTypeId,
     Position,
     Location
     )
 from .op_relate import (
     RelateNodeGraph
     )
-# from .index_strtree import STRtree
+from .op_overlay import (
+    MinimalEdgeRing,
+    MaximalEdgeRing,
+    OverlayNodeFactory
+    )
 
-
-class TopologyValidationError():
     
-    ERRMSG = (
+class TopologyErrors():
+    eError = 0
+    eRepeatedPoint = 1
+    eHoleOutsideShell = 2
+    eNestedHoles = 3
+    eDisconnectedInterior = 4
+    eSelfIntersection = 5
+    eRingSelfIntersection = 6
+    eNestedShells = 7
+    eDuplicatedRings = 8
+    eTooFewPoints = 9
+    eInvalidCoordinate = 10
+    eRingNotClosed = 11
+    msg = (
         "Topology Validation Error",
         "Repeated Point",
         "Hole lies outside exterior",
@@ -60,117 +78,27 @@ class TopologyValidationError():
         "Duplicate Rings",
         "Too few points in geometry component",
         "Invalid Coordinate",
-        "Ring is not closed"
-        )
-    
-    def __init__(self, errorType: str, coord=None):
-        self.errorType = {
-            'eError': 0,
-            'eRepeatedPoint': 1,
-            'eHoleOutsideShell': 2,
-            'eNestedHoles': 3,
-            'eDisconnectedInterior': 4,
-            'eSelfIntersection': 5,
-            'eRingSelfIntersection': 6,
-            'eNestedShells': 7,
-            'eDuplicatedRings': 8,
-            'eTooFewPoints': 9,
-            'eInvalidCoordinate': 10,
-            'eRingNotClosed': 11
-            }[errorType]
+        "Ring is not closed")
+
+
+class TopologyValidationError():
+
+    def __init__(self, errorType: int, coord=None):
+        self.errorType = errorType
         self.coord = coord
-    
+
     @property
     def message(self):
-        return TopologyValidationError.ERRMSG[self.errorType]
-    
+        return TopologyErrors.msg[self.errorType]
+
     def __str__(self):
         return "{} at or near point:{}".format(self.message, self.coord)
-    
-    
-class MaximalEdgeRing(EdgeRing):
-    """
-     * A ring of {edges} which may contain nodes of degree > 2.
-     *
-     * A MaximalEdgeRing may represent two different spatial entities:
-     *
-     * - a single polygon possibly containing inversions (if the ring is oriented CW)
-     * - a single hole possibly containing exversions (if the ring is oriented CCW)
-     *
-     * If the MaximalEdgeRing represents a polygon,
-     * the interiors of the polygon is strongly connected.
-     *
-     * These are the form of rings used to define polygons under some spatial data models.
-     * However, under the OGC SFS model, {MinimalEdgeRings} are required.
-     * A MaximalEdgeRing can be converted to a list of MinimalEdgeRings using the
-     * {#buildMinimalRings() } method.
-     *
-     * @see com.vividsolutions.jts.operation.overlay.MinimalEdgeRing
-    """
-    def __init__(self, start, newFactory):
-        EdgeRing.__init__(self, start, newFactory)
-        self.computePoints(start)
-        self.computeRing()
-
-    def getNext(self, de):
-        return de.next
-
-    def setEdgeRing(self, de, er):
-        de.edgeRing = er
-
-    def buildMinimalRings(self, minEdgeRings):
-        de = self.startDe
-        while (True):
-            if de.minEdgeRing is None:
-                minEr = MinimalEdgeRing(de, self._factory)
-                minEdgeRings.append(minEr)
-            de = de.next
-            if de is self.startDe:
-                break
-
-    def linkDirectedEdgesForMinimalEdgeRings(self):
-        de = self.startDe
-        while (True):
-            node = de.node
-            # DirectedEdgeStar
-            star = node.edges
-            star.linkMinimalDirectedEdges(self)
-            de = de.next
-            if de is self.startDe:
-                break
-
-
-class MinimalEdgeRing(EdgeRing):
-    """
-     * A ring of {Edge}s with the property that no node
-     * has degree greater than 2.
-     *
-     * These are the form of rings required
-     * to represent polygons under the OGC SFS spatial data model.
-     *
-     * @see operation::overlay::MaximalEdgeRing
-    """
-    def __init__(self, start, newFactory):
-        EdgeRing.__init__(self, start, newFactory)
-
-    def getNext(self, de):
-        return de.nextMin
-
-    def setEdgeRing(self, de, er):
-        de.minEdgeRing = er
-
-
-class OverlayNodeFactory():
-    """
-    """
-    def createNode(self, coord):
-        return Node(coord, DirectedEdgeStar())
 
 
 class ConsistentAreaTester():
     """
-     * Checks that a geomgraph::GeometryGraph representing an area
-     * (a geom::Polygon or geom::MultiPolygon)
+     * Checks that a geomgraph.GeometryGraph representing an area
+     * (a geom.Polygon or geom.MultiPolygon)
      * has consistent semantics for area geometries.
      * This check is required for any reasonable polygonal model
      * (including the OGC-SFS model, as well as models which allow ring
@@ -201,11 +129,9 @@ class ConsistentAreaTester():
         self._nodeGraph = RelateNodeGraph()
         # the intersection point found (if any)
         # Coordinate
-        self._invalidPoint = None
+        self.invalidPoint = None
     
-    def getInvalidPoint(self):
-        return self._invalidPoint
-    
+    @property
     def isNodeConsistentArea(self):
         """
          * Check all nodes to see if their labels are consistent with
@@ -219,26 +145,30 @@ class ConsistentAreaTester():
         # SegmentIntersector
         intersector = self._graph.computeSelfNodes(self._li, True, True)
         if intersector.hasProper:
-            self._invalidPoint = intersector.properIntersectionPoint
+            logger.debug("ConsistentAreaTester SegmentIntersector.hasProper")
+            self.invalidPoint = intersector.properIntersectionPoint
             return False
 
         self._nodeGraph.build(self._graph)
-        return self.isNodeEdgeAreaLabelConsistent()
+        return self.isNodeEdgeAreaLabelsConsistent
 
+    @property
     def isNodeEdgeAreaLabelsConsistent(self):
         """
          * Check all nodes to see if their labels are consistent.
          * If any are not, return false
         """
-        map = self._nodeGraph.getNodeMap()
+        map = self._nodeGraph.nodes
 
         for node in map:
-            if not node.edges.isAreaLabelConsistent(self._graph):
-                self._invalidPoint = node.coord
+            if not node.star.isAreaLabelsConsistent(self._graph):
+                logger.debug("ConsistentAreaTester !star.isAreaLabelsConsistent")
+                self.invalidPoint = node.coord
                 return False
 
         return True
-
+    
+    @property
     def hasDuplicateRings(self):
         """
          * Checks for two duplicate rings in an area.
@@ -247,7 +177,7 @@ class ConsistentAreaTester():
          * If the area is topologically consistent (determined by calling the
          * isNodeConsistentArea,
          * duplicate rings can be found by checking for EdgeBundles which contain
-         * more than one geomgraph::EdgeEnd.
+         * more than one geomgraph.EdgeEnd.
          * (This is because topologically consistent areas cannot have two rings sharing
          * the same line segment, unless the rings are equal).
          * The start point of one of the equal rings will be placed in
@@ -255,14 +185,15 @@ class ConsistentAreaTester():
          *
          * @return true if this area Geometry is topologically consistent but has two duplicate rings
         """
-        map = self._nodeGraph.getNodeMap()
+        map = self._nodeGraph.nodes
         for node in map:
             # EdgeEndStar
-            ees = node.edges
+            star = node.star
             # EdgeEndBundle
-            for eeb in ees:
+            for eeb in star:
                 if len(eeb._edgeEnds) > 1:
-                    self._invalidPoint = eeb.edge.coords[0]
+                    logger.debug("ConsistentAreaTester.hasDuplicateRings")
+                    self.invalidPoint = eeb.edge.coords[0]
                     return True
 
         return False
@@ -289,21 +220,16 @@ class ConnectedInteriorTester():
         # GeometryGraph
         self._graph = newGeomgraph
         # Coordinate
-        self._invalidPoint = None
-        self._disconnectedRingcoord = None
-        # EdgeRing
-        self._maximalEdgeRings = []
-    
-    def getCoordinate(self):
-        return self._invalidPoint
-    
+        self.invalidPoint = None
+        
+    @property
     def isInteriorsConnected(self):
         # Edge
         splitEdges = []
         self._graph.computeSplitEdges(splitEdges)
 
         # PlanarGraph
-        graph = OverlayNodeFactory.instance()
+        graph = PlanarGraph(OverlayNodeFactory())
         graph.addEdges(splitEdges)
         self._setInteriorEdgesInResult(graph)
         graph.linkResultDirectedEdges()
@@ -318,7 +244,7 @@ class ConnectedInteriorTester():
          * Only ONE ring gets marked for each exterior - if there are others
          * which remain unmarked this indicates a disconnected interiors.
         """
-        self._visitShellInteriors(self._graph.getGeometry(), graph)
+        self._visitShellInteriors(self._graph.geom, graph)
         """
          * If there are any unvisited exterior edges
          * (i.e. a ring which is not a hole and which has the interiors
@@ -328,8 +254,6 @@ class ConnectedInteriorTester():
         """
         res = not self._hasUnvisitedShellEdge(edgeRings)
 
-        edgeRings.clear()
-        self._maximalEdgeRings.clear()
         return res
 
     @staticmethod
@@ -375,12 +299,9 @@ class ConnectedInteriorTester():
         # DirectedEdge
         for de in dirEdges:
             # if this edge has not yet been processed
-            if de.isInResult and de.getEdgeRing() is None:
+            if de.isInResult and de.edgeRing is None:
                 # MaximalEdgeRing
                 er = MaximalEdgeRing(de, self._factory)
-                # We track MaximalEdgeRings allocations
-                # using the private maximalEdgeRings vector
-                self._maximalEdgeRings.append(er)
                 er.linkDirectedEdgesForMinimalEdgeRings()
                 er.buildMinimalRings(minEdgeRings)
 
@@ -389,11 +310,11 @@ class ConnectedInteriorTester():
          * Mark all the edges for the edgeRings corresponding to the exteriors
          * of the input polygons.  Note only ONE ring gets marked for each exterior.
         """
-        cls = type(geom).__name__
-        if cls == 'Polygon':
+        type_id = geom.type_id
+        if type_id == GeomTypeId.GEOS_POLYGON:
             self._visitInteriorRing(geom.exterior, planarGraph)
 
-        elif cls == 'MultiPolygon':
+        elif type_id == GeomTypeId.GEOS_MULTIPOLYGON:
             for p in geom.geoms:
                 self._visitInteriorRing(p.exterior, planarGraph)
 
@@ -452,7 +373,7 @@ class ConnectedInteriorTester():
             """
             for de in edges:
                 if not de.isVisited:
-                    self._disconnectedRingcoord = de.coord
+                    self.invalidPoint = de.coord
                     return True
 
         return False
@@ -467,23 +388,22 @@ class IndexedNestedRingTester():
     def __init__(self, newGraph):
         self._graph = newGraph
         self._index = None
-        self._nestedPt = None
+        self.invalidPoint = None
         self._rings = []
-    
+
     def getNestedPoint(self):
         return self._nestedPt
-    
+
     def add(self, ring):
         self._rings.append(ring)
 
     def buildIndex(self):
-        raise NotImplementedError()
-
-        # self._index = STRtree()
+        self._index = STRtree()
         for ring in self._rings:
             env = ring.envelope
             self._index.insert(env, ring)
 
+    @property
     def isNonNested(self):
         self.buildIndex()
         for innerRing in self._rings:
@@ -515,7 +435,7 @@ class IndexedNestedRingTester():
 
                 isInside = CGAlgorithms.isPointInRing(innerRingPt, searchRingPts)
                 if isInside:
-                    self._nestedPt = innerRingPt
+                    self.invalidPoint = innerRingPt
                 return False
         return True
 
@@ -528,15 +448,16 @@ class IsValidOp():
     def __init__(self, geometry):
         self.isSelfTouchingRingFormingHoleValid = False
         self.validErr = None
-        self._parentGeom = geometry
+        self.geom = geometry
         self._checked = False
-    
+
     def is_valid(self):
 
         if not self._checked:
             self._checked = True
-            self.checkValid(self._parentGeom)
-        
+            self.checkValid(self.geom)
+        if self.validErr is not None:
+            logger.debug("IsValidOp.is_valid() invalid geometry: %s", self.validErr)
         return self.validErr is None
 
     def findPtNotNode(self, testCoords, searchRing, graph):
@@ -561,8 +482,6 @@ class IsValidOp():
         return None
 
     def checkValid(self, g):
-        # @TODO:
-        # Remove direct return when deps are implemented
 
         self.validErr = None
 
@@ -573,23 +492,22 @@ class IsValidOp():
         if g.is_empty:
             return
 
-        cls = type(g).__name__
-        if cls == 'Point':
+        type_id = g.type_id
+        if type_id == GeomTypeId.GEOS_POINT:
             self.checkValidPoint(g)
         # LineString also handles LinearRings, so we check LinearRing first
-        elif cls == 'LinearRing':
+        elif type_id == GeomTypeId.GEOS_LINEARRING:
             self.checkValidLinearRing(g)
-        elif cls == 'LineString':
+        elif type_id == GeomTypeId.GEOS_LINESTRING:
             self.checkValidLineString(g)
-        elif cls == 'Polygon':
+        elif type_id == GeomTypeId.GEOS_POLYGON:
             self.checkValidPolygon(g)
-        elif cls == 'MultiPolygon':
+        elif type_id == GeomTypeId.GEOS_MULTIPOLYGON:
             self.checkValidMultiPolygon(g)
-        elif cls in {'GeometryCollection',
-                    'MultiPolygon',
-                    'MultiLineString',
-                    'MultiLinearRing',
-                    'MultiPoint'}:
+        elif type_id in [GeomTypeId.GEOS_GEOMETRYCOLLECTION,
+                    GeomTypeId.GEOS_MULTILINESTRING,
+                    GeomTypeId.GEOS_MULTILINEARRING,
+                    GeomTypeId.GEOS_MULTIPOINT]:
             self.checkValidGeometryCollection(g)
 
     def checkValidPoint(self, g) -> bool:
@@ -625,12 +543,13 @@ class IsValidOp():
         self.checkNoSelfIntersectingRings(graph)
 
     def checkValidPolygon(self, g):
-
+        logger.debug("IsValidOp.checkValidPolygon")
+        
         self.checkInvalidCoordinates(g.coords)
         if self.validErr is not None:
             return
 
-        self.checkClosedRing(g)
+        self.checkClosedRings(g)
         if self.validErr is not None:
             return
 
@@ -638,7 +557,8 @@ class IsValidOp():
         self.checkTooFewPoints(graph)
         if self.validErr is not None:
             return
-
+            
+        # compute intersections
         self.checkConsistentArea(graph)
         if self.validErr is not None:
             return
@@ -652,14 +572,61 @@ class IsValidOp():
         if self.validErr is not None:
             return
 
-        # @TODO:
-        # require STRtree implementation
-
-        # self.checkHolesNotNested(g, graph)
-        # if self.validErr is not None:
-        #    return
+        self.checkHolesNotNested(g, graph)
+        if self.validErr is not None:
+            return
 
         self.checkConnectedInteriors(graph)
+
+    def checkValidMultiPolygon(self, g):
+        logger.debug("IsValidOp.checkValidMultiPolygon")
+        
+        polys = []
+        for poly in g.geoms:
+            self.checkInvalidCoordinates(poly)
+            if self.validErr is not None:
+                return
+            self.checkClosedRings(poly)
+            if self.validErr is not None:
+                return
+            polys.append(poly)
+
+        graph = GeometryGraph(0, g)
+
+        self.checkTooFewPoints(graph)
+        if self.validErr is not None:
+            return
+
+        self.checkConsistentArea(graph)
+        if self.validErr is not None:
+            return
+
+        if not self.isSSelfTouchingRingFormingHoleValid:
+            self.checkNoSelfIntersectingRings(graph)
+            if self.validErr is not None:
+                return
+
+        for poly in polys:
+            self.checkHolesInShell(poly, graph)
+            if self.validErr is not None:
+                return
+
+        for poly in polys:
+            self.checkHolesNotNested(poly, graph)
+            if self.validErr is not None:
+                return
+
+        self.checkShellNotNested(g, graph)
+        if self.validErr is not None:
+            return
+
+        self.checkConnectedInteriors(graph)
+
+    def checkValidGeometryCollection(self, g):
+        for geom in g.geoms:
+            self.checkValid(geom)
+            if self.validErr is not None:
+                return
 
     def checkNoSelfIntersectingRings(self, graph):
         """
@@ -672,36 +639,34 @@ class IsValidOp():
         """
         edges = graph.edges
         for edge in edges:
-            self.checkNoSelfIntersectingRing(edge.eiList)
+            self.checkNoSelfIntersectingRing(edge.intersections)
             if self.validErr is not None:
                 return
 
-    def checkNoSelfIntersectingRing(self, eiList):
+    def checkNoSelfIntersectingRing(self, intersections):
         """
          * check that a ring does not self-intersect, except at its endpoints.
          * Algorithm is to count the number of times each node along edge
          * occurs.
          * If any occur more than once, that must be a self-intersection.
-
-         TODO:
-         compare coordinates here
         """
         nodeSet = {}
         isFirst = True
-        vals = eiList
-        for k in eiList.keys():
-            ei = vals[k]
+        logger.debug("intersections:%s\n%s", len(intersections), "\n".join([str(it) for it in intersections]))
+        
+        for intersection in intersections:
             if isFirst:
                 isFirst = False
                 continue
+            k = hash((intersection.coord.x, intersection.coord.y))
             if nodeSet.get(k) is not None:
                 self.validErr = TopologyValidationError(
-                    'eRingSelfIntersection',
-                    ei.coord
+                    TopologyErrors.eRingSelfIntersection,
+                    intersection.coord
                     )
                 return
             else:
-                nodeSet[k] = ei
+                nodeSet[k] = intersection
 
     def checkConsistentArea(self, graph):
         """
@@ -714,27 +679,26 @@ class IsValidOp():
         """
         # ConsistentAreaTester
         cat = ConsistentAreaTester(graph)
-        isValidArea = cat.isNodeConsistentArea()
-        if not isValidArea:
+        if not cat.isNodeConsistentArea:
             self.validErr = TopologyValidationError(
-                "eSelfIntersection",
-                cat.getInvalidPoint()
+                TopologyErrors.eSelfIntersection,
+                cat.invalidPoint
                 )
             return
-        if cat.hasDuplicateRings():
+        if cat.hasDuplicateRings:
             self.validErr = TopologyValidationError(
-                "eDuplicatedRings",
-                cat.getInvalidPoint()
+                TopologyErrors.eDuplicatedRings,
+                cat.invalidPoint
                 )
             return
 
     def checkTooFewPoints(self, graph):
         if graph.hasTooFewPoints:
             self.validErr = TopologyValidationError(
-                "eTooFewPoints",
-                graph.getInvalidPoint()
+                TopologyErrors.eTooFewPoints,
+                graph.invalidPoint
                 )
-                
+
     def checkInvalidCoordinates(self, coords):
         # check for numerical errors in coords
         return
@@ -753,7 +717,7 @@ class IsValidOp():
     def checkClosedRing(self, ring):
         if not ring.isClosed and not ring.is_empty:
             self.validErr = TopologyValidationError(
-                "eRingNotClosed",
+                TopologyErrors.eRingNotClosed,
                 ring.coords[0]
                 )
 
@@ -767,7 +731,7 @@ class IsValidOp():
          * boundary of the exterior.
          *
          * @param p the polygon to be tested for hole inclusion
-         * @param graph a geomgraph::GeometryGraph incorporating the polygon
+         * @param graph a geomgraph.GeometryGraph incorporating the polygon
         """
         exterior = p.exterior
 
@@ -775,7 +739,7 @@ class IsValidOp():
             for hole in p.interiors:
                 if not hole.is_empty:
                     self.validErr = TopologyValidationError(
-                        'eHoleOutsideShell'
+                        TopologyErrors.eHoleOutsideShell
                         )
                     return
             return
@@ -795,7 +759,7 @@ class IsValidOp():
             outside = not pir.isInside(holePt)
             if outside:
                 self.validErr = TopologyValidationError(
-                    'eHoleOutsideShell',
+                    TopologyErrors.eHoleOutsideShell,
                     holePt
                     )
                 return
@@ -822,11 +786,11 @@ class IsValidOp():
 
             nestedTester.add(innerHole)
 
-        isNonTested = nestedTester.isNonTested()
-        if not isNonTested:
+        isNonNested = nestedTester.isNonNested
+        if not isNonNested:
             self.validErr = TopologyValidationError(
-                'eNestedHoles',
-                nestedTester.getNestedPoint()
+                TopologyErrors.eNestedHoles,
+                nestedTester.invalidPoint
                 )
 
     def checkShellsNotNested(self, mp, graph):
@@ -896,7 +860,7 @@ class IsValidOp():
         # if no interiors, this is an error !
         if len(p.interiors) <= 0:
             self.validErr = TopologyValidationError(
-                'eNestedShells',
+                TopologyErrors.eNestedShells,
                 exteriorPt
                 )
             return
@@ -913,7 +877,7 @@ class IsValidOp():
             if badNestedPt is None:
                 return
         self.validErr = TopologyValidationError(
-            'eNestedShells',
+            TopologyErrors.eNestedShells,
             badNestedPt
             )
 
@@ -953,11 +917,11 @@ class IsValidOp():
         return None
 
     def checkConnectedInteriors(self, graph):
-        return 
-        
+
         cit = ConnectedInteriorTester(graph)
-        if not cit.inInteriorsConnected():
+        cit._factory = self.geom._factory
+        if not cit.isInteriorsConnected:
             self.validErr = TopologyValidationError(
-                'eDisconnectedInterior',
-                cit.getCoordinate()
+                TopologyErrors.eDisconnectedInterior,
+                cit.invalidPoint
                 )

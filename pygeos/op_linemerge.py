@@ -23,9 +23,8 @@
 #
 # ----------------------------------------------------------
 
-# planargraph::algorithm::ConnectedSubgraphFinder
 
-
+import time
 from .planargraph import (
     PlanarGraph,
     Node,
@@ -33,9 +32,23 @@ from .planargraph import (
     DirectedEdge,
     GraphComponent
     )
-from .constants import (
+from .shared import (
+    logger,
+    GeomTypeId,
+    GeometryComponentFilter,
     CoordinateSequence
     )
+
+
+class LMGeometryComponentFilter(GeometryComponentFilter):
+
+    def __init__(self, lm):
+        # LineMerger
+        self.lm = lm
+
+    def filter(self, geom):
+        if geom.type_id == GeomTypeId.GEOS_LINESTRING:
+            self.lm.addLineString(geom)
 
 
 class LineSequencer():
@@ -366,7 +379,7 @@ class LineSequencer():
         """
         mls = geom
         # the nodes in all subgraphs which have been completely scanned
-        # Coordinate::ConstSet
+        # Coordinate.ConstSet
         prevSubgraphNodes = []
         currNodes = []
         lastNode = None
@@ -430,7 +443,7 @@ class LineSequencer():
 
 class LineMergeDirectedEdge(DirectedEdge):
     """
-     * A planargraph::DirectedEdge of a LineMergeGraph.
+     * A planargraph.DirectedEdge of a LineMergeGraph.
     """
     def __init__(self, newFrom, newTo, directionPt, edgeDirection):
         """
@@ -486,7 +499,7 @@ class EdgeString():
         # CoordinateSequence
         self._coords = None
 
-    @property    
+    @property
     def coords(self):
         if self._coords is None:
             forwardDirectedEdges = 0
@@ -522,8 +535,8 @@ class LineMergerGraph(PlanarGraph):
     """
      * A planar graph of edges that is analyzed to sew the edges together.
      *
-     * The marked flag on planargraph::Edge
-     * and planargraph::Node indicates whether they have been
+     * The marked flag on planargraph.Edge
+     * and planargraph.Node indicates whether they have been
      * logically deleted from the graph.
     """
     def __init__(self):
@@ -651,7 +664,7 @@ class LineMerger():
 
     def _buildEdgeStringsStartingAt(self, node):
         """
-         @param node: planargraph::Nod
+         @param node: planargraph.Nod
         """
         # DirectedEdge
         edges = node.deStar.edges
@@ -681,7 +694,7 @@ class LineMerger():
 
         return es
 
-    def addGeometries(self, geometries):
+    def add(self, geoms):
         """
          * Adds a collection of Geometries to be processed.
          * May be called multiple times.
@@ -689,10 +702,16 @@ class LineMerger():
          * Any dimension of Geometry may be added; the constituent
          * linework will be extracted.
         """
-        for geom in geometries:
-            self.addLineString(geom)
+        try:
+            iter(geoms)
+        except TypeError:
+            return self.addGeometry(geoms)
+            pass
 
-    def addGeomerty(self, geometry):
+        for geom in geoms:
+            self.addGeometry(geom)
+
+    def addGeometry(self, geom):
         """
          * Adds a Geometry to be processed.
          * May be called multiple times.
@@ -700,6 +719,8 @@ class LineMerger():
          * Any dimension of Geometry may be added; the constituent
          * linework will be extracted.
         """
+        lmgcf = LMGeometryComponentFilter(self)
+        geom.applyComponentFilter(lmgcf)
 
     def getMergedLineStrings(self):
         """
@@ -717,11 +738,11 @@ class LineMerger():
             self._factory = lineString._factory
         self._graph.addEdge(lineString)
 
-        
-class LineMergeOp():
-
     @staticmethod
     def merge(geoms):
+        t = time.time()
         lm = LineMerger()
-        lm.addGeometries(geoms)
-        return lm.getMergedLineStrings()
+        lm.add(geoms)
+        merged = lm.getMergedLineStrings()
+        logger.debug("Linemerger.merge() %.2f seconds", time.time() - t)
+        return merged
