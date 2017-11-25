@@ -787,7 +787,7 @@ class Polygonizer():
      *   (e.g. the component lines contain a self-intersection)
      *
     """
-    def __init__(self):
+    def __init__(self, skip_validity_check):
         """
          * Create a polygonizer with the same GeometryFactory
          * as the input Geometry
@@ -805,7 +805,8 @@ class Polygonizer():
         self.exteriorList = []
         # Polygon
         self.polyList = None
-
+        self.skip_validity_check = skip_validity_check
+        
     def addGeometryList(self, geomList):
         """
          * Add a collection of geometries to be polygonized.
@@ -897,7 +898,7 @@ class Polygonizer():
     def _findValidRings(self, edgeRingList, validEdgeRingList, invalidRingList):
         t = time.time()
         for edgeRing in edgeRingList:
-            if edgeRing.is_valid:
+            if self.skip_validity_check or edgeRing.is_valid:
                 validEdgeRingList.append(edgeRing)
             else:
                 invalidRingList.append(edgeRing.lineString)
@@ -929,8 +930,8 @@ class Polygonizer():
 class PolygonizeOp():
 
     @staticmethod
-    def polygonize_full(geoms: list):
-        op = Polygonizer()
+    def polygonize_full(geoms: list, skip_validity_check=False):
+        op = Polygonizer(skip_validity_check)
         op.addGeometryList(geoms)
         dangles = op.getDangles()
         cuts = op.getCutEdges()
@@ -939,8 +940,8 @@ class PolygonizeOp():
         return result, dangles, cuts, invalids
 
     @staticmethod
-    def polygonize(geoms: list):
-        op = Polygonizer()
+    def polygonize(geoms: list, skip_validity_check=False):
+        op = Polygonizer(skip_validity_check)
         op.addGeometryList(geoms)
         result = op.getPolygons()
         return result
