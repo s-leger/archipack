@@ -1662,7 +1662,7 @@ class Qtree(_QuadTree):
             return geom.bounds
         else:
             _b = geom.envelope
-            return (_b.minx, _b.miny, _b.maxx, _b.maxy)
+            return (_b.minx - EPSILON, _b.miny - EPSILON, _b.maxx + EPSILON, _b.maxy + EPSILON)
 
     def intersects_ext(self, geom, extend):
         bounds = self.getbounds(geom)
@@ -2103,8 +2103,8 @@ class Polygonizer():
             if seg.available and seg.c0 is not seg.c1])
 
         merged = lines.line_merge()
-
-        polys, dangles, cuts, invalids = PolygonizeOp.polygonize_full(merged)
+        # skip validity test for polygons
+        polys, dangles, cuts, invalids = PolygonizeOp.polygonize_full(merged, skip_validity_check=True)
         vars_dict['select_polygons'] = SelectPolygons(polys, coordsys)
         vars_dict['select_lines'] = SelectLines(merged, coordsys)
         vars_dict['select_points'] = SelectPoints(Q_points._geoms, coordsys)
