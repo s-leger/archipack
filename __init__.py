@@ -64,7 +64,6 @@ if "bpy" in locals():
     # imp.reload(archipack_toolkit)
     imp.reload(archipack_floor)
     imp.reload(archipack_rendering)
-    imp.reload(archipack_envi)
     imp.reload(archipack_io)
     imp.reload(archipack_polylines)
     imp.reload(addon_updater_ops)
@@ -90,7 +89,6 @@ else:
     # from . import archipack_toolkit
     from . import archipack_floor
     from . import archipack_rendering
-    from . import archipack_envi
     from . import archipack_io
     from . import archipack_polylines
     from . import archipack_i18n
