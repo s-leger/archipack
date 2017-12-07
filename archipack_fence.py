@@ -30,7 +30,7 @@ import bpy
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
     FloatProperty, BoolProperty, IntProperty, CollectionProperty,
-    StringProperty, EnumProperty, FloatVectorProperty
+    StringProperty, EnumProperty
     )
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
@@ -501,7 +501,7 @@ class FenceGenerator():
                 s += 1
 
     def make_profile(self, profile, idmat,
-            x_offset, z_offset, extend, verts, faces, matids, uvs):
+            x_offset, z_offset, extend, closed, verts, faces, matids, uvs):
 
         last = None
         for seg in self.segs:
@@ -580,7 +580,7 @@ class FenceGenerator():
             # build faces using Panel
             lofter = Lofter(
                 # closed_shape, index, x, y, idmat
-                True,
+                closed,
                 [i for i in range(len(profile))],
                 [p.x for p in profile],
                 [p.y for p in profile],
@@ -682,33 +682,6 @@ materials_enum = (
             )
 
 
-class archipack_fence_material(PropertyGroup):
-    index = EnumProperty(
-        items=materials_enum,
-        default='0',
-        update=update
-        )
-
-    def find_datablock_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            props = archipack_fence.datablock(o)
-            if props:
-                for part in props.rail_mat:
-                    if part == self:
-                        return props
-        return None
-
-    def update(self, context):
-        props = self.find_datablock_in_selection(context)
-        if props is not None:
-            props.update(context)
-
-
 class archipack_fence_part(PropertyGroup):
     type = EnumProperty(
             items=(
@@ -791,11 +764,99 @@ class archipack_fence_part(PropertyGroup):
         row.prop(self, "a0")
 
 
+class archipack_fence_rail(PropertyGroup):
+    x = FloatProperty(
+            name="Width",
+            default=0.05,
+            min=0.001,
+            precision=2, step=1,
+            unit='LENGTH',
+            update=update
+            )
+    z = FloatProperty(
+            name="Height",
+            default=0.05,
+            min=0.001,
+            precision=2, step=1,
+            unit='LENGTH',
+            update=update
+            )
+    offset = FloatProperty(
+            name="Offset",
+            default=0,
+            precision=2, step=1,
+            unit='LENGTH',
+            update=update
+            )
+    extend = FloatProperty(
+            name="Extend",
+            default=0,
+            precision=2, step=1,
+            unit='LENGTH',
+            update=update
+            )
+    alt = FloatProperty(
+            name="Altitude",
+            default=1.0,
+            precision=2, step=1,
+            unit='LENGTH',
+            update=update
+            )
+    profil = EnumProperty(
+            name="Profil",
+            items=(
+                ('SQUARE', 'Square', '', 0),
+                ('CIRCLE', 'Circle', '', 1),
+                ('SAFETY', 'Safety rail', '', 2)
+                ),
+            default='SQUARE',
+            update=update
+            )
+    mat = EnumProperty(
+        items=materials_enum,
+        default='0',
+        update=update
+        )
+
+    def find_datablock_in_selection(self, context):
+        """
+            find witch selected object this instance belongs to
+            provide support for "copy to selected"
+        """
+        selected = [o for o in context.selected_objects]
+        for o in selected:
+            props = archipack_fence.datablock(o)
+            if props is not None:
+                for rail in props.rails:
+                    if rail == self:
+                        return props
+        return None
+
+    def update(self, context, manipulable_refresh=False):
+        props = self.find_datablock_in_selection(context)
+        if props is not None:
+            props.update(context, manipulable_refresh)
+
+    def draw(self, context, layout):
+        layout.prop(self, 'profil')
+        layout.prop(self, 'x')
+        layout.prop(self, 'z')
+        layout.prop(self, 'alt')
+        layout.prop(self, 'offset')
+        layout.prop(self, 'extend')
+        layout.prop(self, 'mat')
+
+
 class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
     parts = CollectionProperty(type=archipack_fence_part)
     user_defined_path = StringProperty(
             name="User defined",
+            update=update_path
+            )
+    user_path_reverse = BoolProperty(
+            name="Reverse",
+            default=False,
             update=update_path
             )
     user_defined_spline = IntProperty(
@@ -1048,6 +1109,9 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             max=31,
             update=update
             )
+    rails = CollectionProperty(type=archipack_fence_rail)
+    """
+    # Rails v1.x
     rail_x = FloatVectorProperty(
             name="Width",
             default=[
@@ -1102,7 +1166,18 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH',
             update=update
             )
+    rail_type = IntVectorProperty(
+            name="Profil",
+            default=[1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1, 1, 1
+            ],
+            size=31,
+            update=update
+            )
     rail_mat = CollectionProperty(type=archipack_fence_material)
+    """
 
     handrail = BoolProperty(
             name="Enable",
@@ -1238,12 +1313,12 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
     def update_parts(self):
 
         # remove rails materials
-        for i in range(len(self.rail_mat), self.rail_n, -1):
-            self.rail_mat.remove(i - 1)
+        for i in range(len(self.rails), self.rail_n, -1):
+            self.rails.remove(i - 1)
 
         # add rails
-        for i in range(len(self.rail_mat), self.rail_n):
-            self.rail_mat.add()
+        for i in range(len(self.rails), self.rail_n):
+            self.rails.add()
 
         # remove parts
         for i in range(len(self.parts), self.n_parts, -1):
@@ -1289,12 +1364,18 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
         tM.row[2].normalize()
         pts = []
         if spline.type == 'POLY':
-            pt = spline.points[0].co
+            if self.user_path_reverse:
+                pt = spline.points[-1].co
+            else:
+                pt = spline.points[0].co
             pts = [wM * p.co.to_3d() for p in spline.points]
             if spline.use_cyclic_u:
                 pts.append(pts[0])
         elif spline.type == 'BEZIER':
-            pt = spline.bezier_points[0].co
+            if self.user_path_reverse:
+                pt = spline.bezier_points[-1].co
+            else:
+                pt = spline.bezier_points[0].co
             points = spline.bezier_points
             for i in range(1, len(points)):
                 p0 = points[i - 1]
@@ -1312,7 +1393,13 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
         self.n_parts = len(pts) - 1
         self.update_parts()
-
+        
+        if len(pts) < 1:
+            return
+            
+        if self.user_path_reverse:
+            pts = list(reversed(pts))
+            
         p0 = pts.pop(0)
         a0 = 0
         for i, p1 in enumerate(pts):
@@ -1417,34 +1504,53 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
         if self.rail:
             for i in range(self.rail_n):
-                x = 0.5 * self.rail_x[i]
-                y = self.rail_z[i]
-                rail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
-                g.make_profile(rail, int(self.rail_mat[i].index), self.x_offset - self.rail_offset[i],
-                        self.rail_alt[i], 0, verts, faces, matids, uvs)
+                x = 0.5 * self.rails[i].x
+                y = self.rails[i].z
+                closed=True
+                    
+                if self.rails[i].profil == 'SQUARE':
+                    rail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
+                elif self.rails[i].profil == 'ROUND':
+                    rail = [Vector((x * sin(0.1 * -a * pi), x * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
 
-        if self.handrail_profil == 'COMPLEX':
-            sx = self.handrail_x
-            sy = self.handrail_y
-            handrail = [Vector((sx * x, sy * y)) for x, y in [
-            (-0.28, 1.83), (-0.355, 1.77), (-0.415, 1.695), (-0.46, 1.605), (-0.49, 1.51), (-0.5, 1.415),
-            (-0.49, 1.315), (-0.46, 1.225), (-0.415, 1.135), (-0.355, 1.06), (-0.28, 1.0), (-0.255, 0.925),
-            (-0.33, 0.855), (-0.5, 0.855), (-0.5, 0.0), (0.5, 0.0), (0.5, 0.855), (0.33, 0.855), (0.255, 0.925),
-            (0.28, 1.0), (0.355, 1.06), (0.415, 1.135), (0.46, 1.225), (0.49, 1.315), (0.5, 1.415),
-            (0.49, 1.51), (0.46, 1.605), (0.415, 1.695), (0.355, 1.77), (0.28, 1.83), (0.19, 1.875),
-            (0.1, 1.905), (0.0, 1.915), (-0.095, 1.905), (-0.19, 1.875)]]
+                elif self.rails[i].profil == 'SAFETY':
+                    closed=False
+                    rail = [Vector((i * x, j * y)) for i, j in [(0, -0.5),
+                        (1, -0.35714),
+                        (1, -0.21429),
+                        (0, -0.07143),
+                        (0, 0.07143),
+                        (1, 0.21429),
+                        (1, 0.35714),
+                        (0, 0.5)]]
 
-        elif self.handrail_profil == 'SQUARE':
-            x = 0.5 * self.handrail_x
-            y = self.handrail_y
-            handrail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
-        elif self.handrail_profil == 'CIRCLE':
-            r = self.handrail_radius
-            handrail = [Vector((r * sin(0.1 * -a * pi), r * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
-
+                g.make_profile(rail, int(self.rails[i].mat), self.x_offset - self.rails[i].offset,
+                        self.rails[i].alt, self.rails[i].extend, closed, verts, faces, matids, uvs)
+        
         if self.handrail:
+        
+            if self.handrail_profil == 'COMPLEX':
+                sx = self.handrail_x
+                sy = self.handrail_y
+                handrail = [Vector((sx * x, sy * y)) for x, y in [
+                (-0.28, 1.83), (-0.355, 1.77), (-0.415, 1.695), (-0.46, 1.605), (-0.49, 1.51), (-0.5, 1.415),
+                (-0.49, 1.315), (-0.46, 1.225), (-0.415, 1.135), (-0.355, 1.06), (-0.28, 1.0), (-0.255, 0.925),
+                (-0.33, 0.855), (-0.5, 0.855), (-0.5, 0.0), (0.5, 0.0), (0.5, 0.855), (0.33, 0.855), (0.255, 0.925),
+                (0.28, 1.0), (0.355, 1.06), (0.415, 1.135), (0.46, 1.225), (0.49, 1.315), (0.5, 1.415),
+                (0.49, 1.51), (0.46, 1.605), (0.415, 1.695), (0.355, 1.77), (0.28, 1.83), (0.19, 1.875),
+                (0.1, 1.905), (0.0, 1.915), (-0.095, 1.905), (-0.19, 1.875)]]
+
+            elif self.handrail_profil == 'SQUARE':
+                x = 0.5 * self.handrail_x
+                y = self.handrail_y
+                handrail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
+            
+            elif self.handrail_profil == 'CIRCLE':
+                r = self.handrail_radius
+                handrail = [Vector((r * sin(0.1 * -a * pi), r * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
+     
             g.make_profile(handrail, int(self.idmat_handrail), self.x_offset - self.handrail_offset,
-                self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
+                self.handrail_alt, self.handrail_extend, True, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
 
@@ -1515,9 +1621,12 @@ class ARCHIPACK_PT_fence(Panel):
         row = box.row(align=True)
         row.operator("archipack.fence_curve_update", text="", icon='FILE_REFRESH')
         row.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
+        
         if prop.user_defined_path is not "":
             box.prop(prop, 'user_defined_spline')
             box.prop(prop, 'user_defined_resolution')
+            box.prop(prop, 'user_path_reverse')
+            
         box.prop(prop, 'angle_limit')
         box.prop(prop, 'x_offset')
         box = layout.box()
@@ -1620,11 +1729,7 @@ class ARCHIPACK_PT_fence(Panel):
             for i in range(prop.rail_n):
                 box = layout.box()
                 box.label(text="Rail " + str(i + 1))
-                box.prop(prop, 'rail_x', index=i)
-                box.prop(prop, 'rail_z', index=i)
-                box.prop(prop, 'rail_alt', index=i)
-                box.prop(prop, 'rail_offset', index=i)
-                box.prop(prop.rail_mat[i], 'index', text="")
+                prop.rails[i].draw(context, box)
 
         box = layout.box()
         row = box.row()
@@ -1637,6 +1742,7 @@ class ARCHIPACK_PT_fence(Panel):
             box.prop(prop, 'idmat_subs')
         else:
             row.prop(prop, 'idmats_expand', icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
+
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -1832,7 +1938,8 @@ class ARCHIPACK_OT_fence_subpart_dimensions(Operator):
 
 
 def register():
-    bpy.utils.register_class(archipack_fence_material)
+    # bpy.utils.register_class(archipack_fence_material)
+    bpy.utils.register_class(archipack_fence_rail)
     bpy.utils.register_class(archipack_fence_part)
     bpy.utils.register_class(archipack_fence)
     Mesh.archipack_fence = CollectionProperty(type=archipack_fence)
@@ -1847,7 +1954,8 @@ def register():
 
 
 def unregister():
-    bpy.utils.unregister_class(archipack_fence_material)
+    # bpy.utils.unregister_class(archipack_fence_material)
+    bpy.utils.unregister_class(archipack_fence_rail)
     bpy.utils.unregister_class(archipack_fence_part)
     bpy.utils.unregister_class(archipack_fence)
     del Mesh.archipack_fence

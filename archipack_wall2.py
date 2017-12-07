@@ -86,10 +86,10 @@ class Wall():
             else:
                 faces.append((f, f + 2, f + 3, f + 1))
 
-    def p3d(self, verts, t):
+    def p3d(self, verts, t, z_min=0):
         x, y = self.lerp(t)
         z = self.wall_z + self.get_z(t)
-        verts.append((x, y, 0))
+        verts.append((x, y, z_min))
         verts.append((x, y, z))
 
     def make_wall(self, i, verts, faces):
@@ -146,10 +146,16 @@ class WallGenerator():
         self.closed = False
 
     def set_offset(self, offset):
+        n_segs = len(self.segs)
+        if not self.closed:
+            n_segs -= 1
         last = None
         for i, seg in enumerate(self.segs):
-            seg.set_offset(offset, last)
-            last = seg.line
+            if i < n_segs:
+                seg.set_offset(offset, last)
+                last = seg.line
+            else:
+                seg.line = Line(last.p1, last.straight(0, 1).p1)
 
         if self.closed:
             w = self.segs[-1]
@@ -216,6 +222,9 @@ class WallGenerator():
         return manip_index
 
     def close(self, closed):
+
+        self.closed = closed
+
         # Make last segment implicit closing one
         if closed:
             part = self.parts[-1]
@@ -764,8 +773,6 @@ class archipack_wall2_part(PropertyGroup):
 
 
 class archipack_wall2_child(PropertyGroup):
-    # Size  Loc
-    # Delta Loc
     manipulators = CollectionProperty(type=archipack_manipulator)
     child_name = StringProperty()
     wall_idx = IntProperty()
@@ -1064,6 +1071,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         self.auto_update = False
         self.from_points(pts, spline.use_cyclic_u)
         self.auto_update = True
+        return min([p.z for p in pts]) - wM[2][3]
 
     def from_points(self, pts, closed):
 
@@ -1236,6 +1244,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
         self.restore_context(context)
 
+    """
     # manipulable children objects like windows and doors
     def child_partition(self, array, begin, end):
         pivot = begin
@@ -1253,6 +1262,8 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
     def sort_child(self, array, begin=0, end=None):
         # print("sort_child")
+        sorted(array, key=lambda seg: (seg[1], seg[4]))
+
         if end is None:
             end = len(array) - 1
 
@@ -1263,6 +1274,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             _quicksort(array, begin, pivot - 1)
             _quicksort(array, pivot + 1, end)
         return _quicksort(array, begin, end)
+    """
 
     def add_child(self, name, wall_idx, pos, flip):
         # print("add_child %s %s" % (name, wall_idx))
@@ -1357,8 +1369,8 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                             t))
                         break
 
-        self.sort_child(relocate)
-        for child in relocate:
+        # self.sort_child(relocate)
+        for child in sorted(relocate, key=lambda child: (child[1], child[4])):
             name, wall_idx, pos, flip, t = child
             self.add_child(name, wall_idx, pos, flip)
 
@@ -1371,6 +1383,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
     def relocate_childs(self, context, o, g):
         """
             Move and resize childs after wall edition
+            childs here are either doors or windows
         """
         # print("relocate_childs")
         # tim = time.time()
@@ -1791,11 +1804,11 @@ class ARCHIPACK_OT_wall2(ArchipackCreateTool, Operator):
 class ARCHIPACK_OT_wall2_from_curve(Operator):
     bl_idname = "archipack.wall2_from_curve"
     bl_label = "Wall curve"
-    bl_description = "Create a wall from a curve"
+    bl_description = "Create wall(s) from a curve"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
-    auto_manipulate = BoolProperty(default=True)
+    auto_manipulate = BoolProperty(default=False)
 
     @classmethod
     def poll(self, context):
@@ -1807,7 +1820,7 @@ class ARCHIPACK_OT_wall2_from_curve(Operator):
             bpy.ops.archipack.wall2(auto_manipulate=self.auto_manipulate)
             o = context.scene.objects.active
             d = archipack_wall2.datablock(o)
-            d.from_spline(curve.matrix_world, 12, spline)
+            z = d.from_spline(curve.matrix_world, 12, spline)
             if spline.type == 'POLY':
                 pt = spline.points[0].co
             elif spline.type == 'BEZIER':
@@ -1818,7 +1831,7 @@ class ARCHIPACK_OT_wall2_from_curve(Operator):
             o.matrix_world = curve.matrix_world * Matrix([
                 [1, 0, 0, pt.x],
                 [0, 1, 0, pt.y],
-                [0, 0, 1, pt.z],
+                [0, 0, 1, z],
                 [0, 0, 0, 1]
                 ])
         return o
@@ -1933,6 +1946,7 @@ class ARCHIPACK_OT_wall2_fit_roof(Operator):
             d.setup_childs(o, g)
             rd.make_wall_fit(context, r, o, self.inside)
         return {'FINISHED'}
+
 
 # ------------------------------------------------------------------
 # Define operator class to draw a wall

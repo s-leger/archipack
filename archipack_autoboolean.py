@@ -129,6 +129,12 @@ class ArchipackBoolManager():
             if hole is not None:
                 # print("_generate_hole Use existing hole %s" % (hole.name))
                 return hole
+
+        # Handle custom holes : objects tagged with "archipack_custom_hole"
+        if "archipack_custom_hole" in o:
+            if self.itM is not None and self._contains(o.location):
+                return o
+
         # generate single hole from archipack primitives
         d = self.datablock(o)
         hole = None
@@ -201,7 +207,7 @@ class ArchipackBoolManager():
                 if m.object is not None:
                     m.object = None
                 o.modifiers.remove(m)
-            if h is not None:
+            if h is not None and "archipack_custom_hole" not in h:
                 context.scene.objects.unlink(h)
                 bpy.data.objects.remove(h, do_unlink=True)
 
@@ -434,6 +440,8 @@ class ArchipackBoolManager():
             context.scene.objects.active = wall
             bpy.ops.archipack.reference_point()
         else:
+            wall.parent.hide = False
+            wall.parent.hide_select = False
             wall.parent.select = True
             context.scene.objects.active = wall.parent
 
@@ -442,8 +450,9 @@ class ArchipackBoolManager():
             if 'archipack_robusthole' in o:
                 o.hide_select = False
             o.select = True
-
-        bpy.ops.archipack.parent_to_reference()
+        
+        if bpy.ops.archipack.parent_to_reference.poll():
+            bpy.ops.archipack.parent_to_reference()
 
         for o in childs:
             if 'archipack_robusthole' in o:
@@ -518,6 +527,8 @@ class ArchipackBoolManager():
             context.scene.objects.active = wall
             bpy.ops.archipack.reference_point()
         else:
+            wall.parent.hide = False
+            wall.parent.hide_select = False
             context.scene.objects.active = wall.parent
 
         if hole_obj is not None:
@@ -600,7 +611,7 @@ class ARCHIPACK_OT_single_boolean(Operator):
 class ARCHIPACK_OT_auto_boolean(Operator):
     bl_idname = "archipack.auto_boolean"
     bl_label = "AutoBoolean"
-    bl_description = "Automatic boolean for doors and windows"
+    bl_description = "Automatic boolean for doors and windows. Select your wall(s) then push"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
     mode = EnumProperty(

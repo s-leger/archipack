@@ -991,7 +991,7 @@ class Point(GeosPoint):
 
 class Segment():
 
-    def __init__(self, c0, c1, extend=EPSILON):
+    def __init__(self, c0, c1):
 
         # c0 c1 are Points
         self.c0 = c0
@@ -1005,16 +1005,7 @@ class Segment():
         self._splits = []
 
         self.available = True
-        # ensure uniqueness when merge
-
-        self.opposite = False
-        # this seg has an opposite
-
-        self.original = False
-        """
-           NOTE : only original is stored into quadTree
-           but quadtree is able to return _oposite when apply
-        """
+        
         self.envelope = Envelope(c0.coord, c1.coord)
 
     @property
@@ -1045,7 +1036,7 @@ class Segment():
          remove dups
         """
         _s = sorted(self._splits, key=lambda s: s[0])
-        _s = [s[1] for s in _s]  # if s[2][0].valid
+        _s = [s[1] for s in _s]
         return [s for i, s in enumerate(_s) if i == 0 or _s[i - 1] is not s]
 
     @property
@@ -1055,7 +1046,7 @@ class Segment():
 
     def lerp(self, t):
         """
-            3d interpolation
+            2d interpolation
         """
         return self.p + self.v * t
 
@@ -1087,7 +1078,7 @@ class Segment():
         c2 = self.cross_z
         u = (c * dp) / d
         v = (c2 * dp) / d
-        return True, self.lerp(u), u, v, 0
+        return True, self.lerp(u).to_3d(), u, v, 0
 
     def is_end(self, point):
         return point is self.c0 or point is self.c1
@@ -1103,22 +1094,21 @@ class Segment():
         else:
             return self.c0.distance(point)
 
-    def _append_splits(self, t, point, it):
+    def _append_splits(self, t, point):
         """
             append a unique split point
         """
         if point is self.c0 or point is self.c1:
             return
-        self._splits.append((t, point, it))
+        self._splits.append((t, point))
 
-    def slice(self, t, point, it):
+    def slice(self, t, point):
         """
             t: param t on segment
             p: intersection point
-            it:Intersection
             keep track of splits on segment
         """
-        self._append_splits(t, point, it)
+        self._append_splits(t, point)
 
     def add_user(self):
         self.c0.add_user()
@@ -1128,18 +1118,29 @@ class Segment():
         self.available = False
 
     def add_points(self, Q_segs):
+        self._splits.append((0, self.c0))
+        self._splits.append((1, self.c1))
         _splits = self.splits
         nSplits = len(_splits)
-        if nSplits > 0:
-            # kill silced segment
+        if nSplits > 2:
+            # kill silced / extended segments
             self.consume()
             # build new segments
-            Q_segs.newSegment(self.c0, _splits[0])
+            """
+            start = 0
+            while _splits[start] is not self.c0:
+                start += 1
+            start += 1
+            
+            end = nSplits
+            while _splits[end - 1] is not self.c1:
+                end -= 1
+            """
             for i in range(1, nSplits):
-                Q_segs.newSegment(_splits[i - 1], _splits[i])
-            Q_segs.newSegment(_splits[-1], self.c1)
-
-
+                seg = Q_segs.newSegment(_splits[i - 1], _splits[i])
+                seg.available = True
+                
+  
 class Io():
 
     def __init__(self, scene=None, coordsys=None, Q_segs=None, Q_points=None):
@@ -1257,7 +1258,7 @@ class Io():
         if coordsys is None:
             coordsys = CoordSys(curves)
 
-        Q_points = Qtree(coordsys, extend=0.5 * EPSILON)
+        Q_points = Qtree(coordsys)
         io = Io(Q_points=Q_points, coordsys=coordsys)
 
         geoms = []
@@ -1300,7 +1301,7 @@ class Io():
         if coordsys is None:
             coordsys = CoordSys(curves)
 
-        Q_points = Qtree(coordsys, extend=0.5 * EPSILON)
+        Q_points = Qtree(coordsys)
         io = Io(Q_points=Q_points, coordsys=coordsys)
         for curve in curves:
             io._curve_as_geom(gf, curve, resolution, geoms)
@@ -1535,7 +1536,7 @@ class ShapelyOps():
 
         cs = geom._factory.coordinateSequenceFactory.create(
             [Coordinate(co[0], co[1]) for co in [(-x, -y), (-x, y), (x, y), (x, -y), (-x, -y)]])
-            
+
         centered_rect = geom._factory.createLinearRing(cs)
 
         tM = Matrix([
@@ -1588,7 +1589,7 @@ class ShapelyOps():
         elif opCode == 4:
             return a.symmetric_difference(b)
 
-
+       
 class Qtree(_QuadTree):
     """
         The top spatial index to be created by the user. Once created it can be
@@ -1629,57 +1630,51 @@ class Qtree(_QuadTree):
         self._insert(id, self.getbounds(geom))
 
     def newPoint(self, co):
-
-        point = Point(Coordinate(co.x, co.y), self._factory)
-        count, found = self.intersects_ext(point, EPSILON)
+        found = self._intersect((co.x - EPSILON, co.y - EPSILON, co.x + EPSILON, co.y + EPSILON))
         for id in found:
             return self._geoms[id]
+        point = Point(Coordinate(co.x, co.y), self._factory)
         self.insert(self.ngeoms, point)
         return point
 
     def newSegment(self, c0, c1):
-        """
-            allow "opposite" segments,
-            those segments are not found by intersects
-            and not stored in self.geoms
-        """
-        new_seg = Segment(c0, c1, self._extend)
-        count, found = self.intersects(new_seg)
+        x0, y0 = c0.coord.x, c0.coord.y
+        x1, y1 = c1.coord.x, c1.coord.y
+        if x1 < x0:
+            x1, x0 = x0, x1
+        if y1 < y0:
+            y1, y0 = y0, y1
+        found = self._intersect((x0 - EPSILON, y0 - EPSILON, x1 + EPSILON, y1 + EPSILON))
         for id in found:
             old_seg = self._geoms[id]
-            if (old_seg.c0 == c0 and old_seg.c1 == c1):
+            if (old_seg.c0 is c0 and old_seg.c1 is c1):
                 return old_seg
-            if (old_seg.c0 == c1 and old_seg.c1 == c0):
-                if not old_seg.opposite:
-                    old_seg.opposite = new_seg
-                    new_seg.original = old_seg
-                return old_seg.opposite
+            if (old_seg.c0 is c1 and old_seg.c1 is c0):
+                return old_seg
+   
+        new_seg = Segment(c0, c1)
         self.insert(self.ngeoms, new_seg)
         return new_seg
 
-    def getbounds(self, geom):
-        if hasattr(geom, 'bounds'):
-            return geom.bounds
-        else:
-            _b = geom.envelope
-            return (_b.minx - EPSILON, _b.miny - EPSILON, _b.maxx + EPSILON, _b.maxy + EPSILON)
-
+    def getbounds(self, geom, extend=EPSILON):
+        env = geom.envelope
+        return (env.minx - extend, 
+            env.miny - extend, 
+            env.maxx + extend, 
+            env.maxy + extend)
+    
     def intersects_ext(self, geom, extend):
-        bounds = self.getbounds(geom)
-        _bounds = (bounds[0] - extend,
-                    bounds[1] - extend,
-                    bounds[2] + extend,
-                    bounds[3] + extend)
-        selection = list(self._intersect(_bounds))
-        count = len(selection)
-        return count, sorted(selection)
-
-    def intersects(self, geom):
-        bounds = self.getbounds(geom)
+        bounds = self.getbounds(geom, extend=extend)
         selection = list(self._intersect(bounds))
         count = len(selection)
         return count, sorted(selection)
 
+    def intersects(self, geom):
+        bounds = self.getbounds(geom, extend=EPSILON)
+        selection = list(self._intersect(bounds))
+        count = len(selection)
+        return count, sorted(selection)
+        
 
 class Polygonizer():
     """
@@ -1707,7 +1702,142 @@ class Polygonizer():
         else:
             return seg.c0
 
-    def split(self, Q_points, Q_segs, extend=0.01, collinear=True):
+    def test_split(self, Q_points, Q_segs, extend=0.01, extend_seg=0.01, collinear=True):
+        """ _split
+            detect intersections between segments and create segments according
+            is able to project segment ends on closest segment
+            use point_tree and seg_tree
+            assume merged segments on beforehand
+        """
+        t = time.time()
+
+        # debug
+        processed = 0
+        process_collinear = 0
+        process_point = 0
+
+        segs = Q_segs._geoms
+        nbsegs = Q_segs.ngeoms
+        
+        # points with 1 user are "extendable"
+        for seg in Q_segs._geoms:
+            seg.c0.add_user()
+            seg.c1.add_user()
+
+        for s, seg in enumerate(segs):
+
+            # enlarge seek box for "extendable" segments
+            if seg.c0.users < 2 or seg.c1.users < 2:
+                _extend = extend
+            else:
+                _extend = extend_seg
+            
+            count, idx = Q_segs.intersects_ext(seg, _extend)
+            
+            for id in idx:
+
+                if id > s:
+                    # can't check for side determinant here
+                    # as intersect may enlarge segment to nearest
+                    # neighboor
+                    
+                    _seg = segs[id]
+                    
+                    # enlarge seek box for "extendable" segments
+                    if _seg.c0.users < 2 or _seg.c1.users < 2:
+                        _extend_other = extend
+                    else:
+                        _extend_other = extend_seg
+                
+                    
+                    intersect, co, u, v, d = seg._intersect_seg(_seg)
+
+                    processed += 1
+
+                    # POINT_INTERSECTION
+                    if intersect:
+
+                        process_point += 1
+
+                        # store intersection state
+                        # to be able to disable invalid ones
+                        # it = [Intersection()]
+
+                        point = Q_points.newPoint(co)
+
+                        # distance of nearest segment endpoint and intersection
+                        du = seg.min_intersect_dist(u, point)
+                        dv = _seg.min_intersect_dist(v, point)
+
+                        # print("s:%s id:%s u:%7f v:%7f du:%7f dv:%7f" % (s, id, u, v, du, dv))
+
+                        # does intersect realy occurs ?
+                        if (((v <= 0 and dv < _extend_other) or
+                                (0 <= v < 1) or
+                                (v >= 1 and dv < _extend_other)) and
+                                ((u <= 0 and du < _extend) or
+                                (0 <= u < 1) or
+                                (u >= 1 and du < _extend))):
+
+                            # intersection point on segment id,
+                            # segment end when distance is under precision
+
+                            pt = self._intersection_point(dv, v, point, _seg)
+                            seg.slice(u, pt)
+                            
+                            # intersection point on segment seg,
+                            # segment end when distance is under precision
+                            pt = self._intersection_point(du, u, point, seg)
+                            _seg.slice(v, pt)
+                            
+                    # COLLINEAR_INTERSECTION
+                    elif collinear and d < EPSILON:
+                        # parallel segments, endpoint on segment
+                        # skip NON_COLLINEAR aka when d > EPSILON
+                        process_collinear += 1
+
+                        # point _seg.c0 on segment seg
+                        pt = _seg.c0
+                        du, u = seg._point_sur_seg(pt)
+
+                        if (0 <= u < 1):
+                            seg.slice(u, pt)
+                           
+                        # point _seg.c1 on segment seg
+                        pt = _seg.c1
+                        du, u = seg._point_sur_seg(pt)
+
+                        if (0 <= u < 1):
+                            seg.slice(u, pt)
+                            
+                        # point seg.c0 on segment _seg
+                        pt = seg.c0
+                        du, u = _seg._point_sur_seg(pt)
+
+                        if (0 <= u < 1):
+                            _seg.slice(u, pt)
+                            
+                        # point seg.c1 on segment _seg
+                        pt = seg.c1
+                        du, u = _seg._point_sur_seg(pt)
+
+                        if (0 <= u < 1):
+                            _seg.slice(u, pt)
+        
+        logger.debug("Polygonizer.split() intersect (all:%s, points:%s, collinear:%s) :%.4f seconds",
+            processed,
+            process_point,
+            process_collinear,
+            (time.time() - t))
+
+        t = time.time()
+        _geoms = Q_segs._geoms
+        for seg in _geoms:
+            seg.add_points(Q_segs)
+
+        logger.debug("Polygonizer.split() slice :%.4f seconds", (time.time() - t))
+    
+    def split(self, Q_points, Q_segs, extend=0.01, extend_seg=0.01, collinear=True):
         """ _split
             detect intersections between segments and create segments according
             is able to project segment ends on closest segment
@@ -1811,7 +1941,7 @@ class Polygonizer():
                                     last.it = it
                             elif u < 1:
                                 # intersection on segment s
-                                seg.slice(u, pt, it)
+                                seg.slice(u, pt)
                             else:
                                 # enlarge segment s c1
                                 last = it_end[s]
@@ -1860,7 +1990,7 @@ class Polygonizer():
 
                             elif v < 1:
                                 # intersection on segment id
-                                _seg.slice(v, pt, it)
+                                _seg.slice(v, pt)
                             else:
                                 # enlarge segment id c1
                                 last = it_end[id]
@@ -1907,7 +2037,7 @@ class Polygonizer():
 
                             elif u < 1:
                                 # occurs inside segment seg
-                                seg.slice(u, pt, it)
+                                seg.slice(u, pt)
                                 # _seg.c0 must not extend
                                 # _seg.c0.users = 2
                                 if it_start[id] is not None:
@@ -1952,7 +2082,7 @@ class Polygonizer():
 
                             elif u < 1:
                                 # occurs on segment seg
-                                seg.slice(u, pt, it)
+                                seg.slice(u, pt)
                                 # _seg.c1.users = 2
                                 if it_end[id] is not None:
                                     it_end[id].it[0].valid = False
@@ -1997,7 +2127,7 @@ class Polygonizer():
                                 # occurs on segment _seg
                                 # always occurs so intersection
                                 # doesent need to be "removable"
-                                _seg.slice(u, pt, it)
+                                _seg.slice(u, pt)
                                 # seg.c0.users = 2
                                 if it_start[s] is not None:
                                     it_start[s].it[0].valid = False
@@ -2040,7 +2170,7 @@ class Polygonizer():
 
                             elif u < 1:
                                 # occurs on segment _seg
-                                _seg.slice(u, pt, it)
+                                _seg.slice(u, pt)
                                 # seg.c1.users = 2
                                 if it_end[s] is not None:
                                     it_end[s].it[0].valid = False
@@ -2080,8 +2210,11 @@ class Polygonizer():
         logger.debug("Polygonizer.split() slice :%.4f seconds", (time.time() - t))
 
     @staticmethod
-    def polygonize(context, curves, extend=0.0, resolution=12):
-
+    def polygonize(context, curves, extend=0.0, extend_seg=0.0, resolution=12):
+        """
+            @extend: extend line ends to find intersections
+            @extend_seg: extend line segments to find intersections
+        """
         t = time.time()
         curves = Io.ensure_iterable(curves)
         coordsys = CoordSys(curves)
@@ -2091,12 +2224,12 @@ class Polygonizer():
 
         op = Polygonizer(coordsys)
         # Ensure uniqueness of points and segments
-        Q_segs = Qtree(coordsys, extend=extend)
-        Q_points = Qtree(coordsys, extend=0.5 * EPSILON)
+        Q_segs = Qtree(coordsys)
+        Q_points = Qtree(coordsys)
 
         Io.add_curves(Q_points, Q_segs, coordsys, curves, resolution)
 
-        op.split(Q_points, Q_segs, extend)
+        op.split(Q_points, Q_segs, extend=extend, extend_seg=extend_seg)
 
         lines = gf.buildGeometry([gf.createLineString([seg.c0.coord, seg.c1.coord])
             for seg in Q_segs._geoms
@@ -2230,7 +2363,6 @@ class ARCHIPACK_OP_PolyLib_Detect(Operator):
     bl_label = "Detect Polygons"
     bl_description = "Detect polygons from unordered splines"
     bl_options = {'REGISTER', 'UNDO'}
-    extend = FloatProperty(name="extend", default=0.01, subtype='DISTANCE', unit='LENGTH', min=0)
 
     @classmethod
     def poll(self, context):
@@ -2240,7 +2372,7 @@ class ARCHIPACK_OP_PolyLib_Detect(Operator):
 
     def execute(self, context):
         global vars_dict
-
+        params = context.window_manager.archipack_polylib
         objs = [obj for obj in context.selected_objects if obj.type == 'CURVE']
 
         if len(objs) < 1:
@@ -2254,13 +2386,16 @@ class ARCHIPACK_OP_PolyLib_Detect(Operator):
             coordsys, polys, dangles, cuts, invalids = Polygonizer.polygonize(
                 context,
                 objs,
-                extend=self.extend,
-                resolution=context.window_manager.archipack_polylib.resolution)
+                extend=params.extend,
+                extend_seg=params.extend_seg,
+                resolution=params.resolution)
+
         except TopologyException as ex:
             self.report({'WARNING'}, "Topology error {}".format(ex))
             return {'CANCELLED'}
         except:
             self.report({'WARNING'}, "Unknown error")
+            raise
             return {'CANCELLED'}
 
         if len(invalids) > 0:
@@ -2334,7 +2469,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
         result = Io.to_curve(context.scene, coordsys, offset, 'offset')
         context.scene.objects.active = result
         logger.info("Offset :%.2f seconds", time.time() - t)
-        
+
         return {'FINISHED'}
 
 
@@ -2441,7 +2576,7 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
         if opCode > 10:
             opCode = opCode - 10
             geom_a, geom_b = geom_b, geom_a
-            
+
         try:
             # Might throw TopologyException
             res = ShapelyOps.boolean(geom_a, geom_b, opCode)
@@ -2452,11 +2587,11 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
         except:
             self.report({'WARNING'}, "Unknown error")
             return {'CANCELLED'}
-        
+
         result = Io.to_curve(context.scene, coordsys, res, 'boolean')
         context.scene.objects.active = result
         logger.info("Boolean :%.2f seconds", time.time() - t)
-        
+
         return {'FINISHED'}
 
 
@@ -2564,8 +2699,14 @@ class archipack_polylib(PropertyGroup):
     bl_idname = 'archipack.polylib_parameters'
     polygonize_expand = BoolProperty(default=False, description="Display polygonize tools")
     extend = FloatProperty(
-            name="Extend",
-            description="Extend to closest intersecting segment",
+            name="Extend end",
+            description="Extend line ends to closest intersecting segment",
+            default=0.01,
+            subtype='DISTANCE', unit='LENGTH', min=0
+            )
+    extend_seg = FloatProperty(
+            name="Extend seg",
+            description="Extend segments to closest intersecting segment",
             default=0.01,
             subtype='DISTANCE', unit='LENGTH', min=0
             )

@@ -64,10 +64,11 @@ if "bpy" in locals():
     # imp.reload(archipack_toolkit)
     imp.reload(archipack_floor)
     imp.reload(archipack_rendering)
+    # imp.reload(archipack_envi)
     imp.reload(archipack_io)
     imp.reload(archipack_polylines)
     imp.reload(addon_updater_ops)
-    imp.reload(archipack_i18n)
+    # imp.reload(archipack_i18n)
 
     print("archipack: reload ready")
 else:
@@ -89,10 +90,11 @@ else:
     # from . import archipack_toolkit
     from . import archipack_floor
     from . import archipack_rendering
+    # from . import archipack_envi
     from . import archipack_io
     from . import archipack_polylines
-    from . import archipack_i18n
     from . import addon_updater_ops
+    # from . import archipack_i18n
     
     print("archipack: ready")
 
@@ -355,10 +357,11 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             "archipack.polylib_detect",
             icon_value=icons["detect"].icon_id,
             text='Detect'
-            ).extend = params.extend
+            )
             
         if params.polygonize_expand:
             box.prop(params, "extend")
+            # box.prop(params, "extend_seg")
             box.prop(params, "resolution")
             box.label(text="Polygons")
             
@@ -499,20 +502,25 @@ class TOOLS_PT_Archipack_Tools(Panel):
     def draw(self, context):
         wm = context.window_manager
         layout = self.layout
-        row = layout.row(align=True)
-        box = row.box()
+        box = layout.box()
         box.label("Auto boolean")
+        box.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO').mode = 'HYBRID'
+        box.label("Apply holes")
         row = box.row(align=True)
-        # row.operator("archipack.auto_boolean", text="Robust", icon='HAND').mode = 'ROBUST'
-        # row.operator("archipack.auto_boolean", text="Interactive", icon='AUTO').mode = 'INTERACTIVE'
-        row.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO').mode = 'HYBRID'
-        row = layout.row(align=True)
-        box = row.box()
+        row.operator("archipack.apply_holes", text="selected").selected_only = True
+        row.operator("archipack.apply_holes", text="all")
+        
+        box = layout.box()
+        box.label("Kill parameters")
+        row = box.row(align=True)
+        row.operator("archipack.kill_archipack", text="selected", icon="ERROR").selected_only = True
+        row.operator("archipack.kill_archipack", text="all", icon="ERROR")
+        
+        box = layout.box()
         box.label("Rendering")
-        row = box.row(align=True)
-        row.prop(wm.archipack, 'render_type', text="")
-        row = box.row(align=True)
-        row.operator("archipack.render", icon='RENDER_STILL')
+        box.prop(wm.archipack, 'render_type', text="")
+        box.operator("archipack.render", icon='RENDER_STILL')
+        
         box = layout.box()
         box.label("Generate preset thumbs")
         box.operator("archipack.render_thumbs", icon="ERROR")
@@ -748,7 +756,7 @@ def register():
 
     addon_updater_ops.register(bl_info)
 
-    archipack_i18n.register()
+    # archipack_i18n.register()
 
 def unregister():
     global icons_collection
@@ -789,7 +797,7 @@ def unregister():
 
     addon_updater_ops.unregister()
 
-    archipack_i18n.unregister()
+    # archipack_i18n.unregister()
 
 
 if __name__ == "__main__":
