@@ -393,7 +393,19 @@ class CutAblePolygon():
         # find if either a cutter or
         # cutter intersects
         # (at least one point of any must be inside other one)
-
+        
+        # find if all points of the object are inside cutter
+        # so there is no need to cut when mode is intersection
+        if keep_inside:
+            one_outside = False
+            for i, s in enumerate(f_segs):
+                res = self.inside(s.p0, c_segs)
+                if not res:
+                    one_outside = True
+                    break
+            if not one_outside:
+                return True
+                
         # find a point of this pitch inside cutter
         for i, s in enumerate(f_segs):
             res = self.inside(s.p0, c_segs)
@@ -417,7 +429,7 @@ class CutAblePolygon():
                 # swap cutter / pitch so we start from cutter
                 slice_res = self.get_intersections(cutter, self, start, store, False)
                 break
-
+        
         # no points found at all
         if start < 0:
             # print("no pt inside")
