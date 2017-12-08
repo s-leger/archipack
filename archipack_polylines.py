@@ -1633,7 +1633,7 @@ class Qtree(_QuadTree):
         found = self._intersect((co.x - EPSILON, co.y - EPSILON, co.x + EPSILON, co.y + EPSILON))
         for id in found:
             return self._geoms[id]
-        point = Point(Coordinate(co.x, co.y), self._factory)
+        point = Point(Coordinate(co.x, co.y, co.z), self._factory)
         self.insert(self.ngeoms, point)
         return point
 
