@@ -1343,8 +1343,7 @@ class OverlayOp(GeometryGraphOperation):
         logger.debug("OverlayOp.computeLabelsFromDepths()")
         self.computeLabelsFromDepths()
 
-        # logger.debug("OverlayOp.replaceCollapsedEdges() at call time:\n%s", "\n".join(
-        #     [str(edge) for edge in self._edgeList]))
+        logger.debug("OverlayOp.replaceCollapsedEdges()")
         self.replaceCollapsedEdges()
 
         """
@@ -1357,6 +1356,7 @@ class OverlayOp(GeometryGraphOperation):
          * the problem.
          * In the future hopefully a faster check can be developed.
         """
+        logger.debug("OverlayOp EdgeNodingValidator.checkValid()")
         EdgeNodingValidator.checkValid(self._edgeList)
 
         # logger.debug("OverlayOp._graph.addEdges() at call time:\n%s", "\n".join(
@@ -1377,7 +1377,12 @@ class OverlayOp(GeometryGraphOperation):
          * included explicitly, and similarly for points.
         """
         self.findResultAreaEdges(opCode)
+        logger.debug("OverlayOp.findResultAreaEdges() after:\n%s", "\n".join(
+             [str(edge) for edge in self._edgeList]))
+
         self.cancelDuplicateResultEdges()
+        logger.debug("OverlayOp.cancelDuplicateResultEdges() after:\n%s", "\n".join(
+             [str(edge) for edge in self._edgeList]))
 
         polyBuilder = PolygonBuilder(self._factory)
         polyBuilder.add(self._graph)
@@ -1622,15 +1627,15 @@ class OverlayOp(GeometryGraphOperation):
             # mark all dirEdges with the appropriate label
             label = de.label
 
-            if label.isArea() and (not de.isInteriorAreaEdge) and self._isResultOfOp(
+            if label.isArea() and (not de.isInteriorAreaEdge) and OverlayOp._isResultOfOp(
                     label.getLocation(0, Position.RIGHT),
                     label.getLocation(1, Position.RIGHT),
                     opCode
                     ):
                 de.isInResult = True
-
-            # logger.debug("%s: isArea:%s isInteriorAreaEdge:%s %s", i, label.isArea(), de.isInteriorAreaEdge, de)
-
+            
+            logger.debug("%s: isArea:%s inResult:%s %s", i, label.isArea(), de.isInResult, de)
+            
     def cancelDuplicateResultEdges(self) -> None:
         """
          * If both a dirEdge and its sym are marked as being in the result,

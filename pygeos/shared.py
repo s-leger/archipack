@@ -535,21 +535,47 @@ class Dimension():
 
 
 class Quadrant():
-
+    """
+     * Utility functions for working with quadrants, which are numbered as follows:
+     * 1 | 0
+     * --+--
+     * 2 | 3
+     *
+    """
     NE = 0
     NW = 1
     SW = 2
     SE = 3
+    @staticmethod
+    def from_coords(p0, p1) -> int:
+        """
+         * Returns the quadrant of a directed line segment (specified as x and y
+         * displacements, which cannot both be 0).
+         * 
+         * @raise ValueError if the displacements are both 0
+        """
+        if p1.x == p0.x and p1.y == p0.y:
+            raise ValueError("Cannot compute the quadrant")
 
+        if p1.x >= p0.x:
+            if p1.y >= p0.y:
+                return Quadrant.NE
+            else:
+                return Quadrant.SE
+        else:
+            if p1.y >= p0.y:
+                return Quadrant.NW
+            else:
+                return Quadrant.SW
+                
     @staticmethod
     def quadrant(dx, dy) -> int:
-
-        try:
-            # Init from coords
-            dx, dy = dy.x - dx.x, dy.y - dx.y
-        except:
-            pass
-
+        """
+         * Returns the quadrant of a directed line segment (specified as x and y
+         * displacements, which cannot both be 0).
+         * 
+         * @raise ValueError if the displacements are both 0
+        """
         if dx == 0.0 and dy == 0.0:
             raise ValueError("Cannot compute the quadrant")
 
@@ -634,21 +660,30 @@ class Envelope():
 
             if cls == 'Envelope':
                 # Copy constructor
-                self.init(x1.minx, x1.maxx, x1.miny, x1.maxy)
+                self.initByEnvelope(x1)
             else:
                 # Creates an Envelope for a region defined by a single Coordinate.
-                self.init(x1.x, x1.x, x1.y, x1.y)
+                self.initByPoints(x1, x1)
 
         elif x2 is None:
             # Creates an Envelope for a region defined by
             # two Coordinates.
-            self.init(x1.x, y1.x, x1.y, y1.y)
+            self.initByPoints(x1, y1)
 
         else:
             # Creates an Envelope for a region defined by
             # maximum and minimum values.
             self.init(x1, x2, y1, y2)
-
+    
+    def initByEnvelope(self, env):
+        self.minx = env.minx
+        self.maxx = env.maxx
+        self.miny = env.miny
+        self.maxy = env.maxy
+    
+    def initByPoints(self, p0, p1):
+        self.init(p0.x, p1.x, p0.y, p1.y)
+    
     def init(self, x1, x2, y1, y2) -> None:
         if x1 < x2:
             self.minx = x1
@@ -927,14 +962,14 @@ class Envelope():
             self.maxx += x
             self.miny -= y
             self.maxy += y
-
+   
     def __str__(self) -> str:
         return "Env[x{}:{}, y{}:{}]".format(self.minx, self.maxx, self.miny, self.maxy)
 
     def __hash__(self):
         return hash((self.minx, self.miny, self.maxx, self.maxy))
-
-
+    
+    
 class IntersectionMatrix():
     """
     * Implementation of Dimensionally Extended Nine-Intersection Model

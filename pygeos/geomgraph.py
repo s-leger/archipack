@@ -105,18 +105,19 @@ class TopologyLocation():
          * @see Location
         """
         if type(newLocation).__name__ == 'TopologyLocation':
-            self.location = [int(loc) for loc in newLocation.location]
+            self.location = [loc for loc in newLocation.location]
         else:
             self.location = [newLocation]
             if left is not None:
                 self.location.append(left)
             if right is not None:
                 self.location.append(right)
-
+    
     def flip(self) -> None:
         if len(self.location) > 1:
-            self.location[Position.LEFT], self.location[Position.RIGHT] = \
-                self.location[Position.RIGHT], self.location[Position.LEFT]
+            tmp = self.location[Position.LEFT]
+            self.location[Position.LEFT] = self.location[Position.RIGHT]
+            self.location[Position.RIGHT] = tmp
 
     def get(self, posIndex: int) -> int:
         if posIndex < len(self.location):
@@ -358,7 +359,7 @@ class Label():
             # handle (geomIndex, onLoc)
             if geomIndex is not None and onLoc is not None:
                 self._elt[geomIndex].setLocation(onLoc)
-
+    
     def flip(self) -> None:
         self._elt[0].flip()
         self._elt[1].flip()
@@ -549,16 +550,15 @@ class PlanarGraph():
 
             self.add(de1)
             self.add(de2)
-        
-        
+
         logger.debug("%s.addEdges(%s)", type(self).__name__, len(self.edges))
         for node in self._nodes.values():
             logger.debug("%s", node)
             for de in node.star.edges:
                 logger.debug("%s", de)
-        
+
     @staticmethod
-    def static_linkResultDirectedEdges(nodes) -> None:
+    def static_linkResultDirectedEdges(nodes: list) -> None:
         # NodeMap
         for node in nodes:
             # DirectedEdgeStar
@@ -654,7 +654,7 @@ class PlanarGraph():
             return False
 
         if CGAlgorithms.computeOrientation(p0, p1, ep1) == CGAlgorithms.COLLINEAR and \
-                Quadrant.quadrant(p0, p1) == Quadrant.quadrant(ep0, ep1):
+                Quadrant.from_coords(p0, p1) == Quadrant.from_coords(ep0, ep1):
             return True
 
         return False
@@ -747,6 +747,10 @@ class NodeMap(dict):
         return "\n".join([str(node) for node in self.values()])
 
 
+def EdgeEndLT(s1, s2) -> bool:
+    return s1.compareTo(s2) < 0
+
+
 class DirectedEdgeMap(dict):
 
     def __init__(self):
@@ -756,7 +760,9 @@ class DirectedEdgeMap(dict):
     @property
     def edges(self):
         if self._edgeList is None:
-            self._edgeList = sorted(list(self.values()))
+            self._edgeList = list(self.values())
+            quicksort(self._edgeList, EdgeEndLT)
+
         return self._edgeList
 
     def add(self, de):
@@ -848,12 +854,9 @@ class Node(GraphComponent):
 
     def setLabel(self, geomIndex: int, onLocation: int) -> None:
         """
-
+         * 
         """
-        if self.label.isNull():
-            self.label = Label(geomIndex, onLocation)
-        else:
-            self.label.setLocation(geomIndex, onLocation)
+        self.label.setLocation(geomIndex, onLocation)
 
     def setLabelBoundary(self, geomIndex: int) -> None:
         """
@@ -1517,7 +1520,7 @@ class DirectedEdge(EdgeEnd):
             self.init(coords[-1], coords[-2])
 
         self._computeDirectedLabel()
-    
+
     def setVisitedEdge(self, isVisited: bool) -> None:
         self.isVisited = isVisited
         self.sym.isVisited = isVisited
@@ -1628,10 +1631,7 @@ class DirectedEdge(EdgeEnd):
         return 0
 
     def __str__(self) -> str:
-
-        return "{} depthDelta:({})".format(
-            EdgeEnd.__str__(self),
-            self.depthDelta)
+        return EdgeEnd.__str__(self)
 
     def printEdge(self) -> str:
         if self.isForward:
@@ -1664,10 +1664,10 @@ class EdgeEndStar():
     @property
     def edges(self):
         return self._edgeMap.edges
-    
+
     def index(self, de):
         return self.edges.index(de)
-    
+
     @property
     def coord(self):
         """
@@ -1828,9 +1828,10 @@ class EdgeEndStar():
             logger.debug("EdgeEndStar.propagateSideLabels(%s) %s [%s] %s", geomIndex, type(de).__name__, id(de), label)
 
     def _getLocation(self, geomIndex: int, coord, graphs) -> int:
-        if self._ptInAreaLocation[geomIndex] == Location.UNDEF:
-            self._ptInAreaLocation[geomIndex] = SimplePointInAreaLocator.locate(coord, graphs[geomIndex].geom)
-        return self._ptInAreaLocation[geomIndex]
+        # if self._ptInAreaLocation[geomIndex] == Location.UNDEF:
+        #    self._ptInAreaLocation[geomIndex] = 
+        return SimplePointInAreaLocator.locate(coord, graphs[geomIndex].geom)
+        # return self._ptInAreaLocation[geomIndex]
 
     def _computeEdgeEndLabels(self, bnr) -> None:
         for de in self.edges:
@@ -2236,6 +2237,10 @@ class DirectedEdgeStar(EdgeEndStar):
         )
 
 
+def EdgeIntersectionLessThen(ei1, ei2) -> bool:
+    return ei1.compareTo(ei2) < 0
+        
+        
 class EdgeIntersection():
     """
      * Represents a point on an edge which intersects with another edge.
@@ -2322,7 +2327,7 @@ class EdgeIntersectionList(dict):
     def intersections(self) -> list:
         if not self._sorted:
             self._ei = list(self.values())
-            self._ei.sort()
+            quicksort(self._ei, EdgeIntersectionLessThen)
             self._sorted = True
         return self._ei
 
@@ -2387,12 +2392,7 @@ class EdgeIntersectionList(dict):
 
         # CoordinateSequence
         _coords = self.edge.coords
-        #               ei
-        #                0        1          3
-        # its       x   x         x        x      x
-        # segs      0___x____1____x____2___x______xn
-        #           0___x         x____2___x
-        #               x____1____x        x______n
+        
         coords = []
         coords.append(ei0.coord)
 
@@ -2806,7 +2806,10 @@ class GeometryGraph(PlanarGraph):
 
         self._addSelfIntersectionNodes(self.geomIndex)
 
-        logger.debug("[%s] GeometryGraph.computeSelfNodes() completed # tests = %s nodes:%s", id(self), si.numTests, len(self.nodes))
+        logger.debug("[%s] GeometryGraph.computeSelfNodes() completed # tests = %s nodes:%s",
+            id(self),
+            si.numTests,
+            len(self.nodes))
 
         return si
 

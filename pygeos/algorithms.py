@@ -271,12 +271,12 @@ class MonotoneChainBuilder():
             return npts - 1
 
         # determine overall quadrant for chain
-        chainQuad = Quadrant.quadrant(coords[safeStart], coords[safeStart + 1])
+        chainQuad = Quadrant.from_coords(coords[safeStart], coords[safeStart + 1])
 
         last = start + 1
         while last < npts:
             if coords[last - 1] != coords[last]:
-                quad = Quadrant.quadrant(coords[last - 1], coords[last])
+                quad = Quadrant.from_coords(coords[last - 1], coords[last])
                 # logger.debug("MonotoneChainBuilder._findChainEnd() Quadrants: %s %s", chainQuad, quad)
                 if quad != chainQuad:
                     break
@@ -358,10 +358,10 @@ class MonotoneChainIndexer():
         """
          * @return the index of the last point in the monotone chain
         """
-        chainQuad = Quadrant.quadrant(coords[start], coords[start + 1])
+        chainQuad = Quadrant.from_coords(coords[start], coords[start + 1])
         last = start + 1
         while last < len(coords):
-            quad = Quadrant.quadrant(coords[last - 1], coords[last])
+            quad = Quadrant.from_coords(coords[last - 1], coords[last])
             if quad != chainQuad:
                 break
             last += 1
@@ -1316,13 +1316,12 @@ class RayCrossingCounter():
         # For horizontal segments, check if the point is on the segment.
         # Otherwise, horizontal segments are not counted.
         if p1.y == point.y and p2.y == point.y:
-
-            minx = p1.x
-            maxx = p2.x
-
-            if minx > maxx:
-                minx, maxx = maxx, minx
-
+        
+            if p1.x > p2.x:
+                minx, maxx = p2.x, p1.x
+            else:
+                minx, maxx = p1.x, p2.x
+            
             if maxx >= point.x >= minx:
                 self._isPointOnSegment = True
 
@@ -1360,7 +1359,7 @@ class RayCrossingCounter():
          * or multipolygon from which the processed segments were provided.
          * <p>
          * This method only determines the correct location
-         * if <b>all</b> relevant segments must have been processed.
+         * if <b>all</b> relevant segments have been processed.
          *
          * @return the Location of the point
         """
@@ -1541,7 +1540,7 @@ class CGAlgorithms():
          *
          * @see locatePointInRing
         """
-        return CGAlgorithms.locatePointInRing(p, ring) != Location.EXTERIOR
+        return RayCrossingCounter.locatePointInRing(p, ring) != Location.EXTERIOR
 
     @staticmethod
     def locatePointInRing(p, ring):
@@ -2747,11 +2746,11 @@ class SimplePointInAreaLocator():
         if type_id == GeomTypeId.GEOS_POLYGON:
             return SimplePointInAreaLocator.containsPointInPolygon(p, geom)
 
-        elif type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION:
+        elif (type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION or
+                type_id == GeomTypeId.GEOS_MULTIPOLYGON):
             for g in geom.geoms:
                 if SimplePointInAreaLocator.containsPoint(p, g):
                     return True
-
         return False
 
     @staticmethod
@@ -2760,14 +2759,14 @@ class SimplePointInAreaLocator():
             return False
 
         exterior = geom.exterior
-        cl = exterior.coords
+        coords = exterior.coords
 
-        if not CGAlgorithms.isPointInRing(p, cl):
+        if not CGAlgorithms.isPointInRing(p, coords):
             return False
 
         for hole in geom.interiors:
-            cl = hole.coords
-            if CGAlgorithms.isPointInRing(p, cl):
+            coords = hole.coords
+            if CGAlgorithms.isPointInRing(p, coords):
                 return False
 
         return True

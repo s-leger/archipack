@@ -62,21 +62,13 @@ class DouglasPeuckerLineSimplifier():
             return self.coords
         self.usePt = [True for i in range(nCoords)]
         self.simplifySection(0, nCoords - 1)
-
         # S.L add : remove first/last point of closed curves when apply
         if self.coords[0] == self.coords[-1] and nCoords > 2:
             c = self.coords
 
             # find one valid points on both ends
-            start = -1
+            start = -2
             end = 1
-
-            while not self.usePt[start] and nCoords + start > end:
-                start -= 1
-
-            while not self.usePt[end] and nCoords + start > end:
-                end += 1
-
             if self.usePt[end] and self.usePt[start]:
                 seg = LineSegment(c[start], c[end])
                 distance = seg.distance(c[0])
@@ -88,7 +80,7 @@ class DouglasPeuckerLineSimplifier():
                     # close the ring
                     newCoords.append(newCoords[0])
                     return newCoords
-
+        
         return [coord for i, coord in enumerate(self.coords) if self.usePt[i]]
 
     def simplifySection(self, i: int, j: int) -> None:

@@ -167,7 +167,7 @@ def BinaryOp(geom0, geom1, _Op):
 
         cbr.addCommonBits(ret)
         check_valid(ret, "{} CBR: result (after common-bits addition)".format(optype), True)
-        logger.debug("%s CBR succeeded", optype)
+        logger.info("%s CBR succeeded", optype)
         return ret
         
     except TopologyException as ex:
@@ -182,7 +182,7 @@ def BinaryOp(geom0, geom1, _Op):
     try:
         ret = SnapOp(geom0, geom1, _Op)
         check_valid(ret, "{}: result".format(optype), True, True)
-        logger.debug("%s SnapOp succeeded", optype)
+        logger.info("%s SnapOp succeeded", optype)
         return ret
     except TopologyException as ex:
         logger.warning("%s Attempt with SnapOp failed %s", optype, ex)
@@ -224,7 +224,7 @@ def BinaryOp(geom0, geom1, _Op):
                     ret = geom1._factory.createGeometry(ret)
 
                 check_valid(ret, "{} PR: result (after restore of original precision)".format(optype), True)
-                logger.debug("%s Attempt with scale %s succeded", optype, scale)
+                logger.info("%s Attempt with scale %s succeded", optype, scale)
                 
                 return ret
                 
@@ -255,6 +255,7 @@ def BinaryOp(geom0, geom1, _Op):
             rg1 = TopologyPreservingSimplifier.simplify(geom1, tol)
             try:
                 ret = _Op.execute(rg0, rg1)
+                logger.info("%s Attempt simplified with tolerance (%s) %s succeeded", optype, tol, ex)
                 return ret
             except TopologyException as ex:
                 logger.debug("%s Attempt simplified with tolerance (%s) %s", optype, tol, ex)
