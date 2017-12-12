@@ -489,14 +489,27 @@ class Geometry():
         rect, transf_rect, inv_matrix = self.computeMinimumRotatedRectangle()
         return rect
 
+    def checkNotGeometryCollection(self, geom):
+        if geom.type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION:
+            raise ValueError("This method does not support heterogeneous geometry collection")
+        
     # Boolean operations (overlay)
     def intersection(self, other):
         # special case: if one input is empty ==> other input
         if self.is_empty or other.is_empty:
             return self._factory.createGeometryCollection()
-
+        
+        if (self.type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION or
+                self.type_id == GeomTypeId.GEOS_MULTIPOLYGON or
+                self.type_id == GeomTypeId.GEOS_MULTILINESTRING or
+                self.type_id == GeomTypeId.GEOS_MULTIPOINT):
+            geoms = [geom.intersection(other) for geom in self.geoms]
+            return self._factory.buildGeometry(geoms)
+            
         # @TODO: Use rectangle intersection optimization
-
+        self.checkNotGeometryCollection(self)
+        self.checkNotGeometryCollection(other)
+        
         return BinaryOp(self, other, overlayOp(OverlayOp.opINTERSECTION))
 
     def union(self, other=None):
@@ -529,7 +542,10 @@ class Geometry():
                 v.append(other.clone())
 
             return self._factory.buildGeometry(v)
-
+            
+        self.checkNotGeometryCollection(self)
+        self.checkNotGeometryCollection(other)
+        
         return BinaryOp(self, other, overlayOp(OverlayOp.opUNION))
 
     def difference(self, other):
@@ -539,7 +555,10 @@ class Geometry():
 
         if other.is_empty:
             return self.clone()
-
+            
+        self.checkNotGeometryCollection(self)
+        self.checkNotGeometryCollection(other)
+        
         return BinaryOp(self, other, overlayOp(OverlayOp.opDIFFERENCE))
 
     def symmetric_difference(self, other):
@@ -567,7 +586,10 @@ class Geometry():
                 v.append(other.clone())
 
             return self._factory.buildGeometry(v)
-
+            
+        self.checkNotGeometryCollection(self)
+        self.checkNotGeometryCollection(other)
+        
         return BinaryOp(self, other, overlayOp(OverlayOp.opSYMDIFFERENCE))
 
     # buffer
@@ -718,7 +740,7 @@ class LineString(Geometry, Lineal):
 
         # Envelope internal cache
         self._envelope = None
-        self._coords = CoordinateSequence(coords)
+        self._coords = CoordinateSequence.removeRepeatedPoints(coords)
 
         self.validateConstruction()
 

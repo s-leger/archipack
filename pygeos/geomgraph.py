@@ -1336,7 +1336,7 @@ class Edge(GraphComponent):
          * Return this Edge's index.MonotoneChainEdge,
          * ownership is retained by this object.
         """
-        if self._mce is None:
+        if self._mce is None:           
             self._mce = MonotoneChainEdge(self)
         return self._mce
 

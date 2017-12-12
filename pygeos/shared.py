@@ -1528,18 +1528,20 @@ class Coordinate():
 
     def dot(self, other) -> float:
         """ dot product """
-        return self.x * other.x + self.y * other.y
+        return self.x * other.x + self.y * other.y + self.z * other.z
 
     def __mul__(self, scalar):
-        return Coordinate(self.x * scalar, self.y * scalar)
+        if type(scalar).__name__ == 'Coordinate':
+            return self.dot(scalar)
+        return Coordinate(self.x * scalar, self.y * scalar, self.z * scalar)
 
     def __truediv__(self, scalar):
         if scalar == 0:
             raise ValueError("Division by Zero")
-        return Coordinate(self.x / scalar, self.y / scalar)
+        return Coordinate(self.x / scalar, self.y / scalar, self.z / scalar)
 
     def __add__(self, other):
-        return Coordinate(self.x + other.x, self.y + other.y)
+        return Coordinate(self.x + other.x, self.y + other.y, self.z + other.z)
 
     """    
     def __iadd__(self, other):
@@ -1552,7 +1554,7 @@ class Coordinate():
         return self.__add__(other)
 
     def __sub__(self, other):
-        return Coordinate(self.x - other.x, self.y - other.y)
+        return Coordinate(self.x - other.x, self.y - other.y, self.z - other.z)
     
     """
     def __isub__(self, other):
@@ -2243,7 +2245,7 @@ class GeometryEditor():
         geoms = []
         for geom in newColl.geoms:
             newGeom = self.edit(geom, operation)
-            if newGeom.is_empty:
+            if newGeom is None or newGeom.is_empty:
                 continue
             else:
                 geoms.append(newGeom)
