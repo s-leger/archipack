@@ -1331,7 +1331,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         faces = hole.faces(16, path_type='RECTANGLE')
         matids = hole.mat(16, 0, 1, path_type='RECTANGLE')
         uvs = hole.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
-        bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs)
+        bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
         return hole_obj
 
     def robust_hole(self, context, tM):
@@ -1348,7 +1348,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         faces = hole.faces(16, path_type='RECTANGLE')
         matids = hole.mat(16, 0, 1, path_type='RECTANGLE')
         uvs = hole.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
-        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs)
+        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
 
         o.select = True
         context.scene.objects.active = o

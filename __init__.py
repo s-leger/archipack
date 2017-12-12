@@ -363,64 +363,29 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             box.prop(params, "extend")
             # box.prop(params, "extend_seg")
             box.prop(params, "resolution")
-            box.label(text="Polygons")
             
-            row = box.row(align=True)
-            row.operator(
+            box.operator(
                 "archipack.polylib_pick_2d_polygons",
                 icon_value=icons["selection"].icon_id,
-                text='Select'
-                ).action = 'select'
-            row.operator(
-                "archipack.polylib_pick_2d_polygons",
-                icon_value=icons["union"].icon_id,
-                text='Union'
-                ).action = 'union'
-            row.operator(
-                "archipack.polylib_output_polygons",
-                icon_value=icons["polygons"].icon_id,
-                text='All')
+                text='Polygons'
+                )
             
-            row = box.row(align=True)
-            row.operator(
-                "archipack.polylib_pick_2d_polygons",
-                text='Wall',
-                icon_value=icons["wall"].icon_id).action = 'wall'
-            row.prop(params, "solidify_thickness")
-            
-            row = box.row(align=True)
-            row.operator("archipack.polylib_pick_2d_polygons",
-                text='Window',
-                icon_value=icons["window"].icon_id).action = 'window'
-            row.operator("archipack.polylib_pick_2d_polygons",
-                text='Door',
-                icon_value=icons["door"].icon_id).action = 'door'
-            row.operator("archipack.polylib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
-            
-            box.label(text="Lines")
-            row = box.row(align=True)
-            row.operator(
+            box.operator(
                 "archipack.polylib_pick_2d_lines",
                 icon_value=icons["selection"].icon_id,
-                text='Lines').action = 'select'
-            row.operator(
-                "archipack.polylib_pick_2d_lines",
-                icon_value=icons["union"].icon_id,
-                text='Union').action = 'union'
-            row.operator(
-                "archipack.polylib_output_lines",
-                icon_value=icons["polygons"].icon_id,
-                text='All')
+                text='Lines')
+            
             # row = layout.row(align=True)
             # box = row.box()
             # row = box.row(align=True)
             # row.operator("archipack.polylib_solidify")
-            box.label(text="Points")
-            row = box.row(align=True)
-            row.operator(
+            box.operator(
                 "archipack.polylib_pick_2d_points",
                 icon_value=icons["selection"].icon_id,
-                text='Points').action = 'select'
+                text='Points')
+            
+            box.label(text="Walls")
+            box.prop(params, "solidify_thickness")
             
         row = layout.row(align=True)
         box = row.box()

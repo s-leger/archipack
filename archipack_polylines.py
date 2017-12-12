@@ -330,7 +330,6 @@ class SelectPoints(Selectable):
         print("SelectPoints.init()")
 
     def complete(self, context):
-        self.feedback.disable()
         self._hide(context)
 
     def keyboard(self, context, event):
@@ -403,6 +402,7 @@ class SelectPoints(Selectable):
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             self.complete(context)
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+            self.feedback.disable()
             return {'FINISHED'}
         elif event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             self.drag = True
@@ -457,9 +457,10 @@ class SelectLines(Selectable):
             ('CTRL', 'contains'),
             ('A', 'All'),
             ('I', 'Inverse'),
-            # ('F', 'Create lines from selection'),
-            ('R', 'Retrieve selection'),
+            ('L', 'Retrieve selection'),
             ('S', 'Store selection'),
+            ('F', 'Create lines from selection'),
+            ('U', 'Union of lines from selection'),
             ('ESC or RIGHTMOUSE', 'exit when done')
         ])
         self.feedback.enable()
@@ -495,7 +496,6 @@ class SelectLines(Selectable):
                 """
                 result = Io.to_curve(scene, self.coordsys, resopt, 'union')
                 scene.objects.active = result
-        self.feedback.disable()
         print("SelectLines.complete() :%.2f seconds" % (time.time() - t))
 
     def keyboard(self, context, event):
@@ -506,17 +506,24 @@ class SelectLines(Selectable):
                 self.ba.all()
         elif event.type in {'I'}:
             self.ba.reverse()
-        elif event.type in {'S'}:
+        elif event.type in {'L'}:
             self.store()
         elif event.type in {'R'}:
             self.recall()
+        elif event.type in {'F'}:
+            self.action = 'select'
+            self.complete(context)
+        elif event.type in {'U'}:
+            self.action = 'union'
+            self.complete(context)
         self._draw(context)
 
     def modal(self, context, event):
-        if event.type in {'I', 'A', 'S', 'R'} and event.value == 'PRESS':
+        if event.type in {'I', 'A', 'L', 'R', 'F', 'U'} and event.value == 'PRESS':
             self.keyboard(context, event)
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
-            self.complete(context)
+            self.feedback.disable()
+            self._hide(context)
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
             return {'FINISHED'}
         elif event.type == 'LEFTMOUSE' and event.value == 'PRESS':
@@ -559,49 +566,22 @@ class SelectPolygons(Selectable):
         self.selectMode = True
         self.startPoint = (0, 0)
         self.endPoint = (0, 0)
-        if action in ['select', 'union', 'rectangle']:
-            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
-                ('SHIFT', 'deselect'),
-                ('CTRL', 'contains'),
-                ('A', 'All'),
-                ('I', 'Inverse'),
-                ('B', 'Bigger than current'),
-                # ('F', 'Create  from selection'),
-                ('R', 'Retrieve selection'),
-                ('S', 'Store selection'),
-                ('ESC or RIGHTMOUSE', 'exit when done')
-            ])
-        elif action == 'wall':
-            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
-                ('SHIFT', 'deselect'),
-                ('CTRL', 'contains'),
-                ('A', 'All'),
-                ('I', 'Inverse'),
-                ('B', 'Bigger than current'),
-                ('R', 'Retrieve selection'),
-                ('S', 'Store selection'),
-                ('ESC or RIGHTMOUSE', 'exit and build wall when done')
-            ])
-        elif action == 'window':
-            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
-                ('SHIFT', 'deselect'),
-                ('CTRL', 'contains'),
-                ('A', 'All'),
-                ('I', 'Inverse'),
-                ('B', 'Bigger than current'),
-                ('F', 'Create a window from selection'),
-                ('ESC or RIGHTMOUSE', 'exit tool when done')
-            ])
-        elif action == 'door':
-            self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
-                ('SHIFT', 'deselect'),
-                ('CTRL', 'contains'),
-                ('A', 'All'),
-                ('I', 'Inverse'),
-                ('B', 'Bigger than current'),
-                ('F', 'Create a door from selection'),
-                ('ESC or RIGHTMOUSE', 'exit tool when done')
-            ])
+        self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
+            ('SHIFT', 'deselect'),
+            ('CTRL', 'contains'),
+            ('A', 'All'),
+            ('I', 'Inverse'),
+            ('B', 'Bigger than current'),
+            ('S', 'Save selection'),
+            ('L', 'Load selection'),
+            ('R', 'Rectangle from selection'),
+            ('D', 'Door from selection'),
+            ('W', 'Window from selection'),
+            ('U', 'Union of selection'),
+            ('F', 'Wall from selection'),
+            ('O', 'Output selection'),
+            ('ESC or RIGHTMOUSE', 'exit tool when done')
+        ])
         self.gl_arc = GlPolyline((1.0, 1.0, 1.0, 0.5), d=3)
         self.gl_arc.width = 1
         self.gl_arc.style = bgl.GL_LINE_STIPPLE
@@ -648,7 +628,9 @@ class SelectPolygons(Selectable):
                     if len(res) > 1:
                         bpy.ops.object.join()
                     bpy.ops.archipack.wall(z=z)
-
+                    if bpy.ops.archipack.auto_boolean.poll():
+                        bpy.ops.archipack.auto_boolean(mode='HYBRID')
+                        
             elif self.action == 'rectangle':
                 # currently only output a best fitted rectangle
                 # over selection
@@ -712,9 +694,6 @@ class SelectPolygons(Selectable):
                     result.data.archipack_door[0].hole_margin = 0.02
                 self.ba.none()
 
-        if self.action not in ['window', 'door']:
-            self.feedback.disable()
-
         print("SelectPolygons.complete() :%.2f seconds" % (time.time() - t))
 
     def keyboard(self, context, event):
@@ -727,7 +706,7 @@ class SelectPolygons(Selectable):
             self.ba.reverse()
         elif event.type in {'S'}:
             self.store()
-        elif event.type in {'R'}:
+        elif event.type in {'L'}:
             self.recall()
         elif event.type in {'B'}:
             areas = [self.geoms[i].area for i in self.ba.list]
@@ -736,26 +715,17 @@ class SelectPolygons(Selectable):
             for i, geom in enumerate(self.geoms):
                 if geom.area > area:
                     self.ba.set(i)
-        elif event.type in {'F'}:
 
+        elif event.type in {'W'}:
+            self.action = 'window'
             sel = [self.geoms[i] for i in self.ba.list]
             if len(sel) > 0:
-                if self.action == 'window':
-                    self.feedback.instructions(context,
-                        "Select Polygons", "Click & Drag to select polygons in area", [
-                        ('CLICK & DRAG', 'Set window orientation'),
-                        ('RELEASE', 'Create window'),
-                        ('F', 'Return to select mode'),
-                        ('ESC or RIGHTMOUSE', 'exit tool when done')
-                    ])
-                elif self.action == 'door':
-                    self.feedback.instructions(context,
-                        "Select Polygons", "Click & Drag to select polygons in area", [
-                        ('CLICK & DRAG', 'Set door orientation'),
-                        ('RELEASE', 'Create door'),
-                        ('F', 'Return to select mode'),
-                        ('ESC or RIGHTMOUSE', 'exit tool when done')
-                    ])
+                self.feedback.instructions(context,
+                    "Select Polygons", "Click & Drag to select polygons in area", [
+                    ('CLICK & DRAG', 'Set window orientation'),
+                    ('RELEASE', 'Create window'),
+                    ('ESC or RIGHTMOUSE', 'Return to select mode')
+                ])
                 self.selectMode = not self.selectMode
                 gf = GeometryFactory()
                 geom = gf.buildGeometry(sel)
@@ -764,22 +734,70 @@ class SelectPolygons(Selectable):
                 self.object_location = (tM, w, h, poly, w_pts)
                 self.startPoint = self._position_2d_from_coord(context, tM.translation)
 
-                if self.action == 'rectangle':
-                    self.complete(context)
+        elif event.type in {'D'}:
+            self.action = 'door'
+            sel = [self.geoms[i] for i in self.ba.list]
+            if len(sel) > 0:
+                self.feedback.instructions(context,
+                    "Select Polygons", "Click & Drag to select polygons in area", [
+                    ('CLICK & DRAG', 'Set door orientation'),
+                    ('RELEASE', 'Create door'),
+                    ('F', 'Return to select mode'),
+                    ('ESC or RIGHTMOUSE', 'exit tool when done')
+                ])
+                self.selectMode = not self.selectMode
+                gf = GeometryFactory()
+                geom = gf.buildGeometry(sel)
+                # geom = ShapelyOps.union(sel)
+                tM, w, h, poly, w_pts = ShapelyOps.min_bounding_rect(geom)
+                self.object_location = (tM, w, h, poly, w_pts)
+                self.startPoint = self._position_2d_from_coord(context, tM.translation)
+
+        elif event.type in {'R'}:
+            self.action = 'rectangle'
+            sel = [self.geoms[i] for i in self.ba.list]
+            if len(sel) > 0:
+                self.selectMode = not self.selectMode
+                gf = GeometryFactory()
+                geom = gf.buildGeometry(sel)
+                # geom = ShapelyOps.union(sel)
+                tM, w, h, poly, w_pts = ShapelyOps.min_bounding_rect(geom)
+                self.object_location = (tM, w, h, poly, w_pts)
+                self.startPoint = self._position_2d_from_coord(context, tM.translation)
+                self.complete(context)
+
+        elif event.type in {'F'}:
+            self.action = 'wall'
+            sel = [self.geoms[i] for i in self.ba.list]
+            if len(sel) > 0:
+                self.complete(context)
+
+        elif event.type in {'U'}:
+            self.action = 'union'
+            sel = [self.geoms[i] for i in self.ba.list]
+            if len(sel) > 0:
+                self.complete(context)
+
+        elif event.type in {'O'}:
+            self.action = 'select'
+            sel = [self.geoms[i] for i in self.ba.list]
+            if len(sel) > 0:
+                self.complete(context)
 
         self._draw(context)
 
     def modal(self, context, event):
-        if event.type in {'I', 'A', 'S', 'R', 'F', 'B'} and event.value == 'PRESS':
+        if event.type in {'I', 'A', 'S', 'L', 'R', 'F', 'B', 'W', 'D', 'U', 'O'} and event.value == 'PRESS':
 
             self.keyboard(context, event)
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
-            if self.action == 'object':
-                self._hide(context)
+            if not self.selectMode:
+                self.selectMode = True
             else:
-                self.complete(context)
-            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-            return {'FINISHED'}
+                self.feedback.disable()
+                self._hide(context)
+                bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+                return {'FINISHED'}
         elif event.type == 'LEFTMOUSE' and event.value == 'PRESS':
             self.drag = True
             self.cursor_area.enable()
@@ -796,26 +814,22 @@ class SelectPolygons(Selectable):
                 self.select(context, self.startPoint, event)
             else:
                 self.complete(context)
-                if self.action == 'window':
-                    self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
-                        ('SHIFT', 'deselect'),
-                        ('CTRL', 'contains'),
-                        ('A', 'All'),
-                        ('I', 'Inverse'),
-                        ('B', 'Bigger than current'),
-                        ('F', 'Create a window from selection'),
-                        ('ESC or RIGHTMOUSE', 'exit tool when done')
-                    ])
-                elif self.action == 'door':
-                    self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
-                        ('SHIFT', 'deselect'),
-                        ('CTRL', 'contains'),
-                        ('A', 'All'),
-                        ('I', 'Inverse'),
-                        ('B', 'Bigger than current'),
-                        ('F', 'Create a door from selection'),
-                        ('ESC or RIGHTMOUSE', 'exit tool when done')
-                    ])
+                self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
+                    ('SHIFT', 'deselect'),
+                    ('CTRL', 'contains'),
+                    ('A', 'All'),
+                    ('I', 'Inverse'),
+                    ('B', 'Bigger than current'),
+                    ('S', 'Save selection'),
+                    ('L', 'Load selection'),
+                    ('R', 'Rectangle from selection'),
+                    ('D', 'Door from selection'),
+                    ('W', 'Window from selection'),
+                    ('U', 'Union of selection'),
+                    ('F', 'Wall from selection'),
+                    ('O', 'Output selection'),
+                    ('ESC or RIGHTMOUSE', 'exit tool when done')
+                ])
             self.selectMode = True
         if event.type == 'MOUSEMOVE':
             self.endPoint = (event.mouse_region_x, event.mouse_region_y)
@@ -825,26 +839,27 @@ class SelectPolygons(Selectable):
         """
             draw projection of 3d arc in 2d space
         """
-        d0 = np.subtract(c, p0)
-        d1 = np.subtract(p1, c)
-        a0 = atan2(d0[1], d0[0])
-        a1 = atan2(d1[1], d1[0])
+        d0 = c - p0
+        d1 = p1 - c
+        a0 = atan2(d0.y, d0.x)
+        a1 = atan2(d1.y, d1.x)
         da = a1 - a0
         if da < pi:
             da += 2 * pi
         if da > pi:
             da -= 2 * pi
         da = da / 12
-        r = np.linalg.norm(d1)
+        r = d1.length
+        _c = Vector((c.x, c.y, c.z))
         pts = []
         for i in range(13):
             a = a0 + da * i
-            p3d = c + Vector((cos(a) * r, sin(a) * r, 0))
+            p3d = _c + Vector((cos(a) * r, sin(a) * r, 0))
             pts.append(self.coordsys.world * p3d)
 
         self.gl_arc.set_pos(pts)
         self.gl_arc.draw(context)
-        self.gl_line.p = self.coordsys.world * c
+        self.gl_line.p = self.coordsys.world * _c
         self.gl_line.v = pts[0] - self.gl_line.p
         self.gl_line.draw(context)
 
@@ -860,6 +875,7 @@ class SelectPolygons(Selectable):
             self.cursor_area.draw(context)
             self.cursor_fence.draw(context)
         else:
+            # Dragging for Windows and Doors
             if self.drag:
                 x0, y0 = self.startPoint
                 x1, y1 = self.endPoint
@@ -875,34 +891,44 @@ class SelectPolygons(Selectable):
                 pt = self._position_3d_from_coord(context, self.endPoint)
                 pt = tM.inverted() * Vector(pt)
                 self.need_rotation = pt.y < 0
+                """
+                 0  1
+                 2  3
+                """
+                p0 = tM * Vector((-0.5 * w, -0.5 * h, 0))
+                p1 = tM * Vector((0.5 * w, -0.5 * h, 0))
+                p2 = tM * Vector((-0.5 * w, 0.5 * h, 0))
+                p3 = tM * Vector((0.5 * w, 0.5 * h, 0))
+
                 if self.action == 'door':
-                    # symbole porte
+                    # Door symbol
+
                     if pt.x > 0:
                         if pt.y > 0:
                             self.direction = 1
-                            i_s, i_c, i_e = 3, 2, 1
+                            p0, p1, p2 = p1, p3, p2
                         else:
                             self.direction = 0
-                            i_s, i_c, i_e = 2, 3, 0
+                            p0, p1, p2 = p3, p1, p0
                     else:
                         if pt.y > 0:
                             self.direction = 0
-                            i_s, i_c, i_e = 0, 1, 2
+                            p0, p1, p2 = p0, p2, p3
                         else:
                             self.direction = 1
-                            i_s, i_c, i_e = 1, 0, 3
-                    self._draw_2d_arc(context, w_pts[i_c], w_pts[i_s], w_pts[i_e])
+                            p0, p1, p2 = p2, p0, p1
+
+                    self._draw_2d_arc(context, p1, p0, p2)
+
                 elif self.action == 'window':
-                    # symbole fenetre
+                    # Window symbol
+
                     if pt.y > 0:
-                        i_s0, i_c0 = 0, 1
-                        i_s1, i_c1 = 3, 2
-                    else:
-                        i_s0, i_c0 = 1, 0
-                        i_s1, i_c1 = 2, 3
-                    pc = w_pts[i_c0] + 0.5 * (w_pts[i_c1] - w_pts[i_c0])
-                    self._draw_2d_arc(context, w_pts[i_c0], w_pts[i_s0], pc)
-                    self._draw_2d_arc(context, w_pts[i_c1], w_pts[i_s1], pc)
+                        p0, p1, p2, p3 = p3, p2, p1, p0
+
+                    pc = p0 + (p1 - p0) * 0.5
+                    self._draw_2d_arc(context, p0, p2, pc)
+                    self._draw_2d_arc(context, p1, p3, pc)
 
 
 class CoordSys(object):
@@ -1005,7 +1031,7 @@ class Segment():
         self._splits = []
 
         self.available = True
-        
+
         self.envelope = Envelope(c0.coord, c1.coord)
 
     @property
@@ -1131,7 +1157,7 @@ class Segment():
             while _splits[start] is not self.c0:
                 start += 1
             start += 1
-            
+
             end = nSplits
             while _splits[end - 1] is not self.c1:
                 end -= 1
@@ -1139,8 +1165,8 @@ class Segment():
             for i in range(1, nSplits):
                 seg = Q_segs.newSegment(_splits[i - 1], _splits[i])
                 seg.available = True
-                
-  
+
+
 class Io():
 
     def __init__(self, scene=None, coordsys=None, Q_segs=None, Q_points=None):
@@ -1195,7 +1221,8 @@ class Io():
                 p0 = points[-1]
                 p1 = points[0]
                 self._interpolate_bezier(pts, wM, p0, p1, resolution)
-        return pts
+        # filter dup coords
+        return CoordinateSequence._removeRepeatedPoints(pts)
 
     def _add_curve(self, curve, resolution: int=12) -> None:
         """
@@ -1223,6 +1250,9 @@ class Io():
             points = [self.Q_points.newPoint(pt).coord for pt in pts]
             if spline.use_cyclic_u:
                 points.append(points[0].clone())
+            # filter invalid inputs
+            if len(points) < 2 or (len(points) == 2 and points[0] == points[-1]):
+                continue
             geom = gf.createLineString(points)
             geoms.append(geom)
 
@@ -1245,7 +1275,7 @@ class Io():
         return CoordSys(curves)
 
     @staticmethod
-    def curves_to_geomcollection(curves, resolution: int=12, coordsys=None):
+    def curves_to_geomcollection(curves, resolution: int=12, coordsys=None, homogeneous=True):
         """
          * Create lineStrings from curves
          * ensure points uniqueness using a Tree
@@ -1268,22 +1298,32 @@ class Io():
         # detect geometry type
         polys, dangles, cuts, invalids = PolygonizeOp.polygonize_full(geoms)
 
-        # filter out nested touching polygon
+        # filter out nested touching holes
         to_remove = []
-        for poly in polys:
+        for i, poly in enumerate(polys):
+            if i in to_remove:
+                continue
             for hole in poly.interiors:
-                for i, other in enumerate(polys):
+                for j, other in enumerate(polys):
                     if (other is not poly and
                             hole.envelope.equals(other.envelope) and
                             CoordinateSequence.equals_unoriented(hole.coords, other.exterior.coords)):
-                        to_remove.append(i)
+                        to_remove.append(j)
 
         to_remove.sort()
-
         for i in reversed(to_remove):
             polys.pop(i)
 
-        geom = gf.buildGeometry(polys + dangles + cuts + invalids)
+        # degenerate heterogeneous collection so the result is homogeneous collection
+        if homogeneous and len(dangles) + len(cuts) > 0 and len(polys) + len(invalids) > 0:
+            geoms = dangles + cuts + invalids
+            for poly in polys:
+                geoms.append(gf.createLineString(poly.exterior.coords))
+                for hole in poly.interiors:
+                    geoms.append(gf.createLineString(hole.coords))
+            geom = gf.buildGeometry(geoms)
+        else:
+            geom = gf.buildGeometry(polys + dangles + cuts + invalids)
 
         logger.debug("Io.curves_to_geomcollection() :%.2f seconds", time.time() - t)
         return geom
@@ -1456,9 +1496,10 @@ class Io():
                 bmesh.update_edit_mesh(me, True)
 
                 io.wall_uv(me, bm)
-
-                bpy.ops.mesh.dissolve_limited(angle_limit=0.00349066, delimit={'NORMAL'})
+                bpy.ops.mesh.select_all(action='SELECT')
+                bpy.ops.mesh.dissolve_limited(angle_limit=0.015708, delimit={'NORMAL'})
                 bpy.ops.mesh.dissolve_degenerate()
+                bpy.ops.mesh.normals_make_consistent()
                 bpy.ops.object.mode_set(mode='OBJECT')
                 bpy.ops.object.shade_flat()
                 # MaterialUtils.add_wall_materials(obj)
@@ -1589,7 +1630,7 @@ class ShapelyOps():
         elif opCode == 4:
             return a.symmetric_difference(b)
 
-       
+
 class Qtree(_QuadTree):
     """
         The top spatial index to be created by the user. Once created it can be
@@ -1651,18 +1692,18 @@ class Qtree(_QuadTree):
                 return old_seg
             if (old_seg.c0 is c1 and old_seg.c1 is c0):
                 return old_seg
-   
+
         new_seg = Segment(c0, c1)
         self.insert(self.ngeoms, new_seg)
         return new_seg
 
     def getbounds(self, geom, extend=EPSILON):
         env = geom.envelope
-        return (env.minx - extend, 
-            env.miny - extend, 
-            env.maxx + extend, 
+        return (env.minx - extend,
+            env.miny - extend,
+            env.maxx + extend,
             env.maxy + extend)
-    
+
     def intersects_ext(self, geom, extend):
         bounds = self.getbounds(geom, extend=extend)
         selection = list(self._intersect(bounds))
@@ -1674,7 +1715,7 @@ class Qtree(_QuadTree):
         selection = list(self._intersect(bounds))
         count = len(selection)
         return count, sorted(selection)
-        
+
 
 class Polygonizer():
     """
@@ -1718,7 +1759,7 @@ class Polygonizer():
 
         segs = Q_segs._geoms
         nbsegs = Q_segs.ngeoms
-        
+
         # points with 1 user are "extendable"
         for seg in Q_segs._geoms:
             seg.c0.add_user()
@@ -1731,25 +1772,25 @@ class Polygonizer():
                 _extend = extend
             else:
                 _extend = extend_seg
-            
+
             count, idx = Q_segs.intersects_ext(seg, _extend)
-            
+
             for id in idx:
 
                 if id > s:
                     # can't check for side determinant here
                     # as intersect may enlarge segment to nearest
                     # neighboor
-                    
+
                     _seg = segs[id]
-                    
+
                     # enlarge seek box for "extendable" segments
                     if _seg.c0.users < 2 or _seg.c1.users < 2:
                         _extend_other = extend
                     else:
                         _extend_other = extend_seg
-                
-                    
+
+
                     intersect, co, u, v, d = seg._intersect_seg(_seg)
 
                     processed += 1
@@ -1784,12 +1825,12 @@ class Polygonizer():
 
                             pt = self._intersection_point(dv, v, point, _seg)
                             seg.slice(u, pt)
-                            
+
                             # intersection point on segment seg,
                             # segment end when distance is under precision
                             pt = self._intersection_point(du, u, point, seg)
                             _seg.slice(v, pt)
-                            
+
                     # COLLINEAR_INTERSECTION
                     elif collinear and d < EPSILON:
                         # parallel segments, endpoint on segment
@@ -1802,28 +1843,28 @@ class Polygonizer():
 
                         if (0 <= u < 1):
                             seg.slice(u, pt)
-                           
+
                         # point _seg.c1 on segment seg
                         pt = _seg.c1
                         du, u = seg._point_sur_seg(pt)
 
                         if (0 <= u < 1):
                             seg.slice(u, pt)
-                            
+
                         # point seg.c0 on segment _seg
                         pt = seg.c0
                         du, u = _seg._point_sur_seg(pt)
 
                         if (0 <= u < 1):
                             _seg.slice(u, pt)
-                            
+
                         # point seg.c1 on segment _seg
                         pt = seg.c1
                         du, u = _seg._point_sur_seg(pt)
 
                         if (0 <= u < 1):
                             _seg.slice(u, pt)
-        
+
         logger.debug("Polygonizer.split() intersect (all:%s, points:%s, collinear:%s) :%.4f seconds",
             processed,
             process_point,
@@ -1836,7 +1877,7 @@ class Polygonizer():
             seg.add_points(Q_segs)
 
         logger.debug("Polygonizer.split() slice :%.4f seconds", (time.time() - t))
-    
+
     def split(self, Q_points, Q_segs, extend=0.01, extend_seg=0.01, collinear=True):
         """ _split
             detect intersections between segments and create segments according
@@ -2252,8 +2293,8 @@ class Polygonizer():
 
 class ARCHIPACK_OP_PolyLib_Pick2DPoints(Operator):
     bl_idname = "archipack.polylib_pick_2d_points"
-    bl_label = "Pick lines"
-    bl_description = "Pick lines"
+    bl_label = "Pick points"
+    bl_description = "Select two or more points to output rectangle or convex hull"
     bl_options = {'REGISTER', 'UNDO'}
     pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
@@ -2289,7 +2330,7 @@ class ARCHIPACK_OP_PolyLib_Pick2DPoints(Operator):
 class ARCHIPACK_OP_PolyLib_Pick2DLines(Operator):
     bl_idname = "archipack.polylib_pick_2d_lines"
     bl_label = "Pick lines"
-    bl_description = "Pick lines"
+    bl_description = "Create lines or merge lines"
     bl_options = {'REGISTER', 'UNDO'}
     pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
@@ -2325,7 +2366,7 @@ class ARCHIPACK_OP_PolyLib_Pick2DLines(Operator):
 class ARCHIPACK_OP_PolyLib_Pick2DPolygons(Operator):
     bl_idname = "archipack.polylib_pick_2d_polygons"
     bl_label = "Pick 2d"
-    bl_description = "Pick polygons"
+    bl_description = "Create Windows, Doors, Walls, Union, Polygons, Rectangles"
     bl_options = {'REGISTER', 'UNDO'}
     pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
@@ -2417,7 +2458,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
     """
     bl_idname = "archipack.polylib_offset"
     bl_label = "Offset"
-    bl_description = "Offset lines"
+    bl_description = "Offset lines (work best on open lines)"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -2476,7 +2517,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
 class ARCHIPACK_OP_PolyLib_Buffer(Operator):
     bl_idname = "archipack.polylib_buffer"
     bl_label = "Buffer"
-    bl_description = "Buffer lines"
+    bl_description = "Buffer lines (when single sided, no full support for closed lines)"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -2522,16 +2563,6 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
         except:
             self.report({'WARNING'}, "Unknown error")
             return {'CANCELLED'}
-        """
-        for line in lines:
-            res = line.buffer(distance, resolution=wm.buffer_resolution,
-                        join_style=int(wm.buffer_join_style),
-                        cap_style=int(wm.buffer_join_style),
-                        mitre_limit=wm.buffer_mitre_limit,
-                        single_sided=wm.buffer_side != 'both'
-                        )
-            offset.append(res)
-        """
 
         result = Io.to_curve(context.scene, coordsys, offset, 'buffer')
         context.scene.objects.active = result
@@ -2542,7 +2573,7 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
 class ARCHIPACK_OP_PolyLib_Boolean(Operator):
     bl_idname = "archipack.polylib_boolean"
     bl_label = "Boolean"
-    bl_description = "Boolean operation"
+    bl_description = "Boolean operation (limited to 2 objects at once - use Detect for multiple inputs)"
     bl_options = {'REGISTER', 'UNDO'}
     opCode = IntProperty(default=0)
 
@@ -2569,13 +2600,38 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
 
         coordsys = Io.getCoordsys([a] + b)
 
-        geom_a = Io.curves_to_geomcollection([a], wm.resolution, coordsys=coordsys)
-        geom_b = Io.curves_to_geomcollection(b, wm.resolution, coordsys=coordsys)
+        # (1) intersection allow geometryCollection for geom_a
+        # (2) union allow geometryCollection for geom_a and geom_b
+        # other operations require homogeneous Multi* geometry
+
+        homogeneous_a = self.opCode > 2
+        homogeneous_b = self.opCode != 2
+
+        geom_a = Io.curves_to_geomcollection([a], wm.resolution, coordsys=coordsys, homogeneous=homogeneous_a)
+        geom_b = Io.curves_to_geomcollection(b, wm.resolution, coordsys=coordsys, homogeneous=homogeneous_b)
+
+        if self.opCode == 2 and (
+                geom_a.geom_type == 'GeometryCollection' or
+                geom_b.geom_type == 'GeometryCollection'):
+            # use UnaryUnionOp to support GeometryCollection
+            # require a single geom, geom_b must be None
+            geom_a = Io.curves_to_geomcollection([a] + b, wm.resolution, coordsys=coordsys, homogeneous=False)
+            geom_b = None
+
+        # for debug purposes
+        """
+        io = Io(scene=context.scene, coordsys=coordsys)
+        geom_a._factory.outputFactory = io
+        geom_b._factory.outputFactory = io
+
+        geom_b._factory.output(geom_a, name="geom_a")
+        geom_b._factory.output(geom_b, name="geom_b")
+        """
 
         opCode = self.opCode
         if opCode > 10:
-            opCode = opCode - 10
             geom_a, geom_b = geom_b, geom_a
+            opCode = opCode - 10
 
         try:
             # Might throw TopologyException
@@ -2584,8 +2640,8 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
         except TopologyException as ex:
             self.report({'WARNING'}, "Topology error {}".format(ex))
             return {'CANCELLED'}
-        except:
-            self.report({'WARNING'}, "Unknown error")
+        except Exception as ex:
+            self.report({'WARNING'}, "Can't perform operation {}".format(ex))
             return {'CANCELLED'}
 
         result = Io.to_curve(context.scene, coordsys, res, 'boolean')
@@ -2714,7 +2770,7 @@ class archipack_polylib(PropertyGroup):
             name="Bezier resolution", min=0, default=12
             )
 
-    offset_expand = BoolProperty(default=False, description="Display options")
+    offset_expand = BoolProperty(default=False, description="Display offset options")
     offset_distance = FloatProperty(
             name="Distance",
             default=0.05,
@@ -2741,7 +2797,7 @@ class archipack_polylib(PropertyGroup):
             unit='LENGTH', min=0
             )
 
-    buffer_expand = BoolProperty(default=False, description="Display options")
+    buffer_expand = BoolProperty(default=False, description="Display buffer options")
     buffer_distance = FloatProperty(
             name="Distance",
             default=0.05,
@@ -2775,7 +2831,7 @@ class archipack_polylib(PropertyGroup):
             unit='LENGTH', min=0
             )
 
-    simplify_expand = BoolProperty(default=False, description="Display options")
+    simplify_expand = BoolProperty(default=False, description="Display simplify options")
     simplify_tolerance = FloatProperty(
             name="Tolerance",
             default=0.01,
