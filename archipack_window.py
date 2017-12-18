@@ -494,15 +494,13 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
             )
-            
     frame_overflow = FloatProperty(
-        name='Overflow',
+            name='Overflow',
             min=0,
             default=0.06, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
             )
-    
     out_frame = BoolProperty(
             name="Out frame",
             default=False, update=update,
@@ -780,10 +778,10 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         x1 = self.frame_x     # sur-largeur percement interieur
         y_inside = 0.5 * self.y + self.hole_margin     # outside wall
 
-        if self.out_frame is False:
-            x0 = 0
-        else:
-            x0 = -min(self.frame_x - 0.001, self.out_frame_y + self.out_frame_offset)
+        x0 = self.frame_overflow - self.frame_x - 0.001
+        
+        if self.out_frame:
+            x0 -= min(self.frame_x, self.out_frame_y + self.out_frame_offset)
 
         outside_mat = self.hole_outside_mat
         inside_mat = self.hole_inside_mat
@@ -791,11 +789,13 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         #    outside_mat, inside_mat = inside_mat, outside_mat
 
         y_outside = -y_inside           # inside wall
-        if self.frame_overflow > 0:
+        if self.frame_overflow > 0 or (
+                (self.out_frame and self.out_frame_offset > 0) or
+                self.out_tablet_enable):
             return WindowPanel(
                 False,     # closed
                 [1, 1, 0, 0],     # x index
-                [-x1, x0 + self.frame_overflow - self.frame_x],
+                [-x1, x0],
                 [y_outside, y0, y0, y_inside],
                 [outside_mat, outside_mat, inside_mat],     # material index
                 side_cap_front=3,     # cap index
@@ -806,13 +806,13 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             return WindowPanel(
                 False,     # closed
                 [0, 0, 0],     # x index
-                [x0 + self.frame_overflow - self.frame_x],
+                [x0],
                 [y_outside, y0, y_inside],
                 [outside_mat, inside_mat],     # material index
                 side_cap_front=2,     # cap index
                 side_cap_back=0
                 )
-        
+
     @property
     def frame(self):
         # profil cadre
@@ -860,7 +860,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         # | / y3
         # |_| y1
         # x0 x2 x1
-        y0 =  0.5 * self.y - self.offset
+        y0 = 0.5 * self.y - self.offset
         y1 = -0.5 * self.y - self.out_tablet_y
         y2 = y0 - 0.01
         y3 = y2 - 0.04
@@ -936,18 +936,21 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         offset = Vector((0, self.altitude + self.frame_x - self.frame_overflow, 0))
         verts = self.window.vertices(self.curve_steps, offset, center, origin,
             size, radius, self.angle_y, 0, shape_z=None, path_type=self.shape)
-        
+
         if self.out_frame:
-            _size = Vector((self.x, self.z, 0)) 
+            _size = Vector((self.x, self.z, 0))
             _offset = Vector((0, self.altitude, 0))
             _center = Vector((center.x, center.y + (self.frame_x - self.frame_overflow), center.z))
-            
+
             if self.shape == 'ELLIPSIS':
-                _radius = Vector((radius.x + (self.frame_x - self.frame_overflow), radius.y + (self.frame_x - self.frame_overflow), 0))
-            
+                _radius = Vector((
+                    radius.x + (self.frame_x - self.frame_overflow),
+                    radius.y + (self.frame_x - self.frame_overflow),
+                    0))
+
             elif self.shape == 'QUADRI':
                 _radius = Vector((self.x, 0, 0))
-            
+
                 if self.angle_y < 0:
                     _center.x = 0.5 * self.x
                 else:
@@ -957,25 +960,25 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                     abs(tan(self.angle_y) * (self.x)))
             else:
                 _radius = Vector((radius.x + (self.frame_x - self.frame_overflow), 0, 0))
-            
+
             verts += self.frame.vertices(self.curve_steps, _offset, _center, origin,
-                _size, _radius, 
+                _size, _radius,
                 self.angle_y, 0, shape_z=None, path_type=self.shape)
-                
+
         if is_not_circle and self.out_tablet_enable:
-            _offset = Vector((0, self.altitude, 0)) 
+            _offset = Vector((0, self.altitude, 0))
             _size = Vector((
-                self.x + 2 * (self.out_tablet_x), 
+                self.x + 2 * (self.out_tablet_x),
                 size.y,
-                size.z)) 
+                size.z))
             verts += self.out_tablet.vertices(self.curve_steps, _offset, center, origin,
                 _size, radius, self.angle_y, 0, shape_z=None, path_type='HORIZONTAL')
-        
+
         if is_not_circle and self.in_tablet_enable:
             verts += self.in_tablet.vertices(self.curve_steps, offset, center, origin,
                 Vector((size.x + 2 * (self.frame_x + self.in_tablet_x), size.y, size.z)),
                 radius, self.angle_y, 0, shape_z=None, path_type='HORIZONTAL')
-        
+
         if is_not_circle and self.blind_enable:
             verts += self.blind.vertices(self.curve_steps, offset, center, origin,
                 Vector((-self.x, 0, 0)), radius, 0, 0, shape_z=None, path_type='HORIZONTAL')
@@ -1303,9 +1306,9 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             self.warning = bool(z > self._z - offset.y)
             if self.warning:
                 break
-            
+
             size, origin, pivot = row.get_row(self._x, z)
-            
+
             # side materials
             materials = [0 for i in range(row.cols)]
 
@@ -1392,15 +1395,15 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             if self.window_type == 'RAIL':
                 return
             offset.y += row.height
-    
+
     @property
     def _x(self):
         return self.x + 2 * (self.frame_overflow - self.frame_x)
-    
+
     @property
     def _z(self):
         return self.z + 2 * (self.frame_overflow - self.frame_x)
-    
+
     def _get_tri_radius(self):
         return Vector((0, self.y, 0)), Vector((0, 0, 0)), \
             Vector((self._x, self._z, 0)), Vector((self._x, 0, 0))
@@ -1524,17 +1527,21 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
 
         hole = self.hole
         center, origin, size, radius = self.get_radius()
-
-        if self.out_frame is False:
-            x0 = 0
-        else:
-            x0 = min(self.frame_x - 0.001, self.out_frame_y + self.out_frame_offset)
-
+        x0 = 0
+        
+        if self.out_frame:
+            x0 += min(self.frame_x + 0.001, self.out_frame_y + self.out_frame_offset)
+            
         if self.out_tablet_enable:
-            x0 -= min(self.frame_x - 0.001, self.out_tablet_z)
-        shape_z = [0, x0]
+            x0 -= self.out_tablet_z
+        
+        x0 = min(x0, -0.001)
+        
+        shape_z = [-0.001, x0]
 
-        verts = hole.vertices(self.curve_steps, Vector((0, self.altitude + self.frame_x - self.frame_overflow, 0)), center, origin, size, radius,
+        verts = hole.vertices(self.curve_steps,
+            Vector((0, self.altitude + self.frame_x - self.frame_overflow, 0)),
+            center, origin, size, radius,
             self.angle_y, 0, shape_z=shape_z, path_type=self.shape)
 
         faces = hole.faces(self.curve_steps, path_type=self.shape)
@@ -1576,7 +1583,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         uvs = hole.uv(self.curve_steps, center, origin, size, radius,
             self.angle_y, 0, 0, self.frame_x, path_type=self.shape)
 
-        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs)
+        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
         # MaterialUtils.add_wall2_materials(o)
         o.select = True
         context.scene.objects.active = o
@@ -1985,7 +1992,7 @@ class ARCHIPACK_OT_window_draw(ArchpackDrawTool, Operator):
             o.hide = True
             hole.hide = True
 
-        res, tM, wall, y = self.mouse_hover_wall(context, event)
+        res, tM, wall, width, y = self.mouse_hover_wall(context, event)
 
         if hole is not None:
             o.hide = False
@@ -1993,8 +2000,8 @@ class ARCHIPACK_OT_window_draw(ArchpackDrawTool, Operator):
 
         if res and d is not None:
             o.matrix_world = tM
-            if d.y != wall.data.archipack_wall2[0].width:
-                d.y = wall.data.archipack_wall2[0].width
+            if d.y != width:
+                d.y = width
 
         if event.value == 'PRESS':
 
@@ -2241,6 +2248,7 @@ class ARCHIPACK_OT_window_panel(Operator):
         o.lock_scale[0] = True
         o.lock_scale[1] = True
         o.lock_scale[2] = True
+        o.show_transparent = True
         d.update(context)
         return o
 

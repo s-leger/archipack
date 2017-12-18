@@ -304,11 +304,13 @@ class ARCHIPACK_OT_apply_holes(Operator):
     def get_boolobjects(self, o, to_remove):
         modifiers = [m for m in o.modifiers if m.type == 'BOOLEAN']
         for m in modifiers:
-            if m.object is not None:
+            if m.object is None:
+                o.modifiers.remove(m)
+            else:
                 to_remove.append(m.object)
-            if 'archipack_hybridhole' in m.object:
-                self.get_boolobjects(m.object, to_remove)
-
+                if 'archipack_hybridhole' in m.object:
+                    self.get_boolobjects(m.object, to_remove)
+        
     def apply(self, context, objects):
         to_remove = []
         for o in objects:

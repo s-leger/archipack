@@ -1291,17 +1291,23 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         m.prop1_name = "x"
         m.prop2_name = "x"
 
-    def setup_childs(self, o, g):
+    def setup_childs(self, o, g, maxiter=0):
         """
             Store childs
             create manipulators
             call after a boolean oop
         """
+        
+        if maxiter > 50:
+            return maxiter
+        
         # tim = time.time()
         self.childs.clear()
         self.childs_manipulators.clear()
+        
         if o.parent is None:
-            return
+            return 0
+        
         wall_with_childs = [0 for i in range(self.n_parts + 1)]
         relocate = []
         dmax = 2 * self.width
@@ -1312,8 +1318,10 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             wtM[1].to_2d()
             ])
         witM = wtM.inverted()
-
+        
+        # find childs of this wall
         for child in o.parent.children:
+            
             # filter allowed childs
             cd = child.data
             wd = archipack_wall2.datablock(child)
@@ -1324,12 +1332,13 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                         o.name in wd.t_part
                         )
                     )):
-
-                # setup on T linked walls
+                
+                # setup child T linked walls
                 if wd is not None:
                     wg = wd.get_generator()
-                    wd.setup_childs(child, wg)
-
+                    # prevent error when user setup a dep loop with T childs
+                    wd.setup_childs(child, wg, maxiter=maxiter + 1)
+                
                 ctM = child.matrix_world
                 crM = Matrix([
                     ctM[0].to_2d(),
@@ -1339,7 +1348,8 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 # pt in w coordsys
                 pos = ctM.translation
                 pt = (witM * pos).to_2d()
-
+                
+                # Compute location of childs and relationship
                 for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
                     res, dist, t = wall.point_sur_segment(pt)
@@ -1369,6 +1379,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                             t))
                         break
 
+                        
         # self.sort_child(relocate)
         for child in sorted(relocate, key=lambda child: (child[1], child[4])):
             name, wall_idx, pos, flip, t = child
@@ -1378,8 +1389,10 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         for i in range(sum(wall_with_childs)):
             m = self.childs_manipulators.add()
             m.type_key = 'DUMB_SIZE'
+        
         # print("setup_childs:%1.4f" % (time.time()-tim))
-
+        
+        
     def relocate_childs(self, context, o, g):
         """
             Move and resize childs after wall edition
@@ -1627,7 +1640,9 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         o = context.active_object
         g = self.get_generator()
         # setup childs manipulators
-        self.setup_childs(o, g)
+        res = self.setup_childs(o, g)
+        # if not res:
+        #    return None
         # store gl points
         self.update_childs(context, o, g)
         # dont do anything ..
@@ -1743,7 +1758,7 @@ class ARCHIPACK_PT_wall2(Panel):
         row = layout.row()
         row.prop(prop, "closed")
         row = layout.row()
-        row.prop_search(prop, "t_part", context.scene, "objects", text="T link", icon='OBJECT_DATAMODE')
+        row.prop_search(prop, "t_part", context.scene, "objects", text="T parent", icon='OBJECT_DATAMODE')
         layout.operator("archipack.wall2_reverse", icon='FILE_REFRESH')
         row = layout.row(align=True)
         row.operator("archipack.wall2_fit_roof")
@@ -2352,9 +2367,11 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
 
     def invoke(self, context, event):
         d = archipack_wall2.datablock(context.active_object)
-        d.manipulable_invoke(context)
+        res = d.manipulable_invoke(context)
+        if not res:
+            self.report({'WARNING'}, "Dependency loop detected in T childs")
         return {'FINISHED'}
-
+        
     def execute(self, context):
         """
             For use in boolean ops

@@ -234,16 +234,41 @@ class ArchpackDrawTool():
             convert mouse pos to matrix at bottom of surrounded wall, y oriented outside wall
         """
         res, pt, y, i, o, tM = self.mouse_to_scene_raycast(context, event)
-        if res and o.data is not None and 'archipack_wall2' in o.data:
-            z = Vector((0, 0, 1))
-            d = o.data.archipack_wall2[0]
-            y = -y
-            pt += (0.5 * d.width) * y.normalized()
-            x = y.cross(z)
-            return True, Matrix([
-                [x.x, y.x, z.x, pt.x],
-                [x.y, y.y, z.y, pt.y],
-                [x.z, y.z, z.z, o.matrix_world.translation.z],
-                [0, 0, 0, 1]
-                ]), o, y
-        return False, Matrix(), None, Vector()
+        if res and o.data is not None:
+            if 'archipack_wall2' in o.data:
+                z = Vector((0, 0, 1))
+                d = o.data.archipack_wall2[0]
+                y = -y
+                pt += (0.5 * d.width) * y.normalized()
+                x = y.cross(z)
+                return True, Matrix([
+                    [x.x, y.x, z.x, pt.x],
+                    [x.y, y.y, z.y, pt.y],
+                    [x.z, y.z, z.z, o.matrix_world.translation.z],
+                    [0, 0, 0, 1]
+                    ]), o, d.width, y
+            elif 'archipack_wall' in o.data:
+                y = -y
+                # one point on the oposite to raycast side (1 unit inside)
+                # @TODO: estimate the needed width - increase and re-cast when nothing is found
+                #        within a limit of n iterations so single sided walls wont make it fail
+                #        - ensure the ray hit same object ?
+                p0 = pt + y.normalized()
+                # another point in the side of raycast
+                dp = (pt - y.normalized()) - p0
+                # cast another ray to find wall depth
+                res, pos, normal, face_index, object, matrix_world = context.scene.ray_cast(
+                    p0,
+                    dp)
+                if res:
+                    width = (pt - pos).to_2d().length
+                    pt += (0.5 * width) * y.normalized()
+                    z = Vector((0, 0, 1))
+                    x = y.cross(z)
+                    return True, Matrix([
+                        [x.x, y.x, z.x, pt.x],
+                        [x.y, y.y, z.y, pt.y],
+                        [x.z, y.z, z.z, o.matrix_world.translation.z],
+                        [0, 0, 0, 1]
+                        ]), o, width, y
+        return False, Matrix(), None, 0, Vector()

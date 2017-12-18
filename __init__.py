@@ -546,7 +546,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     )
         row.operator("archipack.wall2_draw", text="Draw", icon='GREASEPENCIL')
         row.operator("archipack.wall2_from_curve", text="", icon='CURVE_DATA')
-
+        box.operator("archipack.wall", text="Custom wall")
         row = box.row(align=True)
         row.operator("archipack.fence_preset_menu",
                     text="Fence",

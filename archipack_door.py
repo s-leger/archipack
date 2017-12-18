@@ -1725,7 +1725,7 @@ class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
             o.hide = True
             hole.hide = True
 
-        res, tM, wall, y = self.mouse_hover_wall(context, event)
+        res, tM, wall, width, y = self.mouse_hover_wall(context, event)
 
         if hole is not None:
             o.hide = False
@@ -1733,8 +1733,8 @@ class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
 
         if res and d is not None:
             o.matrix_world = tM
-            if d.y != wall.data.archipack_wall2[0].width:
-                d.y = wall.data.archipack_wall2[0].width
+            if d.y != width:
+                d.y = width
 
         if event.value == 'PRESS':
 
