@@ -361,7 +361,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             
         if params.polygonize_expand:
             box.prop(params, "extend")
-            # box.prop(params, "extend_seg")
+            box.prop(params, "all_segs")
             box.prop(params, "resolution")
             
             box.operator(
@@ -521,7 +521,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["window"].icon_id
                     ).preset_operator = "archipack.window"
         row.operator("archipack.window_preset_menu",
-                    text="",
+                    text="Draw",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.window_draw"
         # col = row.column()
@@ -532,7 +532,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["door"].icon_id
                     ).preset_operator = "archipack.door"
         row.operator("archipack.door_preset_menu",
-                    text="",
+                    text="Draw",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.door_draw"
         row = box.row(align=True)

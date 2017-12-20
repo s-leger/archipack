@@ -50,6 +50,9 @@ from .archipack_2d import Line, Arc
 from .archipack_snap import snap_point
 from .archipack_keymaps import Keymaps
 
+import logging
+logger = logging.getLogger("archipack")
+
 
 class Wall():
     def __init__(self, wall_z, z, t, flip):
@@ -1297,17 +1300,17 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             create manipulators
             call after a boolean oop
         """
-        
+
         if maxiter > 50:
             return maxiter
-        
+
         # tim = time.time()
         self.childs.clear()
         self.childs_manipulators.clear()
-        
+
         if o.parent is None:
             return 0
-        
+
         wall_with_childs = [0 for i in range(self.n_parts + 1)]
         relocate = []
         dmax = 2 * self.width
@@ -1318,10 +1321,10 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             wtM[1].to_2d()
             ])
         witM = wtM.inverted()
-        
+
         # find childs of this wall
         for child in o.parent.children:
-            
+
             # filter allowed childs
             cd = child.data
             wd = archipack_wall2.datablock(child)
@@ -1332,13 +1335,13 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                         o.name in wd.t_part
                         )
                     )):
-                
+
                 # setup child T linked walls
                 if wd is not None:
                     wg = wd.get_generator()
                     # prevent error when user setup a dep loop with T childs
                     wd.setup_childs(child, wg, maxiter=maxiter + 1)
-                
+
                 ctM = child.matrix_world
                 crM = Matrix([
                     ctM[0].to_2d(),
@@ -1348,7 +1351,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 # pt in w coordsys
                 pos = ctM.translation
                 pt = (witM * pos).to_2d()
-                
+
                 # Compute location of childs and relationship
                 for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
@@ -1379,8 +1382,6 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                             t))
                         break
 
-                        
-        # self.sort_child(relocate)
         for child in sorted(relocate, key=lambda child: (child[1], child[4])):
             name, wall_idx, pos, flip, t = child
             self.add_child(name, wall_idx, pos, flip)
@@ -1389,10 +1390,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         for i in range(sum(wall_with_childs)):
             m = self.childs_manipulators.add()
             m.type_key = 'DUMB_SIZE'
-        
-        # print("setup_childs:%1.4f" % (time.time()-tim))
-        
-        
+
     def relocate_childs(self, context, o, g):
         """
             Move and resize childs after wall edition
@@ -1442,8 +1440,6 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 d = archipack_wall2.datablock(c)
                 cg = d.get_generator()
                 d.relocate_childs(context, c, cg)
-
-        # print("relocate_childs:%1.4f" % (time.time()-tim))
 
     def update_childs(self, context, o, g):
         """
@@ -1640,7 +1636,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         o = context.active_object
         g = self.get_generator()
         # setup childs manipulators
-        res = self.setup_childs(o, g)
+        self.setup_childs(o, g)
         # if not res:
         #    return None
         # store gl points
@@ -2022,7 +2018,7 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
         self.line.draw(context)
 
     def sp_callback(self, context, event, state, sp):
-        # print("sp_callback event %s %s state:%s" % (event.type, event.value, state))
+        logger.debug("ARCHIPACK_OT_wall2_draw.sp_callback event %s %s state:%s", event.type, event.value, state)
 
         if state == 'SUCCESS':
 
@@ -2080,7 +2076,7 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
         # print("sp_init event %s %s %s" % (event.type, event.value, state))
         if state == 'SUCCESS':
             # point placed, check if a wall was under mouse
-            res, tM, wall, y = self.mouse_hover_wall(context, event)
+            res, tM, wall, width, y = self.mouse_hover_wall(context, event)
             if res:
                 d = archipack_wall2.datablock(wall)
                 if event.ctrl:
@@ -2127,14 +2123,11 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
         if event.type == 'NONE':
             return {'PASS_THROUGH'}
 
-        if self.state == 'STARTING':
-            takeloc = self.mouse_to_plane(context, event)
+        if self.state == 'STARTING' and event.type not in {'ESC', 'RIGHTMOUSE'}:
             # wait for takeloc being visible when button is over horizon
-            rv3d = context.region_data
-            viewinv = rv3d.view_matrix.inverted()
-
-            if (takeloc * viewinv).z < 0 or not rv3d.is_perspective:
-                # print("STARTING")
+            takeloc = self.mouse_to_plane(context, event)
+            if takeloc is not None:
+                logger.debug("ARCHIPACK_OT_wall2_draw.modal(STARTING) location:%s", takeloc)
                 snap_point(takeloc=takeloc,
                     callback=self.sp_init,
                     constraint_axis=(True, True, False),
@@ -2143,6 +2136,7 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
 
         elif self.state == 'RUNNING':
             # print("RUNNING")
+            logger.debug("ARCHIPACK_OT_wall2_draw.modal(RUNNING) location:%s", self.takeloc)
             self.state = 'CREATE'
             snap_point(takeloc=self.takeloc,
                 draw=self.sp_draw,
@@ -2191,15 +2185,19 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                     takeloc = o.matrix_world * p1.to_3d()
                     o.select = False
                 else:
-                    takeloc = self.mouse_to_plane(context, event)
                     takemat = None
+                    takeloc = self.mouse_to_plane(context, event)
 
-                snap_point(takeloc=takeloc,
-                    takemat=takemat,
-                    draw=self.sp_draw,
-                    callback=self.sp_callback,
-                    constraint_axis=(True, True, False),
-                    release_confirm=self.max_style_draw_tool)
+                if takeloc is not None:
+
+                    logger.debug("ARCHIPACK_OT_wall2_draw.modal(CREATE) location:%s", takeloc)
+
+                    snap_point(takeloc=takeloc,
+                        takemat=takemat,
+                        draw=self.sp_draw,
+                        callback=self.sp_callback,
+                        constraint_axis=(True, True, False),
+                        release_confirm=self.max_style_draw_tool)
 
             return {'RUNNING_MODAL'}
 
@@ -2220,7 +2218,7 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
 
             self.feedback.disable()
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-
+            logger.debug("ARCHIPACK_OT_wall2_draw.modal(CANCEL) %s", event.type)
             if self.o is None:
                 context.scene.objects.active = self.act
                 for o in self.sel:
@@ -2371,7 +2369,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
         if not res:
             self.report({'WARNING'}, "Dependency loop detected in T childs")
         return {'FINISHED'}
-        
+
     def execute(self, context):
         """
             For use in boolean ops

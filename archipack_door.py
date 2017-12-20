@@ -1720,17 +1720,20 @@ class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
         if d is not None:
             hole = d.find_hole(o)
 
-        # hide hole from raycast
+        # hide door and hole from raycast
+        to_hide = [o]
+        to_hide.extend([child for child in o.children if archipack_door_panel.filter(child)])
         if hole is not None:
-            o.hide = True
-            hole.hide = True
-
+            to_hide.append(hole)
+                    
+        for obj in to_hide:
+            obj.hide = True
+            
         res, tM, wall, width, y = self.mouse_hover_wall(context, event)
 
-        if hole is not None:
-            o.hide = False
-            hole.hide = False
-
+        for obj in to_hide:
+            obj.hide = False
+                    
         if res and d is not None:
             o.matrix_world = tM
             if d.y != width:

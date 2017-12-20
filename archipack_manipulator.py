@@ -24,6 +24,9 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
+import logging
+logger = logging.getLogger("manipulator")
+
 import bpy
 from math import atan2, pi
 from mathutils import Vector, Matrix
@@ -237,7 +240,7 @@ class Manipulator():
         self.datablock = datablock
         self.manipulator = manipulator
         self.snap_callback = snap_callback
-        self.origin = Vector((0, 0, 1))
+        self.origin = self.o.matrix_world.translation.copy()
         self.mouse_pos = Vector((0, 0))
         self.length_entered = ""
         self.line_pos = 0
@@ -258,10 +261,13 @@ class Manipulator():
             Modal exit, DONT EVEN TRY TO OVERRIDE
         """
         if self._handle is not None:
+            logger.debug("draw_handler_remove")
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+            # Prevent race condition with redraw and the above call
             self._handle = None
+            logger.debug("draw_handler_remove done")
         else:
-            print("Manipulator.exit() handle not found %s" % (type(self).__name__))
+            logger.debug("Manipulator.exit() handle not found %s", (type(self).__name__))
 
     # Mouse event handlers, MUST be overriden
     def mouse_press(self, context, event):
@@ -333,7 +339,7 @@ class Manipulator():
         return False
 
     # Internal, do not override unless you realy
-    # realy realy deeply know what you are doing
+    # realy realy know what you are doing
     def keyboard_eval(self, context, event):
         """
             evaluate keyboard entry while typing
@@ -382,6 +388,10 @@ class Manipulator():
             Modal handler
             handle mouse, and keyboard events
             enable and disable feedback
+            
+            return boolean 
+            where True means the event was handled here so stack return RUNNING_MODAL
+            and False means let the event bubble on stack 
         """
         # print("Manipulator modal:%s %s" % (event.value, event.type))
 
@@ -495,7 +505,7 @@ class Manipulator():
         """
         try:
             if self.get_value(data, attr, index) != value:
-                # switch context so unselected object may be manipulable too
+                # switch context so unselected object are manipulable too
                 old = context.active_object
                 state = self.o.select
                 self.o.select = True
@@ -612,6 +622,7 @@ class SnapPointManipulator(Manipulator):
         return False
 
     def draw_callback(self, _self, context, render=False):
+        logger.debug("SnapPointManipulator.draw_callback")
         left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
         self.handle.set_pos(context, left, Vector((1, 0, 0)), normal=normal)
         self.handle.draw(context, render)
@@ -712,7 +723,8 @@ class WallSnapManipulator(Manipulator):
             np station callback on moving, place, or cancel
         """
         global gl_pts3d
-
+        logger.debug("WallSnapManipulator.sp_callback")
+    
         if state == 'SUCCESS':
 
             self.o.select = True
@@ -794,12 +806,14 @@ class WallSnapManipulator(Manipulator):
 
         if state == 'CANCEL':
             self.mouse_release(context, event)
-
+        logger.debug("WallSnapManipulator.sp_callback done")
+    
         return
 
     def sp_draw(self, sp, context):
         # draw wall placeholders
-
+        logger.debug("WallSnapManipulator.sp_draw")
+    
         global gl_pts3d
 
         if self.o is None:
@@ -842,7 +856,8 @@ class WallSnapManipulator(Manipulator):
         self.label.set_pos(context, self.line.length, self.line.lerp(0.5), self.line.v, normal=Vector((0, 0, 1)))
         self.line.draw(context, render=False)
         self.label.draw(context, render=False)
-
+        logger.debug("WallSnapManipulator.sp_draw done")
+           
     def mouse_move(self, context, event):
         self.mouse_position(event)
         if self.handle.active:
@@ -911,6 +926,8 @@ class CounterManipulator(Manipulator):
         """
             draw on screen feedback using gl.
         """
+        logger.debug("CounterManipulator.draw_callback")
+    
         # won't render counter
         if render:
             return
@@ -927,7 +944,8 @@ class CounterManipulator(Manipulator):
         self.label.draw(context, render)
         self.handle_left.draw(context, render)
         self.handle_right.draw(context, render)
-
+        logger.debug("CounterManipulator.draw_callback done")
+    
 
 class DumbStringManipulator(Manipulator):
     """
@@ -955,6 +973,8 @@ class DumbStringManipulator(Manipulator):
         """
             draw on screen feedback using gl.
         """
+        logger.debug("DumbStringManipulator.draw_callback")
+    
         # won't render string
         if render:
             return
@@ -962,10 +982,11 @@ class DumbStringManipulator(Manipulator):
         pos = left + 0.5 * (right - left)
         self.label.set_pos(context, None, pos, pos, normal=normal)
         self.label.draw(context, render)
-
+        logger.debug("DumbStringManipulator.draw_callback done")
+    
 
 class SizeManipulator(Manipulator):
-
+    
     def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
         self.handle_left = TriHandle(handle_size, arrow_size)
         self.handle_right = TriHandle(handle_size, arrow_size, draggable=True)
@@ -1061,6 +1082,8 @@ class SizeManipulator(Manipulator):
         """
             draw on screen feedback using gl.
         """
+        logger.debug("SizeManipulator.draw_callback")
+
         left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
         self.origin = left
         self.line_1.p = left
@@ -1084,8 +1107,10 @@ class SizeManipulator(Manipulator):
         self.handle_right.draw(context, render)
         self.label.draw(context, render)
         self.feedback.draw(context, render)
+        logger.debug("SizeManipulator.draw_callback done")
 
     def sp_draw(self, sp, context):
+        logger.debug("SizeManipulator.sp_draw")
         global gl_pts3d
         if self.o is None:
             return
@@ -1093,10 +1118,13 @@ class SizeManipulator(Manipulator):
         p1 = gl_pts3d[1].copy()
         p1 += sp.delta
         self.sp_update(context, p0, p1)
+        logger.debug("SizeManipulator.sp_draw done")
+        
         return
 
     def sp_callback(self, context, event, state, sp):
-
+        logger.debug("SizeManipulator.sp_callback")
+        
         if state == 'SUCCESS':
             self.sp_draw(sp, context)
             self.mouse_release(context, event)
@@ -1106,12 +1134,15 @@ class SizeManipulator(Manipulator):
             p1 = gl_pts3d[1].copy()
             self.sp_update(context, p0, p1)
             self.mouse_release(context, event)
-
+        logger.debug("SizeManipulator.sp_callback done")
+        
     def sp_update(self, context, p0, p1):
+        logger.debug("SizeManipulator.sp_update")
         length = (p0 - p1).length
         self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
-
-
+        logger.debug("SizeManipulator.sp_update done")
+        
+        
 class SizeLocationManipulator(SizeManipulator):
     """
         Handle resizing by any of the boundaries
@@ -1306,6 +1337,7 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
         return False
 
     def sp_draw(self, sp, context):
+        logger.debug("SnapSizeLocationManipulator.sp_draw")
         global gl_pts3d
         if self.o is None:
             return
@@ -1323,11 +1355,13 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             snap_helper = context.active_object
             self.snap_callback(context, o=self.o, manipulator=self)
             context.scene.objects.active = snap_helper
-
+        logger.debug("SnapSizeLocationManipulator.sp_draw done")
+        
         return
 
     def sp_callback(self, context, event, state, sp):
-
+        logger.debug("SnapSizeLocationManipulator.sp_callback")
+        
         if state == 'SUCCESS':
             self.sp_draw(sp, context)
             self.mouse_release(context, event)
@@ -1337,8 +1371,10 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
             p1 = gl_pts3d[1].copy()
             self.sp_update(context, p0, p1)
             self.mouse_release(context, event)
-
+        logger.debug("SnapSizeLocationManipulator.sp_callback done")
+        
     def sp_update(self, context, p0, p1):
+        logger.debug("SnapSizeLocationManipulator.sp_update")
         l0 = self.get_value(self.datablock, self.manipulator.prop1_name)
         length = (p0 - p1).length
         dp = length - l0
@@ -1348,7 +1384,8 @@ class SnapSizeLocationManipulator(SizeLocationManipulator):
         self.move(context, self.manipulator.prop2_name, dl)
         self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
         self.move_linked(context, self.manipulator.prop2_name, dl)
-
+        logger.debug("SnapSizeLocationManipulator.sp_update done")
+        
 
 class DeltaLocationManipulator(SizeManipulator):
     """
@@ -1414,6 +1451,8 @@ class DeltaLocationManipulator(SizeManipulator):
         return False
 
     def sp_draw(self, sp, context):
+        logger.debug("DeltaLocationManipulator.sp_draw")
+    
         global gl_pts3d
         if self.o is None:
             return
@@ -1429,17 +1468,20 @@ class DeltaLocationManipulator(SizeManipulator):
             snap_helper = context.active_object
             self.snap_callback(context, o=self.o, manipulator=self)
             context.scene.objects.active = snap_helper
-
+        logger.debug("DeltaLocationManipulator.sp_draw done")
+    
         return
 
     def sp_callback(self, context, event, state, sp):
-
+        logger.debug("DeltaLocationManipulator.sp_callback")
+    
         if state == 'SUCCESS':
             self.sp_draw(sp, context)
             self.mouse_release(context, event)
 
         if state == 'CANCEL':
             self.cancel(context, event)
+        logger.debug("DeltaLocationManipulator.sp_callback done")
 
     def cancel(self, context, event):
         if self.active:
@@ -1450,6 +1492,7 @@ class DeltaLocationManipulator(SizeManipulator):
             self.move(context, self.manipulator.prop1_name, dl)
 
     def draw_callback(self, _self, context, render=False):
+        logger.debug("DeltaLocationManipulator.draw_callback")
         """
             draw on screen feedback using gl.
         """
@@ -1463,6 +1506,7 @@ class DeltaLocationManipulator(SizeManipulator):
         self.handle_left.draw(context, render)
         self.handle_right.draw(context, render)
         self.feedback.draw(context)
+        logger.debug("DeltaLocationManipulator.draw_callback done")
 
 
 class DumbSizeManipulator(SizeManipulator):
@@ -1944,7 +1988,7 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
 # ------------------------------------------------------------------
 
 
-# Allow registering manipulators classes
+# Allow registeration of manipulators classes
 manipulators_class_lookup = {}
 
 
@@ -2077,7 +2121,9 @@ class ARCHIPACK_OT_manipulate(Operator):
         # and exit when not found
         if context.area is not None:
             context.area.tag_redraw()
+        
         key = self.object_name
+        
         if check_stack(key):
             self.exit_selectmode(context, key)
             remove_manipulable(key)
@@ -2278,7 +2324,8 @@ class Manipulable():
         if self.keymap.check(event, self.keymap.undo):
             # user feedback on undo by disabling manipulators
             self.manipulable_disable(context)
-            return {'FINISHED'}
+            # pass through so system is able to undo
+            return {'FINISHED', 'PASS_THROUGH'}
 
         # clean up manipulator on delete
         if self.keymap.check(event, self.keymap.delete):  # {'X'}:
@@ -2311,9 +2358,15 @@ class Manipulable():
             # so proper release handler is called
             # and return true to call manipulate when required
             # print("manipulator:%s" % manipulator)
-            if manipulator is not None and manipulator.modal(context, event):
-                self.manipulable_manipulate(context, event, manipulator)
-                return {'RUNNING_MODAL'}
+            # TODO:
+            # let modal return {'RUNNING_MODAL', 'PASS_THROUGH', 'FINISHED'}
+            
+            # @NOTE: should also return None
+            
+            if manipulator is not None:
+                if manipulator.modal(context, event):
+                    self.manipulable_manipulate(context, event, manipulator)
+                    return {'RUNNING_MODAL'}
 
         # print("Manipulable %s %s" % (event.type, event.value))
 
@@ -2382,7 +2435,9 @@ class Manipulable():
         if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS' and not event.alt:
             self.manipulable_disable(context)
             self.manipulable_exit(context)
-            return {'FINISHED'}
+            
+            # Pass through so other active manipulables also exit
+            return {'FINISHED', 'PASS_THROUGH'}
 
         return {'PASS_THROUGH'}
 

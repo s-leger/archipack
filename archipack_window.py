@@ -73,7 +73,7 @@ def get_cols(self):
 class archipack_window_panelrow(PropertyGroup):
     width = FloatVectorProperty(
             name="Width",
-            min=0.5,
+            min=0.1,
             max=100.0,
             default=[
                 50, 50, 50, 50, 50, 50, 50, 50,
@@ -427,14 +427,14 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
 class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
     x = FloatProperty(
             name='Width',
-            min=0.25,
+            min=0.1,
             default=100.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Width', update=update
             )
     y = FloatProperty(
             name='Depth',
-            min=0.1,
+            min=0.05,
             default=0.20, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Depth', update=update,
@@ -1988,15 +1988,18 @@ class ARCHIPACK_OT_window_draw(ArchpackDrawTool, Operator):
             hole = d.find_hole(o)
 
         # hide hole from raycast
+        to_hide = [o]
+        to_hide.extend([child for child in o.children if archipack_window_panel.filter(child)])
         if hole is not None:
-            o.hide = True
-            hole.hide = True
+            to_hide.append(hole)
+                    
+        for obj in to_hide:
+            obj.hide = True
 
         res, tM, wall, width, y = self.mouse_hover_wall(context, event)
 
-        if hole is not None:
-            o.hide = False
-            hole.hide = False
+        for obj in to_hide:
+            obj.hide = False
 
         if res and d is not None:
             o.matrix_world = tM

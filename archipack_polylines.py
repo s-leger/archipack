@@ -28,7 +28,6 @@
 import time
 import bpy
 import bgl
-import numpy as np
 from math import cos, sin, pi, atan2
 import bmesh
 from mathutils import Vector, Matrix
@@ -621,16 +620,51 @@ class SelectPolygons(Selectable):
                 union = ShapelyOps.union(selection)
                 # union = ShapelyOps.optimize(union)
                 res = []
+                bpy.ops.object.select_all(action='DESELECT')
                 z = context.window_manager.archipack_polylib.solidify_thickness
                 Io.to_wall(scene, self.coordsys, union, z, 'wall', res)
                 if len(res) > 0:
+                    for wall in res:
+                        wall.select = True
                     scene.objects.active = res[0]
                     if len(res) > 1:
                         bpy.ops.object.join()
+                    wall = scene.objects.active
+                    Io.assign_matindex_to_wall(wall)
                     bpy.ops.archipack.wall(z=z)
+                    
+                    # use overall input bounding box to find a reference point if any
+                    coordsys = self.coordsys
+                    loc = coordsys.world * Vector((-0.5 * coordsys.width, -0.5 * coordsys.height, 0)) 
+                    # find reference point if any
+                    reference = None
+                    for ref in scene.objects:
+                        if ref.location == loc and 'archipack_reference_point' in ref:
+                            ref.hide = False
+                            ref.hide_select = False
+                            reference = ref
+                            break
+                    # create a new ref if not found
+                    if reference is None:
+                        scene.cursor_location = loc
+                        scene.objects.active = wall
+                        bpy.ops.archipack.reference_point()
+                        reference = scene.objects.active
+                    else:
+                        reference.select = True
+                        scene.objects.active = reference
+                    # parent wall to reference        
+                    wall.select = True
+                    if bpy.ops.archipack.parent_to_reference.poll():
+                        bpy.ops.archipack.parent_to_reference()
+                    
+                    reference.select = False   
+                    wall.select = True            
+                    scene.objects.active = wall
+                    # autoboolean                
                     if bpy.ops.archipack.auto_boolean.poll():
                         bpy.ops.archipack.auto_boolean(mode='HYBRID')
-                        
+
             elif self.action == 'rectangle':
                 # currently only output a best fitted rectangle
                 # over selection
@@ -968,7 +1002,7 @@ class CoordSys(object):
         self.width = width
         self.height = height
 
-
+    
 class Prolongement():
     """ intersection of two segments outside segment (projection)
         c0 = point on current segment
@@ -1350,43 +1384,96 @@ class Io():
 
     # Output methods
     def _poly_to_wall(self, poly, height: float, name: str):
-
+	
         curve = bpy.data.curves.new(name, type='CURVE')
-        curve.dimensions = "2D"
-        curve.fill_mode = 'BOTH'
-        curve.extrude = height
-
-        n_ext = len(poly.exterior.coords)
-        n_int = len(poly.interiors)
-
+        curve.dimensions = "3D"
         self._add_spline(curve, poly.exterior)
+        exterior = bpy.data.objects.new(name, curve)
+        exterior.matrix_world = self.coordsys.world
+        self.scene.objects.link(exterior)
+        location = Vector()
+        poly.envelope.centre(location)
+        radius = max(poly.envelope.width, poly.envelope.height)
+        bpy.ops.mesh.primitive_plane_add(radius=radius, enter_editmode=True, location=self.coordsys.world * location)
+        bpy.ops.mesh.select_mode(type="FACE")
+        wall = self.scene.objects.active
+        wall.name = "Wall"
+        exterior.select = True
+        
+        bpy.ops.mesh.knife_project()
+        exterior.select = False
+        self.scene.objects.unlink(exterior)
+        
+        bpy.ops.mesh.select_all(action='INVERT')	
+        bpy.ops.mesh.intersect_boolean()
+        bpy.ops.object.mode_set(mode='OBJECT')
+        # remember number of polygons for each part
+        # order is : bottom - top - exterior - interior
+        n_ext = len(poly.exterior.coords) - 1
+        n_int = 0
+        
+        ext = [v.index for v in wall.data.vertices]
+        vg = wall.vertex_groups.new("Exterior")
+        vg.add(ext, 1.0, 'ADD')
+        
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='DESELECT')
+        
+        if len(poly.interiors) > 0:
+            curve = bpy.data.curves.new(name, type='CURVE')
+            curve.dimensions = "3D"
+            for geom in poly.interiors:
+                n_int += len(geom.coords) - 1
+                self._add_spline(curve, geom)
+            interiors = bpy.data.objects.new(name, curve)
+            interiors.matrix_world = self.coordsys.world
+            self.scene.objects.link(interiors)
+            interiors.select = True
+            wall.select = True
+            self.scene.objects.active = wall
+            bpy.ops.mesh.knife_project()
+            self.scene.objects.unlink(interiors)
+            
+            bpy.ops.object.mode_set(mode='OBJECT')
+            int = [v.index for v in wall.data.vertices if v.index not in ext]
+            vg = wall.vertex_groups.new("Interior")
+            vg.add(int, 1.0, 'ADD')
+            bpy.ops.object.mode_set(mode='EDIT')
 
-        for geom in poly.interiors:
-            self._add_spline(curve, geom)
-
-        curve_obj = bpy.data.objects.new(name, curve)
-        curve_obj.matrix_world = self.coordsys.world
-
-        self.scene.objects.link(curve_obj)
-
-        curve_obj.select = True
-        self.scene.objects.active = curve_obj
-
-        return n_ext, n_int, curve_obj
-
+            bpy.ops.mesh.intersect_boolean()
+        
+        bpy.ops.mesh.select_all(action='SELECT')
+        
+        bpy.ops.mesh.extrude_region_move(
+            MESH_OT_extrude_region={"mirror":False}, 
+            TRANSFORM_OT_translate={
+                "value":(0, 0, height), 
+                "constraint_axis":(False, False, True), 
+                "constraint_orientation":'GLOBAL' 
+                })
+        
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        wall.select = True
+        self.scene.objects.active = wall
+        
+        return n_int, n_ext, wall
+        
     def wall_uv(self, me, bm):
 
         for face in bm.faces:
             face.select = face.material_index > 0
 
         bmesh.update_edit_mesh(me, True)
-        bpy.ops.uv.cube_project(scale_to_bounds=False, correct_aspect=True)
+        if bpy.ops.uv.cube_project.poll():
+            bpy.ops.uv.cube_project(scale_to_bounds=False, correct_aspect=True)
 
         for face in bm.faces:
             face.select = face.material_index < 1
 
         bmesh.update_edit_mesh(me, True)
-        bpy.ops.uv.smart_project(use_aspect=True, stretch_to_bounds=False)
+        if bpy.ops.uv.smart_project.poll():
+            bpy.ops.uv.smart_project(use_aspect=True, stretch_to_bounds=False)
 
     def _add_spline(self, curve, geometry):
 
@@ -1433,7 +1520,50 @@ class Io():
         self.scene.objects.link(curve_obj)
         curve_obj.select = True
         return curve_obj
-
+    
+    @staticmethod
+    def assign_matindex_to_wall(obj):
+        """
+            Use vertex groups to assign materials
+        """
+        outside_mat = 0
+        inside_mat = 1
+        cut_mat = 2
+        me = obj.data
+        
+        vgroup_names = {vgroup.name: vgroup.index for vgroup in obj.vertex_groups}
+        if obj.vertex_groups.get('Interior') is not None:
+            mat_index = outside_mat
+        else:
+            mat_index = inside_mat
+            
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_mode(type="FACE")
+        bpy.ops.mesh.select_all(action='DESELECT')
+        obj.vertex_groups.active_index = vgroup_names['Exterior']
+        bpy.ops.object.vertex_group_select()
+        Io.assign_matindex_to_selected(me, mat_index, True)
+        Io.assign_matindex_to_selected(me, inside_mat, False)
+        
+        bm = bmesh.from_edit_mesh(me)
+        bm.verts.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        for poly in bm.faces:
+            if abs(poly.normal.z) > 0.5:
+                poly.material_index = cut_mat
+        bmesh.update_edit_mesh(me, True)
+        bpy.ops.object.mode_set(mode='OBJECT')
+               
+    @staticmethod
+    def assign_matindex_to_selected(me, index, selected):
+        bm = bmesh.from_edit_mesh(me)
+        bm.verts.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        for poly in bm.faces:
+            if poly.select == selected:
+                poly.material_index = index
+        bmesh.update_edit_mesh(me, True)
+        
     @staticmethod
     def to_wall(scene, coordsys, geoms, height, name: str, walls: list=[]):
         """
@@ -1442,9 +1572,7 @@ class Io():
             cap faces are tri, sides faces are quads
         """
         t = time.time()
-        inside_mat = 0
-        outside_mat = 1
-        cut_mat = 2
+        
         io = Io(scene=scene, coordsys=coordsys)
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -1452,56 +1580,30 @@ class Io():
 
         for poly in geoms:
             if hasattr(poly, 'exterior'):
-
-                half_height = height / 2.0
-
-                n_ext, n_int, obj = io._poly_to_wall(poly, half_height, name)
-
-                bpy.ops.object.convert(target="MESH")
-                bpy.ops.object.mode_set(mode='EDIT')
+                n_int, n_ext, obj = io._poly_to_wall(poly, height, name)
                 me = obj.data
-
+                bpy.ops.object.mode_set(mode='EDIT')
                 bm = bmesh.from_edit_mesh(me)
                 bm.verts.ensure_lookup_table()
                 bm.faces.ensure_lookup_table()
-
-                for v in bm.verts:
-                    v.co.z += half_height
-
-                # model start from caps
-                # then outside and end by inside
-                # find first outside face index
-                nfaces = 0
-                for i, f in enumerate(bm.faces):
-                    bm.faces[i].material_index = cut_mat
-                    if len(f.verts) > 3:
-                        nfaces = i
-                        break
-
-                # walls without interiors are inside
-                if n_int > 0:
-                    mat_index = outside_mat
-                else:
-                    mat_index = inside_mat
-
-                # set outside if any
-                for i in range(nfaces, nfaces + n_ext - 1):
-                    bm.faces[i].material_index = mat_index
-
-                # set inside
-                for i in range(nfaces + n_ext - 1, len(bm.faces)):
-                    bm.faces[i].material_index = inside_mat
-
-                bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.003)
-                bmesh.update_edit_mesh(me, True)
-
                 io.wall_uv(me, bm)
+                bmesh.update_edit_mesh(me, True)
+                
                 bpy.ops.mesh.select_all(action='SELECT')
+                
                 bpy.ops.mesh.dissolve_limited(angle_limit=0.015708, delimit={'NORMAL'})
                 bpy.ops.mesh.dissolve_degenerate()
+                # tri are strongest when it comes to boolean
+                bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
                 bpy.ops.mesh.normals_make_consistent()
                 bpy.ops.object.mode_set(mode='OBJECT')
+                
                 bpy.ops.object.shade_flat()
+                # define "Top" vertex group
+                half_height = 0.5 * height
+                top = [i for i, v in enumerate(me.vertices) if v.co.z > half_height]
+                vg = obj.vertex_groups.new("Top")
+                vg.add(top, 1.0, 'ADD')
                 # MaterialUtils.add_wall_materials(obj)
                 walls.append(obj)
             else:
@@ -1758,7 +1860,6 @@ class Polygonizer():
         process_point = 0
 
         segs = Q_segs._geoms
-        nbsegs = Q_segs.ngeoms
 
         # points with 1 user are "extendable"
         for seg in Q_segs._geoms:
@@ -1789,7 +1890,6 @@ class Polygonizer():
                         _extend_other = extend
                     else:
                         _extend_other = extend_seg
-
 
                     intersect, co, u, v, d = seg._intersect_seg(_seg)
 
@@ -1878,7 +1978,7 @@ class Polygonizer():
 
         logger.debug("Polygonizer.split() slice :%.4f seconds", (time.time() - t))
 
-    def split(self, Q_points, Q_segs, extend=0.01, extend_seg=0.01, collinear=True):
+    def split(self, Q_points, Q_segs, extend=0.01, all_segs=False):
         """ _split
             detect intersections between segments and create segments according
             is able to project segment ends on closest segment
@@ -1898,10 +1998,15 @@ class Polygonizer():
         it_end = [None for x in range(nbsegs)]
 
         # points with 1 user are "extendable"
-        for seg in Q_segs._geoms:
-            seg.c0.add_user()
-            seg.c1.add_user()
-
+        if all_segs:
+            for seg in Q_segs._geoms:
+                seg.c0.users = 1
+                seg.c1.users = 1        
+        else:
+            for seg in Q_segs._geoms:
+                seg.c0.add_user()
+                seg.c1.add_user()
+              
         for s, seg in enumerate(segs):
 
             # enlarge seek box for "extendable" segments
@@ -2047,7 +2152,7 @@ class Polygonizer():
                                     last.it = it
 
                     # COLLINEAR_INTERSECTION
-                    elif collinear and d < EPSILON:
+                    elif d < EPSILON:
                         # parallel segments, endpoint on segment
                         # skip NON_COLLINEAR aka when d > EPSILON
                         process_collinear += 1
@@ -2251,7 +2356,7 @@ class Polygonizer():
         logger.debug("Polygonizer.split() slice :%.4f seconds", (time.time() - t))
 
     @staticmethod
-    def polygonize(context, curves, extend=0.0, extend_seg=0.0, resolution=12):
+    def polygonize(context, curves, extend=0.0, all_segs=False, resolution=12):
         """
             @extend: extend line ends to find intersections
             @extend_seg: extend line segments to find intersections
@@ -2270,7 +2375,7 @@ class Polygonizer():
 
         Io.add_curves(Q_points, Q_segs, coordsys, curves, resolution)
 
-        op.split(Q_points, Q_segs, extend=extend, extend_seg=extend_seg)
+        op.split(Q_points, Q_segs, extend=extend, all_segs=all_segs)
 
         lines = gf.buildGeometry([gf.createLineString([seg.c0.coord, seg.c1.coord])
             for seg in Q_segs._geoms
@@ -2428,7 +2533,7 @@ class ARCHIPACK_OP_PolyLib_Detect(Operator):
                 context,
                 objs,
                 extend=params.extend,
-                extend_seg=params.extend_seg,
+                all_segs=params.all_segs,
                 resolution=params.resolution)
 
         except TopologyException as ex:
@@ -2760,11 +2865,10 @@ class archipack_polylib(PropertyGroup):
             default=0.01,
             subtype='DISTANCE', unit='LENGTH', min=0
             )
-    extend_seg = FloatProperty(
-            name="Extend seg",
-            description="Extend segments to closest intersecting segment",
-            default=0.01,
-            subtype='DISTANCE', unit='LENGTH', min=0
+    all_segs = BoolProperty(
+            name="Extend all segs",
+            description="(slower but may be safer) Extend only line ends when not enabled",
+            default=False
             )
     resolution = IntProperty(
             name="Bezier resolution", min=0, default=12

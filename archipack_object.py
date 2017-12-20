@@ -32,10 +32,9 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import (
     intersect_line_plane
     )
-from bpy_extras.view3d_utils import (
-    region_2d_to_origin_3d,
-    region_2d_to_vector_3d
-    )
+from bpy_extras import view3d_utils
+import logging
+logger = logging.getLogger("archipack")
 
 
 class ArchipackObject():
@@ -198,35 +197,58 @@ class ArchpackDrawTool():
     """
         Draw tools
     """
+    def region_2d_to_orig_and_vect(self, context, event):
+
+        region = context.region
+        rv3d = context.region_data
+        coord = (event.mouse_region_x, event.mouse_region_y)
+
+        vec = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
+        orig = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
+
+        return rv3d.is_perspective, orig, vec
+
     def mouse_to_plane(self, context, event, origin=Vector((0, 0, 0)), normal=Vector((0, 0, 1))):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
+            return None if the point is behind camera view
         """
-        region = context.region
-        rv3d = context.region_data
-        co2d = (event.mouse_region_x, event.mouse_region_y)
-        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
-        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
-        pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
-           origin, normal, False)
+        is_perspective, orig, vec = self.region_2d_to_orig_and_vect(context, event)
+        pt = intersect_line_plane(orig, orig + vec, origin, normal, False)
+
         # fix issue with parallel plane
         if pt is None:
-            pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
-                origin, view_vector_mouse, False)
+            pt = intersect_line_plane(orig, orig + vec, origin, vec, False)
+
+        if pt is None:
+            return None
+
+        if is_perspective:
+            # Check if point is behind point of view (mouse over horizon)
+            y = Vector((0, 0, 1))
+            x = vec.cross(y)
+            x = y.cross(vec)
+            itM = Matrix([
+                [x.x, y.x, vec.x, orig.x],
+                [x.y, y.y, vec.y, orig.y],
+                [x.z, y.z, vec.z, orig.z],
+                [0, 0, 0, 1]
+                ]).inverted()
+            res = itM * pt
+
+            if res.z < 0:
+                return None
+
         return pt
 
     def mouse_to_scene_raycast(self, context, event):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
         """
-        region = context.region
-        rv3d = context.region_data
-        co2d = (event.mouse_region_x, event.mouse_region_y)
-        view_vector_mouse = region_2d_to_vector_3d(region, rv3d, co2d)
-        ray_origin_mouse = region_2d_to_origin_3d(region, rv3d, co2d)
+        is_perspective, orig, vec = self.region_2d_to_orig_and_vect(context, event)
         res, pos, normal, face_index, object, matrix_world = context.scene.ray_cast(
-            ray_origin_mouse,
-            view_vector_mouse)
+            orig,
+            vec)
         return res, pos, normal, face_index, object, matrix_world
 
     def mouse_hover_wall(self, context, event):
@@ -235,39 +257,41 @@ class ArchpackDrawTool():
         """
         res, pt, y, i, o, tM = self.mouse_to_scene_raycast(context, event)
         if res and o.data is not None:
+
+            z = Vector((0, 0, 1))
+            y = -y
+            x = y.cross(z)
+
             if 'archipack_wall2' in o.data:
-                z = Vector((0, 0, 1))
                 d = o.data.archipack_wall2[0]
-                y = -y
                 pt += (0.5 * d.width) * y.normalized()
-                x = y.cross(z)
                 return True, Matrix([
                     [x.x, y.x, z.x, pt.x],
                     [x.y, y.y, z.y, pt.y],
                     [x.z, y.z, z.z, o.matrix_world.translation.z],
                     [0, 0, 0, 1]
                     ]), o, d.width, y
+
             elif 'archipack_wall' in o.data:
-                y = -y
                 # one point on the oposite to raycast side (1 unit inside)
                 # @TODO: estimate the needed width - increase and re-cast when nothing is found
                 #        within a limit of n iterations so single sided walls wont make it fail
                 #        - ensure the ray hit same object ?
+
                 p0 = pt + y.normalized()
-                # another point in the side of raycast
-                dp = (pt - y.normalized()) - p0
+                # direction
+                dp = -y.normalized()
                 # cast another ray to find wall depth
                 res, pos, normal, face_index, object, matrix_world = context.scene.ray_cast(
                     p0,
                     dp)
                 if res:
                     width = (pt - pos).to_2d().length
-                    pt += (0.5 * width) * y.normalized()
-                    z = Vector((0, 0, 1))
-                    x = y.cross(z)
+                    print("hit:%s  w:%s  pt:%s pos:%s" % (object.name, width, pt, pos))
+                    p1 = pt + (0.5 * width) * y.normalized()
                     return True, Matrix([
-                        [x.x, y.x, z.x, pt.x],
-                        [x.y, y.y, z.y, pt.y],
+                        [x.x, y.x, z.x, p1.x],
+                        [x.y, y.y, z.y, p1.y],
                         [x.z, y.z, z.z, o.matrix_world.translation.z],
                         [0, 0, 0, 1]
                         ]), o, width, y

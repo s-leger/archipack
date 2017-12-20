@@ -1,6 +1,3 @@
-
-import array
-
 # -*- coding:utf-8 -*-
 
 # ##### BEGIN GPL LICENSE BLOCK #####
@@ -27,71 +24,47 @@ import array
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
-
+import numpy as np
 
 class BitArray():
 
-    def __init__(self, bitSize, fill=0):
-        self.size = bitSize
-        intSize = bitSize >> 5
-        if (bitSize & 31):
-            intSize += 1
-        if fill == 1:
-            fill = 4294967295
-        else:
-            fill = 0
-        self.bitArray = array.array('I')
-        self.bitArray.extend((fill,) * intSize)
-
+    def __init__(self, bitSize, fill=False):
+        self.bitArray = np.array((fill,) * bitSize , dtype='bool_')
+        
     def __str__(self):
         return str(self.list)
 
-    def bit_location(self, bit_num):
-        return bit_num >> 5, bit_num & 31
-
     def test(self, bit_num):
-        record, offset = self.bit_location(bit_num)
-        mask = 1 << offset
-        return(self.bitArray[record] & mask)
+        return self.bitArray[bit_num]
 
     def set(self, bit_num):
-        record, offset = self.bit_location(bit_num)
-        mask = 1 << offset
-        self.bitArray[record] |= mask
+        self.bitArray[bit_num] = True
 
     def clear(self, bit_num):
-        record, offset = self.bit_location(bit_num)
-        mask = ~(1 << offset)
-        self.bitArray[record] &= mask
+        self.bitArray[bit_num] = False
 
     def toggle(self, bit_num):
-        record, offset = self.bit_location(bit_num)
-        mask = 1 << offset
-        self.bitArray[record] ^= mask
-
-    @property
-    def len(self):
-        return len(self.bitArray)
+        self.bitArray[bit_num] = not self.bitArray[bit_num]
 
     @property
     def copy(self):
-        copy = BitArray(self.size)
-        for i in range(self.len):
-            copy.bitArray[i] = self.bitArray[i]
+        copy = BitArray(0)
+        copy.bitArray = self.bitArray.copy()
         return copy
 
     @property
     def list(self):
-        return [x for x in range(self.size) if self.test(x) > 0]
+        return self.bitArray.nonzero()[0].tolist()
 
     def none(self):
-        for i in range(self.len):
-            self.bitArray[i] = 0
+        self.bitArray.fill(False)
 
     def reverse(self):
-        for i in range(self.len):
-            self.bitArray[i] = 4294967295 ^ self.bitArray[i]
+        self.bitArray = np.array([not b for b in self.bitArray], dtype='bool_')
 
     def all(self):
-        for i in range(self.len):
-            self.bitArray[i] = 4294967295
+        self.bitArray.fill(True)
+
+    def equals(self, other):
+        return np.array_equal(self.bitArray, other)
+               
