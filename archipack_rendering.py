@@ -45,7 +45,7 @@ from bl_ui import properties_render
 class ARCHIPACK_OT_render_thumbs(Operator):
     bl_idname = "archipack.render_thumbs"
     bl_label = "Render presets thumbs"
-    bl_description = "Setup default presets and update thumbs"
+    bl_description = "Setup default presets and update thumbs (may take one or 2 minits)"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     @classmethod

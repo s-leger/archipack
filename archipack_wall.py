@@ -109,7 +109,10 @@ class ARCHIPACK_OT_wall(Operator, ArchipackCreateTool):
     @classmethod
     def poll(cls, context):
         o = context.active_object
-        return o is not None and o.type == 'MESH' and "archipack_wall2" not in o.data
+        return (o is not None and 
+            o.type == 'MESH' and 
+            "archipack_wall2" not in o.data and 
+            "archipack_custom_hole" not in o)
 
     def draw(self, context):
         layout = self.layout

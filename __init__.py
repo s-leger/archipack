@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': '',
-    'version': (1, 3, 4),
+    'version': (1, 3, 5),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -95,7 +95,7 @@ else:
     from . import archipack_polylines
     from . import addon_updater_ops
     # from . import archipack_i18n
-    
+
     print("archipack: ready")
 
 # noinspection PyUnresolvedReferences
@@ -243,7 +243,6 @@ class Archipack_Pref(AddonPreferences):
             )
 
     # addon updater preferences
-
     auto_check_update = BoolProperty(
         name="Auto-check for Update",
         description="If enabled, auto-check for updates using an interval",
@@ -280,20 +279,27 @@ class Archipack_Pref(AddonPreferences):
     def draw(self, context):
         layout = self.layout
         box = layout.box()
+        box.label("Setup actions (see Documentation)")
+        row = box.row()
+        col = row.column()
+        col.label(text="Presets (may take up to 3 min):")
+        col.operator("archipack.render_thumbs", icon="RENDER_RESULT")
+
+        col = row.column()
+        col.label(text="Material library:")
+        col.prop(self, "matlib_path")
+
+        box = layout.box()
         row = box.row()
         col = row.column()
         col.label(text="Tab Category:")
         col.prop(self, "tools_category")
         col.prop(self, "create_category")
         col.prop(self, "create_submenu")
+
         box = layout.box()
         box.label("Features")
         box.prop(self, "max_style_draw_tool")
-        box = layout.box()
-        row = box.row()
-        col = row.column()
-        col.label(text="Material library:")
-        col.prop(self, "matlib_path")
         box = layout.box()
         row = box.row()
         split = row.split(percentage=0.5)
@@ -352,41 +358,39 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
                 row.prop(params, "polygonize_expand", icon='TRIA_DOWN', text="")
         else:
             row.prop(params, "polygonize_expand", icon='TRIA_RIGHT', text="")
-        
+
         row.operator(
-            "archipack.polylib_detect",
+            "archipack.polylib_polygonize",
             icon_value=icons["detect"].icon_id,
             text='Detect'
             )
-            
+
         if params.polygonize_expand:
-            box.prop(params, "extend")
-            box.prop(params, "all_segs")
-            box.prop(params, "resolution")
+            box.prop(params, "polygonize_bezier_resolution")
+            box.prop(params, "polygonize_extend")
+            box.prop(params, "polygonize_all_segs")
             
             box.operator(
                 "archipack.polylib_pick_2d_polygons",
                 icon_value=icons["selection"].icon_id,
                 text='Polygons'
                 )
-            
+
             box.operator(
                 "archipack.polylib_pick_2d_lines",
                 icon_value=icons["selection"].icon_id,
-                text='Lines')
-            
-            # row = layout.row(align=True)
-            # box = row.box()
-            # row = box.row(align=True)
-            # row.operator("archipack.polylib_solidify")
+                text='Lines'
+                )
+
             box.operator(
                 "archipack.polylib_pick_2d_points",
                 icon_value=icons["selection"].icon_id,
-                text='Points')
-            
+                text='Points'
+                )
+
             box.label(text="Walls")
-            box.prop(params, "solidify_thickness")
-            
+            box.prop(params, "polygonize_thickness")
+
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
@@ -396,9 +400,10 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             row.prop(params, "simplify_expand", icon='TRIA_RIGHT', text="")
         row.operator("archipack.polylib_simplify")
         if params.simplify_expand:
+            box.prop(params, "simplify_bezier_resolution")
             box.prop(params, "simplify_tolerance")
             box.prop(params, "simplify_preserve_topology")
-        
+
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
@@ -408,12 +413,13 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             row.prop(params, "offset_expand", icon='TRIA_RIGHT', text="")
         row.operator("archipack.polylib_offset")
         if params.offset_expand:
+            box.prop(params, "offset_bezier_resolution")
             box.prop(params, "offset_distance")
             box.prop(params, "offset_side")
             box.prop(params, "offset_resolution")
             box.prop(params, "offset_join_style")
             box.prop(params, "offset_mitre_limit")
-        
+
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
@@ -423,13 +429,14 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             row.prop(params, "buffer_expand", icon='TRIA_RIGHT', text="")
         row.operator("archipack.polylib_buffer")
         if params.buffer_expand:
+            box.prop(params, "buffer_bezier_resolution")
             box.prop(params, "buffer_distance")
             box.prop(params, "buffer_side")
             box.prop(params, "buffer_resolution")
             box.prop(params, "buffer_join_style")
             box.prop(params, "buffer_cap_style")
             box.prop(params, "buffer_mitre_limit")
-        
+
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
@@ -437,7 +444,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             row.prop(params, "boolean_expand", icon='TRIA_DOWN', text="")
         else:
             row.prop(params, "boolean_expand", icon='TRIA_RIGHT', text="")
-        row.label(text="2d Boolean")    
+        row.label(text="2d Boolean")
         if params.boolean_expand:
             """
             opINTERSECTION = 1
@@ -450,7 +457,8 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             box.operator("archipack.polylib_boolean", text="Intersection").opCode = 1
             box.operator("archipack.polylib_boolean", text="Union").opCode = 2
             box.operator("archipack.polylib_boolean", text="SymDifference").opCode = 4
-            
+            box.prop(params, "boolean_bezier_resolution")
+
             
 class TOOLS_PT_Archipack_Tools(Panel):
     bl_label = "Archipack Tools"
@@ -459,7 +467,8 @@ class TOOLS_PT_Archipack_Tools(Panel):
     bl_region_type = "TOOLS"
     bl_category = "Tools"
     bl_context = "objectmode"
-
+    bl_options = {'DEFAULT_CLOSED'}
+    
     @classmethod
     def poll(self, context):
         return True
@@ -469,26 +478,27 @@ class TOOLS_PT_Archipack_Tools(Panel):
         layout = self.layout
         box = layout.box()
         box.label("Auto boolean")
-        box.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO').mode = 'HYBRID'
+        box.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO')
         box.label("Apply holes")
         row = box.row(align=True)
         row.operator("archipack.apply_holes", text="selected").selected_only = True
-        row.operator("archipack.apply_holes", text="all")
-        
+        row.operator("archipack.apply_holes", text="all").selected_only = False
+
         box = layout.box()
         box.label("Kill parameters")
         row = box.row(align=True)
         row.operator("archipack.kill_archipack", text="selected", icon="ERROR").selected_only = True
-        row.operator("archipack.kill_archipack", text="all", icon="ERROR")
-        
+        row.operator("archipack.kill_archipack", text="all", icon="ERROR").selected_only = False
+
         box = layout.box()
         box.label("Rendering")
         box.prop(wm.archipack, 'render_type', text="")
         box.operator("archipack.render", icon='RENDER_STILL')
-        
+        """
         box = layout.box()
         box.label("Generate preset thumbs")
-        box.operator("archipack.render_thumbs", icon="ERROR")
+        box.operator("archipack.render_thumbs", icon="RENDER_RESULT")
+        """
 
 
 class TOOLS_PT_Archipack_Create(Panel):
@@ -546,7 +556,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     )
         row.operator("archipack.wall2_draw", text="Draw", icon='GREASEPENCIL')
         row.operator("archipack.wall2_from_curve", text="", icon='CURVE_DATA')
-        box.operator("archipack.wall", text="Custom wall")
+
         row = box.row(align=True)
         row.operator("archipack.fence_preset_menu",
                     text="Fence",
@@ -592,6 +602,13 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.floor_preset_menu",
                     text="",
                     icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
+
+        box.label(text="Custom objects")
+        box.operator("archipack.wall", text="Custom wall")
+
+        row = box.row(align=True)
+        row.operator("archipack.custom_hole", text="Custom hole").remove = False
+        row.operator("archipack.custom_hole", text="", icon='X').remove = True
 
         addon_updater_ops.update_notice_box_ui(self, context)
 
@@ -711,7 +728,7 @@ def register():
     archipack_rendering.register()
     archipack_io.register()
     archipack_polylines.register()
-    
+
     bpy.utils.register_class(archipack_data)
     WindowManager.archipack = PointerProperty(type=archipack_data)
     bpy.utils.register_class(Archipack_Pref)
@@ -721,7 +738,6 @@ def register():
 
     addon_updater_ops.register(bl_info)
 
-    # archipack_i18n.register()
 
 def unregister():
     global icons_collection
@@ -761,8 +777,6 @@ def unregister():
     icons_collection.clear()
 
     addon_updater_ops.unregister()
-
-    # archipack_i18n.unregister()
 
 
 if __name__ == "__main__":
