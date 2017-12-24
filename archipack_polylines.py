@@ -596,7 +596,8 @@ class SelectPolygons(Selectable):
             ('D', 'Door from selection'),
             ('W', 'Window from selection'),
             ('U', 'Union of selection'),
-            ('F', 'Wall from selection'),
+            ('E', 'Wall from selection'),
+            ('F', 'Surface from selection'),
             ('O', 'Output selection'),
             ('ESC or RIGHTMOUSE', 'exit tool when done')
         ])
@@ -1537,6 +1538,8 @@ class Io():
     def _add_spline(self, curve, geometry):
 
         coords = list(geometry.coords)
+        if len(coords) < 2:
+            return
         spline = curve.splines.new('POLY')
         spline.use_endpoint_u = False
         spline.use_cyclic_u = coords[0] == coords[-1]
@@ -2693,7 +2696,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
     distance = FloatProperty(
             name="Distance",
             default=0.05,
-            subtype='DISTANCE', unit='LENGTH', min=0
+            subtype='DISTANCE', unit='LENGTH', min=0.001
             )
     side = EnumProperty(
             name="Side", default='left',
@@ -2789,7 +2792,7 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
     distance = FloatProperty(
             name="Distance",
             default=0.05,
-            subtype='DISTANCE', unit='LENGTH', min=0
+            subtype='DISTANCE', unit='LENGTH', min=0.001
             )
     side = EnumProperty(
             name="Side", default='both',
@@ -2874,13 +2877,34 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
         return {'FINISHED'}
 
 
+opCodes = {
+    'INTERSECTION':1,
+    'UNION':2,
+    'DIFFERENCE':3,
+    'SYMDIFFERENCE':4,
+    'REVDIFFERENCE':13
+}        
+        
+       
 class ARCHIPACK_OP_PolyLib_Boolean(Operator):
     bl_idname = "archipack.polylib_boolean"
     bl_label = "Boolean"
     bl_description = "Boolean operation (limited to 2 objects at once - use Detect for multiple inputs)"
     bl_options = {'REGISTER', 'UNDO'}
+        
+    opCode = EnumProperty(
+        name="Operation", 
+        description="Boolean operation type", 
+        items=(
+            ('INTERSECTION', 'Intersection', 'Intersection', 0),
+            ('UNION', 'Union', 'Union', 1),
+            ('DIFFERENCE', 'Active - Selected', 'Active - Selected', 2),
+            ('REVDIFFERENCE', 'Selected - Active', 'Selected - Active', 3),
+            ('SYMDIFFERENCE', 'Symetrtic difference', 'Symetrtic difference', 4)
+            ),
+        default='UNION'
+        )
     
-    opCode = IntProperty(default=0, name="Operation", description="Operation type 1=intersection, 2=union, 3=difference, 4=sym difference")
     bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
@@ -2917,14 +2941,16 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
         # (1) intersection allow geometryCollection for geom_a
         # (2) union allow geometryCollection for geom_a and geom_b
         # other operations require homogeneous Multi* geometry
-
-        homogeneous_a = self.opCode > 2
-        homogeneous_b = self.opCode != 2
+        opCode = opCodes[self.opCode]
+        
+        homogeneous_a = opCode > 2
+        homogeneous_b = opCode != 2
 
         geom_a = Io.curves_to_geomcollection([a], self.bezier_resolution, coordsys=coordsys, homogeneous=homogeneous_a)
         geom_b = Io.curves_to_geomcollection(b, self.bezier_resolution, coordsys=coordsys, homogeneous=homogeneous_b)
 
-        if self.opCode == 2 and (
+        
+        if opCode == 2 and (
                 geom_a.geom_type == 'GeometryCollection' or
                 geom_b.geom_type == 'GeometryCollection'):
             # use UnaryUnionOp to support GeometryCollection
@@ -2941,8 +2967,7 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
         geom_b._factory.output(geom_a, name="geom_a")
         geom_b._factory.output(geom_b, name="geom_b")
         """
-
-        opCode = self.opCode
+          
         if opCode > 10:
             geom_a, geom_b = geom_b, geom_a
             opCode = opCode - 10
@@ -3089,7 +3114,7 @@ class archipack_polylib(PropertyGroup):
     offset_distance = FloatProperty(
             name="Distance",
             default=0.05,
-            subtype='DISTANCE', unit='LENGTH', min=0
+            subtype='DISTANCE', unit='LENGTH', min=0.001
             )
     offset_side = EnumProperty(
             name="Side", default='left',
@@ -3121,7 +3146,7 @@ class archipack_polylib(PropertyGroup):
     buffer_distance = FloatProperty(
             name="Distance",
             default=0.05,
-            subtype='DISTANCE', unit='LENGTH', min=0
+            subtype='DISTANCE', unit='LENGTH', min=0.001
             )
     buffer_side = EnumProperty(
             name="Side", default='both',

@@ -310,7 +310,7 @@ class ArchipackBoolManager():
             bpy.ops.archipack.parent_to_reference()
 
         for o in childs:
-            if "archipack_custom_hole" not in o:
+            if "archipack_hole" in o or "archipack_hybridhole" in o:
                 o.hide_select = True
 
     def singleboolean(self, context, wall, o):

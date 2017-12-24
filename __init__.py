@@ -446,17 +446,11 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             row.prop(params, "boolean_expand", icon='TRIA_RIGHT', text="")
         row.label(text="2d Boolean")
         if params.boolean_expand:
-            """
-            opINTERSECTION = 1
-            opUNION = 2
-            opDIFFERENCE = 3
-            opSYMDIFFERENCE = 4
-            """
-            box.operator("archipack.polylib_boolean", text="Active - Selected").opCode = 3
-            box.operator("archipack.polylib_boolean", text="Selected - Active").opCode = 13
-            box.operator("archipack.polylib_boolean", text="Intersection").opCode = 1
-            box.operator("archipack.polylib_boolean", text="Union").opCode = 2
-            box.operator("archipack.polylib_boolean", text="SymDifference").opCode = 4
+            box.operator("archipack.polylib_boolean", text="Active - Selected").opCode = 'DIFFERENCE'
+            box.operator("archipack.polylib_boolean", text="Selected - Active").opCode = 'REVDIFFERENCE'
+            box.operator("archipack.polylib_boolean", text="Intersection").opCode = 'INTERSECTION'
+            box.operator("archipack.polylib_boolean", text="Union").opCode = 'UNION'
+            box.operator("archipack.polylib_boolean", text="SymDifference").opCode = 'SYMDIFFERENCE'
             box.prop(params, "boolean_bezier_resolution")
 
             
