@@ -30,11 +30,11 @@ bl_info = {
     'description': 'Architectural objects and 2d polygons detection from unordered splines',
     'author': 's-leger',
     'license': 'GPL',
-    'deps': 'shapely',
-    'version': (1, 3, 3),
+    'deps': '',
+    'version': (1, 3, 5),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
-    'warning': '2d to 3d require shapely python module (see setup in documentation)',
+    'warning': '',
     'wiki_url': 'https://github.com/s-leger/archipack/wiki',
     'tracker_url': 'https://github.com/s-leger/archipack/issues',
     'link': 'https://github.com/s-leger/archipack',
@@ -64,13 +64,11 @@ if "bpy" in locals():
     # imp.reload(archipack_toolkit)
     imp.reload(archipack_floor)
     imp.reload(archipack_rendering)
+    # imp.reload(archipack_envi)
+    imp.reload(archipack_io)
+    imp.reload(archipack_polylines)
     imp.reload(addon_updater_ops)
-    try:
-        imp.reload(archipack_polylib)
-        HAS_POLYLIB = True
-    except:
-        HAS_POLYLIB = False
-        pass
+    # imp.reload(archipack_i18n)
 
     print("archipack: reload ready")
 else:
@@ -92,18 +90,11 @@ else:
     # from . import archipack_toolkit
     from . import archipack_floor
     from . import archipack_rendering
+    # from . import archipack_envi
+    from . import archipack_io
+    from . import archipack_polylines
     from . import addon_updater_ops
-    try:
-        """
-            polylib depends on shapely
-            raise ImportError when not meet
-        """
-        from . import archipack_polylib
-        HAS_POLYLIB = True
-    except:
-        print("archipack: Polylib failed to load, missing shapely ?")
-        HAS_POLYLIB = False
-        pass
+    # from . import archipack_i18n
 
     print("archipack: ready")
 
@@ -167,11 +158,6 @@ class Archipack_Pref(AddonPreferences):
     max_style_draw_tool = BoolProperty(
         name="Draw a wall use 3dsmax style",
         description="Reverse clic / release & drag cycle for Draw a wall",
-        default=True
-    )
-    enable_2d_to_3d = BoolProperty(
-        name="Enable 2d to 3d",
-        description="Enable 2d to 3d module",
         default=True
     )
     # Arrow sizes (world units)
@@ -257,7 +243,6 @@ class Archipack_Pref(AddonPreferences):
             )
 
     # addon updater preferences
-
     auto_check_update = BoolProperty(
         name="Auto-check for Update",
         description="If enabled, auto-check for updates using an interval",
@@ -294,26 +279,27 @@ class Archipack_Pref(AddonPreferences):
     def draw(self, context):
         layout = self.layout
         box = layout.box()
+        box.label("Setup actions (see Documentation)")
+        row = box.row()
+        col = row.column()
+        col.label(text="Presets (may take up to 3 min):")
+        col.operator("archipack.render_thumbs", icon="RENDER_RESULT")
+
+        col = row.column()
+        col.label(text="Material library:")
+        col.prop(self, "matlib_path")
+
+        box = layout.box()
         row = box.row()
         col = row.column()
         col.label(text="Tab Category:")
         col.prop(self, "tools_category")
         col.prop(self, "create_category")
         col.prop(self, "create_submenu")
+
         box = layout.box()
         box.label("Features")
         box.prop(self, "max_style_draw_tool")
-        box = layout.box()
-        box.label("2d to 3d")
-        if not HAS_POLYLIB:
-            box.label(text="WARNING Shapely python module not found", icon="ERROR")
-            box.label(text="2d to 3d tools are disabled, see setup in documentation")
-        box.prop(self, "enable_2d_to_3d")
-        box = layout.box()
-        row = box.row()
-        col = row.column()
-        col.label(text="Material library:")
-        col.prop(self, "matlib_path")
         box = layout.box()
         row = box.row()
         split = row.split(percentage=0.5)
@@ -356,107 +342,118 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
     @classmethod
     def poll(self, context):
 
-        global archipack_polylib
-        return (HAS_POLYLIB and
-                context.user_preferences.addons[__name__].preferences.enable_2d_to_3d and
-                ((archipack_polylib.vars_dict['select_polygons'] is not None) or
-                (context.object is not None and context.object.type == 'CURVE')))
+        global archipack_polylines
+        return ((archipack_polylines.vars_dict['select_polygons'] is not None) or
+                (context.object is not None and context.object.type == 'CURVE'))
 
     def draw(self, context):
         global icons_collection
         icons = icons_collection["main"]
         layout = self.layout
+        params = context.window_manager.archipack_polylib
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
+        if params.polygonize_expand:
+                row.prop(params, "polygonize_expand", icon='TRIA_DOWN', text="")
+        else:
+            row.prop(params, "polygonize_expand", icon='TRIA_RIGHT', text="")
+
         row.operator(
-            "archipack.polylib_detect",
+            "archipack.polylib_polygonize",
             icon_value=icons["detect"].icon_id,
             text='Detect'
-            ).extend = context.window_manager.archipack_polylib.extend
-        row.prop(context.window_manager.archipack_polylib, "extend")
-        row = box.row(align=True)
-        row.prop(context.window_manager.archipack_polylib, "resolution")
-        row = box.row(align=True)
-        row.label(text="Polygons")
-        row = box.row(align=True)
-        row.operator(
-            "archipack.polylib_pick_2d_polygons",
-            icon_value=icons["selection"].icon_id,
-            text='Select'
-            ).action = 'select'
-        row.operator(
-            "archipack.polylib_pick_2d_polygons",
-            icon_value=icons["union"].icon_id,
-            text='Union'
-            ).action = 'union'
-        row.operator(
-            "archipack.polylib_output_polygons",
-            icon_value=icons["polygons"].icon_id,
-            text='All')
-        row = box.row(align=True)
-        row.operator(
-            "archipack.polylib_pick_2d_polygons",
-            text='Wall',
-            icon_value=icons["wall"].icon_id).action = 'wall'
-        row.prop(context.window_manager.archipack_polylib, "solidify_thickness")
-        row = box.row(align=True)
-        row.operator("archipack.polylib_pick_2d_polygons",
-            text='Window',
-            icon_value=icons["window"].icon_id).action = 'window'
-        row.operator("archipack.polylib_pick_2d_polygons",
-            text='Door',
-            icon_value=icons["door"].icon_id).action = 'door'
-        row.operator("archipack.polylib_pick_2d_polygons", text='Rectangle').action = 'rectangle'
-        row = box.row(align=True)
-        row.label(text="Lines")
-        row = box.row(align=True)
-        row.operator(
-            "archipack.polylib_pick_2d_lines",
-            icon_value=icons["selection"].icon_id,
-            text='Lines').action = 'select'
-        row.operator(
-            "archipack.polylib_pick_2d_lines",
-            icon_value=icons["union"].icon_id,
-            text='Union').action = 'union'
-        row.operator(
-            "archipack.polylib_output_lines",
-            icon_value=icons["polygons"].icon_id,
-            text='All')
-        # row = layout.row(align=True)
-        # box = row.box()
-        # row = box.row(align=True)
-        # row.operator("archipack.polylib_solidify")
-        row = box.row(align=True)
-        row.label(text="Points")
-        row = box.row(align=True)
-        row.operator(
-            "archipack.polylib_pick_2d_points",
-            icon_value=icons["selection"].icon_id,
-            text='Points').action = 'select'
+            )
+
+        if params.polygonize_expand:
+            box.prop(params, "polygonize_bezier_resolution")
+            box.prop(params, "polygonize_extend")
+            box.prop(params, "polygonize_all_segs")
+            
+            box.operator(
+                "archipack.polylib_pick_2d_polygons",
+                icon_value=icons["selection"].icon_id,
+                text='Polygons'
+                )
+
+            box.operator(
+                "archipack.polylib_pick_2d_lines",
+                icon_value=icons["selection"].icon_id,
+                text='Lines'
+                )
+
+            box.operator(
+                "archipack.polylib_pick_2d_points",
+                icon_value=icons["selection"].icon_id,
+                text='Points'
+                )
+
+            box.label(text="Walls")
+            box.prop(params, "polygonize_thickness")
+
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
+        if params.simplify_expand:
+            row.prop(params, "simplify_expand", icon='TRIA_DOWN', text="")
+        else:
+            row.prop(params, "simplify_expand", icon='TRIA_RIGHT', text="")
         row.operator("archipack.polylib_simplify")
-        row.prop(context.window_manager.archipack_polylib, "simplify_tolerance")
-        row = box.row(align=True)
-        row.prop(context.window_manager.archipack_polylib, "simplify_preserve_topology")
+        if params.simplify_expand:
+            box.prop(params, "simplify_bezier_resolution")
+            box.prop(params, "simplify_tolerance")
+            box.prop(params, "simplify_preserve_topology")
+
         row = layout.row(align=True)
         box = row.box()
         row = box.row(align=True)
+        if params.offset_expand:
+            row.prop(params, "offset_expand", icon='TRIA_DOWN', text="")
+        else:
+            row.prop(params, "offset_expand", icon='TRIA_RIGHT', text="")
         row.operator("archipack.polylib_offset")
-        row = box.row(align=True)
-        row.prop(context.window_manager.archipack_polylib, "offset_distance")
-        row = box.row(align=True)
-        row.prop(context.window_manager.archipack_polylib, "offset_side")
-        row = box.row(align=True)
-        row.prop(context.window_manager.archipack_polylib, "offset_resolution")
-        row = box.row(align=True)
-        row.prop(context.window_manager.archipack_polylib, "offset_join_style")
-        row = box.row(align=True)
-        row.prop(context.window_manager.archipack_polylib, "offset_mitre_limit")
+        if params.offset_expand:
+            box.prop(params, "offset_bezier_resolution")
+            box.prop(params, "offset_distance")
+            box.prop(params, "offset_side")
+            box.prop(params, "offset_resolution")
+            box.prop(params, "offset_join_style")
+            box.prop(params, "offset_mitre_limit")
 
+        row = layout.row(align=True)
+        box = row.box()
+        row = box.row(align=True)
+        if params.buffer_expand:
+            row.prop(params, "buffer_expand", icon='TRIA_DOWN', text="")
+        else:
+            row.prop(params, "buffer_expand", icon='TRIA_RIGHT', text="")
+        row.operator("archipack.polylib_buffer")
+        if params.buffer_expand:
+            box.prop(params, "buffer_bezier_resolution")
+            box.prop(params, "buffer_distance")
+            box.prop(params, "buffer_side")
+            box.prop(params, "buffer_resolution")
+            box.prop(params, "buffer_join_style")
+            box.prop(params, "buffer_cap_style")
+            box.prop(params, "buffer_mitre_limit")
 
+        row = layout.row(align=True)
+        box = row.box()
+        row = box.row(align=True)
+        if params.boolean_expand:
+            row.prop(params, "boolean_expand", icon='TRIA_DOWN', text="")
+        else:
+            row.prop(params, "boolean_expand", icon='TRIA_RIGHT', text="")
+        row.label(text="2d Boolean")
+        if params.boolean_expand:
+            box.operator("archipack.polylib_boolean", text="Active - Selected").opCode = 'DIFFERENCE'
+            box.operator("archipack.polylib_boolean", text="Selected - Active").opCode = 'REVDIFFERENCE'
+            box.operator("archipack.polylib_boolean", text="Intersection").opCode = 'INTERSECTION'
+            box.operator("archipack.polylib_boolean", text="Union").opCode = 'UNION'
+            box.operator("archipack.polylib_boolean", text="SymDifference").opCode = 'SYMDIFFERENCE'
+            box.prop(params, "boolean_bezier_resolution")
+
+            
 class TOOLS_PT_Archipack_Tools(Panel):
     bl_label = "Archipack Tools"
     bl_idname = "TOOLS_PT_Archipack_Tools"
@@ -464,7 +461,8 @@ class TOOLS_PT_Archipack_Tools(Panel):
     bl_region_type = "TOOLS"
     bl_category = "Tools"
     bl_context = "objectmode"
-
+    bl_options = {'DEFAULT_CLOSED'}
+    
     @classmethod
     def poll(self, context):
         return True
@@ -472,23 +470,29 @@ class TOOLS_PT_Archipack_Tools(Panel):
     def draw(self, context):
         wm = context.window_manager
         layout = self.layout
-        row = layout.row(align=True)
-        box = row.box()
+        box = layout.box()
         box.label("Auto boolean")
+        box.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO')
+        box.label("Apply holes")
         row = box.row(align=True)
-        # row.operator("archipack.auto_boolean", text="Robust", icon='HAND').mode = 'ROBUST'
-        # row.operator("archipack.auto_boolean", text="Interactive", icon='AUTO').mode = 'INTERACTIVE'
-        row.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO').mode = 'HYBRID'
-        row = layout.row(align=True)
-        box = row.box()
+        row.operator("archipack.apply_holes", text="selected").selected_only = True
+        row.operator("archipack.apply_holes", text="all").selected_only = False
+
+        box = layout.box()
+        box.label("Kill parameters")
+        row = box.row(align=True)
+        row.operator("archipack.kill_archipack", text="selected", icon="ERROR").selected_only = True
+        row.operator("archipack.kill_archipack", text="all", icon="ERROR").selected_only = False
+
+        box = layout.box()
         box.label("Rendering")
-        row = box.row(align=True)
-        row.prop(wm.archipack, 'render_type', text="")
-        row = box.row(align=True)
-        row.operator("archipack.render", icon='RENDER_STILL')
+        box.prop(wm.archipack, 'render_type', text="")
+        box.operator("archipack.render", icon='RENDER_STILL')
+        """
         box = layout.box()
         box.label("Generate preset thumbs")
-        box.operator("archipack.render_thumbs", icon="ERROR")
+        box.operator("archipack.render_thumbs", icon="RENDER_RESULT")
+        """
 
 
 class TOOLS_PT_Archipack_Create(Panel):
@@ -521,7 +525,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["window"].icon_id
                     ).preset_operator = "archipack.window"
         row.operator("archipack.window_preset_menu",
-                    text="",
+                    text="Draw",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.window_draw"
         # col = row.column()
@@ -532,7 +536,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["door"].icon_id
                     ).preset_operator = "archipack.door"
         row.operator("archipack.door_preset_menu",
-                    text="",
+                    text="Draw",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.door_draw"
         row = box.row(align=True)
@@ -592,6 +596,13 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.floor_preset_menu",
                     text="",
                     icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
+
+        box.label(text="Custom objects")
+        box.operator("archipack.wall", text="Custom wall")
+
+        row = box.row(align=True)
+        row.operator("archipack.custom_hole", text="Custom hole").remove = False
+        row.operator("archipack.custom_hole", text="", icon='X').remove = True
 
         addon_updater_ops.update_notice_box_ui(self, context)
 
@@ -709,9 +720,8 @@ def register():
     # archipack_toolkit.register()
     archipack_floor.register()
     archipack_rendering.register()
-
-    if HAS_POLYLIB:
-        archipack_polylib.register()
+    archipack_io.register()
+    archipack_polylines.register()
 
     bpy.utils.register_class(archipack_data)
     WindowManager.archipack = PointerProperty(type=archipack_data)
@@ -751,10 +761,8 @@ def unregister():
     # archipack_toolkit.unregister()
     archipack_floor.unregister()
     archipack_rendering.unregister()
-
-    if HAS_POLYLIB:
-        archipack_polylib.unregister()
-
+    archipack_io.unregister()
+    archipack_polylines.unregister()
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack
 

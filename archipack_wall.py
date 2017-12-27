@@ -28,7 +28,7 @@ import bpy
 import bmesh
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import FloatProperty, CollectionProperty
-from .archipack_object import ArchipackObject
+from .archipack_object import ArchipackObject, ArchipackCreateTool
 
 
 def update_wall(self, context):
@@ -50,19 +50,24 @@ class archipack_wall(ArchipackObject, PropertyGroup):
         o = context.active_object
         if archipack_wall.datablock(o) != self:
             return
-        bpy.ops.object.mode_set(mode='EDIT')
+        # bpy.ops.object.mode_set(mode='EDIT')
         me = o.data
-        bm = bmesh.from_edit_mesh(me)
-        bm.verts.ensure_lookup_table()
-        bm.faces.ensure_lookup_table()
+        # bm = bmesh.from_edit_mesh(me)
+        # bm.verts.ensure_lookup_table()
+        # bm.faces.ensure_lookup_table()
         new_z = self.z
-        last_z = list(v.co.z for v in bm.verts)
-        max_z = max(last_z)
-        for v in bm.verts:
-            if v.co.z == max_z:
-                v.co.z = new_z
-        bmesh.update_edit_mesh(me, True)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        # use "Top" vertex group
+        # create vertex group lookup dictionary for names
+        vgroup_names = {vgroup.index: vgroup.name for vgroup in o.vertex_groups}
+        # create dictionary of vertex group assignments per vertex
+        vertex_groups = [[vgroup_names[g.group] for g in v.groups] for v in me.vertices]
+        last_z = [me.vertices[i].co.z for i, g in enumerate(vertex_groups) if 'Top' in g]
+        if len(last_z) > 0:
+            max_z = max(last_z)
+            for i, g in enumerate(vertex_groups):
+                if 'Top' in g:
+                    me.vertices[i].co.z = new_z
+        # bpy.ops.object.mode_set(mode='OBJECT')
 
 
 class ARCHIPACK_PT_wall(Panel):
@@ -80,7 +85,7 @@ class ARCHIPACK_PT_wall(Panel):
 
         prop = archipack_wall.datablock(context.active_object)
         if prop is None:
-            return
+            return        
         layout = self.layout
         layout.prop(prop, 'z')
 
@@ -90,10 +95,10 @@ class ARCHIPACK_PT_wall(Panel):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_wall(Operator):
+class ARCHIPACK_OT_wall(Operator, ArchipackCreateTool):
     bl_idname = "archipack.wall"
     bl_label = "Wall"
-    bl_description = "Add wall parameters to active object"
+    bl_description = "Add wall parameters to active object to draw windows and doors and use autoboolean"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
     z = FloatProperty(
@@ -103,7 +108,11 @@ class ARCHIPACK_OT_wall(Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None
+        o = context.active_object
+        return (o is not None and 
+            o.type == 'MESH' and 
+            "archipack_wall2" not in o.data and 
+            "archipack_custom_hole" not in o)
 
     def draw(self, context):
         layout = self.layout
@@ -116,7 +125,10 @@ class ARCHIPACK_OT_wall(Operator):
             if archipack_wall.filter(o):
                 return {'CANCELLED'}
             params = o.data.archipack_wall.add()
+            # @TODO: estimate z from mesh,
+            # using "TOP" vertex group
             params.z = self.z
+            self.add_material(o)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")

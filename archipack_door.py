@@ -1331,7 +1331,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         faces = hole.faces(16, path_type='RECTANGLE')
         matids = hole.mat(16, 0, 1, path_type='RECTANGLE')
         uvs = hole.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
-        bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs)
+        bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
         return hole_obj
 
     def robust_hole(self, context, tM):
@@ -1348,7 +1348,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         faces = hole.faces(16, path_type='RECTANGLE')
         matids = hole.mat(16, 0, 1, path_type='RECTANGLE')
         uvs = hole.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
-        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs)
+        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
 
         o.select = True
         context.scene.objects.active = o
@@ -1720,21 +1720,24 @@ class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
         if d is not None:
             hole = d.find_hole(o)
 
-        # hide hole from raycast
+        # hide door and hole from raycast
+        to_hide = [o]
+        to_hide.extend([child for child in o.children if archipack_door_panel.filter(child)])
         if hole is not None:
-            o.hide = True
-            hole.hide = True
+            to_hide.append(hole)
+                    
+        for obj in to_hide:
+            obj.hide = True
+            
+        res, tM, wall, width, y = self.mouse_hover_wall(context, event)
 
-        res, tM, wall, y = self.mouse_hover_wall(context, event)
-
-        if hole is not None:
-            o.hide = False
-            hole.hide = False
-
+        for obj in to_hide:
+            obj.hide = False
+                    
         if res and d is not None:
             o.matrix_world = tM
-            if d.y != wall.data.archipack_wall2[0].width:
-                d.y = wall.data.archipack_wall2[0].width
+            if d.y != width:
+                d.y = width
 
         if event.value == 'PRESS':
 

@@ -64,6 +64,8 @@
 import bpy
 from bpy.types import Operator
 from mathutils import Vector, Matrix
+import logging
+logger = logging.getLogger("archipack")
 
 
 def dumb_callback(context, event, state, sp):
@@ -126,16 +128,19 @@ def snap_point(takeloc=None,
     SnapStore.callback = callback
     SnapStore.constraint_axis = constraint_axis
     SnapStore.release_confirm = release_confirm
+    
     if takemat is not None:
         SnapStore.helper_matrix = takemat
-        takeloc = takemat.translation
+        takeloc = takemat.translation.copy()
         transform_orientation = 'LOCAL'
     elif takeloc is not None:
         SnapStore.helper_matrix = Matrix().Translation(takeloc)
     else:
         raise ValueError("ArchipackSnap: Either takeloc or takemat must be defined")
+    
     SnapStore.takeloc = takeloc
-    SnapStore.placeloc = takeloc
+    SnapStore.placeloc = takeloc.copy()
+        
     SnapStore.transform_orientation = transform_orientation
 
     # @NOTE: unused mode var to switch between OBJECT and EDIT mode
@@ -217,10 +222,8 @@ class ArchipackSnapBase():
             Do target helper be linked to scene in order to work ?
 
         """
-
-        helper_idx = bpy.data.objects.find('Archipack_snap_helper')
-        if helper_idx > -1:
-            helper = bpy.data.objects[helper_idx]
+        helper = bpy.data.objects.get('Archipack_snap_helper')
+        if helper is not None:
             if context.scene.objects.find('Archipack_snap_helper') < 0:
                 context.scene.objects.link(helper)
         else:
@@ -269,32 +272,52 @@ class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
     bl_options = {'UNDO'}
 
     def modal(self, context, event):
-        # print("Snap.modal event %s %s" % (event.type, event.value))
+        
+        logger.debug("Snap.modal event %s %s location:%s", 
+                event.type, 
+                event.value, 
+                SnapStore.helper.location)
+                
         context.area.tag_redraw()
         # NOTE: this part only run after transform LEFTMOUSE RELEASE
         # or with ESC and RIGHTMOUSE
         if event.type not in {'ESC', 'RIGHTMOUSE', 'LEFTMOUSE', 'MOUSEMOVE'}:
-            # print("Snap.modal skip unknown event %s %s" % (event.type, event.value))
             # self.report({'WARNING'}, "ARCHIPACK_OT_snap unknown event")
             return{'PASS_THROUGH'}
+            
         if event.type in ('ESC', 'RIGHTMOUSE'):
             SnapStore.callback(context, event, 'CANCEL', self)
         else:
             SnapStore.placeloc = SnapStore.helper.location
-            SnapStore.callback(context, event, 'SUCCESS', self)
+            # on tt modal exit with right click, the delta is 0 so exit 
+            if self.delta.length == 0:
+                SnapStore.callback(context, event, 'CANCEL', self)
+            else: 
+                SnapStore.callback(context, event, 'SUCCESS', self)
+        
         self.exit(context)
         # self.report({'INFO'}, "ARCHIPACK_OT_snap exit")
         return{'FINISHED'}
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
-            # print("Snap.invoke event %s %s" % (event.type, event.value))
+            
+            if event.type == 'RIGHTMOUSE':
+                return {'FINISHED'}
+            
             self.init(context, event)
+            
+            logger.debug("Snap.invoke event %s %s location:%s", 
+                event.type, 
+                event.value, 
+                SnapStore.helper.location)
+                
             context.window_manager.modal_handler_add(self)
             bpy.ops.transform.translate('INVOKE_DEFAULT',
                 constraint_axis=SnapStore.constraint_axis,
                 constraint_orientation=SnapStore.transform_orientation,
                 release_confirm=SnapStore.release_confirm)
+                
             return {'RUNNING_MODAL'}
         else:
             self.report({'WARNING'}, "View3D not found, cannot run operator")

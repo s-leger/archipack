@@ -30,7 +30,8 @@ from bpy.props import (
     FloatVectorProperty,
     CollectionProperty,
     FloatProperty,
-    EnumProperty
+    EnumProperty,
+    BoolProperty
     )
 from mathutils import Vector
 from .bmesh_utils import BmeshEdit as bmed
@@ -195,8 +196,6 @@ class ARCHIPACK_PT_reference_point(Panel):
         else:
             layout.operator('archipack.move_to_2d')
         layout.prop(props, 'symbol_scale')
-        layout.separator()
-        layout.operator('archipack.apply_holes')
 
 
 class ARCHIPACK_OT_reference_point(Operator):
@@ -279,67 +278,60 @@ class ARCHIPACK_OT_move_to_3d(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_apply_holes(Operator):
-    bl_idname = "archipack.apply_holes"
-    bl_label = "Apply holes"
-    bl_description = "Apply and remove holes from scene"
+class ARCHIPACK_OT_kill_archipack(Operator):
+    bl_idname = "archipack.kill_archipack"
+    bl_label = "Do you realy want to kill archipack parameters ?"
+    bl_description = "Kill archipack parameters, objects will no more be editable via parameters"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
+    selected_only = BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.filter(context.active_object)
+        return context.mode == "OBJECT"
 
-    def apply_boolean(self, context, o):
-        # mods = [m for m in o.modifiers if m.type == 'BOOLEAN']
-        ctx = bpy.context.copy()
-        ctx['object'] = o
-        for mod in o.modifiers[:]:
-            ctx['modifier'] = mod
-            try:
-                bpy.ops.object.modifier_apply(ctx, apply_as='DATA',
-                                              modifier=ctx['modifier'].name)
-            except:
-                pass
+    def apply(self, context, objects):
 
+        for o in objects:
+        
+            keys = o.keys()
+            for key in keys:
+                if "archipack_" in key:
+                    try:
+                        # will fail for holes
+                        o.property_unset(key)
+                    except:
+                        pass
+                    try:
+                        del o[key]
+                    except:
+                        pass
+                        
+            if o.data is not None:
+                keys = o.data.keys()
+                for key in keys:
+                    if "archipack_" in key:
+                        o.data.property_unset(key)
+    
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+    
     def execute(self, context):
         if context.mode == "OBJECT":
-            o = context.active_object
-            to_remove = []
 
-            for c in o.children:
-                if 'archipack_hybridhole' in c:
-                    self.apply_boolean(context, c)
-                    to_remove.append(c)
+            if self.selected_only:
+                objects = context.selected_objects[:]
+            else:
+                objects = context.scene.objects[:]
 
-            for c in o.children:
-                if c.data is not None and "archipack_wall2" in c.data:
-                    self.apply_boolean(context, c)
-
-            for c in o.children:
-                if c.data is not None and (
-                        "archipack_window" in c.data or
-                        "archipack_door" in c.data):
-                    for h in c.children:
-                        if "archipack_hole" in h:
-                            to_remove.append(h)
-
-            bpy.ops.object.select_all(action="DESELECT")
-            for r in to_remove:
-                r.hide_select = False
-                r.select = True
-                context.scene.objects.active = r
-            bpy.ops.object.delete(use_global=False)
-
-            o.select = True
-            context.scene.objects.active = o
+            self.apply(context, objects)
 
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-
-
+            
+            
 class ARCHIPACK_OT_move_to_2d(Operator):
     bl_idname = "archipack.move_to_2d"
     bl_label = "Move to 2d"
@@ -464,7 +456,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_store_2d_reference)
     bpy.utils.register_class(ARCHIPACK_OT_move_2d_reference_to_cursor)
     bpy.utils.register_class(ARCHIPACK_OT_parent_to_reference)
-    bpy.utils.register_class(ARCHIPACK_OT_apply_holes)
+    bpy.utils.register_class(ARCHIPACK_OT_kill_archipack)
 
 
 def unregister():
@@ -477,4 +469,4 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_store_2d_reference)
     bpy.utils.unregister_class(ARCHIPACK_OT_move_2d_reference_to_cursor)
     bpy.utils.unregister_class(ARCHIPACK_OT_parent_to_reference)
-    bpy.utils.unregister_class(ARCHIPACK_OT_apply_holes)
+    bpy.utils.unregister_class(ARCHIPACK_OT_kill_archipack)
