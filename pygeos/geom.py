@@ -492,24 +492,24 @@ class Geometry():
     def checkNotGeometryCollection(self, geom):
         if geom.type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION:
             raise ValueError("This method does not support heterogeneous geometry collection")
-        
+
     # Boolean operations (overlay)
     def intersection(self, other):
         # special case: if one input is empty ==> other input
         if self.is_empty or other.is_empty:
             return self._factory.createGeometryCollection()
-        
+
         if (self.type_id == GeomTypeId.GEOS_GEOMETRYCOLLECTION or
                 self.type_id == GeomTypeId.GEOS_MULTIPOLYGON or
                 self.type_id == GeomTypeId.GEOS_MULTILINESTRING or
                 self.type_id == GeomTypeId.GEOS_MULTIPOINT):
             geoms = [geom.intersection(other) for geom in self.geoms]
             return self._factory.buildGeometry(geoms)
-            
+
         # @TODO: Use rectangle intersection optimization
         self.checkNotGeometryCollection(self)
         self.checkNotGeometryCollection(other)
-        
+
         return BinaryOp(self, other, overlayOp(OverlayOp.opINTERSECTION))
 
     def union(self, other=None):
@@ -542,10 +542,10 @@ class Geometry():
                 v.append(other.clone())
 
             return self._factory.buildGeometry(v)
-            
+
         self.checkNotGeometryCollection(self)
         self.checkNotGeometryCollection(other)
-        
+
         return BinaryOp(self, other, overlayOp(OverlayOp.opUNION))
 
     def difference(self, other):
@@ -555,10 +555,10 @@ class Geometry():
 
         if other.is_empty:
             return self.clone()
-            
+
         self.checkNotGeometryCollection(self)
         self.checkNotGeometryCollection(other)
-        
+
         return BinaryOp(self, other, overlayOp(OverlayOp.opDIFFERENCE))
 
     def symmetric_difference(self, other):
@@ -586,10 +586,10 @@ class Geometry():
                 v.append(other.clone())
 
             return self._factory.buildGeometry(v)
-            
+
         self.checkNotGeometryCollection(self)
         self.checkNotGeometryCollection(other)
-        
+
         return BinaryOp(self, other, overlayOp(OverlayOp.opSYMDIFFERENCE))
 
     # buffer
@@ -663,15 +663,15 @@ class Point(Geometry, Puntal):
     """
     def __init__(self, coord, factory):
         Geometry.__init__(self, factory)
-        self._envelope = None
+        self._env = None
         self.coord = coord
 
     def computeEnvelope(self):
-        if self._envelope is None:
+        if self._env is None:
             x = self.coord.x
             y = self.coord.y
-            self._envelope = Envelope(x, y, x, y)
-        return self._envelope
+            self._env = Envelope(x, y, x, y)
+        return self._env
 
     @property
     def type_id(self):
@@ -739,7 +739,7 @@ class LineString(Geometry, Lineal):
             coords = []
 
         # Envelope internal cache
-        self._envelope = None
+        self._env = None
         self._coords = CoordinateSequence.removeRepeatedPoints(coords)
 
         self.validateConstruction()
@@ -750,16 +750,16 @@ class LineString(Geometry, Lineal):
 
     def computeEnvelope(self):
 
-        if self._envelope is None:
+        if self._env is None:
             x = [c.x for c in self._coords]
             y = [c.y for c in self._coords]
             xmin = min(x)
             ymin = min(y)
             xmax = max(x)
             ymax = max(y)
-            self._envelope = Envelope(xmin, ymin, xmax, ymax)
+            self._env = Envelope(xmin, ymin, xmax, ymax)
 
-        return self._envelope
+        return self._env
 
     def compareToSameClass(self, geom):
 
@@ -802,7 +802,7 @@ class LineString(Geometry, Lineal):
         """
          * reset envelope on coords set
         """
-        self._envelope = None
+        self._env = None
         self._coords = coords
 
     @property
@@ -996,7 +996,10 @@ class Polygon(Geometry, Polygonal):
 
         Geometry.__init__(self, factory)
 
-        self._envelope = None
+        self._env = None
+        self._area = None
+        self._exteriorArea = None
+        
         if exterior is None:
             self.exterior = self._factory.createLinearRing(None)
         else:
@@ -1020,9 +1023,9 @@ class Polygon(Geometry, Polygonal):
 
     def computeEnvelope(self):
 
-        if self._envelope is None:
-            self._envelope = self.exterior.envelope
-        return self._envelope
+        if self._env is None:
+            self._env = self.exterior.envelope
+        return self._env
 
     def compareToSameClass(self, geom):
         return self.exterior.compareToSameClass(geom.exterior)
@@ -1082,18 +1085,59 @@ class Polygon(Geometry, Polygonal):
 
     @property
     def area(self):
-        area = abs(CGAlgorithms.signedArea(self.exterior._coords))
-        for hole in self.interiors:
-            area -= abs(CGAlgorithms.signedArea(hole._coords))
-        return area
+        if self._area is None:
+            self._area = abs(CGAlgorithms.signedArea(self.exterior.coords))
+            for hole in self.interiors:
+                self._area -= abs(CGAlgorithms.signedArea(hole.coords))
+        return self._area
 
+    @property
+    def exterior_area(self):
+        if self._exteriorArea is None:
+            self._exteriorArea = abs(CGAlgorithms.signedArea(self.exterior.coords))
+        return self._exteriorArea
+        
     @property
     def length(self):
         length = self.exterior.length
         for hole in self.interiors:
             length += hole.length
         return length
-
+    
+    @property
+    def is_rectangle(self):
+        if len(self.interiors) > 0:
+            return False
+        
+        coords = self.exterior.coords
+            
+        if len(coords) != 5:
+            return False
+        
+        # check vertices have correct values
+        env = self.envelope
+        for i in range(5):
+            x = coords[i].x
+            if (not (x == env.minx or x == env.maxx)):
+                return False
+            y = coords[i].y
+            if (not (y == env.miny or y == env.maxy)):
+                return False
+        
+        # check vertices are in right order
+        prevX = coords[0].x
+        prevY = coords[0].y
+        for i in range(1, 5):
+            x = coords[i].x
+            y = coords[i].y
+            xChanged = (x != prevX)
+            yChanged = (y != prevY)
+            if (xChanged == yChanged):
+                return False
+            prevX = x
+            prevY = y
+        return True
+    
     def normalize(self):
         self._normalize(self.exterior, True)
         for hole in self.interiors:
@@ -1116,6 +1160,11 @@ class Polygon(Geometry, Polygonal):
 
         ring.coords = uniqueCoords
 
+    def geometryChangedAction(self):
+        self._env = None    
+        self._area = None
+        self._exteriorArea = None
+        
     @property
     def type_id(self):
         """
@@ -1202,7 +1251,7 @@ class GeometryCollection(Geometry):
         Geometry.__init__(self, factory)
         if geoms is None:
             geoms = []
-        self._envelope = None
+        self._env = None
         self.geoms = geoms
 
     def clone(self):
@@ -1233,11 +1282,11 @@ class GeometryCollection(Geometry):
         return GeomTypeId.GEOS_GEOMETRYCOLLECTION
 
     def computeEnvelope(self):
-        if self._envelope is None:
-            self._envelope = Envelope()
+        if self._env is None:
+            self._env = Envelope()
             for geom in self.geoms:
-                self._envelope.expandToInclude(geom.envelope)
-        return self._envelope
+                self._env.expandToInclude(geom.envelope)
+        return self._env
 
     def getGeometryN(self, index):
         return self.geoms[index]

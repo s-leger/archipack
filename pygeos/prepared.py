@@ -32,7 +32,10 @@ from .algorithms import (
     )
 from .shared import (
     logger,
+    Envelope,
+    LinearComponentExtracter,
     ComponentCoordinateExtracter,
+    ShortCircuitedGeometryVisitor,
     GeomTypeId,
     Location
     )
@@ -45,6 +48,226 @@ from .noding import (
 
 # operation/predicate
 
+
+class SegmentIntersectionTester():
+    def __init__(self):
+        self.li = LineIntersector()
+        self.hasIntersection = False
+    
+    def hasIntersectionWithLineStrings(self, line, lines) -> bool:
+        self.hasIntersection = False
+        for testline in lines:
+            self.findIntersection(line, testline)
+            if self.hasIntersection:
+                break
+        return self.hasIntersection
+            
+    def findIntersection(self, line, testLine):
+        seq0 = line.coords
+        seq1 = testLine.coords
+        for i in range(1, len(seq0)):
+            p0 = seq0[i - 1]
+            p1 = seq0[i]
+            for j in range(1, len(seq1)):
+                q0 = seq1[j - 1]
+                q1 = seq1[j]    
+                self.li.computeLinesIntersection(p0, p1, q0, q1)
+                if self.li.hasIntersection:
+                    self.hasIntersection = True
+                    return self.hasIntersection            
+        return self.hasIntersection
+            
+    def hasIntersectionWithEnvelopeFilter(self, line, testLine):
+        """
+         * Tests the segments of a LineString against the segs in
+         * another LineString for intersection.
+         * Uses the envelope of the query LineString
+         * to filter before testing segments directly.
+         * This is optimized for the case when the query
+         * LineString is a rectangle.
+         *
+         * Testing shows this is somewhat faster than not checking the envelope.
+         *
+         * @param line
+         * @param testLine
+         * @return
+        """
+        seq0 = line.coords
+        seq1 = testLine.coords
+        env = line.envelope
+        for i in range(1, len(seq0)):
+            p0 = seq0[i - 1]
+            p1 = seq0[i]
+            if not env.intersects(Envelope(p0, p1)):
+                continue
+            for j in range(1, len(seq1)):
+                q0 = seq1[j - 1]
+                q1 = seq1[j]    
+                self.li.computeLinesIntersection(p0, p1, q0, q1)
+                if self.li.hasIntersection:
+                    self.hasIntersection = True
+                    return self.hasIntersection            
+        return self.hasIntersection
+        
+
+class EnvelopeIntersectsVisitor(ShortCircuitedGeometryVisitor):
+
+    def __init__(self, envelope):
+        ShortCircuitedGeometryVisitor.__init__(self)
+        self.env = envelope
+        self.intersects = False
+        
+    def visit(self, element) -> None:
+        """*
+         * Reports whether it can be concluded that an intersection occurs,
+         * or whether further testing is required.
+         *
+         * @return <code>true</code> if an intersection must occur
+         * <code>false</code> if no conclusion can be made
+        """
+        env = element.envelope
+        
+        # skip if envelopes do not intersect
+        if not self.env.intersects(env):
+            return
+
+        # fully contained - must intersect
+        if self.env.contains(env):
+            self.intersects = True
+            return
+        
+
+        """
+         * Since the envelopes intersect and the test element is
+         * connected, if the test envelope is completely bisected by
+         * an edge of the rectangle the element and the rectangle
+         * must touch (This is basically an application of the
+         * Jordan Curve Theorem).  The alternative situation
+         * is that the test envelope is "on a corner" of the
+         * rectangle envelope, i.e. is not completely bisected.
+         * In this case it is not possible to make a conclusion
+         * about the presence of an intersection.
+        """
+        if env.minx >= self.env.minx and env.maxx <= self.env.maxx:
+            self.intersects = True
+            return
+        
+        if env.miny >= self.env.miny and env.maxy <= self.env.maxy:
+            self.intersects = True
+            return
+        
+    def isDone(self) -> bool:
+        return self.intersects
+        
+
+class ContainsPointVisitor(ShortCircuitedGeometryVisitor):
+    """*
+     * Tests whether it can be concluded
+     * that a geometry contains a corner point of a rectangle.
+    """
+    def __init__(self, geom):
+        ShortCircuitedGeometryVisitor.__init__(self)
+        self.env = geom.envelope
+        self.coords = geom.exterior.coords
+        self.contains = False
+    
+    def visit(self, geom) -> None:
+    
+        # if test geometry is not polygonal this check is not needed
+        if not geom.type_id == GeomTypeId.GEOS_POLYGON: 
+            return
+        
+        env = geom.envelope
+        
+        if not self.env.intersects(env):
+            return
+        
+        # test each corner of rectangle for inclusion
+        for coord in self.coords:
+            
+            if not env.contains(coord):
+                continue
+
+            # check rect point in poly (rect is known not to
+            # touch polygon at this point)
+            if SimplePointInAreaLocator.containsPointInPolygon(coord, geom):
+            
+                self.contains = True
+                return
+            
+    def isDone(self) -> bool:
+        return self.contains
+
+
+class LineIntersectsVisitor(ShortCircuitedGeometryVisitor):
+
+    def __init__(self, geom):
+        ShortCircuitedGeometryVisitor.__init__(self)
+        self.env = geom.envelope
+        self.line = geom.exterior
+        self.intersects = False
+  
+    def computeSegmentIntersection(self, geom):
+    
+        # check segment intersection
+        # get all lines from geom (e.g. if it's a multi-ring polygon)
+        lines = []
+        LinearComponentExtracter.getLines(geom, lines)
+         
+        si = SegmentIntersectionTester()
+        if si.hasIntersectionWithLineStrings(self.line, lines):
+            self.intersects = True
+            return
+    
+    def visit(self, geom) -> None:
+
+        env = geom.envelope
+
+        # check for envelope intersection
+        if not self.env.intersects(env):
+            return
+
+        self.computeSegmentIntersection(geom)
+    
+    def isDone(self) -> bool:
+        return self.intersects
+    
+
+class RectangleIntersects():
+    def __init__(self, geom):
+        self.rectangle = geom
+        self.env = geom.envelope
+    
+    @staticmethod
+    def intersects(rect, geom) -> bool:
+        rp = RectangleIntersects(rect)
+        return rp._intersects(geom)
+    
+    def _intersects(self, geom) -> bool:
+    
+        if not self.env.intersects(geom.envelope):
+            return False
+
+        # test envelope relationships
+        visitor = EnvelopeIntersectsVisitor(self.env)
+        visitor.applyTo(geom)
+        if visitor.intersects:
+            return True
+
+        # test if any rectangle corner is contained in the target
+        ecpVisitor = ContainsPointVisitor(self.rectangle)
+        ecpVisitor.applyTo(geom)
+        if ecpVisitor.contains:
+            return True
+
+        # test if any lines intersect
+        liVisitor = LineIntersectsVisitor(self.rectangle)
+        liVisitor.applyTo(geom);
+        if liVisitor.intersects:
+            return True
+
+        return False
+    
 
 class RectangleContains():
     """
@@ -85,7 +308,7 @@ class RectangleContains():
 
     def isCoordContainedInBoundary(self, coord) -> bool:
         """
-         * contains = false iff the point is properly contained
+         * contains = false if the point is properly contained
          * in the rectangle.
          *
          * This code assumes that the point lies in the rectangle envelope
@@ -715,7 +938,7 @@ class PreparedPolygon(PreparedGeometry):
             return False
 
         if self.is_rectangle:
-            return RectangleContains.intersects(self.geom, geom)
+            return RectangleIntersects.intersects(self.geom, geom)
 
         return PreparedPolygonIntersects.intersects(self, geom)
 

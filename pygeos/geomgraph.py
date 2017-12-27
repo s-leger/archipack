@@ -112,7 +112,7 @@ class TopologyLocation():
                 self.location.append(left)
             if right is not None:
                 self.location.append(right)
-    
+
     def flip(self) -> None:
         if len(self.location) > 1:
             tmp = self.location[Position.LEFT]
@@ -359,7 +359,7 @@ class Label():
             # handle (geomIndex, onLoc)
             if geomIndex is not None and onLoc is not None:
                 self._elt[geomIndex].setLocation(onLoc)
-    
+
     def flip(self) -> None:
         self._elt[0].flip()
         self._elt[1].flip()
@@ -854,7 +854,7 @@ class Node(GraphComponent):
 
     def setLabel(self, geomIndex: int, onLocation: int) -> None:
         """
-         * 
+         *
         """
         self.label.setLocation(geomIndex, onLocation)
 
@@ -1336,7 +1336,7 @@ class Edge(GraphComponent):
          * Return this Edge's index.MonotoneChainEdge,
          * ownership is retained by this object.
         """
-        if self._mce is None:           
+        if self._mce is None:
             self._mce = MonotoneChainEdge(self)
         return self._mce
 
@@ -1829,7 +1829,7 @@ class EdgeEndStar():
 
     def _getLocation(self, geomIndex: int, coord, graphs) -> int:
         # if self._ptInAreaLocation[geomIndex] == Location.UNDEF:
-        #    self._ptInAreaLocation[geomIndex] = 
+        #    self._ptInAreaLocation[geomIndex] =
         return SimplePointInAreaLocator.locate(coord, graphs[geomIndex].geom)
         # return self._ptInAreaLocation[geomIndex]
 
@@ -2239,8 +2239,8 @@ class DirectedEdgeStar(EdgeEndStar):
 
 def EdgeIntersectionLessThen(ei1, ei2) -> bool:
     return ei1.compareTo(ei2) < 0
-        
-        
+
+
 class EdgeIntersection():
     """
      * Represents a point on an edge which intersects with another edge.
@@ -2392,7 +2392,7 @@ class EdgeIntersectionList(dict):
 
         # CoordinateSequence
         _coords = self.edge.coords
-        
+
         coords = []
         coords.append(ei0.coord)
 

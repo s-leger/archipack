@@ -2168,6 +2168,28 @@ class CoordinateOperation(GeometryEditorOperation):
         raise NotImplementedError()
 
 
+class ShortCircuitedGeometryVisitor():
+    def __init__(self):
+        self.done = False
+        
+    def applyTo(self, geom):
+        for i in range(geom.numgeoms):
+            element = geom.getGeometryN(i)
+            if element.type_id in [
+                    GeomTypeId.GEOS_GEOMETRYCOLLECTION,
+                    GeomTypeId.GEOS_MULTIPOLYGON,
+                    GeomTypeId.GEOS_MULTILINESTRING,
+                    GeomTypeId.GEOS_MULTIPOINT
+                    ]:
+                self.applyTo(element)
+            else:
+                self.visit(element)
+                if self.isDone():
+                    self.done = True
+            if self.done:
+                return
+            
+
 class GeometryEditor():
     """
      * Supports creating a new Geometry which is a modification of an existing one.

@@ -278,71 +278,6 @@ class ARCHIPACK_OT_move_to_3d(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_apply_holes(Operator):
-    bl_idname = "archipack.apply_holes"
-    bl_label = "Apply holes"
-    bl_description = "Apply modifiers and remove holes from scene"
-    bl_category = 'Archipack'
-    bl_options = {'REGISTER', 'UNDO'}
-    selected_only = BoolProperty(default=False)
-
-    @classmethod
-    def poll(cls, context):
-        return context.mode == "OBJECT"
-
-    def modifiers_apply(self, context, o):
-        ctx = bpy.context.copy()
-        ctx['object'] = o
-        for mod in o.modifiers[:]:
-            ctx['modifier'] = mod
-            try:
-                bpy.ops.object.modifier_apply(ctx, apply_as='DATA',
-                                              modifier=ctx['modifier'].name)
-            except:
-                pass
-
-    def get_boolobjects(self, o, to_remove):
-        modifiers = [m for m in o.modifiers if m.type == 'BOOLEAN']
-        for m in modifiers:
-            if m.object is None:
-                o.modifiers.remove(m)
-            else:
-                to_remove.append(m.object)
-                if 'archipack_hybridhole' in m.object:
-                    self.get_boolobjects(m.object, to_remove)
-        
-    def apply(self, context, objects):
-        to_remove = []
-        for o in objects:
-            self.get_boolobjects(o, to_remove)
-
-        for o in objects:
-            if o.data is not None and ("archipack_wall2" in o.data or "archipack_wall" in o.data):
-                self.modifiers_apply(context, o)
-
-        bpy.ops.object.select_all(action="DESELECT")
-        for r in to_remove:
-            r.hide_select = False
-            r.select = True
-            context.scene.objects.active = r
-        bpy.ops.object.delete(use_global=False)
-
-    def execute(self, context):
-        if context.mode == "OBJECT":
-
-            if self.selected_only:
-                objects = context.selected_objects[:]
-            else:
-                objects = context.scene.objects[:]
-
-            self.apply(context, objects)
-
-            return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
-            return {'CANCELLED'}
-
-
 class ARCHIPACK_OT_kill_archipack(Operator):
     bl_idname = "archipack.kill_archipack"
     bl_label = "Do you realy want to kill archipack parameters ?"
@@ -521,7 +456,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_store_2d_reference)
     bpy.utils.register_class(ARCHIPACK_OT_move_2d_reference_to_cursor)
     bpy.utils.register_class(ARCHIPACK_OT_parent_to_reference)
-    bpy.utils.register_class(ARCHIPACK_OT_apply_holes)
     bpy.utils.register_class(ARCHIPACK_OT_kill_archipack)
 
 
@@ -535,5 +469,4 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_store_2d_reference)
     bpy.utils.unregister_class(ARCHIPACK_OT_move_2d_reference_to_cursor)
     bpy.utils.unregister_class(ARCHIPACK_OT_parent_to_reference)
-    bpy.utils.unregister_class(ARCHIPACK_OT_apply_holes)
     bpy.utils.unregister_class(ARCHIPACK_OT_kill_archipack)

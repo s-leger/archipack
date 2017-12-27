@@ -30,6 +30,7 @@ from .op_polygonize import PolygonizeOp
 from .op_linemerge import LineMerger
 from .shared import (
     logger,
+    quicksort,
     CoordinateSequence
     )
 
@@ -66,13 +67,13 @@ class PolygonsUnionOp():
             x1, y1 = next.x, next.y
 
             if x0 < x1:
-                key = hash((x0, y0, x1, y1))
+                key = (x0, y0, x1, y1)
             elif x0 > x1:
-                key = hash((x1, y1, x0, y0))
+                key = (x1, y1, x0, y0)
             elif y0 < y1:
-                key = hash((x0, y0, x1, y1))
+                key = (x0, y0, x1, y1)
             else:
-                key = hash((x1, y1, x0, y0))
+                key = (x1, y1, x0, y0)
 
             if self.segmap.get(key) is None:
                 if prec != next:
@@ -100,13 +101,39 @@ class PolygonsUnionOp():
 
         op = PolygonsUnionOp(geoms)
         return op._union()
-
+    
+    @staticmethod
+    def poly_area_gt(a, b):
+        return a.exterior_area > b.exterior_area
+        
+    @staticmethod
+    def filter_nested(polys):
+        """
+          Filter out nested touching holes
+        """
+        quicksort(polys, PolygonsUnionOp.poly_area_gt)
+        to_remove = []
+        n_polys = len(polys)
+        
+        for i, poly in enumerate(polys):
+            if i in to_remove:
+                continue
+            for hole in poly.interiors:
+                for j in range(i + 1, n_polys):
+                    other = polys[j]
+                    if (hole.envelope.equals(other.envelope) and
+                            CoordinateSequence.equals_unoriented(hole.coords, other.exterior.coords)):
+                        to_remove.append(j)
+        to_remove.sort()
+        for i in reversed(to_remove):
+            polys.pop(i)
+        
     def _union(self):
         # copy points from input Geometries.
         # This ensures that any Point geometries
         # in the input are considered for inclusion in the result set
         logger.debug("PolygonsUnionOp._union() segments map")
-
+        
         for geom in self.geoms:
             self.addPolygon(geom)
 
@@ -125,20 +152,10 @@ class PolygonsUnionOp():
         logger.debug("PolygonsUnionOp._union() PolygonizeOp.polygonize(%s)", len(lines))
         polys = PolygonizeOp.polygonize(lines)
 
-        # filter out nested touching polygon
-        to_remove = []
-        for poly in polys:
-            for hole in poly.interiors:
-                for i, other in enumerate(polys):
-                    if (other is not poly and
-                            hole.envelope.equals(other.envelope) and
-                            CoordinateSequence.equals_unoriented(hole.coords, other.exterior.coords)):
-                        to_remove.append(i)
-
-        to_remove.sort()
-
-        for i in reversed(to_remove):
-            polys.pop(i)
-
+        # filter out nested touching holes
+        # Sort polygons by area before this check
+        # to ensure right check order
+        PolygonsUnionOp.filter_nested(polys)
+            
         logger.debug("PolygonsUnionOp._union() done %s", len(polys))
         return polys

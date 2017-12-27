@@ -1633,9 +1633,9 @@ class OverlayOp(GeometryGraphOperation):
                     opCode
                     ):
                 de.isInResult = True
-            
+
             logger.debug("%s: isArea:%s inResult:%s %s", i, label.isArea(), de.isInResult, de)
-            
+
     def cancelDuplicateResultEdges(self) -> None:
         """
          * If both a dirEdge and its sym are marked as being in the result,

@@ -84,11 +84,11 @@ vars_dict = {
     'select_points': None
     }
 
-    
+
 # load custom tool settings
 def settings_load(self):
     params = bpy.context.window_manager.archipack_polylib
-    tool = self.name.split()[-1].lower()
+    tool = type(self).__name__.split("_")[-1].lower()
     keys = self.as_keywords().keys()
     for key in keys:
         if tool + "_" + key in params:
@@ -98,12 +98,12 @@ def settings_load(self):
 # store custom tool settings
 def settings_write(self):
     params = bpy.context.window_manager.archipack_polylib
-    tool = self.name.split()[-1].lower()
+    tool = type(self).__name__.split("_")[-1].lower()
     keys = self.as_keywords().keys()
     for key in keys:
         if tool + "_" + key in params:
             setattr(params, tool + "_" + key, getattr(self, key))
-    
+
 
 class Selectable(object):
 
@@ -665,10 +665,10 @@ class SelectPolygons(Selectable):
                     wall = scene.objects.active
                     Io.assign_matindex_to_wall(wall)
                     bpy.ops.archipack.wall(z=z)
-                    
+
                     # use overall input bounding box to find a reference point if any
                     coordsys = self.coordsys
-                    loc = coordsys.world * Vector((-0.5 * coordsys.width, -0.5 * coordsys.height, 0)) 
+                    loc = coordsys.world * Vector((-0.5 * coordsys.width, -0.5 * coordsys.height, 0))
                     # find reference point if any
                     reference = None
                     for ref in scene.objects:
@@ -686,15 +686,15 @@ class SelectPolygons(Selectable):
                     else:
                         reference.select = True
                         scene.objects.active = reference
-                    # parent wall to reference        
+                    # parent wall to reference
                     wall.select = True
                     if bpy.ops.archipack.parent_to_reference.poll():
                         bpy.ops.archipack.parent_to_reference()
-                    
-                    reference.select = False   
-                    wall.select = True            
+
+                    reference.select = False
+                    wall.select = True
                     scene.objects.active = wall
-                    # autoboolean                
+                    # autoboolean
                     if bpy.ops.archipack.auto_boolean.poll():
                         bpy.ops.archipack.auto_boolean()
             elif self.action == 'rectangle':
@@ -837,7 +837,7 @@ class SelectPolygons(Selectable):
             sel = [self.geoms[i] for i in self.ba.list]
             if len(sel) > 0:
                 self.complete(context)
-        
+
         elif event.type in {'F'}:
             self.action = 'surface'
             sel = [self.geoms[i] for i in self.ba.list]
@@ -1041,7 +1041,7 @@ class CoordSys(object):
         self.width = width
         self.height = height
 
-    
+
 class Prolongement():
     """ intersection of two segments outside segment (projection)
         c0 = point on current segment
@@ -1372,20 +1372,7 @@ class Io():
         polys, dangles, cuts, invalids = PolygonizeOp.polygonize_full(geoms)
 
         # filter out nested touching holes
-        to_remove = []
-        for i, poly in enumerate(polys):
-            if i in to_remove:
-                continue
-            for hole in poly.interiors:
-                for j, other in enumerate(polys):
-                    if (other is not poly and
-                            hole.envelope.equals(other.envelope) and
-                            CoordinateSequence.equals_unoriented(hole.coords, other.exterior.coords)):
-                        to_remove.append(j)
-
-        to_remove.sort()
-        for i in reversed(to_remove):
-            polys.pop(i)
+        PolygonsUnionOp.filter_nested(polys)
 
         # degenerate heterogeneous collection so the result is homogeneous collection
         if homogeneous and len(dangles) + len(cuts) > 0 and len(polys) + len(invalids) > 0:
@@ -1429,7 +1416,7 @@ class Io():
         exterior = bpy.data.objects.new(name, curve)
         exterior.matrix_world = self.coordsys.world
         self.scene.objects.link(exterior)
-        
+
         # create a plane to cut
         location = Vector()
         poly.envelope.centre(location)
@@ -1439,30 +1426,30 @@ class Io():
         surf = self.scene.objects.active
         surf.name = name
         exterior.select = True
-        
-        # cut plane 
+
+        # cut plane
         bpy.ops.mesh.knife_project()
         exterior.select = False
         self.scene.objects.unlink(exterior)
-        
+
         # remove outside parts
-        bpy.ops.mesh.select_all(action='INVERT')	
+        bpy.ops.mesh.select_all(action='INVERT')
         bpy.ops.mesh.intersect_boolean()
         bpy.ops.object.mode_set(mode='OBJECT')
-        
+
         # remember number of polygons for each part
         # order is : bottom - top - exterior - interior
         n_ext = len(poly.exterior.coords) - 1
         n_int = 0
-        
+
         # Store exteriors vertices
         ext = [v.index for v in surf.data.vertices]
         vg = surf.vertex_groups.new("Exterior")
         vg.add(ext, 1.0, 'ADD')
-        
+
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='DESELECT')
-        
+
         if len(poly.interiors) > 0:
             curve = bpy.data.curves.new(name, type='CURVE')
             curve.dimensions = "3D"
@@ -1477,7 +1464,7 @@ class Io():
             self.scene.objects.active = surf
             bpy.ops.mesh.knife_project()
             self.scene.objects.unlink(interiors)
-            
+
             bpy.ops.object.mode_set(mode='OBJECT')
             int = [v.index for v in surf.data.vertices if v.index not in ext]
             vg = surf.vertex_groups.new("Interior")
@@ -1486,12 +1473,12 @@ class Io():
 
             bpy.ops.mesh.intersect_boolean()
         bpy.ops.object.mode_set(mode='OBJECT')
-        
+
         surf.select = True
         self.scene.objects.active = surf
-        
+
         return n_int, n_ext, surf
-        
+
     # Output methods
     def _poly_to_wall(self, poly, height: float, name: str="Wall"):
         """
@@ -1503,22 +1490,22 @@ class Io():
         self.scene.objects.active = wall
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
-        
+
         bpy.ops.mesh.extrude_region_move(
-            MESH_OT_extrude_region={"mirror":False}, 
+            MESH_OT_extrude_region={"mirror":False},
             TRANSFORM_OT_translate={
-                "value":(0, 0, height), 
-                "constraint_axis":(False, False, True), 
-                "constraint_orientation":'GLOBAL' 
+                "value":(0, 0, height),
+                "constraint_axis":(False, False, True),
+                "constraint_orientation":'GLOBAL'
                 })
-        
+
         bpy.ops.object.mode_set(mode='OBJECT')
-        
+
         wall.select = True
         self.scene.objects.active = wall
-        
+
         return n_int, n_ext, wall
-        
+
     def wall_uv(self, me, bm):
 
         for face in bm.faces:
@@ -1539,6 +1526,7 @@ class Io():
 
         coords = list(geometry.coords)
         if len(coords) < 2:
+            logger.debug("Spline without points found")
             return
         spline = curve.splines.new('POLY')
         spline.use_endpoint_u = False
@@ -1582,7 +1570,7 @@ class Io():
         self.scene.objects.link(curve_obj)
         curve_obj.select = True
         return curve_obj
-    
+
     @staticmethod
     def assign_matindex_to_wall(obj):
         """
@@ -1592,13 +1580,13 @@ class Io():
         inside_mat = 1
         cut_mat = 2
         me = obj.data
-        
+
         vgroup_names = {vgroup.name: vgroup.index for vgroup in obj.vertex_groups}
         if obj.vertex_groups.get('Interior') is not None:
             mat_index = outside_mat
         else:
             mat_index = inside_mat
-            
+
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_mode(type="FACE")
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -1606,7 +1594,7 @@ class Io():
         bpy.ops.object.vertex_group_select()
         Io.assign_matindex_to_selected(me, mat_index, True)
         Io.assign_matindex_to_selected(me, inside_mat, False)
-        
+
         bm = bmesh.from_edit_mesh(me)
         bm.verts.ensure_lookup_table()
         bm.faces.ensure_lookup_table()
@@ -1615,7 +1603,7 @@ class Io():
                 poly.material_index = cut_mat
         bmesh.update_edit_mesh(me, True)
         bpy.ops.object.mode_set(mode='OBJECT')
-               
+
     @staticmethod
     def assign_matindex_to_selected(me, index, selected):
         bm = bmesh.from_edit_mesh(me)
@@ -1625,7 +1613,7 @@ class Io():
             if poly.select == selected:
                 poly.material_index = index
         bmesh.update_edit_mesh(me, True)
- 
+
     @staticmethod
     def to_surface(scene, coordsys, geoms, name: str, surfaces: list=[]):
         """
@@ -1634,7 +1622,7 @@ class Io():
             cap faces are tri, sides faces are quads
         """
         t = time.time()
-        
+
         io = Io(scene=scene, coordsys=coordsys)
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -1643,10 +1631,10 @@ class Io():
         for poly in geoms:
             if hasattr(poly, 'exterior'):
                 n_int, n_ext, obj = io._poly_to_surface(poly, name=name)
-                
+
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.select_all(action='SELECT')
-                
+
                 bpy.ops.mesh.dissolve_limited(angle_limit=0.015708, delimit={'NORMAL'})
                 bpy.ops.mesh.dissolve_degenerate()
                 # tri are strongest when it comes to boolean
@@ -1654,7 +1642,7 @@ class Io():
                 bpy.ops.mesh.normals_make_consistent()
                 bpy.ops.object.mode_set(mode='OBJECT')
                 bpy.ops.object.shade_flat()
-                
+
                 # MaterialUtils.add_wall_materials(obj)
                 surfaces.append(obj)
             else:
@@ -1662,8 +1650,8 @@ class Io():
 
         logger.debug("Io.to_surface(%s) :%.2f seconds", len(surfaces), time.time() - t)
 
-        return surfaces 
- 
+        return surfaces
+
     @staticmethod
     def to_wall(scene, coordsys, geoms, height, name: str, walls: list=[]):
         """
@@ -1672,7 +1660,7 @@ class Io():
             cap faces are tri, sides faces are quads
         """
         t = time.time()
-        
+
         io = Io(scene=scene, coordsys=coordsys)
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -1688,16 +1676,16 @@ class Io():
                 bm.faces.ensure_lookup_table()
                 io.wall_uv(me, bm)
                 bmesh.update_edit_mesh(me, True)
-                
+
                 bpy.ops.mesh.select_all(action='SELECT')
-                
+
                 bpy.ops.mesh.dissolve_limited(angle_limit=0.015708, delimit={'NORMAL'})
                 bpy.ops.mesh.dissolve_degenerate()
                 # tri are strongest when it comes to boolean
                 bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
                 bpy.ops.mesh.normals_make_consistent()
                 bpy.ops.object.mode_set(mode='OBJECT')
-                
+
                 bpy.ops.object.shade_flat()
                 # define "Top" vertex group
                 half_height = 0.5 * height
@@ -2101,12 +2089,12 @@ class Polygonizer():
         if all_segs:
             for seg in Q_segs._geoms:
                 seg.c0.users = 1
-                seg.c1.users = 1        
+                seg.c1.users = 1
         else:
             for seg in Q_segs._geoms:
                 seg.c0.add_user()
                 seg.c1.add_user()
-              
+
         for s, seg in enumerate(segs):
 
             # enlarge seek box for "extendable" segments
@@ -2161,13 +2149,13 @@ class Polygonizer():
                             # on both last and oposite segments
                             # prevent segment from being "extendable"
                             if pt is seg.c0:
-                                if it_start[s] is not None:
+                                if not all_segs and it_start[s] is not None:
                                     it_start[s].it[0].valid = False
                                     it_start[s].d = 0
                                 # seg.c0.users = 2
 
                             elif pt is seg.c1:
-                                if it_end[s] is not None:
+                                if not all_segs and it_end[s] is not None:
                                     it_end[s].it[0].valid = False
                                     it_end[s].d = 0
                                 # seg.c1.users = 2
@@ -2209,13 +2197,13 @@ class Polygonizer():
                             # make last intersections invalid
                             # on oposite segment
                             if pt is _seg.c0:
-                                if it_start[id] is not None:
+                                if not all_segs and it_start[id] is not None:
                                     it_start[id].it[0].valid = False
                                     it_start[id].d = 0
                                 # _seg.c0.users = 2
 
                             elif pt is _seg.c1:
-                                if it_end[id] is not None:
+                                if not all_segs and it_end[id] is not None:
                                     it_end[id].it[0].valid = False
                                     it_end[id].d = 0
                                 # _seg.c1.users = 2
@@ -2465,6 +2453,8 @@ class Polygonizer():
         curves = Io.ensure_iterable(curves)
         coordsys = CoordSys(curves)
 
+        logger.debug("Polygonizer.polygonize() extend:%s all_segs:%s", extend, all_segs)
+
         gf = GeometryFactory()
         gf.outputFactory = Io(scene=context.scene, coordsys=coordsys)
 
@@ -2500,12 +2490,12 @@ class ARCHIPACK_OP_PolyLib_Pick2DPoints(Operator):
     bl_idname = "archipack.polylib_pick_2d_points"
     bl_label = "Pick points"
     bl_description = "Select two or more points to create rectangle or convex hull"
-    
+
     bl_options = {'REGISTER', 'UNDO'}
     pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
                  'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE']
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
@@ -2540,7 +2530,7 @@ class ARCHIPACK_OP_PolyLib_Pick2DLines(Operator):
     pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
                  'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE']
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
@@ -2575,7 +2565,7 @@ class ARCHIPACK_OP_PolyLib_Pick2DPolygons(Operator):
     pass_keys = ['NUMPAD_0', 'NUMPAD_1', 'NUMPAD_3', 'NUMPAD_4',
                  'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7', 'NUMPAD_8',
                  'NUMPAD_9', 'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE']
-    
+
     @classmethod
     def poll(self, context):
         global vars_dict
@@ -2604,10 +2594,10 @@ class ARCHIPACK_OP_PolyLib_Pick2DPolygons(Operator):
 
 class ARCHIPACK_OP_PolyLib_Polygonize(Operator):
     bl_idname = "archipack.polylib_polygonize"
-    bl_label = "Detect Polygons"
+    bl_label = "Detect"
     bl_description = "Detect polygons from unordered splines"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     extend = FloatProperty(
             name="Extend end",
             description="Extend line ends to closest intersecting segment",
@@ -2627,7 +2617,7 @@ class ARCHIPACK_OP_PolyLib_Polygonize(Operator):
             default=2.7,
             subtype='DISTANCE', unit='LENGTH', min=0
             )
-            
+
     @classmethod
     def poll(self, context):
         o = context.active_object
@@ -2636,13 +2626,13 @@ class ARCHIPACK_OP_PolyLib_Polygonize(Operator):
     def invoke(self, context, event):
         settings_load(self)
         return self.execute(context)
-        
+
     def execute(self, context):
         t = time.time()
         settings_write(self)
-        
+
         global vars_dict
-        
+
         objs = [obj for obj in context.selected_objects if obj.type == 'CURVE']
 
         if len(objs) < 1:
@@ -2687,7 +2677,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
     bl_label = "Offset"
     bl_description = "Offset lines (work best on open lines)"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
@@ -2727,11 +2717,11 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
     def invoke(self, context, event):
         settings_load(self)
         return self.execute(context)
-        
+
     def execute(self, context):
         t = time.time()
         settings_write(self)
- 
+
         objs = list(obj for obj in context.selected_objects if obj.type == 'CURVE')
 
         if len(objs) < 1:
@@ -2783,7 +2773,7 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
     bl_label = "Buffer"
     bl_description = "Buffer lines (when single sided, no full support for closed lines)"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
@@ -2792,7 +2782,7 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
     distance = FloatProperty(
             name="Distance",
             default=0.05,
-            subtype='DISTANCE', unit='LENGTH', min=0.001
+            subtype='DISTANCE', unit='LENGTH'
             )
     side = EnumProperty(
             name="Side", default='both',
@@ -2829,11 +2819,16 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
     def invoke(self, context, event):
         settings_load(self)
         return self.execute(context)
-        
+
     def execute(self, context):
         t = time.time()
-        settings_write(self)
         
+        if self.distance == 0:
+            self.report({'WARNING'}, "Distance 0 invalid for buffer")
+            return {'CANCELLED'}
+            
+        settings_write(self)
+
         objs = list(obj for obj in context.selected_objects if obj.type == 'CURVE')
 
         if len(objs) < 1:
@@ -2883,18 +2878,18 @@ opCodes = {
     'DIFFERENCE':3,
     'SYMDIFFERENCE':4,
     'REVDIFFERENCE':13
-}        
-        
-       
+}
+
+
 class ARCHIPACK_OP_PolyLib_Boolean(Operator):
     bl_idname = "archipack.polylib_boolean"
     bl_label = "Boolean"
     bl_description = "Boolean operation (limited to 2 objects at once - use Detect for multiple inputs)"
     bl_options = {'REGISTER', 'UNDO'}
-        
+
     opCode = EnumProperty(
-        name="Operation", 
-        description="Boolean operation type", 
+        name="Operation",
+        description="Boolean operation type",
         items=(
             ('INTERSECTION', 'Intersection', 'Intersection', 0),
             ('UNION', 'Union', 'Union', 1),
@@ -2904,13 +2899,13 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
             ),
         default='UNION'
         )
-    
+
     bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
             min=0, default=12
             )
-    
+
     @classmethod
     def poll(self, context):
         o = context.active_object
@@ -2919,14 +2914,14 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
     def invoke(self, context, event):
         settings_load(self)
         return self.execute(context)
-        
+
     def execute(self, context):
         t = time.time()
         settings_write(self)
-        
+
         a = context.active_object
         b = [obj for obj in context.selected_objects if obj.type == 'CURVE' and obj.name != a.name]
-        
+
         if len(b) < 1:
             self.report({'WARNING'}, "Select a curve object before")
             return {'CANCELLED'}
@@ -2942,14 +2937,14 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
         # (2) union allow geometryCollection for geom_a and geom_b
         # other operations require homogeneous Multi* geometry
         opCode = opCodes[self.opCode]
-        
+
         homogeneous_a = opCode > 2
         homogeneous_b = opCode != 2
 
         geom_a = Io.curves_to_geomcollection([a], self.bezier_resolution, coordsys=coordsys, homogeneous=homogeneous_a)
         geom_b = Io.curves_to_geomcollection(b, self.bezier_resolution, coordsys=coordsys, homogeneous=homogeneous_b)
 
-        
+
         if opCode == 2 and (
                 geom_a.geom_type == 'GeometryCollection' or
                 geom_b.geom_type == 'GeometryCollection'):
@@ -2967,7 +2962,7 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
         geom_b._factory.output(geom_a, name="geom_a")
         geom_b._factory.output(geom_b, name="geom_b")
         """
-          
+
         if opCode > 10:
             geom_a, geom_b = geom_b, geom_a
             opCode = opCode - 10
@@ -2995,7 +2990,7 @@ class ARCHIPACK_OP_PolyLib_Simplify(Operator):
     bl_label = "Simplify"
     bl_description = "Simplify lines"
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
@@ -3011,7 +3006,7 @@ class ARCHIPACK_OP_PolyLib_Simplify(Operator):
             description="Preserve topology (fast without, but may introduce self crossing)",
             default=False
             )
-            
+
     @classmethod
     def poll(self, context):
         o = context.active_object
@@ -3020,12 +3015,12 @@ class ARCHIPACK_OP_PolyLib_Simplify(Operator):
     def invoke(self, context, event):
         settings_load(self)
         return self.execute(context)
-        
+
     def execute(self, context):
         t = time.time()
-        settings_write(self)        
+        settings_write(self)
         global vars_dict
-        
+
         objs = [obj for obj in context.selected_objects if obj.type == 'CURVE']
         if len(objs) < 1:
             self.report({'WARNING'}, "Select a curve object before")
@@ -3104,7 +3099,7 @@ class archipack_polylib(PropertyGroup):
             default=2.7,
             subtype='DISTANCE', unit='LENGTH', min=0
             )
-    
+
     offset_expand = BoolProperty(default=False, description="Display offset options")
     offset_bezier_resolution = IntProperty(
             name="Bezier resolution",
@@ -3194,14 +3189,14 @@ class archipack_polylib(PropertyGroup):
             description="Preserve topology (fast without, but may introduce self crossing)",
             default=False
             )
-    
+
     boolean_expand = BoolProperty(default=False, description="Display 2d boolean tools")
     boolean_bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
             min=0, default=12
             )
-    
+
 
 @persistent
 def load_handler(dummy):
