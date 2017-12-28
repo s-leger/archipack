@@ -53,6 +53,7 @@ from .archipack_gl import (
     GlLine,
     GlPolyline
     )
+from .archipack_viewmanager import ViewManager
 from .pygeos.op_polygonize import PolygonizeOp
 from .pygeos.geom import GeometryFactory
 from .pygeos.geom import Point as GeosPoint
@@ -642,7 +643,7 @@ class SelectPolygons(Selectable):
                 res = []
                 bpy.ops.object.select_all(action='DESELECT')
                 z = context.window_manager.archipack_polylib.polygonize_thickness
-                Io.to_surface(scene, self.coordsys, union, 'surface', res)
+                Io.to_surface(context, self.coordsys, union, 'surface', res)
                 if len(res) > 0:
                     for surf in res:
                         surf.select = True
@@ -655,7 +656,7 @@ class SelectPolygons(Selectable):
                 res = []
                 bpy.ops.object.select_all(action='DESELECT')
                 z = context.window_manager.archipack_polylib.polygonize_thickness
-                Io.to_wall(scene, self.coordsys, union, z, 'wall', res)
+                Io.to_wall(context, self.coordsys, union, z, 'wall', res)
                 if len(res) > 0:
                     for wall in res:
                         wall.select = True
@@ -1407,8 +1408,8 @@ class Io():
             io._curve_as_geom(gf, curve, resolution, geoms)
         logger.debug("Io.curves_to_geoms() :%.2f seconds", time.time() - t)
         return coordsys
-
-    def _poly_to_surface(self, poly, name:str="Surface"):
+    
+    def _poly_to_surface(self, vm, poly, name:str="Surface"):
         # create Exterior line
         curve = bpy.data.curves.new(name, type='CURVE')
         curve.dimensions = "3D"
@@ -1426,7 +1427,10 @@ class Io():
         surf = self.scene.objects.active
         surf.name = name
         exterior.select = True
-
+        
+        # ensure view point is safe for knife_project
+        vm.safe_knife_project(radius, self.coordsys.world * location)
+        
         # cut plane
         bpy.ops.mesh.knife_project()
         exterior.select = False
@@ -1480,12 +1484,12 @@ class Io():
         return n_int, n_ext, surf
 
     # Output methods
-    def _poly_to_wall(self, poly, height: float, name: str="Wall"):
+    def _poly_to_wall(self, vm, poly, height: float, name: str="Wall"):
         """
          use knife project to cut a plane
          produce a better geometry than curve
         """
-        n_int, n_ext, wall = self._poly_to_surface(poly, name=name)
+        n_int, n_ext, wall = self._poly_to_surface(vm, poly, name=name)
         wall.select = True
         self.scene.objects.active = wall
         bpy.ops.object.mode_set(mode='EDIT')
@@ -1615,22 +1619,24 @@ class Io():
         bmesh.update_edit_mesh(me, True)
 
     @staticmethod
-    def to_surface(scene, coordsys, geoms, name: str, surfaces: list=[]):
+    def to_surface(context, coordsys, geoms, name: str, surfaces: list=[]):
         """
             use curve extrude as it does respect vertices number and is not removing doubles
             so it is easy to set material index
             cap faces are tri, sides faces are quads
         """
         t = time.time()
-
-        io = Io(scene=scene, coordsys=coordsys)
+        
+        vm = ViewManager(context)
+        vm.save()
+        io = Io(scene=context.scene, coordsys=coordsys)
         bpy.ops.object.select_all(action='DESELECT')
 
         geoms = Io.ensure_iterable(geoms)
 
         for poly in geoms:
             if hasattr(poly, 'exterior'):
-                n_int, n_ext, obj = io._poly_to_surface(poly, name=name)
+                n_int, n_ext, obj = io._poly_to_surface(vm, poly, name=name)
 
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.select_all(action='SELECT')
@@ -1647,28 +1653,30 @@ class Io():
                 surfaces.append(obj)
             else:
                 logger.debug("Io.to_surface() :skip %s", type(poly).__name__)
+        
+        vm.restore()
 
         logger.debug("Io.to_surface(%s) :%.2f seconds", len(surfaces), time.time() - t)
-
         return surfaces
 
     @staticmethod
-    def to_wall(scene, coordsys, geoms, height, name: str, walls: list=[]):
+    def to_wall(context, coordsys, geoms, height, name: str, walls: list=[]):
         """
             use curve extrude as it does respect vertices number and is not removing doubles
             so it is easy to set material index
             cap faces are tri, sides faces are quads
         """
         t = time.time()
-
-        io = Io(scene=scene, coordsys=coordsys)
+        vm = ViewManager(context)
+        vm.save()
+        io = Io(scene=context.scene, coordsys=coordsys)
         bpy.ops.object.select_all(action='DESELECT')
 
         geoms = Io.ensure_iterable(geoms)
 
         for poly in geoms:
             if hasattr(poly, 'exterior'):
-                n_int, n_ext, obj = io._poly_to_wall(poly, height, name)
+                n_int, n_ext, obj = io._poly_to_wall(vm, poly, height, name)
                 me = obj.data
                 bpy.ops.object.mode_set(mode='EDIT')
                 bm = bmesh.from_edit_mesh(me)
@@ -1696,7 +1704,9 @@ class Io():
                 walls.append(obj)
             else:
                 logger.debug("Io.to_wall() :skip %s", type(poly).__name__)
-
+        
+        vm.restore()
+        
         logger.debug("Io.to_wall(%s) :%.2f seconds", len(walls), time.time() - t)
 
         return walls
@@ -2584,6 +2594,12 @@ class ARCHIPACK_OP_PolyLib_Pick2DPolygons(Operator):
             self.report({'WARNING'}, "Use detect before")
             return {'CANCELLED'}
         elif context.space_data.type == 'VIEW_3D':
+            """
+            if not (context.space_data.region_3d and
+                    context.space_data.region_3d.view_perspective == 'ORTHO'):
+                self.report({'WARNING'}, "Polygon selection only work in ortho view")
+                return {'CANCELLED'}
+            """
             vars_dict['select_polygons'].init(self, context)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
