@@ -3141,7 +3141,7 @@ class archipack_polylib(PropertyGroup):
     buffer_distance = FloatProperty(
             name="Distance",
             default=0.05,
-            subtype='DISTANCE', unit='LENGTH', min=0.001
+            subtype='DISTANCE', unit='LENGTH'
             )
     buffer_side = EnumProperty(
             name="Side", default='both',
