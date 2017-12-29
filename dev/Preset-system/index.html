@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../../img/favicon.ico">
+  <title>Preset system - Archipack</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Preset system";
+    var mkdocs_page_input_path = "dev\\Preset-system.md";
+    var mkdocs_page_url = "/dev/Preset-system/";
+  </script>
+  
+  <script src="../../js/jquery-2.1.1.min.js"></script>
+  <script src="../../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href="../.." class="icon icon-home"> Archipack</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../acknowledgements/">Acknowledgments</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../setup/">Setup</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">2d to 3d</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/detect/">Detect</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/simplify/">Simplify</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/offset/">Offset</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/buffer/">Buffer</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/boolean/">2d Boolean</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack primitives</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Window/">Window</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Door/">Door</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Stair/">Stair</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Wall/">Wall</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Fence/">Fence</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Slab/">Slab</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Floor/">Floor</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Roof/">Roof</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Reference-point/">Reference point</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack features</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Automatic-Boolean/">Auto-Boolean</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Custom-holes-and-walls/">Custom holes and walls</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Notes-on-duplicating-and-presets/">Duplicating objects</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Make-objects-safe-to-edit/">Make objects editable</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Presets/">Presets</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Materials/">Materials</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Export/">Export</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Usefull-addons/">Usefull addons</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Importing-dxf/">Importing dxf</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Extending archipack</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../Parametric-Objects-developper-guide/">Developper guide</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Programming/">Bulk updates</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../ArchipackObject/">ArchipackObject</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Manipulable/">Manipulable ?</a>
+                </li>
+                <li class=" current">
+                    
+    <a class="current" href="./">Preset system</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l3"><a href="#presets">Presets</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l4" href="#there-are-two-kind-of-presets">There are two kind of presets</a></li>
+        
+            <li><a class="toctree-l4" href="#preset-menu-operator">Preset menu Operator</a></li>
+        
+            <li><a class="toctree-l4" href="#save-destroy-preset-operator">Save / Destroy preset operator</a></li>
+        
+            <li><a class="toctree-l4" href="#call-from-object-panel">Call from object panel</a></li>
+        
+            <li><a class="toctree-l4" href="#create-operator">Create Operator</a></li>
+        
+        </ul>
+    
+
+    </ul>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Feedback/">Feedback Panel</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Cutters/">Cutters</a>
+                </li>
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../..">Archipack</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>Extending archipack &raquo;</li>
+        
+      
+    
+    <li>Preset system</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="presets">Presets</h1>
+<p>Blender does support advanced presets system right out of the box.<br />
+The api take care of serialisation and unserialisation.<br />
+Archipack does extend this api to provide thumbs and on screen seekable menu.  </p>
+<h2 id="there-are-two-kind-of-presets">There are two kind of presets</h2>
+<ul>
+<li>Factory stored under /addon/presets/</li>
+<li>User defined, stored under /user profile/presets/  </li>
+</ul>
+<p>Techically they are the same, but factory's one are shipped with addon where user defined one will be stored on user prefs directory.</p>
+<h3 id="requirements">Requirements</h3>
+<p>In order to make objects "preset aware" one need 2 operators.  </p>
+<ul>
+<li>Preset menu Operator </li>
+<li>Save / destroy preset Operator</li>
+</ul>
+<h2 id="preset-menu-operator">Preset menu Operator</h2>
+<h3 id="requirements_1">Requirements</h3>
+<ul>
+<li><strong>MUST</strong> inherit from PresetMenuOperator  </li>
+<li>preset_subdir must match object PropertyGroup name, with archipack_ prefix</li>
+</ul>
+<h3 id="implementation-sample">Implementation sample</h3>
+<pre><code class="python">
+class ARCHIPACK_OT_fence_preset_menu(PresetMenuOperator, Operator):
+    bl_idname = &quot;archipack.fence_preset_menu&quot;
+    bl_label = &quot;Fence Presets&quot;
+    # Alter this using the base PropertyGroup class name (MUST use archipack_ prefix)
+    preset_subdir = &quot;archipack_fence&quot;
+
+</code></pre>
+
+<p><strong>Preset menu Operator may use a "preset_operator" option eg in draw a window / draw a door</strong>
+* preset_operator: string, bl_idname of operator to call after selection, in the form "category.operator".<br />
+When not specified, default to create operator, using preset_subdir as operator bl_idname, eg: bpy.ops.archipack.fence </p>
+<p>The operator handling preset operation must take "filename" as string input and handle loading of preset, where filename is a python preset absolute filename with path.</p>
+<h3 id="implementation-sample_1">Implementation sample</h3>
+<pre><code class="python">        row.operator(&quot;archipack.fence_preset_menu&quot;,
+                    text=&quot;Fence&quot;,
+                    icon_value=icons[&quot;fence&quot;].icon_id
+                    ).preset_operator = &quot;archipack.fence&quot;
+
+</code></pre>
+
+<h2 id="save-destroy-preset-operator">Save / Destroy preset operator</h2>
+<p>This operator does take care of rendering thumbs on save.</p>
+<h3 id="requirements_2">Requirements</h3>
+<ul>
+<li><strong>MUST</strong> inherit from ArchipackPreset</li>
+<li>You may add properties you dont want to save in presets in blacklist,
+HIDDEN and SKIP_SAVE property are ignored by default.  </li>
+<li>preset_menu <strong>MUST</strong> match menu preset operator class name.  </li>
+</ul>
+<h3 id="implementation-sample_2">Implementation sample</h3>
+<pre><code class="python">class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
+    &quot;&quot;&quot;Add a Fence Preset&quot;&quot;&quot;
+    bl_idname = &quot;archipack.fence_preset&quot;
+    bl_label = &quot;Add Fence Preset&quot;
+    preset_menu = &quot;ARCHIPACK_OT_fence_preset_menu&quot;
+
+    @property
+    def blacklist(self):
+        # Blacklist property you want store by name  
+        return ['n_parts', 'parts', 'manipulators', 'user_defined_path']
+
+</code></pre>
+
+<h2 id="call-from-object-panel">Call from object panel</h2>
+<h3 id="implementation-sample_3">Implementation sample</h3>
+<pre><code class="python">
+row = box.row(align=True)
+row.operator(&quot;archipack.fence_preset_menu&quot;, text=bpy.types.ARCHIPACK_OT_fence_preset.bl_label)
+row.operator(&quot;archipack.fence_preset&quot;, text=&quot;&quot;, icon='ZOOMIN')
+row.operator(&quot;archipack.fence_preset&quot;, text=&quot;&quot;, icon='ZOOMOUT').remove_active = True
+
+</code></pre>
+
+<h2 id="create-operator">Create Operator</h2>
+<h3 id="requirements_3">Requirements</h3>
+<ul>
+<li><strong>MUST</strong> Inherits from ArchipackCreateTool to handle filename input  </li>
+<li><strong>MUST</strong> call load_preset method.</li>
+</ul>
+<h3 id="implementation-sample_4">Implementation sample</h3>
+<pre><code class="python">class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):
+    bl_idname = &quot;archipack.fence&quot;
+    bl_label = &quot;Fence&quot;
+    bl_description = &quot;Fence&quot;
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def create(self, context):
+        m = bpy.data.meshes.new(&quot;Fence&quot;)
+        o = bpy.data.objects.new(&quot;Fence&quot;, m)
+        d = m.archipack_fence.add()
+        context.scene.objects.link(o)
+        o.select = True
+        context.scene.objects.active = o
+        self.load_preset(d)
+        ...
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Feedback/" class="btn btn-neutral float-right" title="Feedback Panel">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../Manipulable/" class="btn btn-neutral" title="Manipulable ?"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../Manipulable/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Feedback/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '../..';</script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/require.js"></script>
+      <script src="../../search/search.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+    
+    <url>
+     <loc>/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>/acknowledgements/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>/setup/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+        
+    <url>
+     <loc>/2dto3d/detect/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/2dto3d/simplify/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/2dto3d/offset/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/2dto3d/buffer/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/2dto3d/boolean/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    
+
+    
+        
+    <url>
+     <loc>/archipack/Archipack-Window/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Door/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Stair/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Wall/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Fence/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Slab/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Floor/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Roof/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/archipack/Archipack-Reference-point/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    
+
+    
+        
+    <url>
+     <loc>/features/Archipack-Automatic-Boolean/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Custom-holes-and-walls/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Notes-on-duplicating-and-presets/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Make-objects-safe-to-edit/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Archipack-Presets/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Materials/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Export/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Usefull-addons/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/features/Importing-dxf/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    
+
+    
+        
+    <url>
+     <loc>/dev/Parametric-Objects-developper-guide/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/dev/Programming/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/dev/ArchipackObject/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/dev/Manipulable/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/dev/Preset-system/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/dev/Feedback/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    <url>
+     <loc>/dev/Cutters/</loc>
+     <lastmod>2017-12-29</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+        
+    
+
+</urlset>

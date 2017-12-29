@@ -1,0 +1,1044 @@
+{
+    "docs": [
+        {
+            "location": "/",
+            "text": "Welcome to Archipack documentation",
+            "title": "Home"
+        },
+        {
+            "location": "/#welcome-to-archipack-documentation",
+            "text": "",
+            "title": "Welcome to Archipack documentation"
+        },
+        {
+            "location": "/acknowledgements/",
+            "text": "I would like to thank every one making this possible.\n\n\nArchipack is dedicated to Ana.  \n\n\nPeople making Blender better every day.\n\n\nTon, ideasman42, mont29, hackerman, dalai, dr_sybren, pablo and every core developper and contributors.  \n\n\nSpecial thank to\n\n\nAntonyoia, for paving the parametric objects way with archimesh.\n\nBlendingJake, for contribution in Floors (JARCH-viz).\n\nOkavango for inspiration with NP station, pushing forward the CAD community on blender.\n\nCoders and contributors of addons releasing public code.\n\ndpdp (Daniel Pool) for contributions in tutorials and help in ba forums.  \n\n\nDonators\n\n\nPushig archipack forward.\n\n\nPeople of #blenderpython\n\n\nFor kindness, support, inspiration, testing, reporting errors and general help.\n\nmeta-androcto, lijenstina, linda_bliblubli, Tynkatopi, nBurn, bzztploink, mirlip, gidio  \n\n\nPeople of Chocofur.com\n\n\nWorking to provide a dedicated material library.  \n\n\nHope i don't forget anyone involved in the archipack's effort, if so, don't take offence and drop me a line.",
+            "title": "Acknowledgments"
+        },
+        {
+            "location": "/acknowledgements/#i-would-like-to-thank-every-one-making-this-possible",
+            "text": "Archipack is dedicated to Ana.",
+            "title": "I would like to thank every one making this possible."
+        },
+        {
+            "location": "/acknowledgements/#people-making-blender-better-every-day",
+            "text": "Ton, ideasman42, mont29, hackerman, dalai, dr_sybren, pablo and every core developper and contributors.",
+            "title": "People making Blender better every day."
+        },
+        {
+            "location": "/acknowledgements/#special-thank-to",
+            "text": "Antonyoia, for paving the parametric objects way with archimesh. \nBlendingJake, for contribution in Floors (JARCH-viz). \nOkavango for inspiration with NP station, pushing forward the CAD community on blender. \nCoders and contributors of addons releasing public code. \ndpdp (Daniel Pool) for contributions in tutorials and help in ba forums.",
+            "title": "Special thank to"
+        },
+        {
+            "location": "/acknowledgements/#donators",
+            "text": "Pushig archipack forward.",
+            "title": "Donators"
+        },
+        {
+            "location": "/acknowledgements/#people-of-blenderpython",
+            "text": "For kindness, support, inspiration, testing, reporting errors and general help. \nmeta-androcto, lijenstina, linda_bliblubli, Tynkatopi, nBurn, bzztploink, mirlip, gidio",
+            "title": "People of #blenderpython"
+        },
+        {
+            "location": "/acknowledgements/#people-of-chocofurcom",
+            "text": "Working to provide a dedicated material library.    Hope i don't forget anyone involved in the archipack's effort, if so, don't take offence and drop me a line.",
+            "title": "People of Chocofur.com"
+        },
+        {
+            "location": "/setup/",
+            "text": "Download\n\n\nDownload from  \nthis page\n\npress the green \"Clone or download\" button and select Download ZIP\n\n\n\nInstallation of the add-on\n\n\nOpen user preferences   \n\n\n\n\nPress \"Install from file\", select downloaded archipack-master.zip  \n\n\n\n\nActivate the add-on  \n\n\n\n\nPresets\n\n\nIn user preferences -> Add-ons -> Archpack, \nPress \"Render presets thumbs\" once, confirm and wait a bit till done. \n\n\nDefault material library\n\n\nDownload the default material library for Cycles \nfrom this link\n \n\nSave this file into a writeable folder.\n\nIn user preferences -> Add-ons -> Archpack, \nadd the full path to this folder into \"Material library, Folder path\"",
+            "title": "Setup"
+        },
+        {
+            "location": "/setup/#download",
+            "text": "Download from   this page \npress the green \"Clone or download\" button and select Download ZIP",
+            "title": "Download"
+        },
+        {
+            "location": "/setup/#installation-of-the-add-on",
+            "text": "Open user preferences      Press \"Install from file\", select downloaded archipack-master.zip     Activate the add-on",
+            "title": "Installation of the add-on"
+        },
+        {
+            "location": "/setup/#presets",
+            "text": "In user preferences -> Add-ons -> Archpack, \nPress \"Render presets thumbs\" once, confirm and wait a bit till done.",
+            "title": "Presets"
+        },
+        {
+            "location": "/setup/#default-material-library",
+            "text": "Download the default material library for Cycles  from this link   \nSave this file into a writeable folder. \nIn user preferences -> Add-ons -> Archpack, \nadd the full path to this folder into \"Material library, Folder path\"",
+            "title": "Default material library"
+        },
+        {
+            "location": "/2dto3d/detect/",
+            "text": "Detect\n\n\nThis set of tools does compute all intersections of a set of curves and detect polygons.\n\nOnce detected you may choose between 3 select tools to select lines/polygons and create objects from selection.\n\nYou are able to use any select tool at any time, detected data remains valid until you reselect another set of curves and repress \"Detect\".\n\nDetect find polygons for ~ 1k segment / second, so it may take some time.\n\n\n2d to 3d video tutorial\n\n\nOptions\n\n\n\n\nBezier resolution : this tool only work with linear segments, resolution is the number of steps to estimate each bezier curved segment.  \n\n\nExtend end: try to extend segments to find intersections, allow to fill small gaps between lines. Typically 1 cm should be enougth, setting too high will require more time.  \n\n\nExtend all segs: Extend only work for line ends, when checked the tool will try to extend all segments instead (slowest, but may be safer in some situations).\n\n\n\n\nTypical (generic) workflow\n\n\n\n\nSelect one or more curves\n\n\nExpand \"Detect\" options, choose extend limit and extend all segs when apply (see Polygonize)\n\n\npress \"Detect\", wait till done ( ~ 1k segment/sec)\n\n\npress \"Polygons / Lines / Points\" to start a select tool\n\n\nSelect one or many lines, using click and drag to select into an area.\n\n\nUse keyboard to generate your objects (see on-screen options)\n\n\nRepeat 5 and 6 according your needs, then Right click or press esc to exit\n\n\n\n\nArchitectural workflow\n\n\n\n\nClean up, Detect and possibly use \"Points\" to fill missing parts\n\n\nselect curves, and Detect \n\n\nUse \"Polygons\" to create openings objects (windows and doors)\n\n\nUse \"Polygons\" to create walls / slabs.. \n\n\nUse \"Lines\" to output guide lines for fences\n\n\n\n\nSelect tools\n\n\n(shortcut) Common select actions\n\n\n\n\n(a) Select all / none\n\n\n(i) Select inverse\n\n\n(b) Select biggest than current (apply only on polygons)\n\n\n(s) Save current selection\n\n\n(l) Load saved selection\n\n\n(shift) Unselect on click or click & drag to unselect in area\n\n\n(ctrl) Select when area fully contains polygon (Deselect when shift is pressed)\n\n\n\n\nSelect Polygons\n\n\nThis tool allow to select areas and build objects from selection.\n\n\n(shortcut) Select Polygons actions\n\n\n\n\n(o) Selection as closed curves\n\n\n(u) Union of selection boundary as closed curves\n\n\n(f) 2d Surface using union of boundarys\n\n\n(e) 3d Wall using union of boundarys\n\n\n(w) start/exit a tool to create Window over selection\n\n\n(d) start/exit a tool to create Door over selection\n\n\n(r) Best fit rectangle of selection as closed curve\n\n\n\n\nCreating windows / doors\n\n\nThis tool create one object at time.\n\nWith an area selected, press either w for window or d for door does start a special create tool.\nPress left mouse and drag to set the desired direction of opening, release to create the object.\nPressing w or d when running the create tool cancel the action and allow to select another polygon.\n\n\nSelect Lines\n\n\nThis tool allow to select lines and build curves from selection.\n\n\n(shortcut) Select Lines actions\n\n\n\n\n(u) Union of selected lines as curve\n\n\n(f) selected lines as curve\n\n\n\n\nSelect Points\n\n\nThis tool allow to select points and build curves from selection.\nIntended to fill missing parts of walls, eg when the wall is cut on openings like with doors.\n\n\n(shortcut) Select Points actions\n\n\n\n\n(alt + f) best fit rectangle around selected points as curve\n\n\n(f) line as seen on screen as curve",
+            "title": "Detect"
+        },
+        {
+            "location": "/2dto3d/detect/#detect",
+            "text": "This set of tools does compute all intersections of a set of curves and detect polygons. \nOnce detected you may choose between 3 select tools to select lines/polygons and create objects from selection. \nYou are able to use any select tool at any time, detected data remains valid until you reselect another set of curves and repress \"Detect\". \nDetect find polygons for ~ 1k segment / second, so it may take some time.  2d to 3d video tutorial",
+            "title": "Detect"
+        },
+        {
+            "location": "/2dto3d/detect/#options",
+            "text": "Bezier resolution : this tool only work with linear segments, resolution is the number of steps to estimate each bezier curved segment.    Extend end: try to extend segments to find intersections, allow to fill small gaps between lines. Typically 1 cm should be enougth, setting too high will require more time.    Extend all segs: Extend only work for line ends, when checked the tool will try to extend all segments instead (slowest, but may be safer in some situations).",
+            "title": "Options"
+        },
+        {
+            "location": "/2dto3d/detect/#typical-generic-workflow",
+            "text": "Select one or more curves  Expand \"Detect\" options, choose extend limit and extend all segs when apply (see Polygonize)  press \"Detect\", wait till done ( ~ 1k segment/sec)  press \"Polygons / Lines / Points\" to start a select tool  Select one or many lines, using click and drag to select into an area.  Use keyboard to generate your objects (see on-screen options)  Repeat 5 and 6 according your needs, then Right click or press esc to exit",
+            "title": "Typical (generic) workflow"
+        },
+        {
+            "location": "/2dto3d/detect/#architectural-workflow",
+            "text": "Clean up, Detect and possibly use \"Points\" to fill missing parts  select curves, and Detect   Use \"Polygons\" to create openings objects (windows and doors)  Use \"Polygons\" to create walls / slabs..   Use \"Lines\" to output guide lines for fences",
+            "title": "Architectural workflow"
+        },
+        {
+            "location": "/2dto3d/detect/#select-tools",
+            "text": "",
+            "title": "Select tools"
+        },
+        {
+            "location": "/2dto3d/detect/#shortcut-common-select-actions",
+            "text": "(a) Select all / none  (i) Select inverse  (b) Select biggest than current (apply only on polygons)  (s) Save current selection  (l) Load saved selection  (shift) Unselect on click or click & drag to unselect in area  (ctrl) Select when area fully contains polygon (Deselect when shift is pressed)",
+            "title": "(shortcut) Common select actions"
+        },
+        {
+            "location": "/2dto3d/detect/#select-polygons",
+            "text": "This tool allow to select areas and build objects from selection.",
+            "title": "Select Polygons"
+        },
+        {
+            "location": "/2dto3d/detect/#shortcut-select-polygons-actions",
+            "text": "(o) Selection as closed curves  (u) Union of selection boundary as closed curves  (f) 2d Surface using union of boundarys  (e) 3d Wall using union of boundarys  (w) start/exit a tool to create Window over selection  (d) start/exit a tool to create Door over selection  (r) Best fit rectangle of selection as closed curve",
+            "title": "(shortcut) Select Polygons actions"
+        },
+        {
+            "location": "/2dto3d/detect/#creating-windows-doors",
+            "text": "This tool create one object at time. \nWith an area selected, press either w for window or d for door does start a special create tool.\nPress left mouse and drag to set the desired direction of opening, release to create the object.\nPressing w or d when running the create tool cancel the action and allow to select another polygon.",
+            "title": "Creating windows / doors"
+        },
+        {
+            "location": "/2dto3d/detect/#select-lines",
+            "text": "This tool allow to select lines and build curves from selection.",
+            "title": "Select Lines"
+        },
+        {
+            "location": "/2dto3d/detect/#shortcut-select-lines-actions",
+            "text": "(u) Union of selected lines as curve  (f) selected lines as curve",
+            "title": "(shortcut) Select Lines actions"
+        },
+        {
+            "location": "/2dto3d/detect/#select-points",
+            "text": "This tool allow to select points and build curves from selection.\nIntended to fill missing parts of walls, eg when the wall is cut on openings like with doors.",
+            "title": "Select Points"
+        },
+        {
+            "location": "/2dto3d/detect/#shortcut-select-points-actions",
+            "text": "(alt + f) best fit rectangle around selected points as curve  (f) line as seen on screen as curve",
+            "title": "(shortcut) Select Points actions"
+        },
+        {
+            "location": "/2dto3d/simplify/",
+            "text": "Simplify\n\n\nSimplify input curve(s), using Douglas Peuker method or Topology preserving method.\nUse this tool to clean up your curves from unnecessary points.\n\n\nOptions\n\n\n\n\nBezier resolution : input bezier curves approximation.\n\n\nTolerance : Keep points who when removed change the overall shape more than this distance.\n\n\nPreserve Topology : use slower Topology preserving method (prevent self intersecting to occur)",
+            "title": "Simplify"
+        },
+        {
+            "location": "/2dto3d/simplify/#simplify",
+            "text": "Simplify input curve(s), using Douglas Peuker method or Topology preserving method.\nUse this tool to clean up your curves from unnecessary points.",
+            "title": "Simplify"
+        },
+        {
+            "location": "/2dto3d/simplify/#options",
+            "text": "Bezier resolution : input bezier curves approximation.  Tolerance : Keep points who when removed change the overall shape more than this distance.  Preserve Topology : use slower Topology preserving method (prevent self intersecting to occur)",
+            "title": "Options"
+        },
+        {
+            "location": "/2dto3d/offset/",
+            "text": "Offset\n\n\nOffset is a line at a distance from a curve(s) on it right or left side. \n\n\nDemo video\n\n\nOptions\n\n\n\n\nBezier resolution : input bezier curves approximation. \n\n\nDistance : offset distance. \n\n\nSide : avaliable side for offset are : left, right.\n\n\nResolution : determines the number of segments used to approximate a quarter circle around a point.\n\n\nStyle: available styles of joins between offset segments are : round, mitre, and bevel.\n\n\nMitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.\n\n\n\n\nNote\n\n\nWhile this tool does work with closed splines, when expanding it may result in open curve.",
+            "title": "Offset"
+        },
+        {
+            "location": "/2dto3d/offset/#offset",
+            "text": "Offset is a line at a distance from a curve(s) on it right or left side.   Demo video",
+            "title": "Offset"
+        },
+        {
+            "location": "/2dto3d/offset/#options",
+            "text": "Bezier resolution : input bezier curves approximation.   Distance : offset distance.   Side : avaliable side for offset are : left, right.  Resolution : determines the number of segments used to approximate a quarter circle around a point.  Style: available styles of joins between offset segments are : round, mitre, and bevel.  Mitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.",
+            "title": "Options"
+        },
+        {
+            "location": "/2dto3d/offset/#note",
+            "text": "While this tool does work with closed splines, when expanding it may result in open curve.",
+            "title": "Note"
+        },
+        {
+            "location": "/2dto3d/buffer/",
+            "text": "Buffer\n\n\nBuffer is an approximate representation of all points within a given distance of the input curve(s).\nUse this tool to build eg wall from axis / border, road from axis and so on. \n\n\nDemo video\n\n\nOptions\n\n\n\n\nBezier resolution : input bezier curves approximation. \n\n\nDistance : when positive distance has an effect of dilation, when negative erosion. \n\n\nSide : avaliable side for buffer are : both, left, right.\n\n\nResolution : determines the number of segments used to approximate a quarter circle around a point.\n\n\nCap: available styles of caps are : round, flat, and square. \n\n\nJoin: available styles of joins between offset segments are : round, mitre, and bevel.\n\n\nMitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.\n\n\n\n\nNote\n\n\nWhile this tool does work with closed splines, endpoints may suffer from square cap artefact.",
+            "title": "Buffer"
+        },
+        {
+            "location": "/2dto3d/buffer/#buffer",
+            "text": "Buffer is an approximate representation of all points within a given distance of the input curve(s).\nUse this tool to build eg wall from axis / border, road from axis and so on.   Demo video",
+            "title": "Buffer"
+        },
+        {
+            "location": "/2dto3d/buffer/#options",
+            "text": "Bezier resolution : input bezier curves approximation.   Distance : when positive distance has an effect of dilation, when negative erosion.   Side : avaliable side for buffer are : both, left, right.  Resolution : determines the number of segments used to approximate a quarter circle around a point.  Cap: available styles of caps are : round, flat, and square.   Join: available styles of joins between offset segments are : round, mitre, and bevel.  Mitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.",
+            "title": "Options"
+        },
+        {
+            "location": "/2dto3d/buffer/#note",
+            "text": "While this tool does work with closed splines, endpoints may suffer from square cap artefact.",
+            "title": "Note"
+        },
+        {
+            "location": "/2dto3d/boolean/",
+            "text": "Boolean\n\n\nProvides 2d boolean operations between curves.\n\nBoolean is able to take account of the closed state of curves (areas).\n\n\nDemo video\n\n\nOperations\n\n\n\n\nUnion\n\n\nIntersection\n\n\nDifferences (selection - active and active - selection)\n\n\nSymmetric difference\n\n\n\n\nNote\n\n\n2d to 3d Detect method can be significantely faster when performing complex operations between many objects.",
+            "title": "2d Boolean"
+        },
+        {
+            "location": "/2dto3d/boolean/#boolean",
+            "text": "Provides 2d boolean operations between curves. \nBoolean is able to take account of the closed state of curves (areas).  Demo video",
+            "title": "Boolean"
+        },
+        {
+            "location": "/2dto3d/boolean/#operations",
+            "text": "Union  Intersection  Differences (selection - active and active - selection)  Symmetric difference",
+            "title": "Operations"
+        },
+        {
+            "location": "/2dto3d/boolean/#note",
+            "text": "2d to 3d Detect method can be significantely faster when performing complex operations between many objects.",
+            "title": "Note"
+        },
+        {
+            "location": "/archipack/Archipack-Window/",
+            "text": "Windows\n\n\n\n\nDraw a window tool to slap windows over walls\n\n\nAllow up to 32 columns of windows\n\n\nUnlimited rows of windows\n\n\nShapes including rectangle, top round, top elliptic, top with an angle, full circle\n\n\nRail and flat window\n\n\nEach window is a separate object so you are able to open them the way you like.\n\n\nFixed and moving frames\n\n\nHandles\n\n\nAutomatic holes for booleans\n\n\nPreset system to share styles across projects\n\n\n\n\nUser guide\n\n\n\nFind window on the left panel of 3d view, Create->Archipack under regular primitives\n\n\nHow to ?\n\n\nBend window to fit a curved wall ?\n\n\n\n\nAdd a subdivide modifier in \"simple\" mode with say 2 or more subdivisions.\n\n\nAdd a SimpleDeform modifier in \"Bend\" mode and set angle according your needs.  \n\n\n\n\nDo the same with the hole object, and each panels.",
+            "title": "Window"
+        },
+        {
+            "location": "/archipack/Archipack-Window/#windows",
+            "text": "Draw a window tool to slap windows over walls  Allow up to 32 columns of windows  Unlimited rows of windows  Shapes including rectangle, top round, top elliptic, top with an angle, full circle  Rail and flat window  Each window is a separate object so you are able to open them the way you like.  Fixed and moving frames  Handles  Automatic holes for booleans  Preset system to share styles across projects",
+            "title": "Windows"
+        },
+        {
+            "location": "/archipack/Archipack-Window/#user-guide",
+            "text": "Find window on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Window/#how-to",
+            "text": "",
+            "title": "How to ?"
+        },
+        {
+            "location": "/archipack/Archipack-Window/#bend-window-to-fit-a-curved-wall",
+            "text": "Add a subdivide modifier in \"simple\" mode with say 2 or more subdivisions.  Add a SimpleDeform modifier in \"Bend\" mode and set angle according your needs.     Do the same with the hole object, and each panels.",
+            "title": "Bend window to fit a curved wall ?"
+        },
+        {
+            "location": "/archipack/Archipack-Door/",
+            "text": "Door\n\n\n\n\nDraw a door tool to slap doors over walls\n\n\nAllow up to 2 columns\n\n\nParametric panel allow multiple shapes and ilimited number of parts.\n\n\nEach door is a separate object so you are able to open them the way you like.\n\n\nHandles\n\n\nAutomatic holes for booleans\n\n\n\n\nUser guide\n\n\n\n\nFind door on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "Door"
+        },
+        {
+            "location": "/archipack/Archipack-Door/#door",
+            "text": "Draw a door tool to slap doors over walls  Allow up to 2 columns  Parametric panel allow multiple shapes and ilimited number of parts.  Each door is a separate object so you are able to open them the way you like.  Handles  Automatic holes for booleans",
+            "title": "Door"
+        },
+        {
+            "location": "/archipack/Archipack-Door/#user-guide",
+            "text": "Find door on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Stair/",
+            "text": "Stair\n\n\n\n\nSupport up to 512 number of parts\n\n\nBasic stair shape presets for I, L, O, U, and user defined stairs\n\n\nParts including Straight stair, Curved stair, Dual curved stair, Landing, Curved landing, and Dual curved landing. (dual means with 2 corners)\n\n\nEach sides of curved parts may be straight or rounded\n\n\nStep shapes Open, Closed and full height\n\n\nStep nose straight or with slope\n\n\nHandrails\n\n\nBalluster glass like panels\n\n\nStrings\n\n\nup to 32 Rails\n\n\nPosts and subs including user defined ones\n\n\nPreset system to share styles across projects\n\n\n\n\nUser guide\n\n\nFind stair on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "Stair"
+        },
+        {
+            "location": "/archipack/Archipack-Stair/#stair",
+            "text": "Support up to 512 number of parts  Basic stair shape presets for I, L, O, U, and user defined stairs  Parts including Straight stair, Curved stair, Dual curved stair, Landing, Curved landing, and Dual curved landing. (dual means with 2 corners)  Each sides of curved parts may be straight or rounded  Step shapes Open, Closed and full height  Step nose straight or with slope  Handrails  Balluster glass like panels  Strings  up to 32 Rails  Posts and subs including user defined ones  Preset system to share styles across projects",
+            "title": "Stair"
+        },
+        {
+            "location": "/archipack/Archipack-Stair/#user-guide",
+            "text": "Find stair on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/",
+            "text": "Wall\n\n\n\n\nEach segment may have up to 32 height changes\n\n\nSupport straight and curved walls\n\n\nAny angle between segments\n\n\nDraw wall with snap\n\n\nFlexible snap manipulator\n\n\nOnce auto-boolean done, wall manipulators take care of moving surrounding doors and windows according your changes\n\n\nAuto-align and resize surrounding doors and windows according wall depth\n\n\nManipulators for easy on screen edition\n\n\nWall T childs (1.2.7+)\n\n\nFit to roof (1.2.7+) automatically fit wall to surroundig roof.\n\n\n\n\nImportant note:\n\n\nArchipack provide 2 kinds of walls\n- Wall made with 2d to 3d tool, where only height may be changed, but able to handle complex shapes.\n- Full parametric wall made with add Archipack tools, documented here.\n\n\n\n\nT childs walls (1.2.7+)\n\n\n\n\nT childs walls are T walls linked to parent wall.\n\nWhen manipulating parent wall, T child will follow according.  \n\n\nSetup a T child\n\n\nThere is 2 way to setup T child: \n\n Using \"draw a wall\" tool, with mouse over parent wall when starting to create your \"child\" wall, the tool detect parent wall and provide regular snapping features to allow precise orientation of child with respect to parent.\n\n\n With an allready made wall, having child wall's pivot near parent (use \"reverse\" if your pivot is in the wrong side) then in child's wall parameters, choose parent in \"T link\"\n\n\nT child orientation with respect to parent\n\n\nIn order to orient child, use the part's 1  \"start angle\" parameter, where -90 make child outside of wall and 90 inside.  \n\n\nMoving T child\n\n\nYou may move the child, as long as it's pivot stay close from parent.\n\n\nIn order to translate child along parent, there is a dedicated manipulator with 2 small arrows where T child touch parent wall. This manipulator take care of moving T child windows and doors according.\n\n\nTextures\n\n\nTypical node setup for texture under cycles\n\n\n\n\nMaterials\n\n\nCurrently wall mesh is based on solidify modifier, wich imply some limitations regarding materials.\n\nIn order to be able to setup different materials to parts, you have to apply the solidify modifier, (labelled \"Wall\") and then use regular blender modelling on the wall. \nAny parameter change on the wall will result in loosing changes done this way.\n\n\nUser guide\n\n\nFind wall on the left panel of 3d view, Create->Archipack under regular primitives\n\nYou may either create a wall and edit on screen or use \"Draw a wall\" create tool.",
+            "title": "Wall"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#wall",
+            "text": "Each segment may have up to 32 height changes  Support straight and curved walls  Any angle between segments  Draw wall with snap  Flexible snap manipulator  Once auto-boolean done, wall manipulators take care of moving surrounding doors and windows according your changes  Auto-align and resize surrounding doors and windows according wall depth  Manipulators for easy on screen edition  Wall T childs (1.2.7+)  Fit to roof (1.2.7+) automatically fit wall to surroundig roof.",
+            "title": "Wall"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#important-note",
+            "text": "Archipack provide 2 kinds of walls\n- Wall made with 2d to 3d tool, where only height may be changed, but able to handle complex shapes.\n- Full parametric wall made with add Archipack tools, documented here.",
+            "title": "Important note:"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#t-childs-walls-127",
+            "text": "T childs walls are T walls linked to parent wall. \nWhen manipulating parent wall, T child will follow according.",
+            "title": "T childs walls (1.2.7+)"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#setup-a-t-child",
+            "text": "There is 2 way to setup T child:   Using \"draw a wall\" tool, with mouse over parent wall when starting to create your \"child\" wall, the tool detect parent wall and provide regular snapping features to allow precise orientation of child with respect to parent.   With an allready made wall, having child wall's pivot near parent (use \"reverse\" if your pivot is in the wrong side) then in child's wall parameters, choose parent in \"T link\"",
+            "title": "Setup a T child"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#t-child-orientation-with-respect-to-parent",
+            "text": "In order to orient child, use the part's 1  \"start angle\" parameter, where -90 make child outside of wall and 90 inside.",
+            "title": "T child orientation with respect to parent"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#moving-t-child",
+            "text": "You may move the child, as long as it's pivot stay close from parent.  In order to translate child along parent, there is a dedicated manipulator with 2 small arrows where T child touch parent wall. This manipulator take care of moving T child windows and doors according.",
+            "title": "Moving T child"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#textures",
+            "text": "Typical node setup for texture under cycles",
+            "title": "Textures"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#materials",
+            "text": "Currently wall mesh is based on solidify modifier, wich imply some limitations regarding materials. \nIn order to be able to setup different materials to parts, you have to apply the solidify modifier, (labelled \"Wall\") and then use regular blender modelling on the wall. \nAny parameter change on the wall will result in loosing changes done this way.",
+            "title": "Materials"
+        },
+        {
+            "location": "/archipack/Archipack-Wall/#user-guide",
+            "text": "Find wall on the left panel of 3d view, Create->Archipack under regular primitives \nYou may either create a wall and edit on screen or use \"Draw a wall\" create tool.",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Fence/",
+            "text": "Fence\n\n\n\n\nPowerfull linear array like system\n\n\nHandrail\n\n\nPosts and subs including user defined ones\n\n\nUp to 32 rails\n\n\nPanels like glass\n\n\nFence from curve\n\n\nPreset system to share styles across projects\n\n\n\n\nUser guide\n\n\n\nFind fence on the left panel of 3d view, Create->Archipack under regular primitives\n\n\nDev note\n\n\nIn order to share parameters between fences on the same curve:  \n\n\n\n\nmake target active_object \n\n\nset .auto_update = False\n\n\ncopy object.data.archipack_fence[0] parameters\n\n\nset .user_defined_spline as the index of current spline in curve \n\n\nand then switch back .auto_update = True",
+            "title": "Fence"
+        },
+        {
+            "location": "/archipack/Archipack-Fence/#fence",
+            "text": "Powerfull linear array like system  Handrail  Posts and subs including user defined ones  Up to 32 rails  Panels like glass  Fence from curve  Preset system to share styles across projects",
+            "title": "Fence"
+        },
+        {
+            "location": "/archipack/Archipack-Fence/#user-guide",
+            "text": "Find fence on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Fence/#dev-note",
+            "text": "In order to share parameters between fences on the same curve:     make target active_object   set .auto_update = False  copy object.data.archipack_fence[0] parameters  set .user_defined_spline as the index of current spline in curve   and then switch back .auto_update = True",
+            "title": "Dev note"
+        },
+        {
+            "location": "/archipack/Archipack-Slab/",
+            "text": "Slab\n\n\n\n\nCreate balcony with fence\n\n\nPreserve shape while changing segments type / deleting / adding segments\n\n\nSlab from Wall (ceiling or floor)\n\n\nSlab from curve\n\n\nWall from Slab\n\n\n\n\n\n\nUser guide\n\n\nFind slab from curve, slab from wall on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "Slab"
+        },
+        {
+            "location": "/archipack/Archipack-Slab/#slab",
+            "text": "Create balcony with fence  Preserve shape while changing segments type / deleting / adding segments  Slab from Wall (ceiling or floor)  Slab from curve  Wall from Slab",
+            "title": "Slab"
+        },
+        {
+            "location": "/archipack/Archipack-Slab/#user-guide",
+            "text": "Find slab from curve, slab from wall on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Floor/",
+            "text": "Floor\n\n\nArchipack's floor is based on a contribution of Jackob Morris \nJARCH-Vis\n  \n\n\nCreate tiles and wood based floors \n\n\n\n\nTiles include regular, big with one small, big with many small, hexagon\n\n\nWood include planks, parquet, herringbone, herringbone parquet\n\n\nAlternative materials variations\n\n\nAutomatic uvs so no need to unwrap\n\n\noptional Grout\n\n\noptional Bevel\n\n\noptional Randomness for height, length, width, distribution\n\n\nPreset system to share styles across projects\n\n\nCutter and free form shape\n\n\nFloor from curve\n\n\n\n\nUser guide\n\n\n\nFind floor on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "Floor"
+        },
+        {
+            "location": "/archipack/Archipack-Floor/#floor",
+            "text": "Archipack's floor is based on a contribution of Jackob Morris  JARCH-Vis     Create tiles and wood based floors    Tiles include regular, big with one small, big with many small, hexagon  Wood include planks, parquet, herringbone, herringbone parquet  Alternative materials variations  Automatic uvs so no need to unwrap  optional Grout  optional Bevel  optional Randomness for height, length, width, distribution  Preset system to share styles across projects  Cutter and free form shape  Floor from curve",
+            "title": "Floor"
+        },
+        {
+            "location": "/archipack/Archipack-Floor/#user-guide",
+            "text": "Find floor on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Roof/",
+            "text": "Roof\n\n\n\n\n Allow \"branched\" roofs\n\n Triangular ends\n\n Dormer windows\n\n Roof Cutter to slice parts of roofs\n\n Up to 512 roof parts\n\n\n Generate tiles, hips, rafters, facia, beam, gutters and rakes.\n\n Many tiles style : Roman, 2 kind of terracota, small rounded, stones, flat, \"eternit \u2122\", 2 kinds of metal. \n\n Draft mode and quick edit for realtime edit even on complex roofs\n\n Preset system to share styles across projects\n\n Overrides for slope / width of each part\n* Slope 2d angle constraints for both ends and between parts  \n\n\nBranched roofs\n\n\n  \n\n\nRoof cutter\n\n\n  \n\n\nComposite complex roofs \n\n\n  \n\n\nSlope constraints\n\n\n  \n\n\nUser guide\n\n\nFind Roof on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "Roof"
+        },
+        {
+            "location": "/archipack/Archipack-Roof/#roof",
+            "text": "Allow \"branched\" roofs  Triangular ends  Dormer windows  Roof Cutter to slice parts of roofs  Up to 512 roof parts   Generate tiles, hips, rafters, facia, beam, gutters and rakes.  Many tiles style : Roman, 2 kind of terracota, small rounded, stones, flat, \"eternit \u2122\", 2 kinds of metal.   Draft mode and quick edit for realtime edit even on complex roofs  Preset system to share styles across projects  Overrides for slope / width of each part\n* Slope 2d angle constraints for both ends and between parts    Branched roofs      Roof cutter      Composite complex roofs       Slope constraints",
+            "title": "Roof"
+        },
+        {
+            "location": "/archipack/Archipack-Roof/#user-guide",
+            "text": "Find Roof on the left panel of 3d view, Create->Archipack under regular primitives",
+            "title": "User guide"
+        },
+        {
+            "location": "/archipack/Archipack-Reference-point/",
+            "text": "Reference point\n\n\n\n\nMove from 2d position to 3d position to allow fast editing over blueprint (like paper space and 3d space)\n\n\nSet arbitrary reference location to make alignment easy.\n\n\n\n\n\n\nUser guide\n\n\nReference points are parent objects of walls, doors and windows once auto-boolean done. \nReference point is not to be created by user, auto-boolean take care to do it for you.",
+            "title": "Reference point"
+        },
+        {
+            "location": "/archipack/Archipack-Reference-point/#reference-point",
+            "text": "Move from 2d position to 3d position to allow fast editing over blueprint (like paper space and 3d space)  Set arbitrary reference location to make alignment easy.",
+            "title": "Reference point"
+        },
+        {
+            "location": "/archipack/Archipack-Reference-point/#user-guide",
+            "text": "Reference points are parent objects of walls, doors and windows once auto-boolean done. \nReference point is not to be created by user, auto-boolean take care to do it for you.",
+            "title": "User guide"
+        },
+        {
+            "location": "/features/Archipack-Automatic-Boolean/",
+            "text": "AutoBoolean\n\n\nUsing \"draw Window or draw Door\" tools automatically create holes for you, even on custom walls.\n\n\nShould you want to update a wall (eg after a window copy made by hand), \nFind Auto boolean on the left part of 3d view, under tools>tools>Archipack\n\nSlap your windows and doors over your walls, select the wall, then press AtutomaticBoolean.  \n\n\nAutoBoolean look for holes in wall bounding box, so avoid overlapping walls !  \n\n\nApply holes\n\n\nWhen all holes are done, you may want to \"apply\" them on your walls eg for export, and in order to simplify your scene.\nUse either \"selected\" or \"all\" under Archipack Tools -> Apply holes to apply holes modifiers, and delete holes from scene. \n\n\nImportant Note:\n\n\nOn regular archipack walls, apply holes can be reverted at any time by selecting the wall and pressing AutoBoolean.\n\nCustom walls and 2d to 3d walls are not able to revert changes done by apply holes, so use with caution.\n\n\nSolver mode:\n\n\n\n\n\"BMESH\" by default, as it is fast and working for most of cases.  \n\n\nOn wall with many holes or overlapping holes, using \"CARVE\" in solver mode may help with failing booleans. (Carve mode has proven to be less stable than bmesh and may crash blender so use with caution)",
+            "title": "Auto-Boolean"
+        },
+        {
+            "location": "/features/Archipack-Automatic-Boolean/#autoboolean",
+            "text": "Using \"draw Window or draw Door\" tools automatically create holes for you, even on custom walls.  Should you want to update a wall (eg after a window copy made by hand), \nFind Auto boolean on the left part of 3d view, under tools>tools>Archipack \nSlap your windows and doors over your walls, select the wall, then press AtutomaticBoolean.    AutoBoolean look for holes in wall bounding box, so avoid overlapping walls !",
+            "title": "AutoBoolean"
+        },
+        {
+            "location": "/features/Archipack-Automatic-Boolean/#apply-holes",
+            "text": "When all holes are done, you may want to \"apply\" them on your walls eg for export, and in order to simplify your scene.\nUse either \"selected\" or \"all\" under Archipack Tools -> Apply holes to apply holes modifiers, and delete holes from scene.",
+            "title": "Apply holes"
+        },
+        {
+            "location": "/features/Archipack-Automatic-Boolean/#important-note",
+            "text": "On regular archipack walls, apply holes can be reverted at any time by selecting the wall and pressing AutoBoolean. \nCustom walls and 2d to 3d walls are not able to revert changes done by apply holes, so use with caution.",
+            "title": "Important Note:"
+        },
+        {
+            "location": "/features/Archipack-Automatic-Boolean/#solver-mode",
+            "text": "\"BMESH\" by default, as it is fast and working for most of cases.    On wall with many holes or overlapping holes, using \"CARVE\" in solver mode may help with failing booleans. (Carve mode has proven to be less stable than bmesh and may crash blender so use with caution)",
+            "title": "Solver mode:"
+        },
+        {
+            "location": "/features/Custom-holes-and-walls/",
+            "text": "Custom objects\n\n\nUse any (clean and closed) mesh as custom hole or wall.\n\n\nCustom wall\n\n\nSelect the wall, press \"Custom wall\" in Add Archipack -> Custom objects.\nUndo by selecting the wall and press \"selected\" in Archipack Tools -> Kill parameters.\n\n\nCustom hole\n\n\nSelect the hole, press \"Custom hole\" in Add Archipack -> Custom objects.\nUndo by selecting the hole and press \"X\" next to \"Custom hole\".",
+            "title": "Custom holes and walls"
+        },
+        {
+            "location": "/features/Custom-holes-and-walls/#custom-objects",
+            "text": "Use any (clean and closed) mesh as custom hole or wall.",
+            "title": "Custom objects"
+        },
+        {
+            "location": "/features/Custom-holes-and-walls/#custom-wall",
+            "text": "Select the wall, press \"Custom wall\" in Add Archipack -> Custom objects.\nUndo by selecting the wall and press \"selected\" in Archipack Tools -> Kill parameters.",
+            "title": "Custom wall"
+        },
+        {
+            "location": "/features/Custom-holes-and-walls/#custom-hole",
+            "text": "Select the hole, press \"Custom hole\" in Add Archipack -> Custom objects.\nUndo by selecting the hole and press \"X\" next to \"Custom hole\".",
+            "title": "Custom hole"
+        },
+        {
+            "location": "/features/Notes-on-duplicating-and-presets/",
+            "text": "How to duplicate objects ?\n\n\nWindow and Door draw tools does provide support to clone objects.\n\nSelect source object frame, press alt while clicking on \"Draw\" tool beside Window or Door, in Add Archipack -> Objects\nPress shift while creating objects to make independant copy, without shift pressed objects are linked.\n\n\nDoors and Windows parameters are sored on the frame.\n\nThis means if you want duplicate you start by \nselecting the frame\n and then make your copy.\n\nYou'll end up with the frame being copied without other parts.\n\nIn order to recreate missing parts use the \"refresh\" button of object on the right panel.  \n\n\nAll Archipack objects does support linked copy - ALT+D (when you change parameter on one all linked update according) regular copy (SHIFT+D) and \"Copy to selected\" for single parameters.\n\n\nDoors an windows special notes\n\n\nOn top of linked objects you'll find an \nunlink\n button to break the link from other ones. \nYou'll also find a \ndelete\n button taking care of deleting all parts of compounds objects.",
+            "title": "Duplicating objects"
+        },
+        {
+            "location": "/features/Notes-on-duplicating-and-presets/#how-to-duplicate-objects",
+            "text": "Window and Door draw tools does provide support to clone objects. \nSelect source object frame, press alt while clicking on \"Draw\" tool beside Window or Door, in Add Archipack -> Objects\nPress shift while creating objects to make independant copy, without shift pressed objects are linked.  Doors and Windows parameters are sored on the frame. \nThis means if you want duplicate you start by  selecting the frame  and then make your copy. \nYou'll end up with the frame being copied without other parts. \nIn order to recreate missing parts use the \"refresh\" button of object on the right panel.    All Archipack objects does support linked copy - ALT+D (when you change parameter on one all linked update according) regular copy (SHIFT+D) and \"Copy to selected\" for single parameters.",
+            "title": "How to duplicate objects ?"
+        },
+        {
+            "location": "/features/Notes-on-duplicating-and-presets/#doors-an-windows-special-notes",
+            "text": "On top of linked objects you'll find an  unlink  button to break the link from other ones. \nYou'll also find a  delete  button taking care of deleting all parts of compounds objects.",
+            "title": "Doors an windows special notes"
+        },
+        {
+            "location": "/features/Make-objects-safe-to-edit/",
+            "text": "Make objects safe to edit\n\n\nArchipack objects are regular blender meshes so you may edit them at any time.\n\nHowever, modifying any parameter after edit will loose your changes.  \n\n\nIn order to prevent any parameter edit and get a \"safe to edit by hand\" non archipack aware mesh, use either \"selected\" or \"all\" found in Archipack Tools -> Kill parameters.\n\nThere are no undo for this operation, so use with care !",
+            "title": "Make objects editable"
+        },
+        {
+            "location": "/features/Make-objects-safe-to-edit/#make-objects-safe-to-edit",
+            "text": "Archipack objects are regular blender meshes so you may edit them at any time. \nHowever, modifying any parameter after edit will loose your changes.    In order to prevent any parameter edit and get a \"safe to edit by hand\" non archipack aware mesh, use either \"selected\" or \"all\" found in Archipack Tools -> Kill parameters. \nThere are no undo for this operation, so use with care !",
+            "title": "Make objects safe to edit"
+        },
+        {
+            "location": "/features/Archipack-Presets/",
+            "text": "Presets\n\n\nObjects with preset feature provide buttons to allow saving / removing and reloading user defined presets.\n\nThe preset system does render a thumbnail on save - thumbnails are 150 x 100 pixels.   \n\n\n\n\nRendering Thumbnails\n\n\nIn order to create/refresh presets thumbnails, use \"Render preset thumbs\" in user preferences -> Add-on -> archipack.\n\nThis tool does render every preset thumbnail and may take a few minits to do so.",
+            "title": "Presets"
+        },
+        {
+            "location": "/features/Archipack-Presets/#presets",
+            "text": "Objects with preset feature provide buttons to allow saving / removing and reloading user defined presets. \nThe preset system does render a thumbnail on save - thumbnails are 150 x 100 pixels.",
+            "title": "Presets"
+        },
+        {
+            "location": "/features/Archipack-Presets/#rendering-thumbnails",
+            "text": "In order to create/refresh presets thumbnails, use \"Render preset thumbs\" in user preferences -> Add-on -> archipack. \nThis tool does render every preset thumbnail and may take a few minits to do so.",
+            "title": "Rendering Thumbnails"
+        },
+        {
+            "location": "/features/Materials/",
+            "text": "Materials\n\n\nBy default, archipack set \"dumb\" materials to objects.  \n\nYou may want to setup your own default material library in a startup file.\n\nArchipack will then look at scene and use allready present materials by name.\n\nIn order to know the name of materials in use for each kind of objects, simply create one.\n\n\nManaging materials\n\n\nArchipack does provide a material loader taking advantage of libraries of predefined materials.\n\nDoing so allow to re-use materials across projects, and quickly set all materials of objects.\n\nYou may also use a startup scene with common and default materials.  \n\n\nMaterial libraries\n\n\nDownload default cycles material library sample\n\nIn addon preferences, there is a \"material library path\", use this to setup a path to a folder with material libraries in .blend files.\nArchipack will load material from those files using material names.\n\n\n  \n\n\nMaterial sets\n\n\nArchipack objects use more than one material so \"Material Sets\" are predefined groups of materials.\n\n\n   \n\n\nIn N panel, you'll find \"Archipack Material\" with a dropdown list and +- button to choose/store/remove predefined material sets.  \n\n\n\nMaterials sets are not materials, only a list of material names for each object's parts.\n\n\nLoading - choose a material set\n\n\nIf not found in current in scene (by material name), archipack try to load materials from libraries when you create an object and when you choose a material set.\n\n\nSaving\n\n\nWhen you save a set, current material names are saved, so you have to ensure the materials are stored in your libraries.\n\nMaterial sets store material names only, so you may use different sets of material libraries eg to handle more than one renderer.\n\n\nRemoving\n\n\nRemoving a set dosent remove material. This only remove the set definition. \n\n\nUsefull tools\n\n\nMatlib vx addon may be a great help here, to manage your libraries.",
+            "title": "Materials"
+        },
+        {
+            "location": "/features/Materials/#materials",
+            "text": "By default, archipack set \"dumb\" materials to objects.   \nYou may want to setup your own default material library in a startup file. \nArchipack will then look at scene and use allready present materials by name. \nIn order to know the name of materials in use for each kind of objects, simply create one.",
+            "title": "Materials"
+        },
+        {
+            "location": "/features/Materials/#managing-materials",
+            "text": "Archipack does provide a material loader taking advantage of libraries of predefined materials. \nDoing so allow to re-use materials across projects, and quickly set all materials of objects. \nYou may also use a startup scene with common and default materials.",
+            "title": "Managing materials"
+        },
+        {
+            "location": "/features/Materials/#material-libraries",
+            "text": "Download default cycles material library sample \nIn addon preferences, there is a \"material library path\", use this to setup a path to a folder with material libraries in .blend files.\nArchipack will load material from those files using material names.",
+            "title": "Material libraries"
+        },
+        {
+            "location": "/features/Materials/#material-sets",
+            "text": "Archipack objects use more than one material so \"Material Sets\" are predefined groups of materials.       In N panel, you'll find \"Archipack Material\" with a dropdown list and +- button to choose/store/remove predefined material sets.    \nMaterials sets are not materials, only a list of material names for each object's parts.",
+            "title": "Material sets"
+        },
+        {
+            "location": "/features/Materials/#loading-choose-a-material-set",
+            "text": "If not found in current in scene (by material name), archipack try to load materials from libraries when you create an object and when you choose a material set.",
+            "title": "Loading - choose a material set"
+        },
+        {
+            "location": "/features/Materials/#saving",
+            "text": "When you save a set, current material names are saved, so you have to ensure the materials are stored in your libraries. \nMaterial sets store material names only, so you may use different sets of material libraries eg to handle more than one renderer.",
+            "title": "Saving"
+        },
+        {
+            "location": "/features/Materials/#removing",
+            "text": "Removing a set dosent remove material. This only remove the set definition.",
+            "title": "Removing"
+        },
+        {
+            "location": "/features/Materials/#usefull-tools",
+            "text": "Matlib vx addon may be a great help here, to manage your libraries.",
+            "title": "Usefull tools"
+        },
+        {
+            "location": "/features/Export/",
+            "text": "Export\n\n\nWhen exporting models, boolean holes are exported too.  \n\n\nThere are two solutions to solve this issue.\n\n- Select parts to be exported and use \"export selection\"\n\n- Use \"Apply holes\" in the \"Archipack Tools\" T panel.  \n\n\nApply holes tool\n\n\nThis tool apply all boolean modifiers and delete holes.\n\nTo revert and get interactive holes back, select your wall and use \"AutoBoolean\" in the T panel (under Tools->Archipack Tools)",
+            "title": "Export"
+        },
+        {
+            "location": "/features/Export/#export",
+            "text": "When exporting models, boolean holes are exported too.    There are two solutions to solve this issue. \n- Select parts to be exported and use \"export selection\" \n- Use \"Apply holes\" in the \"Archipack Tools\" T panel.",
+            "title": "Export"
+        },
+        {
+            "location": "/features/Export/#apply-holes-tool",
+            "text": "This tool apply all boolean modifiers and delete holes. \nTo revert and get interactive holes back, select your wall and use \"AutoBoolean\" in the T panel (under Tools->Archipack Tools)",
+            "title": "Apply holes tool"
+        },
+        {
+            "location": "/features/Usefull-addons/",
+            "text": "Usefull add-ons\n\n\nBlenderGIS\n\nBlender addons to make the bridge between Blender and geographic data  \n\n\nSvershok\n\nSverchok is a parametric tool for architects and designers. You can use it to program object's shapes without knowing any programming languages.\nSverchok has been inspired by Grasshopper from Rhino 3D and uses a similar node-based visual programming principle. We are trying to bring this feature set to Blender users.\n\n\nMeasureIt\n\nPart of blender 2.79, MeasureIt is an add-on designed for displaying measures in the viewport, making the process of design objects with exact measures, easier.\n\nThese tools are extremely useful for any job that requires exact measurements, including architectural projects, technical design and 3D printing.  \n\n\nNP_Station\n\nA sketchup like workflow  \n\n\nExact offset\n\nA mesh editing tool that allows you to precisely set the distance, scale, and rotation of mesh objects using vertex locations.  \n\n\nCAD snap utilities\n\nAnother sketchup like workflow  \n\n\nCamera matching addon\n\nBlender camera calibration toolkit, that automatically aligns the Blender camera to match photographs based on user defined line segments.  \n\n\nMatlib_vx\n\nPart of blender 2.79, a Material library manager.  \n\n\nCut away shader\n\nIf you've ever wanted to cut away a cross section of a model, perform an architectural reveal or carry out some tricky special effects then this is the tool for you! \n\n\nVI suite\n\nThe VI-Suite leverages capabilities within Blender to create sun paths and shadow studies, and controls the external applications Radiance, EnergyPlus and matplotlib to conduct lighting analysis, energy performance analysis, advanced natural ventilation network creation, glare analysis and wind rose generation.",
+            "title": "Usefull addons"
+        },
+        {
+            "location": "/features/Usefull-addons/#usefull-add-ons",
+            "text": "BlenderGIS \nBlender addons to make the bridge between Blender and geographic data    Svershok \nSverchok is a parametric tool for architects and designers. You can use it to program object's shapes without knowing any programming languages.\nSverchok has been inspired by Grasshopper from Rhino 3D and uses a similar node-based visual programming principle. We are trying to bring this feature set to Blender users.  MeasureIt \nPart of blender 2.79, MeasureIt is an add-on designed for displaying measures in the viewport, making the process of design objects with exact measures, easier. \nThese tools are extremely useful for any job that requires exact measurements, including architectural projects, technical design and 3D printing.    NP_Station \nA sketchup like workflow    Exact offset \nA mesh editing tool that allows you to precisely set the distance, scale, and rotation of mesh objects using vertex locations.    CAD snap utilities \nAnother sketchup like workflow    Camera matching addon \nBlender camera calibration toolkit, that automatically aligns the Blender camera to match photographs based on user defined line segments.    Matlib_vx \nPart of blender 2.79, a Material library manager.    Cut away shader \nIf you've ever wanted to cut away a cross section of a model, perform an architectural reveal or carry out some tricky special effects then this is the tool for you!   VI suite \nThe VI-Suite leverages capabilities within Blender to create sun paths and shadow studies, and controls the external applications Radiance, EnergyPlus and matplotlib to conduct lighting analysis, energy performance analysis, advanced natural ventilation network creation, glare analysis and wind rose generation.",
+            "title": "Usefull add-ons"
+        },
+        {
+            "location": "/features/Importing-dxf/",
+            "text": "Importing dxf\n\n\nHow to fix common issues when importing dxf from cad packages ?\n\n\nPrecision issues, eg: files with georeference.\n\n\nProblem : Entity are too far from scene center, so you likely to loose precision.\n\nSolution : Open the file in a cad package, and center everything near 0,0 save (as new file) and re-import\n\n\nZoom issues\n\n\nProblem : You cant see your lines, have issues when zooming.\n\nSolutions : \n\n Right Side panel of 3d view (shortcut \"n\")->View->Clip  increase End value\n\n Right Side panel of 3d view (shortcut \"n\")->Display->Grid Floor  decrease Scale value",
+            "title": "Importing dxf"
+        },
+        {
+            "location": "/features/Importing-dxf/#importing-dxf",
+            "text": "How to fix common issues when importing dxf from cad packages ?",
+            "title": "Importing dxf"
+        },
+        {
+            "location": "/features/Importing-dxf/#precision-issues-eg-files-with-georeference",
+            "text": "Problem : Entity are too far from scene center, so you likely to loose precision. \nSolution : Open the file in a cad package, and center everything near 0,0 save (as new file) and re-import",
+            "title": "Precision issues, eg: files with georeference."
+        },
+        {
+            "location": "/features/Importing-dxf/#zoom-issues",
+            "text": "Problem : You cant see your lines, have issues when zooming. \nSolutions :   Right Side panel of 3d view (shortcut \"n\")->View->Clip  increase End value  Right Side panel of 3d view (shortcut \"n\")->Display->Grid Floor  decrease Scale value",
+            "title": "Zoom issues"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/",
+            "text": "Archipack toolkit\n\n\nWant to contribute ? add your own parametric object ?\n\nArchipack's toolkit is build from scratch to provide all needed parts to handle parametric objects, as easy to import subclasses, so you may focus on your base object mesh building.\n\nHere you'll find a \"quick start\" dev guide with all required parts.\n\n\nSample file available here\n\n\nImports\n\n\nImplementation sample\n\n\nMinimal required imports\n\n\nimport bpy\nfrom bpy.types import Operator, PropertyGroup, Mesh, Panel\n\n# Minimal required property types \nfrom bpy.props import (\n    FloatProperty, BoolProperty, CollectionProperty\n    )\nfrom mathutils import Vector\n\n# Bmesh made easy\nfrom .bmesh_utils import BmeshEdit as bmed\n\n# Manipulable\nfrom .archipack_manipulator import Manipulable\n\n# Preset system\nfrom .archipack_preset import ArchipackPreset, PresetMenuOperator\n\n# Base for Propertygroup and create tool Operator\nfrom .archipack_object import ArchipackCreateTool, ArchipackObject\n\n\n\n\nPropertyGroup\n\n\nThe main propertyGroup is the heart of parametric object, generating mesh on parameter changes using bmesh, and updating \"manipulators\" location according.\n\nSeparate properties for vertex, faces, material indexes and uvmaps is not required, made like this as for such simple object it allow to keep code clean.\n\nMore complex objects may require to build uvs maps knowing vertex location, and such design pattern would not work.\n\n\nNaming convention:\n\n\nuse archipack_ prefix, then your meanfull class name  \n\n\nRequirements\n\n\n\n\nMUST\n inherit from ArchipackObject and Manipulable\n\n\nMUST\n implement update() function generating / refreshing mesh and manipulators location, see \nUpdating manipulator location\n\n\nMUST\n implement setup_manipulators() function filling manipulators Collection see \nAvailable manipulators\n\n\nMUST\n have auto_update property to disable mesh updating for bulk updates\n\n\nProperties \nSHOULD\n call update (use update=update in property definition) \n\n\n\n\nImplementation sample (a box)\n\n\nMinimal implementation using all features\n\n\ndef update(self, context):\n    self.update(context)\n\n\nclass archipack_myobject(ArchipackObject, Manipulable, PropertyGroup):\n    \"\"\" Archipack toolkit sample\"\"\"\n    x = FloatProperty(\n            name=\"Width\",\n            default=2.0, min=0.01,\n            unit='LENGTH', subtype='DISTANCE',\n            update=update\n            )\n    y = FloatProperty(\n            name=\"Depth\",\n            default=2.0, min=0.01,\n            unit='LENGTH', subtype='DISTANCE',\n            update=update\n            )\n    z = FloatProperty(\n            name=\"Height\",\n            default=2.0, min=0.01,\n            unit='LENGTH', subtype='DISTANCE',\n            update=update\n            )\n    auto_update = BoolProperty(\n            # Wont save auto_update state in any case\n            options={'SKIP_SAVE'},\n            default=True,\n            update=update\n            )\n\n    @property\n    def verts(self):\n        \"\"\"\n            Object vertices coords\n        \"\"\"\n        x = 0.5 * self.x\n        y = 0.5 * self.y\n        z = self.z\n        return [\n            (-x, y, 0),\n            (-x, -y, 0),\n            (x, -y, 0),\n            (x, y, 0),\n            (-x, y, z),\n            (-x, -y, z),\n            (x, -y, z),\n            (x, y, z)\n        ]\n\n    @property\n    def faces(self):\n        \"\"\"\n            Object faces vertices index\n        \"\"\"\n        return [\n            (0, 1, 2, 3),\n            (7, 6, 5, 4),\n            (7, 4, 0, 3),\n            (4, 5, 1, 0),\n            (5, 6, 2, 1),\n            (6, 7, 3, 2)\n        ]\n\n    @property\n    def uvs(self):\n        \"\"\"\n            Object faces uv coords\n        \"\"\"\n        return [\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)]\n        ]\n\n    @property\n    def matids(self):\n        \"\"\"\n            Object material indexes for each face\n        \"\"\"\n        return [0, 0, 0, 0, 0, 0]\n\n    def setup_manipulators(self):\n        if len(self.manipulators) < 1:\n            # add manipulator for x property\n            s = self.manipulators.add()\n            s.prop1_name = \"x\"\n            s.type_key = 'SIZE'\n\n            # add manipulator for y property\n            s = self.manipulators.add()\n            s.prop1_name = \"y\"\n            s.type_key = 'SIZE'\n\n            # add manipulator for z property\n            s = self.manipulators.add()\n            s.prop1_name = \"z\"\n            s.type_key = 'SIZE'\n            # draw this one on xz plane \n            s.normal = Vector((0, 1, 0))\n\n    def update(self, context):\n\n        # provide support for \"copy to selected\" \n        o = self.find_in_selection(context, self.auto_update)\n\n        if o is None:\n            return\n\n        # dynamically create manipulators when needed  \n        self.setup_manipulators()\n\n        # update your mesh from parameters\n        bmed.buildmesh(context, \n                       o, \n                       self.verts,  \n                       self.faces,  \n                       matids=self.matids,  \n                       uvs=self.uvs,  \n                       weld=False)\n\n        # update manipulators location (3d location in object coordsystem)\n        x, y = 0.5 * self.x, 0.5 * self.y\n        self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (1, 0, 0)])\n        self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])\n        self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.z), (-1, 0, 0)])\n\n        # always restore context  \n        self.restore_context(context)\n\n\n\n\n\nPanel (T panel in UI)\n\n\nMain ui panel to modify object properties.\n\n\nNaming convention\n\n\nUse ARCHIPACK_PT_ prefix then your object name\n\n\nRequirements\n\n\n\n\nMUST\n poll using your PropertyGroup class\n\n\nMUST\n call manipulate operator\n\n\nMUST\n call presets operators\n\n\n\n\nImplementation sample (a box)\n\n\nMinimal implementation using all features\n\n\nclass ARCHIPACK_PT_myobject(Panel):\n    bl_idname = \"ARCHIPACK_PT_myobject\"\n    bl_label = \"MyObject\"\n    bl_space_type = 'VIEW_3D'\n    bl_region_type = 'UI'\n    bl_category = 'ArchiPack'\n\n    @classmethod\n    def poll(cls, context):\n        # ensure your object panel only show when active object is the right one \n        return archipack_myobject.filter(context.active_object)\n\n    def draw(self, context):\n        o = context.active_object\n        if not archipack_myobject.filter(o):\n            return\n        layout = self.layout\n\n        # retrieve datablock of your object\n        props = archipack_myobject.datablock(o)\n\n        # Manipulate mode operator\n        layout.operator('archipack.myobject_manipulate', icon='HAND')\n\n        box = layout.box()\n        row = box.row(align=True)\n\n        # Presets operators\n        row.operator(\"archipack.myobject_preset_menu\", \n                     text=bpy.types.ARCHIPACK_OT_myobject_preset_menu.bl_label)\n        row.operator(\"archipack.myobject_preset\", \n                      text=\"\", \n                      icon='ZOOMIN')\n        row.operator(\"archipack.myobject_preset\", \n                      text=\"\", \n                      icon='ZOOMOUT').remove_active = True\n\n        row = layout.row()\n        box = row.box()\n        box.label(text=\"Size\")\n        box.prop(props, 'x')\n        box.prop(props, 'y')\n        box.prop(props, 'z')\n\n\n\n\n\nCreate Tool\n\n\nThis operator implement creation tool for your object.\n\nYou may add it in N Panel and/or shift+A menu to allow users to create your objects.  \n\n\nNaming convention\n\n\nUse ARCHIPACK_OT_ prefix and then your object name\n\nbl_idname name is archipack. prefix and then your object name\n\n\nRequirements\n\n\n\n\nMUST\n inherit from ArchipackCreateTool\n\n\nbl_idname \nMUST\n match your object's class name\n\n\nMUST\n call load_preset, passing your class property datablock\n\n\nMUST\n create an object, a mesh and link to scene\n\n\nMUST\n add your PropertyGoup \n\n\n\n\nImplementation sample\n\n\nMinimal implementation using all features\n\n\n\nclass ARCHIPACK_OT_myobject(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.myobject\"\n    bl_label = \"Myobject\"\n    bl_description = \"Create Myobject\"\n    bl_category = 'Archipack'\n    bl_options = {'REGISTER', 'UNDO'}\n\n    def create(self, context):\n\n        # Create an empty mesh datablock \n        m = bpy.data.meshes.new(\"Myobject\")\n\n        # Create an object using the mesh datablock \n        o = bpy.data.objects.new(\"Myobject\", m)\n\n        # Add your properties on mesh datablock  \n        d = m.archipack_myobject.add()\n\n        # Link object into scene\n        context.scene.objects.link(o)\n\n        # select and make active\n        o.select = True\n        context.scene.objects.active = o\n\n        # Load preset into datablock\n        self.load_preset(d)\n\n        # add a material  \n        self.add_material(o)\n        return o\n\n    def execute(self, context):\n        if context.mode == \"OBJECT\":\n            bpy.ops.object.select_all(action=\"DESELECT\")\n            o = self.create(context)\n            o.location = bpy.context.scene.cursor_location\n            o.select = True\n            context.scene.objects.active = o\n\n            # Start manipulate mode   \n            self.manipulate()\n            return {'FINISHED'}\n        else:\n            self.report({'WARNING'}, \"Archipack: Option only valid in Object mode\")\n            return {'CANCELLED'}\n\n\n\n\n\nPreset menu operator\n\n\nPreset system require two operators, this one display graphical preset menu.\n\n\nNaming convention\n\n\nUse ARCHIPACK_OT_ prefix and then your object name then _preset_menu\n\nbl_idname name is archipack. prefix and then your object name then _preset_menu\n\n\nRequirements\n\n\n\n\nMUST\n define preset_subdir using PropertyGroup class name\n\n\n\n\nImplementation sample\n\n\nMinimal implementation using all features\n\n\nclass ARCHIPACK_OT_myobject_preset_menu(PresetMenuOperator, Operator):\n    bl_idname = \"archipack.myobject_preset_menu\"\n    bl_label = \"Myobject preset\"\n    preset_subdir = \"archipack_myobject\"\n\n\n\n\n\nPreset add/destroy operator\n\n\nPreset system require two operators, this one allow user to create and destroy presets.\n\n\nNaming convention\n\n\nUse ARCHIPACK_OT_ prefix and then your object name then _preset\n\nbl_idname name is archipack. prefix and then your object name then _preset\n\n\nRequirements\n\n\n\n\nMUST\n define preset_menu using the class name of preset menu operator\n\n\nMAY\n define blacklist, an array of property names you don't want to save in presets\n\n\n\n\nImplementation sample\n\n\nMinimal implementation using all features\n\n\nclass ARCHIPACK_OT_myobject_preset(ArchipackPreset, Operator):\n    \"\"\"Add a Myobject Preset\"\"\"\n    bl_idname = \"archipack.myobject_preset\"\n    bl_label = \"Add Myobject preset\"\n    preset_menu = \"ARCHIPACK_OT_myobject_preset_menu\"\n\n    @property\n    def blacklist(self):\n        return ['manipulators']\n\n\n\n\nManipuate Operator\n\n\nThis operator allow user to enter/exit from \"manipulate\" mode.\n\n\nNaming convention\n\n\nUse ARCHIPACK_OT_ prefix and then your object name then _manipulate\n\nbl_idname name is archipack. prefix and then your object name then _manipulate\n\n\nRequirements\n\n\n\n\nMUST\n poll using your propertyGroup class\n\n\nMUST\n call .manipulable_invoke(context)\n\n\n\n\nImplementation sample\n\n\nMinimal implementation using all features\n\n\n\nclass ARCHIPACK_OT_myobject_manipulate(Operator):\n    bl_idname = \"archipack.myobject_manipulate\"\n    bl_label = \"Manipulate\"\n    bl_description = \"Manipulate\"\n    bl_options = {'REGISTER', 'UNDO'}\n\n    @classmethod\n    def poll(self, context):\n        return archipack_myobject.filter(context.active_object)\n\n    def invoke(self, context, event):\n        d = archipack_myobject.datablock(context.active_object)\n        d.manipulable_invoke(context)\n        return {'FINISHED'}\n\n\n\n\n\nRegister/Unregister\n\n\nEach archipack object must register / unregister itself\n\n\nRequirements\n\n\n\n\nPropertyGroup \nMUST\n register/unregister and be added as CollectionProperty of Mesh\n\n\nPanel, create, preset and manipulate Operators \nMUST\n register/unregister\n\n\n\n\nImplementation sample\n\n\nMinimal implementation using all features\n\n\ndef register():\n    bpy.utils.register_class(archipack_myobject)\n    Mesh.archipack_myobject = CollectionProperty(type=archipack_myobject)\n    bpy.utils.register_class(ARCHIPACK_PT_myobject)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject_preset_menu)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject_preset)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject_manipulate)\n\n\ndef unregister():\n    bpy.utils.unregister_class(archipack_myobject)\n    del Mesh.archipack_myobject\n    bpy.utils.unregister_class(ARCHIPACK_PT_myobject)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_preset_menu)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_preset)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_manipulate)\n\n\n\n\n\nModify the __init__.py\n\n\nImports\n\n\n    imp.reload(archipack_myobject)\n\n\n\n\n    from . import archipack_myobject\n\n\n\n\nCreate panel\n\n\nclass TOOLS_PT_Archipack_Create(Panel) in draw function:\n\n\n        col = row.column()\n        subrow = col.row(align=True)\n        subrow.operator(\"archipack.myobject_preset_menu\",\n                    text=\"myobj\",\n                    icon_value=icons[\"door\"].icon_id\n                    ).preset_operator = \"archipack.myobject\"\n        subrow.operator(\"archipack.myobject_preset_menu\",\n                    text=\"\",\n                    icon='GREASEPENCIL'\n                    ).preset_operator = \"archipack.myobject_draw\"\n\n\n\n\nShift + a and add mesh menu\n\n\non draw_menu():\n\n\n    layout.operator(\"archipack.door_preset_menu\",\n                    text=\"Door\",\n                    icon_value=icons[\"door\"].icon_id\n                    ).preset_operator = \"archipack.door\"\n\n\n\n\nRegister and unregister function:\n\n\n archipack_myobject.register()\n\n\n\n\n archipack_myobject.unregister()",
+            "title": "Developper guide"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#archipack-toolkit",
+            "text": "Want to contribute ? add your own parametric object ? \nArchipack's toolkit is build from scratch to provide all needed parts to handle parametric objects, as easy to import subclasses, so you may focus on your base object mesh building. \nHere you'll find a \"quick start\" dev guide with all required parts.  Sample file available here",
+            "title": "Archipack toolkit"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#imports",
+            "text": "",
+            "title": "Imports"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample",
+            "text": "Minimal required imports  import bpy\nfrom bpy.types import Operator, PropertyGroup, Mesh, Panel\n\n# Minimal required property types \nfrom bpy.props import (\n    FloatProperty, BoolProperty, CollectionProperty\n    )\nfrom mathutils import Vector\n\n# Bmesh made easy\nfrom .bmesh_utils import BmeshEdit as bmed\n\n# Manipulable\nfrom .archipack_manipulator import Manipulable\n\n# Preset system\nfrom .archipack_preset import ArchipackPreset, PresetMenuOperator\n\n# Base for Propertygroup and create tool Operator\nfrom .archipack_object import ArchipackCreateTool, ArchipackObject",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#propertygroup",
+            "text": "The main propertyGroup is the heart of parametric object, generating mesh on parameter changes using bmesh, and updating \"manipulators\" location according. \nSeparate properties for vertex, faces, material indexes and uvmaps is not required, made like this as for such simple object it allow to keep code clean. \nMore complex objects may require to build uvs maps knowing vertex location, and such design pattern would not work.",
+            "title": "PropertyGroup"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#naming-convention",
+            "text": "use archipack_ prefix, then your meanfull class name",
+            "title": "Naming convention:"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#requirements",
+            "text": "MUST  inherit from ArchipackObject and Manipulable  MUST  implement update() function generating / refreshing mesh and manipulators location, see  Updating manipulator location  MUST  implement setup_manipulators() function filling manipulators Collection see  Available manipulators  MUST  have auto_update property to disable mesh updating for bulk updates  Properties  SHOULD  call update (use update=update in property definition)",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample-a-box",
+            "text": "Minimal implementation using all features  def update(self, context):\n    self.update(context)\n\n\nclass archipack_myobject(ArchipackObject, Manipulable, PropertyGroup):\n    \"\"\" Archipack toolkit sample\"\"\"\n    x = FloatProperty(\n            name=\"Width\",\n            default=2.0, min=0.01,\n            unit='LENGTH', subtype='DISTANCE',\n            update=update\n            )\n    y = FloatProperty(\n            name=\"Depth\",\n            default=2.0, min=0.01,\n            unit='LENGTH', subtype='DISTANCE',\n            update=update\n            )\n    z = FloatProperty(\n            name=\"Height\",\n            default=2.0, min=0.01,\n            unit='LENGTH', subtype='DISTANCE',\n            update=update\n            )\n    auto_update = BoolProperty(\n            # Wont save auto_update state in any case\n            options={'SKIP_SAVE'},\n            default=True,\n            update=update\n            )\n\n    @property\n    def verts(self):\n        \"\"\"\n            Object vertices coords\n        \"\"\"\n        x = 0.5 * self.x\n        y = 0.5 * self.y\n        z = self.z\n        return [\n            (-x, y, 0),\n            (-x, -y, 0),\n            (x, -y, 0),\n            (x, y, 0),\n            (-x, y, z),\n            (-x, -y, z),\n            (x, -y, z),\n            (x, y, z)\n        ]\n\n    @property\n    def faces(self):\n        \"\"\"\n            Object faces vertices index\n        \"\"\"\n        return [\n            (0, 1, 2, 3),\n            (7, 6, 5, 4),\n            (7, 4, 0, 3),\n            (4, 5, 1, 0),\n            (5, 6, 2, 1),\n            (6, 7, 3, 2)\n        ]\n\n    @property\n    def uvs(self):\n        \"\"\"\n            Object faces uv coords\n        \"\"\"\n        return [\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)],\n            [(0, 0), (0, 1), (1, 1), (1, 0)]\n        ]\n\n    @property\n    def matids(self):\n        \"\"\"\n            Object material indexes for each face\n        \"\"\"\n        return [0, 0, 0, 0, 0, 0]\n\n    def setup_manipulators(self):\n        if len(self.manipulators) < 1:\n            # add manipulator for x property\n            s = self.manipulators.add()\n            s.prop1_name = \"x\"\n            s.type_key = 'SIZE'\n\n            # add manipulator for y property\n            s = self.manipulators.add()\n            s.prop1_name = \"y\"\n            s.type_key = 'SIZE'\n\n            # add manipulator for z property\n            s = self.manipulators.add()\n            s.prop1_name = \"z\"\n            s.type_key = 'SIZE'\n            # draw this one on xz plane \n            s.normal = Vector((0, 1, 0))\n\n    def update(self, context):\n\n        # provide support for \"copy to selected\" \n        o = self.find_in_selection(context, self.auto_update)\n\n        if o is None:\n            return\n\n        # dynamically create manipulators when needed  \n        self.setup_manipulators()\n\n        # update your mesh from parameters\n        bmed.buildmesh(context, \n                       o, \n                       self.verts,  \n                       self.faces,  \n                       matids=self.matids,  \n                       uvs=self.uvs,  \n                       weld=False)\n\n        # update manipulators location (3d location in object coordsystem)\n        x, y = 0.5 * self.x, 0.5 * self.y\n        self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (1, 0, 0)])\n        self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])\n        self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.z), (-1, 0, 0)])\n\n        # always restore context  \n        self.restore_context(context)",
+            "title": "Implementation sample (a box)"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#panel-t-panel-in-ui",
+            "text": "Main ui panel to modify object properties.",
+            "title": "Panel (T panel in UI)"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#naming-convention_1",
+            "text": "Use ARCHIPACK_PT_ prefix then your object name",
+            "title": "Naming convention"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#requirements_1",
+            "text": "MUST  poll using your PropertyGroup class  MUST  call manipulate operator  MUST  call presets operators",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample-a-box_1",
+            "text": "Minimal implementation using all features  class ARCHIPACK_PT_myobject(Panel):\n    bl_idname = \"ARCHIPACK_PT_myobject\"\n    bl_label = \"MyObject\"\n    bl_space_type = 'VIEW_3D'\n    bl_region_type = 'UI'\n    bl_category = 'ArchiPack'\n\n    @classmethod\n    def poll(cls, context):\n        # ensure your object panel only show when active object is the right one \n        return archipack_myobject.filter(context.active_object)\n\n    def draw(self, context):\n        o = context.active_object\n        if not archipack_myobject.filter(o):\n            return\n        layout = self.layout\n\n        # retrieve datablock of your object\n        props = archipack_myobject.datablock(o)\n\n        # Manipulate mode operator\n        layout.operator('archipack.myobject_manipulate', icon='HAND')\n\n        box = layout.box()\n        row = box.row(align=True)\n\n        # Presets operators\n        row.operator(\"archipack.myobject_preset_menu\", \n                     text=bpy.types.ARCHIPACK_OT_myobject_preset_menu.bl_label)\n        row.operator(\"archipack.myobject_preset\", \n                      text=\"\", \n                      icon='ZOOMIN')\n        row.operator(\"archipack.myobject_preset\", \n                      text=\"\", \n                      icon='ZOOMOUT').remove_active = True\n\n        row = layout.row()\n        box = row.box()\n        box.label(text=\"Size\")\n        box.prop(props, 'x')\n        box.prop(props, 'y')\n        box.prop(props, 'z')",
+            "title": "Implementation sample (a box)"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#create-tool",
+            "text": "This operator implement creation tool for your object. \nYou may add it in N Panel and/or shift+A menu to allow users to create your objects.",
+            "title": "Create Tool"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#naming-convention_2",
+            "text": "Use ARCHIPACK_OT_ prefix and then your object name \nbl_idname name is archipack. prefix and then your object name",
+            "title": "Naming convention"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#requirements_2",
+            "text": "MUST  inherit from ArchipackCreateTool  bl_idname  MUST  match your object's class name  MUST  call load_preset, passing your class property datablock  MUST  create an object, a mesh and link to scene  MUST  add your PropertyGoup",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample_1",
+            "text": "Minimal implementation using all features  \nclass ARCHIPACK_OT_myobject(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.myobject\"\n    bl_label = \"Myobject\"\n    bl_description = \"Create Myobject\"\n    bl_category = 'Archipack'\n    bl_options = {'REGISTER', 'UNDO'}\n\n    def create(self, context):\n\n        # Create an empty mesh datablock \n        m = bpy.data.meshes.new(\"Myobject\")\n\n        # Create an object using the mesh datablock \n        o = bpy.data.objects.new(\"Myobject\", m)\n\n        # Add your properties on mesh datablock  \n        d = m.archipack_myobject.add()\n\n        # Link object into scene\n        context.scene.objects.link(o)\n\n        # select and make active\n        o.select = True\n        context.scene.objects.active = o\n\n        # Load preset into datablock\n        self.load_preset(d)\n\n        # add a material  \n        self.add_material(o)\n        return o\n\n    def execute(self, context):\n        if context.mode == \"OBJECT\":\n            bpy.ops.object.select_all(action=\"DESELECT\")\n            o = self.create(context)\n            o.location = bpy.context.scene.cursor_location\n            o.select = True\n            context.scene.objects.active = o\n\n            # Start manipulate mode   \n            self.manipulate()\n            return {'FINISHED'}\n        else:\n            self.report({'WARNING'}, \"Archipack: Option only valid in Object mode\")\n            return {'CANCELLED'}",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#preset-menu-operator",
+            "text": "Preset system require two operators, this one display graphical preset menu.",
+            "title": "Preset menu operator"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#naming-convention_3",
+            "text": "Use ARCHIPACK_OT_ prefix and then your object name then _preset_menu \nbl_idname name is archipack. prefix and then your object name then _preset_menu",
+            "title": "Naming convention"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#requirements_3",
+            "text": "MUST  define preset_subdir using PropertyGroup class name",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample_2",
+            "text": "Minimal implementation using all features  class ARCHIPACK_OT_myobject_preset_menu(PresetMenuOperator, Operator):\n    bl_idname = \"archipack.myobject_preset_menu\"\n    bl_label = \"Myobject preset\"\n    preset_subdir = \"archipack_myobject\"",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#preset-adddestroy-operator",
+            "text": "Preset system require two operators, this one allow user to create and destroy presets.",
+            "title": "Preset add/destroy operator"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#naming-convention_4",
+            "text": "Use ARCHIPACK_OT_ prefix and then your object name then _preset \nbl_idname name is archipack. prefix and then your object name then _preset",
+            "title": "Naming convention"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#requirements_4",
+            "text": "MUST  define preset_menu using the class name of preset menu operator  MAY  define blacklist, an array of property names you don't want to save in presets",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample_3",
+            "text": "Minimal implementation using all features  class ARCHIPACK_OT_myobject_preset(ArchipackPreset, Operator):\n    \"\"\"Add a Myobject Preset\"\"\"\n    bl_idname = \"archipack.myobject_preset\"\n    bl_label = \"Add Myobject preset\"\n    preset_menu = \"ARCHIPACK_OT_myobject_preset_menu\"\n\n    @property\n    def blacklist(self):\n        return ['manipulators']",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#manipuate-operator",
+            "text": "This operator allow user to enter/exit from \"manipulate\" mode.",
+            "title": "Manipuate Operator"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#naming-convention_5",
+            "text": "Use ARCHIPACK_OT_ prefix and then your object name then _manipulate \nbl_idname name is archipack. prefix and then your object name then _manipulate",
+            "title": "Naming convention"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#requirements_5",
+            "text": "MUST  poll using your propertyGroup class  MUST  call .manipulable_invoke(context)",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample_4",
+            "text": "Minimal implementation using all features  \nclass ARCHIPACK_OT_myobject_manipulate(Operator):\n    bl_idname = \"archipack.myobject_manipulate\"\n    bl_label = \"Manipulate\"\n    bl_description = \"Manipulate\"\n    bl_options = {'REGISTER', 'UNDO'}\n\n    @classmethod\n    def poll(self, context):\n        return archipack_myobject.filter(context.active_object)\n\n    def invoke(self, context, event):\n        d = archipack_myobject.datablock(context.active_object)\n        d.manipulable_invoke(context)\n        return {'FINISHED'}",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#registerunregister",
+            "text": "Each archipack object must register / unregister itself",
+            "title": "Register/Unregister"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#requirements_6",
+            "text": "PropertyGroup  MUST  register/unregister and be added as CollectionProperty of Mesh  Panel, create, preset and manipulate Operators  MUST  register/unregister",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#implementation-sample_5",
+            "text": "Minimal implementation using all features  def register():\n    bpy.utils.register_class(archipack_myobject)\n    Mesh.archipack_myobject = CollectionProperty(type=archipack_myobject)\n    bpy.utils.register_class(ARCHIPACK_PT_myobject)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject_preset_menu)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject_preset)\n    bpy.utils.register_class(ARCHIPACK_OT_myobject_manipulate)\n\n\ndef unregister():\n    bpy.utils.unregister_class(archipack_myobject)\n    del Mesh.archipack_myobject\n    bpy.utils.unregister_class(ARCHIPACK_PT_myobject)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_preset_menu)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_preset)\n    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_manipulate)",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#modify-the-9595init9595py",
+            "text": "",
+            "title": "Modify the __init__.py"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#imports_1",
+            "text": "imp.reload(archipack_myobject)      from . import archipack_myobject",
+            "title": "Imports"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#create-panel",
+            "text": "class TOOLS_PT_Archipack_Create(Panel) in draw function:          col = row.column()\n        subrow = col.row(align=True)\n        subrow.operator(\"archipack.myobject_preset_menu\",\n                    text=\"myobj\",\n                    icon_value=icons[\"door\"].icon_id\n                    ).preset_operator = \"archipack.myobject\"\n        subrow.operator(\"archipack.myobject_preset_menu\",\n                    text=\"\",\n                    icon='GREASEPENCIL'\n                    ).preset_operator = \"archipack.myobject_draw\"",
+            "title": "Create panel"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#shift-a-and-add-mesh-menu",
+            "text": "on draw_menu():      layout.operator(\"archipack.door_preset_menu\",\n                    text=\"Door\",\n                    icon_value=icons[\"door\"].icon_id\n                    ).preset_operator = \"archipack.door\"",
+            "title": "Shift + a and add mesh menu"
+        },
+        {
+            "location": "/dev/Parametric-Objects-developper-guide/#register-and-unregister-function",
+            "text": "archipack_myobject.register()   archipack_myobject.unregister()",
+            "title": "Register and unregister function:"
+        },
+        {
+            "location": "/dev/Programming/",
+            "text": "Bulk updates\n\n\nThe objects are designed so any parameter change trigger full mesh rebuild.\n\nIn order to do bulk updades on Stair and Walls, there is a special variable \"auto_update\" to prevent such updates while setting your parameters.\n\n\neg for Stairs:\n\n\no = context.active_object\nd = o.data.archipack_stair[0]\nd.auto_update = False\n\nsetup presets according your needs\n\nd.auto_update = True",
+            "title": "Bulk updates"
+        },
+        {
+            "location": "/dev/Programming/#bulk-updates",
+            "text": "The objects are designed so any parameter change trigger full mesh rebuild. \nIn order to do bulk updades on Stair and Walls, there is a special variable \"auto_update\" to prevent such updates while setting your parameters.  eg for Stairs:  o = context.active_object\nd = o.data.archipack_stair[0]\nd.auto_update = False\n\nsetup presets according your needs\n\nd.auto_update = True",
+            "title": "Bulk updates"
+        },
+        {
+            "location": "/dev/ArchipackObject/",
+            "text": "ArchipackObject\n\n\nArchipackObject provide functions to support \"copy to selected\" and easy access to datablock.\n\n\n\n\nfilter(o) : return boolean, ensure object contains your datablock eg : archipack_window.filter(o) may use it in poll\n\n\ndatablock(o) : return datablock or None, ensure object contains your datablock eg : d = archipack_window.datablock(o) \n\n\nfind_in_selection(context, auto_update=True) : store context and find current instance in selection. return object or None. Wont store context and always return None if auto_update is False\n\n\nrestore_context(context) : restore context - active + selection\n\n\n\n\nImplementation\n\n\n\n\nPropertyGroup \nMUST\n inherits from ArchipackObject  \n\n\nPropertyGroup \nMUST\n use archipack_ prefix and you \nMUST\n use the same name for bpy.types.Mesh.property\n\n\nPropertyGroup \nMUST\n be registered as bpy.types.Mesh property to handle alt + d\n\n\n\n\nBase object PropertyGroup\n\n\nclass archipack_door(ArchipackObject, Manipulable, PropertyGroup):\n    ...\n    def update(self, context):\n\n        o = self.find_in_selection(context, self.auto_update)\n\n        if o is None:\n            return\n\n        # update object's mesh (see bmesh_utils as reference)\n        bmed.buildmesh(context, o, self.verts, self.faces)\n\n        # restore context\n        self.resore_context(context)\n\n\n\n\n\nRegister module\n\n\ndef register():\n   bpy.utils.register_class(archipack_door)\n   Mesh.archipack_door = CollectionProperty(type=archipack_door)\n\n\n\n\n\nSample for Panels\n\n\n\n    @classmethod\n    def poll(cls, context):\n        return archipack_door.filter(context.active_object)\n\n    def draw(self, context):\n        o = context.active_object\n        if not archipack_door.filter(o):\n            return\n        layout = self.layout\n        layout.operator('archipack.door_manipulate', icon='HAND')\n        props = archipack_door.datablock(o)\n\n\n\n\n\nSample of manipulate Operator\n\n\nclass ARCHIPACK_OT_door_manipulate(Operator):\n    bl_idname = \"archipack.door_manipulate\"\n    bl_label = \"Manipulate\"\n    bl_description = \"Manipulate\"\n    bl_options = {'REGISTER', 'UNDO'}\n\n    @classmethod\n    def poll(self, context):\n        return archipack_door.filter(context.active_object)\n\n    def invoke(self, context, event):\n        d = archipack_door.datablock(context.active_object)\n        d.manipulable_invoke(context)\n        return {'FINISHED'}\n\n\n\n\n\nCreate Operator, see add propertyGroup to mesh\n\n\n\nclass ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.truss\"\n    bl_label = \"Truss\"\n    bl_description = \"Create Truss\"\n    bl_category = 'Archipack'\n    bl_options = {'REGISTER', 'UNDO'}\n\n    def create(self, context):\n        m = bpy.data.meshes.new(\"Truss\")\n        o = bpy.data.objects.new(\"Truss\", m)\n\n        # add propertyGroup to mesh\n        d = m.archipack_truss.add()\n\n        context.scene.objects.link(o)\n        o.select = True\n        context.scene.objects.active = o\n        self.load_preset(d)\n        self.add_material(o)\n        m.auto_smooth_angle = 1.15\n        return o\n\n    def execute(self, context):\n        if context.mode == \"OBJECT\":\n            bpy.ops.object.select_all(action=\"DESELECT\")\n            o = self.create(context)\n            o.location = bpy.context.scene.cursor_location\n            o.select = True\n            context.scene.objects.active = o\n            self.manipulate()\n            return {'FINISHED'}\n        else:\n            self.report({'WARNING'}, \"Archipack: Option only valid in Object mode\")\n            return {'CANCELLED'}",
+            "title": "ArchipackObject"
+        },
+        {
+            "location": "/dev/ArchipackObject/#archipackobject",
+            "text": "ArchipackObject provide functions to support \"copy to selected\" and easy access to datablock.   filter(o) : return boolean, ensure object contains your datablock eg : archipack_window.filter(o) may use it in poll  datablock(o) : return datablock or None, ensure object contains your datablock eg : d = archipack_window.datablock(o)   find_in_selection(context, auto_update=True) : store context and find current instance in selection. return object or None. Wont store context and always return None if auto_update is False  restore_context(context) : restore context - active + selection",
+            "title": "ArchipackObject"
+        },
+        {
+            "location": "/dev/ArchipackObject/#implementation",
+            "text": "PropertyGroup  MUST  inherits from ArchipackObject    PropertyGroup  MUST  use archipack_ prefix and you  MUST  use the same name for bpy.types.Mesh.property  PropertyGroup  MUST  be registered as bpy.types.Mesh property to handle alt + d",
+            "title": "Implementation"
+        },
+        {
+            "location": "/dev/ArchipackObject/#base-object-propertygroup",
+            "text": "class archipack_door(ArchipackObject, Manipulable, PropertyGroup):\n    ...\n    def update(self, context):\n\n        o = self.find_in_selection(context, self.auto_update)\n\n        if o is None:\n            return\n\n        # update object's mesh (see bmesh_utils as reference)\n        bmed.buildmesh(context, o, self.verts, self.faces)\n\n        # restore context\n        self.resore_context(context)",
+            "title": "Base object PropertyGroup"
+        },
+        {
+            "location": "/dev/ArchipackObject/#register-module",
+            "text": "def register():\n   bpy.utils.register_class(archipack_door)\n   Mesh.archipack_door = CollectionProperty(type=archipack_door)",
+            "title": "Register module"
+        },
+        {
+            "location": "/dev/ArchipackObject/#sample-for-panels",
+            "text": "@classmethod\n    def poll(cls, context):\n        return archipack_door.filter(context.active_object)\n\n    def draw(self, context):\n        o = context.active_object\n        if not archipack_door.filter(o):\n            return\n        layout = self.layout\n        layout.operator('archipack.door_manipulate', icon='HAND')\n        props = archipack_door.datablock(o)",
+            "title": "Sample for Panels"
+        },
+        {
+            "location": "/dev/ArchipackObject/#sample-of-manipulate-operator",
+            "text": "class ARCHIPACK_OT_door_manipulate(Operator):\n    bl_idname = \"archipack.door_manipulate\"\n    bl_label = \"Manipulate\"\n    bl_description = \"Manipulate\"\n    bl_options = {'REGISTER', 'UNDO'}\n\n    @classmethod\n    def poll(self, context):\n        return archipack_door.filter(context.active_object)\n\n    def invoke(self, context, event):\n        d = archipack_door.datablock(context.active_object)\n        d.manipulable_invoke(context)\n        return {'FINISHED'}",
+            "title": "Sample of manipulate Operator"
+        },
+        {
+            "location": "/dev/ArchipackObject/#create-operator-see-add-propertygroup-to-mesh",
+            "text": "class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.truss\"\n    bl_label = \"Truss\"\n    bl_description = \"Create Truss\"\n    bl_category = 'Archipack'\n    bl_options = {'REGISTER', 'UNDO'}\n\n    def create(self, context):\n        m = bpy.data.meshes.new(\"Truss\")\n        o = bpy.data.objects.new(\"Truss\", m)\n\n        # add propertyGroup to mesh\n        d = m.archipack_truss.add()\n\n        context.scene.objects.link(o)\n        o.select = True\n        context.scene.objects.active = o\n        self.load_preset(d)\n        self.add_material(o)\n        m.auto_smooth_angle = 1.15\n        return o\n\n    def execute(self, context):\n        if context.mode == \"OBJECT\":\n            bpy.ops.object.select_all(action=\"DESELECT\")\n            o = self.create(context)\n            o.location = bpy.context.scene.cursor_location\n            o.select = True\n            context.scene.objects.active = o\n            self.manipulate()\n            return {'FINISHED'}\n        else:\n            self.report({'WARNING'}, \"Archipack: Option only valid in Object mode\")\n            return {'CANCELLED'}",
+            "title": "Create Operator, see add propertyGroup to mesh"
+        },
+        {
+            "location": "/dev/Manipulable/",
+            "text": "Manipulable ?\n\n\nConcept\n\n\nIn order to make objects manipulable, there are some requirements.\n\n\nRequirements\n\n\n\n\nThe object mesh or scale or location (something) must update on parameter change.\n\n\nWe need a place to store manipulator data (type, and openGl 3d points location, name of property we should manipulate)\n\n\nOn manipulate start, draw gl feedback using 3d points location.\n\n\nWhen manipulating occur, update object's manipulated data and 3d gl points location so manipulator update on screen.\n\n\n\n\nImplementation, the easy way for simple objects\n\n\nTypical setup on objects with one single main PropertyGroup.  \n\n\nRequirements\n\n\n\n\nThe PropertyGroup name must be prefixed with archipack_\n\n\nThe PropertyGroup must inherit from \nManipulable\n.  \n\n\nYou \nMUST\n implement setup_manipulators and call it from update.\n\n\nYou \nMUST\n update the manipulators location of gl points. \n\n\n\n\nImplementation sample\n\n\n\ndef update(self, context):\n   self.update(context)\n\nclass archipack_your_object(Manipulable, PropertyGroup):\n\n     width = FloatProperty(update=update)\n     n_parts = IntProperty(update=update)\n     z = FloatProperty(update=update)\n\n     # Implement setup_manipulators method\n     def setup_manipulators(self):\n\n        if len(self.manipulators) > 0:\n            return\n\n        # Sample 1 : add a size manipulator        \n        s = self.manipulators.add()\n        # manipulator type\n        s.type_key = 'SIZE'\n        # define property name we manipulate\n        s.prop1_name = \"width\"\n\n        # Sample 2 : add a counter manipulator\n        s = self.manipulators.add()\n        s.prop1_name = \"n_parts\"\n        s.type_key = 'COUNTER'\n\n        # Sample 3 : add size manipulator draw on xz plane \n        s = self.manipulators.add()\n        s.type_key = 'SIZE'\n        s.prop1_name = \"z\"\n        # draw this one over xz plane \n        s.normal = (0, 1, 0)\n\n\n     def update(self, context):\n\n        o = self.find_in_selection(context, self.auto_update)\n        if o is None:\n            return\n\n        # you MUST call setup_manipulators\n        self.setup_manipulators()\n\n        .. update your mesh\n\n        # Update manipulators location in object local space\n        x = 0.5 * self.width\n        # width\n        self.manipulators[0].set_pts([(-x, 0, 0), (x, 0, 0), (1, 0, 0)])\n        # counter\n        self.manipulators[1].set_pts([(-x, 0, 0), (-x, 0.5, 0), (1, 0, 0)])\n        # z\n        self.manipulators[2].set_pts([(-x, 0, 0), (-x, 0, self.z), (-1, 0, 0)])\n\n\n\n\n\nUpdating manipulator location\n\n\nself.manipulators[x].set_pts([p0, p1, p2], normal=Vector((0, 0, 1)))\n\n\n\n\nFor size type manipulators:\n\n\n\n\np0 and p1 are start and end location of manipulator vector 3d in object local space\n\n\np2 is a vector used to scale/direction manipulator by default use Vector((1, 0, 0)) to place on the right side at 1 unit \n\n\nnormal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1)) \n\n\n\n\nFor arc / radius type manipulators:\n\n\n\n\np0 is center vector 3d in object local space\n\n\np1 and p2 are vector 3d arc start and arc end points relative to center\n\n\nnormal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1)) \n\n\n\n\nManipulation Operator:\n\n\nin invoke method use manipulable_invoke(context, event)  \n\n\nImplementation sample\n\n\nclass ARCHIPACK_OT_your_object_manipulate(Operator):\n    bl_idname = \"archipack.your_object_manipulate\"\n    bl_label = \"Manipulate\"\n    bl_description = \"Manipulate\"\n    bl_options = {'REGISTER', 'UNDO'}\n\n    @classmethod\n    def poll(self, context):\n        return archipack_your_object.filter(context.active_object)\n\n    def invoke(self, context, event):\n        d = archipack_your_object.datablock(context.active_object)\n        d.manipulable_invoke(context)\n        return {'FINISHED'}\n\n\n\n\n\nCreate Operator\n\n\nRequirements\n\n\nMUST\n inherit from ArchipackCreateTool\n\n\nMUST\n call manipulate()  \n\n\nmanipulate takes care of auto_manipulate so when creating many objects you may set it to false  \n\n\nImplementation sample Archipack's Window (stripped down)\n\n\n\nclass ARCHIPACK_OT_window(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.window\"\n    bl_label = \"Window\"\n    bl_description = \"Window\"\n        def execute(self, context):\n        if context.mode == \"OBJECT\":\n            # ensure context is free from other objects\n            bpy.ops.object.select_all(action=\"DESELECT\")\n            # o is created base object\n            o = self.create(context)\n            o.location = bpy.context.scene.cursor_location\n            # o must be selected and active\n            o.select = True\n            context.scene.objects.active = o\n            self.manipulate()\n            return {'FINISHED'}\n        else:\n            self.report({'WARNING'}, \"Archipack: Option only valid in Object mode\")\n            return {'CANCELLED'}\n\n\n\n\n\nAvailable manipulators (type_key)\n\n\n\n\nSIZE : Modify a size by one side.\n\n\nDUMB_SIZE : Display a size, not editable\n\n\nSIZE_LOC : Modify a size by any side, for objects with pivot at center, preserving other side moving object according.\n\n\nSNAP_SIZE_LOC : Modify a size by any side, snap aware one for objects with pivot at center, preserving other side moving object according.\n\n\nANGLE : Modify an angle\n\n\nDUMB_ANGLE : Display an angle, not editable\n\n\nARC_ANGLE_RADIUS : Modify angle and radius, specify angle property name in .prop1_name and radius in .prop2_name\n\n\nCOUNTER : Modify an integer, step by step when clicking on arrows.\n\n\nDELTA_LOC : Modify location of an object, use prop1_name to setup axis in ['x', 'y', 'z']\n\n\nDUMB_STRING : Draw a string, use prop1_name as string to draw.\n\n\nWALL_SNAP : Draggable snap point, prop1_name is a part identifier, prop2_name is z property to draw placeholder, manipulate parts based objects (currently wall, fences, slab)\n\n\n\n\nManipulator data structure\n\n\n\n\narchipack_manipulator PropertyGroup to store each manipulator properties.\n\n\nManipulable to add manipulation ability on a PropertyGroup\n\n\nManipulator instance taking care of screen gl drawing, mouse and keyboard events, updating data according changes.\n\n\n\n\narchipack_manipulator Implementation\n\n\n\nclass archipack_manipulator(PropertyGroup):  \n    \"\"\"\n        A property group to add to manipulable objects\n        type_key: type of manipulator\n        prop1_name = the property name of object to modify\n        prop2_name = another property name of object to modify (eg: angle and radius)\n        p0, p1, p2 3d Vectors as base points to represent manipulators on screen\n        normal Vector normal of plane on with draw manipulator\n    \"\"\"  \n    type_key = StringProperty(default='SIZE')  \n\n    # How 3d points are stored in manipulators ?\n    # SIZE = 2 absolute positionned and a scaling vector\n    # RADIUS = 1 absolute positionned (center) and 2 relatives (sides)\n    # POLYGON = 2 absolute positionned and a relative vector (for rect polygons)\n\n    pts_mode = StringProperty(default='SIZE')\n    prop1_name = StringProperty()\n    prop2_name = StringProperty()\n    p0 = FloatVectorProperty(subtype='XYZ')\n    p1 = FloatVectorProperty(subtype='XYZ')\n    p2 = FloatVectorProperty(subtype='XYZ')\n\n    # allow orientation of manipulators by default on xy plane,\n    # but may be used to constrain heights on local object space\n\n    normal = FloatVectorProperty(subtype='XYZ', default=(0, 0, 1))\n\n    def set_pts(self, pts, normal=None):\n        \"\"\"\n            set 3d location of gl points (in object space)\n            pts: array of 3 vectors 3d\n            normal: optionnal vector 3d default to Z axis\n        \"\"\"\n\n\n\n\n\nManipulable implementation (stripped down)\n\n\nclass Manipulable():\n    \"\"\"\n        A class extending PropertyGroup to setup gl manipulators\n        Beware : prevent crash calling manipulable_disable()\n                 before changing manipulated data structure\n    \"\"\"\n    manipulators = CollectionProperty(\n            type=archipack_manipulator,\n            description=\"store 3d points to draw gl manipulators\"\n            )\n\n     def manipulable_invoke(self, context):\n        \"\"\"\n            call this in operator invoke()\n            May override when needed\n        \"\"\"\n        if self.manipulate_mode:\n            self.manipulable_disable(context)\n            return False\n\n        self.manip_stack = []\n        self.manipulable_setup(context)\n        self.manipulate_mode = True\n        # dont forget to call base class _invoke\n        self._manipulable_invoke(context)\n\n     def manipulable_setup(self, context):\n        \"\"\"\n            Implement the setup part as per parent object basis\n            This is default implementation for simple objects\n            with manipulators linked to base object properties\n            May override when needed\n        \"\"\"\n        self.manipulable_disable(context)\n        o = context.active_object\n        self.setup_manipulators()\n        for m in self.manipulators:\n            # m.setup create Manipulator instance\n            self.manip_stack.append(m.setup(context, o, self))\n\n    # Callbacks\n    def manipulable_release(self, context):\n        \"\"\"\n            Override with action to do on mouse release\n            eg: big update\n        \"\"\"\n        return\n\n    def manipulable_exit(self, context):\n        \"\"\"\n            Override with action to do when modal exit\n        \"\"\"\n        return\n\n    def manipulable_manipulate(self, context, event, manipulator):\n        \"\"\"\n            Override with action to do when a handle is active (pressed and mousemove)\n        \"\"\"\n        return\n\n\n\n\nWhile not required for simple manipulations, you may override manipulable_setup() \nin your object data propertygroup to handle manipulator setup.\n\nUse manipulable datablock .setup(object, datablock) method to create manipulator hanlder.\n\nManipulators handlers do hold references to base object, datablock to modify, take care of drawing\ngl handles on screen, and handle mouse and keyboard inputs.\n\n\nData structure change and manipulators\n\n\nBefore any data structure changes on manipulable properties, you MUST call .manipulable_disable(context)\nupdate your datastructure, then set .manipulable_refresh = True\n\nFailing to do so will result in ACCESS_VIOLATION crash errors.",
+            "title": "Manipulable ?"
+        },
+        {
+            "location": "/dev/Manipulable/#manipulable",
+            "text": "",
+            "title": "Manipulable ?"
+        },
+        {
+            "location": "/dev/Manipulable/#concept",
+            "text": "In order to make objects manipulable, there are some requirements.",
+            "title": "Concept"
+        },
+        {
+            "location": "/dev/Manipulable/#requirements",
+            "text": "The object mesh or scale or location (something) must update on parameter change.  We need a place to store manipulator data (type, and openGl 3d points location, name of property we should manipulate)  On manipulate start, draw gl feedback using 3d points location.  When manipulating occur, update object's manipulated data and 3d gl points location so manipulator update on screen.",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Manipulable/#implementation-the-easy-way-for-simple-objects",
+            "text": "Typical setup on objects with one single main PropertyGroup.",
+            "title": "Implementation, the easy way for simple objects"
+        },
+        {
+            "location": "/dev/Manipulable/#requirements_1",
+            "text": "The PropertyGroup name must be prefixed with archipack_  The PropertyGroup must inherit from  Manipulable .    You  MUST  implement setup_manipulators and call it from update.  You  MUST  update the manipulators location of gl points.",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Manipulable/#implementation-sample",
+            "text": "def update(self, context):\n   self.update(context)\n\nclass archipack_your_object(Manipulable, PropertyGroup):\n\n     width = FloatProperty(update=update)\n     n_parts = IntProperty(update=update)\n     z = FloatProperty(update=update)\n\n     # Implement setup_manipulators method\n     def setup_manipulators(self):\n\n        if len(self.manipulators) > 0:\n            return\n\n        # Sample 1 : add a size manipulator        \n        s = self.manipulators.add()\n        # manipulator type\n        s.type_key = 'SIZE'\n        # define property name we manipulate\n        s.prop1_name = \"width\"\n\n        # Sample 2 : add a counter manipulator\n        s = self.manipulators.add()\n        s.prop1_name = \"n_parts\"\n        s.type_key = 'COUNTER'\n\n        # Sample 3 : add size manipulator draw on xz plane \n        s = self.manipulators.add()\n        s.type_key = 'SIZE'\n        s.prop1_name = \"z\"\n        # draw this one over xz plane \n        s.normal = (0, 1, 0)\n\n\n     def update(self, context):\n\n        o = self.find_in_selection(context, self.auto_update)\n        if o is None:\n            return\n\n        # you MUST call setup_manipulators\n        self.setup_manipulators()\n\n        .. update your mesh\n\n        # Update manipulators location in object local space\n        x = 0.5 * self.width\n        # width\n        self.manipulators[0].set_pts([(-x, 0, 0), (x, 0, 0), (1, 0, 0)])\n        # counter\n        self.manipulators[1].set_pts([(-x, 0, 0), (-x, 0.5, 0), (1, 0, 0)])\n        # z\n        self.manipulators[2].set_pts([(-x, 0, 0), (-x, 0, self.z), (-1, 0, 0)])",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Manipulable/#updating-manipulator-location",
+            "text": "self.manipulators[x].set_pts([p0, p1, p2], normal=Vector((0, 0, 1)))",
+            "title": "Updating manipulator location"
+        },
+        {
+            "location": "/dev/Manipulable/#for-size-type-manipulators",
+            "text": "p0 and p1 are start and end location of manipulator vector 3d in object local space  p2 is a vector used to scale/direction manipulator by default use Vector((1, 0, 0)) to place on the right side at 1 unit   normal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1))",
+            "title": "For size type manipulators:"
+        },
+        {
+            "location": "/dev/Manipulable/#for-arc-radius-type-manipulators",
+            "text": "p0 is center vector 3d in object local space  p1 and p2 are vector 3d arc start and arc end points relative to center  normal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1))",
+            "title": "For arc / radius type manipulators:"
+        },
+        {
+            "location": "/dev/Manipulable/#manipulation-operator",
+            "text": "in invoke method use manipulable_invoke(context, event)",
+            "title": "Manipulation Operator:"
+        },
+        {
+            "location": "/dev/Manipulable/#implementation-sample_1",
+            "text": "class ARCHIPACK_OT_your_object_manipulate(Operator):\n    bl_idname = \"archipack.your_object_manipulate\"\n    bl_label = \"Manipulate\"\n    bl_description = \"Manipulate\"\n    bl_options = {'REGISTER', 'UNDO'}\n\n    @classmethod\n    def poll(self, context):\n        return archipack_your_object.filter(context.active_object)\n\n    def invoke(self, context, event):\n        d = archipack_your_object.datablock(context.active_object)\n        d.manipulable_invoke(context)\n        return {'FINISHED'}",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Manipulable/#create-operator",
+            "text": "",
+            "title": "Create Operator"
+        },
+        {
+            "location": "/dev/Manipulable/#requirements_2",
+            "text": "MUST  inherit from ArchipackCreateTool  MUST  call manipulate()    manipulate takes care of auto_manipulate so when creating many objects you may set it to false",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Manipulable/#implementation-sample-archipacks-window-stripped-down",
+            "text": "class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.window\"\n    bl_label = \"Window\"\n    bl_description = \"Window\"\n        def execute(self, context):\n        if context.mode == \"OBJECT\":\n            # ensure context is free from other objects\n            bpy.ops.object.select_all(action=\"DESELECT\")\n            # o is created base object\n            o = self.create(context)\n            o.location = bpy.context.scene.cursor_location\n            # o must be selected and active\n            o.select = True\n            context.scene.objects.active = o\n            self.manipulate()\n            return {'FINISHED'}\n        else:\n            self.report({'WARNING'}, \"Archipack: Option only valid in Object mode\")\n            return {'CANCELLED'}",
+            "title": "Implementation sample Archipack's Window (stripped down)"
+        },
+        {
+            "location": "/dev/Manipulable/#available-manipulators-type_key",
+            "text": "SIZE : Modify a size by one side.  DUMB_SIZE : Display a size, not editable  SIZE_LOC : Modify a size by any side, for objects with pivot at center, preserving other side moving object according.  SNAP_SIZE_LOC : Modify a size by any side, snap aware one for objects with pivot at center, preserving other side moving object according.  ANGLE : Modify an angle  DUMB_ANGLE : Display an angle, not editable  ARC_ANGLE_RADIUS : Modify angle and radius, specify angle property name in .prop1_name and radius in .prop2_name  COUNTER : Modify an integer, step by step when clicking on arrows.  DELTA_LOC : Modify location of an object, use prop1_name to setup axis in ['x', 'y', 'z']  DUMB_STRING : Draw a string, use prop1_name as string to draw.  WALL_SNAP : Draggable snap point, prop1_name is a part identifier, prop2_name is z property to draw placeholder, manipulate parts based objects (currently wall, fences, slab)",
+            "title": "Available manipulators (type_key)"
+        },
+        {
+            "location": "/dev/Manipulable/#manipulator-data-structure",
+            "text": "archipack_manipulator PropertyGroup to store each manipulator properties.  Manipulable to add manipulation ability on a PropertyGroup  Manipulator instance taking care of screen gl drawing, mouse and keyboard events, updating data according changes.",
+            "title": "Manipulator data structure"
+        },
+        {
+            "location": "/dev/Manipulable/#archipack_manipulator-implementation",
+            "text": "class archipack_manipulator(PropertyGroup):  \n    \"\"\"\n        A property group to add to manipulable objects\n        type_key: type of manipulator\n        prop1_name = the property name of object to modify\n        prop2_name = another property name of object to modify (eg: angle and radius)\n        p0, p1, p2 3d Vectors as base points to represent manipulators on screen\n        normal Vector normal of plane on with draw manipulator\n    \"\"\"  \n    type_key = StringProperty(default='SIZE')  \n\n    # How 3d points are stored in manipulators ?\n    # SIZE = 2 absolute positionned and a scaling vector\n    # RADIUS = 1 absolute positionned (center) and 2 relatives (sides)\n    # POLYGON = 2 absolute positionned and a relative vector (for rect polygons)\n\n    pts_mode = StringProperty(default='SIZE')\n    prop1_name = StringProperty()\n    prop2_name = StringProperty()\n    p0 = FloatVectorProperty(subtype='XYZ')\n    p1 = FloatVectorProperty(subtype='XYZ')\n    p2 = FloatVectorProperty(subtype='XYZ')\n\n    # allow orientation of manipulators by default on xy plane,\n    # but may be used to constrain heights on local object space\n\n    normal = FloatVectorProperty(subtype='XYZ', default=(0, 0, 1))\n\n    def set_pts(self, pts, normal=None):\n        \"\"\"\n            set 3d location of gl points (in object space)\n            pts: array of 3 vectors 3d\n            normal: optionnal vector 3d default to Z axis\n        \"\"\"",
+            "title": "archipack_manipulator Implementation"
+        },
+        {
+            "location": "/dev/Manipulable/#manipulable-implementation-stripped-down",
+            "text": "class Manipulable():\n    \"\"\"\n        A class extending PropertyGroup to setup gl manipulators\n        Beware : prevent crash calling manipulable_disable()\n                 before changing manipulated data structure\n    \"\"\"\n    manipulators = CollectionProperty(\n            type=archipack_manipulator,\n            description=\"store 3d points to draw gl manipulators\"\n            )\n\n     def manipulable_invoke(self, context):\n        \"\"\"\n            call this in operator invoke()\n            May override when needed\n        \"\"\"\n        if self.manipulate_mode:\n            self.manipulable_disable(context)\n            return False\n\n        self.manip_stack = []\n        self.manipulable_setup(context)\n        self.manipulate_mode = True\n        # dont forget to call base class _invoke\n        self._manipulable_invoke(context)\n\n     def manipulable_setup(self, context):\n        \"\"\"\n            Implement the setup part as per parent object basis\n            This is default implementation for simple objects\n            with manipulators linked to base object properties\n            May override when needed\n        \"\"\"\n        self.manipulable_disable(context)\n        o = context.active_object\n        self.setup_manipulators()\n        for m in self.manipulators:\n            # m.setup create Manipulator instance\n            self.manip_stack.append(m.setup(context, o, self))\n\n    # Callbacks\n    def manipulable_release(self, context):\n        \"\"\"\n            Override with action to do on mouse release\n            eg: big update\n        \"\"\"\n        return\n\n    def manipulable_exit(self, context):\n        \"\"\"\n            Override with action to do when modal exit\n        \"\"\"\n        return\n\n    def manipulable_manipulate(self, context, event, manipulator):\n        \"\"\"\n            Override with action to do when a handle is active (pressed and mousemove)\n        \"\"\"\n        return  While not required for simple manipulations, you may override manipulable_setup() \nin your object data propertygroup to handle manipulator setup. \nUse manipulable datablock .setup(object, datablock) method to create manipulator hanlder. \nManipulators handlers do hold references to base object, datablock to modify, take care of drawing\ngl handles on screen, and handle mouse and keyboard inputs.",
+            "title": "Manipulable implementation (stripped down)"
+        },
+        {
+            "location": "/dev/Manipulable/#data-structure-change-and-manipulators",
+            "text": "Before any data structure changes on manipulable properties, you MUST call .manipulable_disable(context)\nupdate your datastructure, then set .manipulable_refresh = True \nFailing to do so will result in ACCESS_VIOLATION crash errors.",
+            "title": "Data structure change and manipulators"
+        },
+        {
+            "location": "/dev/Preset-system/",
+            "text": "Presets\n\n\nBlender does support advanced presets system right out of the box.\n\nThe api take care of serialisation and unserialisation.\n\nArchipack does extend this api to provide thumbs and on screen seekable menu.  \n\n\nThere are two kind of presets\n\n\n\n\nFactory stored under /addon/presets/\n\n\nUser defined, stored under /user profile/presets/  \n\n\n\n\nTechically they are the same, but factory's one are shipped with addon where user defined one will be stored on user prefs directory.\n\n\nRequirements\n\n\nIn order to make objects \"preset aware\" one need 2 operators.  \n\n\n\n\nPreset menu Operator \n\n\nSave / destroy preset Operator\n\n\n\n\nPreset menu Operator\n\n\nRequirements\n\n\n\n\nMUST\n inherit from PresetMenuOperator  \n\n\npreset_subdir must match object PropertyGroup name, with archipack_ prefix\n\n\n\n\nImplementation sample\n\n\n\nclass ARCHIPACK_OT_fence_preset_menu(PresetMenuOperator, Operator):\n    bl_idname = \"archipack.fence_preset_menu\"\n    bl_label = \"Fence Presets\"\n    # Alter this using the base PropertyGroup class name (MUST use archipack_ prefix)\n    preset_subdir = \"archipack_fence\"\n\n\n\n\n\nPreset menu Operator may use a \"preset_operator\" option eg in draw a window / draw a door\n\n* preset_operator: string, bl_idname of operator to call after selection, in the form \"category.operator\".\n\nWhen not specified, default to create operator, using preset_subdir as operator bl_idname, eg: bpy.ops.archipack.fence \n\n\nThe operator handling preset operation must take \"filename\" as string input and handle loading of preset, where filename is a python preset absolute filename with path.\n\n\nImplementation sample\n\n\n        row.operator(\"archipack.fence_preset_menu\",\n                    text=\"Fence\",\n                    icon_value=icons[\"fence\"].icon_id\n                    ).preset_operator = \"archipack.fence\"\n\n\n\n\n\nSave / Destroy preset operator\n\n\nThis operator does take care of rendering thumbs on save.\n\n\nRequirements\n\n\n\n\nMUST\n inherit from ArchipackPreset\n\n\nYou may add properties you dont want to save in presets in blacklist,\nHIDDEN and SKIP_SAVE property are ignored by default.  \n\n\npreset_menu \nMUST\n match menu preset operator class name.  \n\n\n\n\nImplementation sample\n\n\nclass ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):\n    \"\"\"Add a Fence Preset\"\"\"\n    bl_idname = \"archipack.fence_preset\"\n    bl_label = \"Add Fence Preset\"\n    preset_menu = \"ARCHIPACK_OT_fence_preset_menu\"\n\n    @property\n    def blacklist(self):\n        # Blacklist property you want store by name  \n        return ['n_parts', 'parts', 'manipulators', 'user_defined_path']\n\n\n\n\n\nCall from object panel\n\n\nImplementation sample\n\n\n\nrow = box.row(align=True)\nrow.operator(\"archipack.fence_preset_menu\", text=bpy.types.ARCHIPACK_OT_fence_preset.bl_label)\nrow.operator(\"archipack.fence_preset\", text=\"\", icon='ZOOMIN')\nrow.operator(\"archipack.fence_preset\", text=\"\", icon='ZOOMOUT').remove_active = True\n\n\n\n\n\nCreate Operator\n\n\nRequirements\n\n\n\n\nMUST\n Inherits from ArchipackCreateTool to handle filename input  \n\n\nMUST\n call load_preset method.\n\n\n\n\nImplementation sample\n\n\nclass ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.fence\"\n    bl_label = \"Fence\"\n    bl_description = \"Fence\"\n    bl_category = 'Archipack'\n    bl_options = {'REGISTER', 'UNDO'}\n\n    def create(self, context):\n        m = bpy.data.meshes.new(\"Fence\")\n        o = bpy.data.objects.new(\"Fence\", m)\n        d = m.archipack_fence.add()\n        context.scene.objects.link(o)\n        o.select = True\n        context.scene.objects.active = o\n        self.load_preset(d)\n        ...",
+            "title": "Preset system"
+        },
+        {
+            "location": "/dev/Preset-system/#presets",
+            "text": "Blender does support advanced presets system right out of the box. \nThe api take care of serialisation and unserialisation. \nArchipack does extend this api to provide thumbs and on screen seekable menu.",
+            "title": "Presets"
+        },
+        {
+            "location": "/dev/Preset-system/#there-are-two-kind-of-presets",
+            "text": "Factory stored under /addon/presets/  User defined, stored under /user profile/presets/     Techically they are the same, but factory's one are shipped with addon where user defined one will be stored on user prefs directory.",
+            "title": "There are two kind of presets"
+        },
+        {
+            "location": "/dev/Preset-system/#requirements",
+            "text": "In order to make objects \"preset aware\" one need 2 operators.     Preset menu Operator   Save / destroy preset Operator",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Preset-system/#preset-menu-operator",
+            "text": "",
+            "title": "Preset menu Operator"
+        },
+        {
+            "location": "/dev/Preset-system/#requirements_1",
+            "text": "MUST  inherit from PresetMenuOperator    preset_subdir must match object PropertyGroup name, with archipack_ prefix",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Preset-system/#implementation-sample",
+            "text": "class ARCHIPACK_OT_fence_preset_menu(PresetMenuOperator, Operator):\n    bl_idname = \"archipack.fence_preset_menu\"\n    bl_label = \"Fence Presets\"\n    # Alter this using the base PropertyGroup class name (MUST use archipack_ prefix)\n    preset_subdir = \"archipack_fence\"  Preset menu Operator may use a \"preset_operator\" option eg in draw a window / draw a door \n* preset_operator: string, bl_idname of operator to call after selection, in the form \"category.operator\". \nWhen not specified, default to create operator, using preset_subdir as operator bl_idname, eg: bpy.ops.archipack.fence   The operator handling preset operation must take \"filename\" as string input and handle loading of preset, where filename is a python preset absolute filename with path.",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Preset-system/#implementation-sample_1",
+            "text": "row.operator(\"archipack.fence_preset_menu\",\n                    text=\"Fence\",\n                    icon_value=icons[\"fence\"].icon_id\n                    ).preset_operator = \"archipack.fence\"",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Preset-system/#save-destroy-preset-operator",
+            "text": "This operator does take care of rendering thumbs on save.",
+            "title": "Save / Destroy preset operator"
+        },
+        {
+            "location": "/dev/Preset-system/#requirements_2",
+            "text": "MUST  inherit from ArchipackPreset  You may add properties you dont want to save in presets in blacklist,\nHIDDEN and SKIP_SAVE property are ignored by default.    preset_menu  MUST  match menu preset operator class name.",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Preset-system/#implementation-sample_2",
+            "text": "class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):\n    \"\"\"Add a Fence Preset\"\"\"\n    bl_idname = \"archipack.fence_preset\"\n    bl_label = \"Add Fence Preset\"\n    preset_menu = \"ARCHIPACK_OT_fence_preset_menu\"\n\n    @property\n    def blacklist(self):\n        # Blacklist property you want store by name  \n        return ['n_parts', 'parts', 'manipulators', 'user_defined_path']",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Preset-system/#call-from-object-panel",
+            "text": "",
+            "title": "Call from object panel"
+        },
+        {
+            "location": "/dev/Preset-system/#implementation-sample_3",
+            "text": "row = box.row(align=True)\nrow.operator(\"archipack.fence_preset_menu\", text=bpy.types.ARCHIPACK_OT_fence_preset.bl_label)\nrow.operator(\"archipack.fence_preset\", text=\"\", icon='ZOOMIN')\nrow.operator(\"archipack.fence_preset\", text=\"\", icon='ZOOMOUT').remove_active = True",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Preset-system/#create-operator",
+            "text": "",
+            "title": "Create Operator"
+        },
+        {
+            "location": "/dev/Preset-system/#requirements_3",
+            "text": "MUST  Inherits from ArchipackCreateTool to handle filename input    MUST  call load_preset method.",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Preset-system/#implementation-sample_4",
+            "text": "class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):\n    bl_idname = \"archipack.fence\"\n    bl_label = \"Fence\"\n    bl_description = \"Fence\"\n    bl_category = 'Archipack'\n    bl_options = {'REGISTER', 'UNDO'}\n\n    def create(self, context):\n        m = bpy.data.meshes.new(\"Fence\")\n        o = bpy.data.objects.new(\"Fence\", m)\n        d = m.archipack_fence.add()\n        context.scene.objects.link(o)\n        o.select = True\n        context.scene.objects.active = o\n        self.load_preset(d)\n        ...",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Feedback/",
+            "text": "Feedback\n\n\nFeedback panel provide easy to use on-screen instructions for hints and shortcuts.  \n\n\n\n\nRequirements\n\n\nIn order to use in your addon, you may copy archipack_gl.py\n\n\nArchipack gl classes\n\n\narchipack_gl provide some classes to draw either 2d or 3d (coords in pixels or world)\n\n\n Lines \n\n Arc \n\n Text \n\n Handles (tri and square) \n\n Editable text\n\n Cursor fence (like with B shorcut) \n\n Cursor area (like when dragging with B shorcut)\n\n FeedbackPanel\n\n\nNote : FeedbackPanel interface will remain stable, while other parts currently need some cleanup and are likely to change. Use it as wrapper around opengl to allow easy update when gl Api change - benefit from archpack's updates.\n\n\nImplementation sample\n\n\nfrom .archipack_gl import FeedbackPanel\n\n# modal Operator invoke sample\n   self.feedback = FeedbackPanel(title=\"Archipack\")\n   self.feedback.instructions(context, \"Draw a wall\", \"Click & Drag to start\", [\n                ('CTRL', 'Snap'),\n                ('MMBTN', 'Constraint to axis'),\n                ('X Y', 'Constraint to axis'),\n                ('RIGHTCLICK or ESC', 'exit without change')\n                ])\n   self.feedback.enable()\n   args = (self, context)\n   self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')\n\n# !!! panel must be enabled \nself.feedback.enable()\n# and may be disabled\nself.feedback.disable()\n\n\n# you may setup instructions right on invoke or\n# in Operator modal you are able to change instructions on the fly\nself.feedback.instructions(context, 'Title', 'Hints about usage', [\n('SHORTCUT', 'Hints about shortcut'),\n...\n])\n\n# draw_callback handler sample (defined as Operator method)\ndef draw_callback(self, _self, context):\n    self.feedback.draw(context)",
+            "title": "Feedback Panel"
+        },
+        {
+            "location": "/dev/Feedback/#feedback",
+            "text": "Feedback panel provide easy to use on-screen instructions for hints and shortcuts.",
+            "title": "Feedback"
+        },
+        {
+            "location": "/dev/Feedback/#requirements",
+            "text": "In order to use in your addon, you may copy archipack_gl.py",
+            "title": "Requirements"
+        },
+        {
+            "location": "/dev/Feedback/#archipack-gl-classes",
+            "text": "archipack_gl provide some classes to draw either 2d or 3d (coords in pixels or world)   Lines   Arc   Text   Handles (tri and square)   Editable text  Cursor fence (like with B shorcut)   Cursor area (like when dragging with B shorcut)  FeedbackPanel  Note : FeedbackPanel interface will remain stable, while other parts currently need some cleanup and are likely to change. Use it as wrapper around opengl to allow easy update when gl Api change - benefit from archpack's updates.",
+            "title": "Archipack gl classes"
+        },
+        {
+            "location": "/dev/Feedback/#implementation-sample",
+            "text": "from .archipack_gl import FeedbackPanel\n\n# modal Operator invoke sample\n   self.feedback = FeedbackPanel(title=\"Archipack\")\n   self.feedback.instructions(context, \"Draw a wall\", \"Click & Drag to start\", [\n                ('CTRL', 'Snap'),\n                ('MMBTN', 'Constraint to axis'),\n                ('X Y', 'Constraint to axis'),\n                ('RIGHTCLICK or ESC', 'exit without change')\n                ])\n   self.feedback.enable()\n   args = (self, context)\n   self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')\n\n# !!! panel must be enabled \nself.feedback.enable()\n# and may be disabled\nself.feedback.disable()\n\n\n# you may setup instructions right on invoke or\n# in Operator modal you are able to change instructions on the fly\nself.feedback.instructions(context, 'Title', 'Hints about usage', [\n('SHORTCUT', 'Hints about shortcut'),\n...\n])\n\n# draw_callback handler sample (defined as Operator method)\ndef draw_callback(self, _self, context):\n    self.feedback.draw(context)",
+            "title": "Implementation sample"
+        },
+        {
+            "location": "/dev/Cutters/",
+            "text": "Cutters\n\n\nThere are many ways to handle cuts.\n\n\n\n\n\n\nCompute every \"part\" intersection with cutters while generating mesh, but this may require complex analysis and lead to long processing time.\n\n\n\n\n\n\nUsing boolean modifiers (the way walls handle windows and doors) require a complex setup to prevent circular dependancy and to handle \"robust\" and still full interactive holes.\n\n\n\n\n\n\nTake advantage of bmesh bissect on a \"degenerate\" state of mesh, only selecting faces to be removed when overall shape is concave or when we need to make holes inside a structure.\nCurrent slab, floor and roofs implementation use this approach.\n\n\n\n\n\n\nRobust and interactive Boolean, aka \"hybrid\" mode\n\n\nBooleans are done in two steps, first step merge all holes into one object (union), then use result to cut wall using another boolean. This prevent stacking booleans cutters and is much stronger, while keeping full interactivity.\nThe first step may take advantage of carve mode when holes overlap, to avoid common issues with overlapping holes.\n\n\nPerformance\n\n\nDeps graph reevaluate each child over 2 boolean ops, so with many holes, moving parent may slow down significantely. \n\nAs workarround, archipack tools provide ability to apply modifiers.\n\nUsing auto-boolean restore the whole stack.  \n\n\nBissect way in depth\n\n\nOn roofs, each part may use her own cutter, with her own offset, so eg rafters may be cut a bit inside of the overall hole so there is a space left for a beam arround hole. Also Tiles does use different cuts than others to be able to go sligthly out/in of roof boundaries.\n\nBissect operation is done on simple faces aka \"degenerate state\", before geometry cleanup, solidify and/or bevel and computing uvs, making the cut operation lightweight (select and erase faces), and let bmesh deal with closing volumes and so on.\n\nAll modelling ops are then done through bmesh, doing so prevent creating temporary mesh data filling orpheans on parameters changes.\n\n\nPerformance\n\n\nCurrent implementation is able to run realtime, at a pretty decent rate on common objects.\nRoofs does implement a \"throttle\" update for tiles, only computing final result a bit after last user interaction.\nThis way, users take advantage of real-time manipulators on screen even on medium to large roofs.",
+            "title": "Cutters"
+        },
+        {
+            "location": "/dev/Cutters/#cutters",
+            "text": "There are many ways to handle cuts.    Compute every \"part\" intersection with cutters while generating mesh, but this may require complex analysis and lead to long processing time.    Using boolean modifiers (the way walls handle windows and doors) require a complex setup to prevent circular dependancy and to handle \"robust\" and still full interactive holes.    Take advantage of bmesh bissect on a \"degenerate\" state of mesh, only selecting faces to be removed when overall shape is concave or when we need to make holes inside a structure.\nCurrent slab, floor and roofs implementation use this approach.",
+            "title": "Cutters"
+        },
+        {
+            "location": "/dev/Cutters/#robust-and-interactive-boolean-aka-hybrid-mode",
+            "text": "Booleans are done in two steps, first step merge all holes into one object (union), then use result to cut wall using another boolean. This prevent stacking booleans cutters and is much stronger, while keeping full interactivity.\nThe first step may take advantage of carve mode when holes overlap, to avoid common issues with overlapping holes.",
+            "title": "Robust and interactive Boolean, aka \"hybrid\" mode"
+        },
+        {
+            "location": "/dev/Cutters/#performance",
+            "text": "Deps graph reevaluate each child over 2 boolean ops, so with many holes, moving parent may slow down significantely.  \nAs workarround, archipack tools provide ability to apply modifiers. \nUsing auto-boolean restore the whole stack.",
+            "title": "Performance"
+        },
+        {
+            "location": "/dev/Cutters/#bissect-way-in-depth",
+            "text": "On roofs, each part may use her own cutter, with her own offset, so eg rafters may be cut a bit inside of the overall hole so there is a space left for a beam arround hole. Also Tiles does use different cuts than others to be able to go sligthly out/in of roof boundaries. \nBissect operation is done on simple faces aka \"degenerate state\", before geometry cleanup, solidify and/or bevel and computing uvs, making the cut operation lightweight (select and erase faces), and let bmesh deal with closing volumes and so on. \nAll modelling ops are then done through bmesh, doing so prevent creating temporary mesh data filling orpheans on parameters changes.",
+            "title": "Bissect way in depth"
+        },
+        {
+            "location": "/dev/Cutters/#performance_1",
+            "text": "Current implementation is able to run realtime, at a pretty decent rate on common objects.\nRoofs does implement a \"throttle\" update for tiles, only computing final result a bit after last user interaction.\nThis way, users take advantage of real-time manipulators on screen even on medium to large roofs.",
+            "title": "Performance"
+        }
+    ]
+}

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../../img/favicon.ico">
+  <title>ArchipackObject - Archipack</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "ArchipackObject";
+    var mkdocs_page_input_path = "dev\\ArchipackObject.md";
+    var mkdocs_page_url = "/dev/ArchipackObject/";
+  </script>
+  
+  <script src="../../js/jquery-2.1.1.min.js"></script>
+  <script src="../../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href="../.." class="icon icon-home"> Archipack</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../acknowledgements/">Acknowledgments</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../setup/">Setup</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">2d to 3d</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/detect/">Detect</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/simplify/">Simplify</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/offset/">Offset</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/buffer/">Buffer</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/boolean/">2d Boolean</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack primitives</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Window/">Window</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Door/">Door</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Stair/">Stair</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Wall/">Wall</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Fence/">Fence</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Slab/">Slab</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Floor/">Floor</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Roof/">Roof</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Reference-point/">Reference point</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack features</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Automatic-Boolean/">Auto-Boolean</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Custom-holes-and-walls/">Custom holes and walls</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Notes-on-duplicating-and-presets/">Duplicating objects</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Make-objects-safe-to-edit/">Make objects editable</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Presets/">Presets</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Materials/">Materials</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Export/">Export</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Usefull-addons/">Usefull addons</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Importing-dxf/">Importing dxf</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Extending archipack</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../Parametric-Objects-developper-guide/">Developper guide</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Programming/">Bulk updates</a>
+                </li>
+                <li class=" current">
+                    
+    <a class="current" href="./">ArchipackObject</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l3"><a href="#archipackobject">ArchipackObject</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l4" href="#implementation">Implementation</a></li>
+        
+            <li><a class="toctree-l4" href="#base-object-propertygroup">Base object PropertyGroup</a></li>
+        
+            <li><a class="toctree-l4" href="#register-module">Register module</a></li>
+        
+            <li><a class="toctree-l4" href="#sample-for-panels">Sample for Panels</a></li>
+        
+            <li><a class="toctree-l4" href="#sample-of-manipulate-operator">Sample of manipulate Operator</a></li>
+        
+            <li><a class="toctree-l4" href="#create-operator-see-add-propertygroup-to-mesh">Create Operator, see add propertyGroup to mesh</a></li>
+        
+        </ul>
+    
+
+    </ul>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Manipulable/">Manipulable ?</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Preset-system/">Preset system</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Feedback/">Feedback Panel</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Cutters/">Cutters</a>
+                </li>
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../..">Archipack</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>Extending archipack &raquo;</li>
+        
+      
+    
+    <li>ArchipackObject</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="archipackobject">ArchipackObject</h1>
+<p>ArchipackObject provide functions to support "copy to selected" and easy access to datablock.</p>
+<ul>
+<li>filter(o) : return boolean, ensure object contains your datablock eg : archipack_window.filter(o) may use it in poll</li>
+<li>datablock(o) : return datablock or None, ensure object contains your datablock eg : d = archipack_window.datablock(o) </li>
+<li>find_in_selection(context, auto_update=True) : store context and find current instance in selection. return object or None. Wont store context and always return None if auto_update is False</li>
+<li>restore_context(context) : restore context - active + selection</li>
+</ul>
+<h2 id="implementation">Implementation</h2>
+<ul>
+<li>PropertyGroup <strong>MUST</strong> inherits from ArchipackObject  </li>
+<li>PropertyGroup <strong>MUST</strong> use archipack_ prefix and you <strong>MUST</strong> use the same name for bpy.types.Mesh.property</li>
+<li>PropertyGroup <strong>MUST</strong> be registered as bpy.types.Mesh property to handle alt + d</li>
+</ul>
+<h2 id="base-object-propertygroup">Base object PropertyGroup</h2>
+<pre><code class="python">class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
+    ...
+    def update(self, context):
+
+        o = self.find_in_selection(context, self.auto_update)
+
+        if o is None:
+            return
+
+        # update object's mesh (see bmesh_utils as reference)
+        bmed.buildmesh(context, o, self.verts, self.faces)
+
+        # restore context
+        self.resore_context(context)
+
+</code></pre>
+
+<h2 id="register-module">Register module</h2>
+<pre><code class="python">def register():
+   bpy.utils.register_class(archipack_door)
+   Mesh.archipack_door = CollectionProperty(type=archipack_door)
+
+</code></pre>
+
+<h2 id="sample-for-panels">Sample for Panels</h2>
+<pre><code class="python">
+    @classmethod
+    def poll(cls, context):
+        return archipack_door.filter(context.active_object)
+
+    def draw(self, context):
+        o = context.active_object
+        if not archipack_door.filter(o):
+            return
+        layout = self.layout
+        layout.operator('archipack.door_manipulate', icon='HAND')
+        props = archipack_door.datablock(o)
+
+</code></pre>
+
+<h2 id="sample-of-manipulate-operator">Sample of manipulate Operator</h2>
+<pre><code class="python">class ARCHIPACK_OT_door_manipulate(Operator):
+    bl_idname = &quot;archipack.door_manipulate&quot;
+    bl_label = &quot;Manipulate&quot;
+    bl_description = &quot;Manipulate&quot;
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(self, context):
+        return archipack_door.filter(context.active_object)
+
+    def invoke(self, context, event):
+        d = archipack_door.datablock(context.active_object)
+        d.manipulable_invoke(context)
+        return {'FINISHED'}
+
+</code></pre>
+
+<h2 id="create-operator-see-add-propertygroup-to-mesh">Create Operator, see add propertyGroup to mesh</h2>
+<pre><code class="python">
+class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
+    bl_idname = &quot;archipack.truss&quot;
+    bl_label = &quot;Truss&quot;
+    bl_description = &quot;Create Truss&quot;
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def create(self, context):
+        m = bpy.data.meshes.new(&quot;Truss&quot;)
+        o = bpy.data.objects.new(&quot;Truss&quot;, m)
+
+        # add propertyGroup to mesh
+        d = m.archipack_truss.add()
+
+        context.scene.objects.link(o)
+        o.select = True
+        context.scene.objects.active = o
+        self.load_preset(d)
+        self.add_material(o)
+        m.auto_smooth_angle = 1.15
+        return o
+
+    def execute(self, context):
+        if context.mode == &quot;OBJECT&quot;:
+            bpy.ops.object.select_all(action=&quot;DESELECT&quot;)
+            o = self.create(context)
+            o.location = bpy.context.scene.cursor_location
+            o.select = True
+            context.scene.objects.active = o
+            self.manipulate()
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, &quot;Archipack: Option only valid in Object mode&quot;)
+            return {'CANCELLED'}
+
+
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Manipulable/" class="btn btn-neutral float-right" title="Manipulable ?">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../Programming/" class="btn btn-neutral" title="Bulk updates"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../Programming/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Manipulable/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '../..';</script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/require.js"></script>
+      <script src="../../search/search.js"></script>
+
+</body>
+</html>

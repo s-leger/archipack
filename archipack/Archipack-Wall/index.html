@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../../img/favicon.ico">
+  <title>Wall - Archipack</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Wall";
+    var mkdocs_page_input_path = "archipack\\Archipack-Wall.md";
+    var mkdocs_page_url = "/archipack/Archipack-Wall/";
+  </script>
+  
+  <script src="../../js/jquery-2.1.1.min.js"></script>
+  <script src="../../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href="../.." class="icon icon-home"> Archipack</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../acknowledgements/">Acknowledgments</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../setup/">Setup</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">2d to 3d</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/detect/">Detect</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/simplify/">Simplify</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/offset/">Offset</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/buffer/">Buffer</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/boolean/">2d Boolean</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack primitives</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../Archipack-Window/">Window</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Archipack-Door/">Door</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Archipack-Stair/">Stair</a>
+                </li>
+                <li class=" current">
+                    
+    <a class="current" href="./">Wall</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l3"><a href="#wall">Wall</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l4" href="#important-note">Important note:</a></li>
+        
+            <li><a class="toctree-l4" href="#t-childs-walls-127">T childs walls (1.2.7+)</a></li>
+        
+            <li><a class="toctree-l4" href="#textures">Textures</a></li>
+        
+            <li><a class="toctree-l4" href="#materials">Materials</a></li>
+        
+            <li><a class="toctree-l4" href="#user-guide">User guide</a></li>
+        
+        </ul>
+    
+
+    </ul>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Archipack-Fence/">Fence</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Archipack-Slab/">Slab</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Archipack-Floor/">Floor</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Archipack-Roof/">Roof</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Archipack-Reference-point/">Reference point</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack features</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Automatic-Boolean/">Auto-Boolean</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Custom-holes-and-walls/">Custom holes and walls</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Notes-on-duplicating-and-presets/">Duplicating objects</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Make-objects-safe-to-edit/">Make objects editable</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Presets/">Presets</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Materials/">Materials</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Export/">Export</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Usefull-addons/">Usefull addons</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Importing-dxf/">Importing dxf</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Extending archipack</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../dev/Parametric-Objects-developper-guide/">Developper guide</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Programming/">Bulk updates</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/ArchipackObject/">ArchipackObject</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Manipulable/">Manipulable ?</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Preset-system/">Preset system</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Feedback/">Feedback Panel</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Cutters/">Cutters</a>
+                </li>
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../..">Archipack</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>Archipack primitives &raquo;</li>
+        
+      
+    
+    <li>Wall</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="wall">Wall</h1>
+<ul>
+<li>Each segment may have up to 32 height changes</li>
+<li>Support straight and curved walls</li>
+<li>Any angle between segments</li>
+<li>Draw wall with snap</li>
+<li>Flexible snap manipulator</li>
+<li>Once auto-boolean done, wall manipulators take care of moving surrounding doors and windows according your changes</li>
+<li>Auto-align and resize surrounding doors and windows according wall depth</li>
+<li>Manipulators for easy on screen edition</li>
+<li>Wall T childs (1.2.7+)</li>
+<li>Fit to roof (1.2.7+) automatically fit wall to surroundig roof.</li>
+</ul>
+<h2 id="important-note">Important note:</h2>
+<p>Archipack provide 2 kinds of walls
+- Wall made with 2d to 3d tool, where only height may be changed, but able to handle complex shapes.
+- Full parametric wall made with add Archipack tools, documented here.</p>
+<p><img alt="wall" src="../../img/wall.png" /></p>
+<h2 id="t-childs-walls-127">T childs walls (1.2.7+)</h2>
+<p><img alt="T child" src="../../img/T_child.png" /></p>
+<p>T childs walls are T walls linked to parent wall.<br />
+When manipulating parent wall, T child will follow according.  </p>
+<h3 id="setup-a-t-child">Setup a T child</h3>
+<p>There is 2 way to setup T child: 
+<em> Using "draw a wall" tool, with mouse over parent wall when starting to create your "child" wall, the tool detect parent wall and provide regular snapping features to allow precise orientation of child with respect to parent.<br />
+</em> With an allready made wall, having child wall's pivot near parent (use "reverse" if your pivot is in the wrong side) then in child's wall parameters, choose parent in "T link"</p>
+<h3 id="t-child-orientation-with-respect-to-parent">T child orientation with respect to parent</h3>
+<p>In order to orient child, use the part's 1  "start angle" parameter, where -90 make child outside of wall and 90 inside.  </p>
+<h3 id="moving-t-child">Moving T child</h3>
+<p>You may move the child, as long as it's pivot stay close from parent.</p>
+<p>In order to translate child along parent, there is a dedicated manipulator with 2 small arrows where T child touch parent wall. This manipulator take care of moving T child windows and doors according.</p>
+<h2 id="textures">Textures</h2>
+<p>Typical node setup for texture under cycles<br />
+<img alt="Wall texture" src="../../img/archipack_wall_texturing.png" /></p>
+<h2 id="materials">Materials</h2>
+<p>Currently wall mesh is based on solidify modifier, wich imply some limitations regarding materials.<br />
+In order to be able to setup different materials to parts, you have to apply the solidify modifier, (labelled "Wall") and then use regular blender modelling on the wall. 
+Any parameter change on the wall will result in loosing changes done this way.</p>
+<h2 id="user-guide">User guide</h2>
+<p>Find wall on the left panel of 3d view, Create-&gt;Archipack under regular primitives<br />
+You may either create a wall and edit on screen or use "Draw a wall" create tool.</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Archipack-Fence/" class="btn btn-neutral float-right" title="Fence">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../Archipack-Stair/" class="btn btn-neutral" title="Stair"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../Archipack-Stair/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Archipack-Fence/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '../..';</script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/require.js"></script>
+      <script src="../../search/search.js"></script>
+
+</body>
+</html>

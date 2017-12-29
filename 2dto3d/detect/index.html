@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../../img/favicon.ico">
+  <title>Detect - Archipack</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Detect";
+    var mkdocs_page_input_path = "2dto3d\\detect.md";
+    var mkdocs_page_url = "/2dto3d/detect/";
+  </script>
+  
+  <script src="../../js/jquery-2.1.1.min.js"></script>
+  <script src="../../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href="../.." class="icon icon-home"> Archipack</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../acknowledgements/">Acknowledgments</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../setup/">Setup</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">2d to 3d</span>
+    <ul class="subnav">
+                <li class=" current">
+                    
+    <a class="current" href="./">Detect</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l3"><a href="#detect">Detect</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l4" href="#options">Options</a></li>
+        
+            <li><a class="toctree-l4" href="#typical-generic-workflow">Typical (generic) workflow</a></li>
+        
+            <li><a class="toctree-l4" href="#architectural-workflow">Architectural workflow</a></li>
+        
+            <li><a class="toctree-l4" href="#select-tools">Select tools</a></li>
+        
+            <li><a class="toctree-l4" href="#select-polygons">Select Polygons</a></li>
+        
+            <li><a class="toctree-l4" href="#select-lines">Select Lines</a></li>
+        
+            <li><a class="toctree-l4" href="#select-points">Select Points</a></li>
+        
+        </ul>
+    
+
+    </ul>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../simplify/">Simplify</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../offset/">Offset</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../buffer/">Buffer</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../boolean/">2d Boolean</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack primitives</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Window/">Window</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Door/">Door</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Stair/">Stair</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Wall/">Wall</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Fence/">Fence</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Slab/">Slab</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Floor/">Floor</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Roof/">Roof</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Reference-point/">Reference point</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack features</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Automatic-Boolean/">Auto-Boolean</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Custom-holes-and-walls/">Custom holes and walls</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Notes-on-duplicating-and-presets/">Duplicating objects</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Make-objects-safe-to-edit/">Make objects editable</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Presets/">Presets</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Materials/">Materials</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Export/">Export</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Usefull-addons/">Usefull addons</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Importing-dxf/">Importing dxf</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Extending archipack</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../dev/Parametric-Objects-developper-guide/">Developper guide</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Programming/">Bulk updates</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/ArchipackObject/">ArchipackObject</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Manipulable/">Manipulable ?</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Preset-system/">Preset system</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Feedback/">Feedback Panel</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../dev/Cutters/">Cutters</a>
+                </li>
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../..">Archipack</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>2d to 3d &raquo;</li>
+        
+      
+    
+    <li>Detect</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="detect">Detect</h1>
+<p>This set of tools does compute all intersections of a set of curves and detect polygons.<br />
+Once detected you may choose between 3 select tools to select lines/polygons and create objects from selection.<br />
+You are able to use any select tool at any time, detected data remains valid until you reselect another set of curves and repress "Detect".<br />
+Detect find polygons for ~ 1k segment / second, so it may take some time.</p>
+<p><a href="https://www.youtube.com/watch?v=BvWZI-3DDG4">2d to 3d video tutorial</a></p>
+<h3 id="options">Options</h3>
+<ul>
+<li>Bezier resolution : this tool only work with linear segments, resolution is the number of steps to estimate each bezier curved segment.  </li>
+<li>Extend end: try to extend segments to find intersections, allow to fill small gaps between lines. Typically 1 cm should be enougth, setting too high will require more time.  </li>
+<li>Extend all segs: Extend only work for line ends, when checked the tool will try to extend all segments instead (slowest, but may be safer in some situations).</li>
+</ul>
+<h3 id="typical-generic-workflow">Typical (generic) workflow</h3>
+<ol>
+<li>Select one or more curves</li>
+<li>Expand "Detect" options, choose extend limit and extend all segs when apply (see Polygonize)</li>
+<li>press "Detect", wait till done ( ~ 1k segment/sec)</li>
+<li>press "Polygons / Lines / Points" to start a select tool</li>
+<li>Select one or many lines, using click and drag to select into an area.</li>
+<li>Use keyboard to generate your objects (see on-screen options)</li>
+<li>Repeat 5 and 6 according your needs, then Right click or press esc to exit</li>
+</ol>
+<h3 id="architectural-workflow">Architectural workflow</h3>
+<ol>
+<li>Clean up, Detect and possibly use "Points" to fill missing parts</li>
+<li>select curves, and Detect </li>
+<li>Use "Polygons" to create openings objects (windows and doors)</li>
+<li>Use "Polygons" to create walls / slabs.. </li>
+<li>Use "Lines" to output guide lines for fences</li>
+</ol>
+<h3 id="select-tools">Select tools</h3>
+<h4 id="shortcut-common-select-actions">(shortcut) Common select actions</h4>
+<ul>
+<li>(a) Select all / none</li>
+<li>(i) Select inverse</li>
+<li>(b) Select biggest than current (apply only on polygons)</li>
+<li>(s) Save current selection</li>
+<li>(l) Load saved selection</li>
+<li>(shift) Unselect on click or click &amp; drag to unselect in area</li>
+<li>(ctrl) Select when area fully contains polygon (Deselect when shift is pressed)</li>
+</ul>
+<h3 id="select-polygons">Select Polygons</h3>
+<p>This tool allow to select areas and build objects from selection.</p>
+<h4 id="shortcut-select-polygons-actions">(shortcut) Select Polygons actions</h4>
+<ul>
+<li>(o) Selection as closed curves</li>
+<li>(u) Union of selection boundary as closed curves</li>
+<li>(f) 2d Surface using union of boundarys</li>
+<li>(e) 3d Wall using union of boundarys</li>
+<li>(w) start/exit a tool to create Window over selection</li>
+<li>(d) start/exit a tool to create Door over selection</li>
+<li>(r) Best fit rectangle of selection as closed curve</li>
+</ul>
+<h4 id="creating-windows-doors">Creating windows / doors</h4>
+<p>This tool create one object at time.<br />
+With an area selected, press either w for window or d for door does start a special create tool.
+Press left mouse and drag to set the desired direction of opening, release to create the object.
+Pressing w or d when running the create tool cancel the action and allow to select another polygon.</p>
+<h3 id="select-lines">Select Lines</h3>
+<p>This tool allow to select lines and build curves from selection.</p>
+<h4 id="shortcut-select-lines-actions">(shortcut) Select Lines actions</h4>
+<ul>
+<li>(u) Union of selected lines as curve</li>
+<li>(f) selected lines as curve</li>
+</ul>
+<h3 id="select-points">Select Points</h3>
+<p>This tool allow to select points and build curves from selection.
+Intended to fill missing parts of walls, eg when the wall is cut on openings like with doors.</p>
+<h4 id="shortcut-select-points-actions">(shortcut) Select Points actions</h4>
+<ul>
+<li>(alt + f) best fit rectangle around selected points as curve</li>
+<li>(f) line as seen on screen as curve</li>
+</ul>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../simplify/" class="btn btn-neutral float-right" title="Simplify">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../../setup/" class="btn btn-neutral" title="Setup"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../../setup/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../simplify/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '../..';</script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/require.js"></script>
+      <script src="../../search/search.js"></script>
+
+</body>
+</html>

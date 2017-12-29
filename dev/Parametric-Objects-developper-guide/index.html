@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../../img/favicon.ico">
+  <title>Developper guide - Archipack</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="../../css/highlight.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Developper guide";
+    var mkdocs_page_input_path = "dev\\Parametric-Objects-developper-guide.md";
+    var mkdocs_page_url = "/dev/Parametric-Objects-developper-guide/";
+  </script>
+  
+  <script src="../../js/jquery-2.1.1.min.js"></script>
+  <script src="../../js/modernizr-2.8.3.min.js"></script>
+  <script type="text/javascript" src="../../js/highlight.pack.js"></script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href="../.." class="icon icon-home"> Archipack</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../..">Home</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../acknowledgements/">Acknowledgments</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <a class="" href="../../setup/">Setup</a>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">2d to 3d</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/detect/">Detect</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/simplify/">Simplify</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/offset/">Offset</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/buffer/">Buffer</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../2dto3d/boolean/">2d Boolean</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack primitives</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Window/">Window</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Door/">Door</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Stair/">Stair</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Wall/">Wall</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Fence/">Fence</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Slab/">Slab</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Floor/">Floor</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Roof/">Roof</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../archipack/Archipack-Reference-point/">Reference point</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Archipack features</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Automatic-Boolean/">Auto-Boolean</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Custom-holes-and-walls/">Custom holes and walls</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Notes-on-duplicating-and-presets/">Duplicating objects</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Make-objects-safe-to-edit/">Make objects editable</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Archipack-Presets/">Presets</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Materials/">Materials</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Export/">Export</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Usefull-addons/">Usefull addons</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../../features/Importing-dxf/">Importing dxf</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Extending archipack</span>
+    <ul class="subnav">
+                <li class=" current">
+                    
+    <a class="current" href="./">Developper guide</a>
+    <ul class="subnav">
+            
+    <li class="toctree-l3"><a href="#archipack-toolkit">Archipack toolkit</a></li>
+    
+        <ul>
+        
+            <li><a class="toctree-l4" href="#imports">Imports</a></li>
+        
+            <li><a class="toctree-l4" href="#propertygroup">PropertyGroup</a></li>
+        
+            <li><a class="toctree-l4" href="#panel-t-panel-in-ui">Panel (T panel in UI)</a></li>
+        
+            <li><a class="toctree-l4" href="#create-tool">Create Tool</a></li>
+        
+            <li><a class="toctree-l4" href="#preset-menu-operator">Preset menu operator</a></li>
+        
+            <li><a class="toctree-l4" href="#naming-convention_3">Naming convention</a></li>
+        
+            <li><a class="toctree-l4" href="#preset-adddestroy-operator">Preset add/destroy operator</a></li>
+        
+            <li><a class="toctree-l4" href="#manipuate-operator">Manipuate Operator</a></li>
+        
+            <li><a class="toctree-l4" href="#registerunregister">Register/Unregister</a></li>
+        
+            <li><a class="toctree-l4" href="#modify-the-9595init9595py">Modify the __init__.py</a></li>
+        
+        </ul>
+    
+
+    </ul>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Programming/">Bulk updates</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../ArchipackObject/">ArchipackObject</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Manipulable/">Manipulable ?</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Preset-system/">Preset system</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Feedback/">Feedback Panel</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../Cutters/">Cutters</a>
+                </li>
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../..">Archipack</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>Extending archipack &raquo;</li>
+        
+      
+    
+    <li>Developper guide</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h2 id="archipack-toolkit">Archipack toolkit</h2>
+<p>Want to contribute ? add your own parametric object ?<br />
+Archipack's toolkit is build from scratch to provide all needed parts to handle parametric objects, as easy to import subclasses, so you may focus on your base object mesh building.<br />
+Here you'll find a "quick start" dev guide with all required parts.<br />
+<a href="https://github.com/s-leger/archipack/blob/master/archipack_toolkit.py">Sample file available here</a></p>
+<h3 id="imports">Imports</h3>
+<h4 id="implementation-sample">Implementation sample</h4>
+<p>Minimal required imports</p>
+<pre><code class="python">import bpy
+from bpy.types import Operator, PropertyGroup, Mesh, Panel
+
+# Minimal required property types 
+from bpy.props import (
+    FloatProperty, BoolProperty, CollectionProperty
+    )
+from mathutils import Vector
+
+# Bmesh made easy
+from .bmesh_utils import BmeshEdit as bmed
+
+# Manipulable
+from .archipack_manipulator import Manipulable
+
+# Preset system
+from .archipack_preset import ArchipackPreset, PresetMenuOperator
+
+# Base for Propertygroup and create tool Operator
+from .archipack_object import ArchipackCreateTool, ArchipackObject
+</code></pre>
+
+<h3 id="propertygroup">PropertyGroup</h3>
+<p>The main propertyGroup is the heart of parametric object, generating mesh on parameter changes using bmesh, and updating "manipulators" location according.<br />
+Separate properties for vertex, faces, material indexes and uvmaps is not required, made like this as for such simple object it allow to keep code clean.<br />
+More complex objects may require to build uvs maps knowing vertex location, and such design pattern would not work.</p>
+<h4 id="naming-convention">Naming convention:</h4>
+<p>use archipack_ prefix, then your meanfull class name  </p>
+<h4 id="requirements">Requirements</h4>
+<ul>
+<li><strong>MUST</strong> inherit from ArchipackObject and Manipulable</li>
+<li><strong>MUST</strong> implement update() function generating / refreshing mesh and manipulators location, see <a href="../Manipulable#updating-manipulator-location">Updating manipulator location</a></li>
+<li><strong>MUST</strong> implement setup_manipulators() function filling manipulators Collection see <a href="../Manipulable#available-manipulators-type_key">Available manipulators</a></li>
+<li><strong>MUST</strong> have auto_update property to disable mesh updating for bulk updates</li>
+<li>Properties <strong>SHOULD</strong> call update (use update=update in property definition) </li>
+</ul>
+<h4 id="implementation-sample-a-box">Implementation sample (a box)</h4>
+<p>Minimal implementation using all features</p>
+<pre><code class="python">def update(self, context):
+    self.update(context)
+
+
+class archipack_myobject(ArchipackObject, Manipulable, PropertyGroup):
+    &quot;&quot;&quot; Archipack toolkit sample&quot;&quot;&quot;
+    x = FloatProperty(
+            name=&quot;Width&quot;,
+            default=2.0, min=0.01,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    y = FloatProperty(
+            name=&quot;Depth&quot;,
+            default=2.0, min=0.01,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    z = FloatProperty(
+            name=&quot;Height&quot;,
+            default=2.0, min=0.01,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    auto_update = BoolProperty(
+            # Wont save auto_update state in any case
+            options={'SKIP_SAVE'},
+            default=True,
+            update=update
+            )
+
+    @property
+    def verts(self):
+        &quot;&quot;&quot;
+            Object vertices coords
+        &quot;&quot;&quot;
+        x = 0.5 * self.x
+        y = 0.5 * self.y
+        z = self.z
+        return [
+            (-x, y, 0),
+            (-x, -y, 0),
+            (x, -y, 0),
+            (x, y, 0),
+            (-x, y, z),
+            (-x, -y, z),
+            (x, -y, z),
+            (x, y, z)
+        ]
+
+    @property
+    def faces(self):
+        &quot;&quot;&quot;
+            Object faces vertices index
+        &quot;&quot;&quot;
+        return [
+            (0, 1, 2, 3),
+            (7, 6, 5, 4),
+            (7, 4, 0, 3),
+            (4, 5, 1, 0),
+            (5, 6, 2, 1),
+            (6, 7, 3, 2)
+        ]
+
+    @property
+    def uvs(self):
+        &quot;&quot;&quot;
+            Object faces uv coords
+        &quot;&quot;&quot;
+        return [
+            [(0, 0), (0, 1), (1, 1), (1, 0)],
+            [(0, 0), (0, 1), (1, 1), (1, 0)],
+            [(0, 0), (0, 1), (1, 1), (1, 0)],
+            [(0, 0), (0, 1), (1, 1), (1, 0)],
+            [(0, 0), (0, 1), (1, 1), (1, 0)],
+            [(0, 0), (0, 1), (1, 1), (1, 0)]
+        ]
+
+    @property
+    def matids(self):
+        &quot;&quot;&quot;
+            Object material indexes for each face
+        &quot;&quot;&quot;
+        return [0, 0, 0, 0, 0, 0]
+
+    def setup_manipulators(self):
+        if len(self.manipulators) &lt; 1:
+            # add manipulator for x property
+            s = self.manipulators.add()
+            s.prop1_name = &quot;x&quot;
+            s.type_key = 'SIZE'
+
+            # add manipulator for y property
+            s = self.manipulators.add()
+            s.prop1_name = &quot;y&quot;
+            s.type_key = 'SIZE'
+
+            # add manipulator for z property
+            s = self.manipulators.add()
+            s.prop1_name = &quot;z&quot;
+            s.type_key = 'SIZE'
+            # draw this one on xz plane 
+            s.normal = Vector((0, 1, 0))
+
+    def update(self, context):
+
+        # provide support for &quot;copy to selected&quot; 
+        o = self.find_in_selection(context, self.auto_update)
+
+        if o is None:
+            return
+
+        # dynamically create manipulators when needed  
+        self.setup_manipulators()
+
+        # update your mesh from parameters
+        bmed.buildmesh(context, 
+                       o, 
+                       self.verts,  
+                       self.faces,  
+                       matids=self.matids,  
+                       uvs=self.uvs,  
+                       weld=False)
+
+        # update manipulators location (3d location in object coordsystem)
+        x, y = 0.5 * self.x, 0.5 * self.y
+        self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (1, 0, 0)])
+        self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])
+        self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.z), (-1, 0, 0)])
+
+        # always restore context  
+        self.restore_context(context)
+
+</code></pre>
+
+<h3 id="panel-t-panel-in-ui">Panel (T panel in UI)</h3>
+<p>Main ui panel to modify object properties.</p>
+<h4 id="naming-convention_1">Naming convention</h4>
+<p>Use ARCHIPACK_PT_ prefix then your object name</p>
+<h4 id="requirements_1">Requirements</h4>
+<ul>
+<li><strong>MUST</strong> poll using your PropertyGroup class</li>
+<li><strong>MUST</strong> call manipulate operator</li>
+<li><strong>MUST</strong> call presets operators</li>
+</ul>
+<h4 id="implementation-sample-a-box_1">Implementation sample (a box)</h4>
+<p>Minimal implementation using all features</p>
+<pre><code class="python">class ARCHIPACK_PT_myobject(Panel):
+    bl_idname = &quot;ARCHIPACK_PT_myobject&quot;
+    bl_label = &quot;MyObject&quot;
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'ArchiPack'
+
+    @classmethod
+    def poll(cls, context):
+        # ensure your object panel only show when active object is the right one 
+        return archipack_myobject.filter(context.active_object)
+
+    def draw(self, context):
+        o = context.active_object
+        if not archipack_myobject.filter(o):
+            return
+        layout = self.layout
+
+        # retrieve datablock of your object
+        props = archipack_myobject.datablock(o)
+
+        # Manipulate mode operator
+        layout.operator('archipack.myobject_manipulate', icon='HAND')
+
+        box = layout.box()
+        row = box.row(align=True)
+
+        # Presets operators
+        row.operator(&quot;archipack.myobject_preset_menu&quot;, 
+                     text=bpy.types.ARCHIPACK_OT_myobject_preset_menu.bl_label)
+        row.operator(&quot;archipack.myobject_preset&quot;, 
+                      text=&quot;&quot;, 
+                      icon='ZOOMIN')
+        row.operator(&quot;archipack.myobject_preset&quot;, 
+                      text=&quot;&quot;, 
+                      icon='ZOOMOUT').remove_active = True
+
+        row = layout.row()
+        box = row.box()
+        box.label(text=&quot;Size&quot;)
+        box.prop(props, 'x')
+        box.prop(props, 'y')
+        box.prop(props, 'z')
+
+</code></pre>
+
+<h3 id="create-tool">Create Tool</h3>
+<p>This operator implement creation tool for your object.<br />
+You may add it in N Panel and/or shift+A menu to allow users to create your objects.  </p>
+<h4 id="naming-convention_2">Naming convention</h4>
+<p>Use ARCHIPACK_OT_ prefix and then your object name<br />
+bl_idname name is archipack. prefix and then your object name</p>
+<h4 id="requirements_2">Requirements</h4>
+<ul>
+<li><strong>MUST</strong> inherit from ArchipackCreateTool</li>
+<li>bl_idname <strong>MUST</strong> match your object's class name</li>
+<li><strong>MUST</strong> call load_preset, passing your class property datablock</li>
+<li><strong>MUST</strong> create an object, a mesh and link to scene</li>
+<li><strong>MUST</strong> add your PropertyGoup </li>
+</ul>
+<h4 id="implementation-sample_1">Implementation sample</h4>
+<p>Minimal implementation using all features</p>
+<pre><code class="python">
+class ARCHIPACK_OT_myobject(ArchipackCreateTool, Operator):
+    bl_idname = &quot;archipack.myobject&quot;
+    bl_label = &quot;Myobject&quot;
+    bl_description = &quot;Create Myobject&quot;
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def create(self, context):
+
+        # Create an empty mesh datablock 
+        m = bpy.data.meshes.new(&quot;Myobject&quot;)
+
+        # Create an object using the mesh datablock 
+        o = bpy.data.objects.new(&quot;Myobject&quot;, m)
+
+        # Add your properties on mesh datablock  
+        d = m.archipack_myobject.add()
+
+        # Link object into scene
+        context.scene.objects.link(o)
+
+        # select and make active
+        o.select = True
+        context.scene.objects.active = o
+
+        # Load preset into datablock
+        self.load_preset(d)
+
+        # add a material  
+        self.add_material(o)
+        return o
+
+    def execute(self, context):
+        if context.mode == &quot;OBJECT&quot;:
+            bpy.ops.object.select_all(action=&quot;DESELECT&quot;)
+            o = self.create(context)
+            o.location = bpy.context.scene.cursor_location
+            o.select = True
+            context.scene.objects.active = o
+
+            # Start manipulate mode   
+            self.manipulate()
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, &quot;Archipack: Option only valid in Object mode&quot;)
+            return {'CANCELLED'}
+
+</code></pre>
+
+<h3 id="preset-menu-operator">Preset menu operator</h3>
+<p>Preset system require two operators, this one display graphical preset menu.</p>
+<h3 id="naming-convention_3">Naming convention</h3>
+<p>Use ARCHIPACK_OT_ prefix and then your object name then _preset_menu<br />
+bl_idname name is archipack. prefix and then your object name then _preset_menu</p>
+<h4 id="requirements_3">Requirements</h4>
+<ul>
+<li><strong>MUST</strong> define preset_subdir using PropertyGroup class name</li>
+</ul>
+<h4 id="implementation-sample_2">Implementation sample</h4>
+<p>Minimal implementation using all features</p>
+<pre><code class="python">class ARCHIPACK_OT_myobject_preset_menu(PresetMenuOperator, Operator):
+    bl_idname = &quot;archipack.myobject_preset_menu&quot;
+    bl_label = &quot;Myobject preset&quot;
+    preset_subdir = &quot;archipack_myobject&quot;
+
+</code></pre>
+
+<h3 id="preset-adddestroy-operator">Preset add/destroy operator</h3>
+<p>Preset system require two operators, this one allow user to create and destroy presets.</p>
+<h4 id="naming-convention_4">Naming convention</h4>
+<p>Use ARCHIPACK_OT_ prefix and then your object name then _preset<br />
+bl_idname name is archipack. prefix and then your object name then _preset</p>
+<h4 id="requirements_4">Requirements</h4>
+<ul>
+<li><strong>MUST</strong> define preset_menu using the class name of preset menu operator</li>
+<li><strong>MAY</strong> define blacklist, an array of property names you don't want to save in presets</li>
+</ul>
+<h4 id="implementation-sample_3">Implementation sample</h4>
+<p>Minimal implementation using all features</p>
+<pre><code class="python">class ARCHIPACK_OT_myobject_preset(ArchipackPreset, Operator):
+    &quot;&quot;&quot;Add a Myobject Preset&quot;&quot;&quot;
+    bl_idname = &quot;archipack.myobject_preset&quot;
+    bl_label = &quot;Add Myobject preset&quot;
+    preset_menu = &quot;ARCHIPACK_OT_myobject_preset_menu&quot;
+
+    @property
+    def blacklist(self):
+        return ['manipulators']
+</code></pre>
+
+<h3 id="manipuate-operator">Manipuate Operator</h3>
+<p>This operator allow user to enter/exit from "manipulate" mode.</p>
+<h4 id="naming-convention_5">Naming convention</h4>
+<p>Use ARCHIPACK_OT_ prefix and then your object name then _manipulate<br />
+bl_idname name is archipack. prefix and then your object name then _manipulate</p>
+<h4 id="requirements_5">Requirements</h4>
+<ul>
+<li><strong>MUST</strong> poll using your propertyGroup class</li>
+<li><strong>MUST</strong> call .manipulable_invoke(context)</li>
+</ul>
+<h4 id="implementation-sample_4">Implementation sample</h4>
+<p>Minimal implementation using all features</p>
+<pre><code class="python">
+class ARCHIPACK_OT_myobject_manipulate(Operator):
+    bl_idname = &quot;archipack.myobject_manipulate&quot;
+    bl_label = &quot;Manipulate&quot;
+    bl_description = &quot;Manipulate&quot;
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(self, context):
+        return archipack_myobject.filter(context.active_object)
+
+    def invoke(self, context, event):
+        d = archipack_myobject.datablock(context.active_object)
+        d.manipulable_invoke(context)
+        return {'FINISHED'}
+
+</code></pre>
+
+<h3 id="registerunregister">Register/Unregister</h3>
+<p>Each archipack object must register / unregister itself</p>
+<h4 id="requirements_6">Requirements</h4>
+<ul>
+<li>PropertyGroup <strong>MUST</strong> register/unregister and be added as CollectionProperty of Mesh</li>
+<li>Panel, create, preset and manipulate Operators <strong>MUST</strong> register/unregister</li>
+</ul>
+<h4 id="implementation-sample_5">Implementation sample</h4>
+<p>Minimal implementation using all features</p>
+<pre><code class="python">def register():
+    bpy.utils.register_class(archipack_myobject)
+    Mesh.archipack_myobject = CollectionProperty(type=archipack_myobject)
+    bpy.utils.register_class(ARCHIPACK_PT_myobject)
+    bpy.utils.register_class(ARCHIPACK_OT_myobject)
+    bpy.utils.register_class(ARCHIPACK_OT_myobject_preset_menu)
+    bpy.utils.register_class(ARCHIPACK_OT_myobject_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_myobject_manipulate)
+
+
+def unregister():
+    bpy.utils.unregister_class(archipack_myobject)
+    del Mesh.archipack_myobject
+    bpy.utils.unregister_class(ARCHIPACK_PT_myobject)
+    bpy.utils.unregister_class(ARCHIPACK_OT_myobject)
+    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_preset_menu)
+    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_myobject_manipulate)
+
+</code></pre>
+
+<h3 id="modify-the-9595init9595py">Modify the __init__.py</h3>
+<h4 id="imports_1">Imports</h4>
+<pre><code>    imp.reload(archipack_myobject)
+</code></pre>
+
+<pre><code>    from . import archipack_myobject
+</code></pre>
+
+<h4 id="create-panel">Create panel</h4>
+<p>class TOOLS_PT_Archipack_Create(Panel) in draw function:</p>
+<pre><code>        col = row.column()
+        subrow = col.row(align=True)
+        subrow.operator(&quot;archipack.myobject_preset_menu&quot;,
+                    text=&quot;myobj&quot;,
+                    icon_value=icons[&quot;door&quot;].icon_id
+                    ).preset_operator = &quot;archipack.myobject&quot;
+        subrow.operator(&quot;archipack.myobject_preset_menu&quot;,
+                    text=&quot;&quot;,
+                    icon='GREASEPENCIL'
+                    ).preset_operator = &quot;archipack.myobject_draw&quot;
+</code></pre>
+
+<h4 id="shift-a-and-add-mesh-menu">Shift + a and add mesh menu</h4>
+<p>on draw_menu():</p>
+<pre><code>    layout.operator(&quot;archipack.door_preset_menu&quot;,
+                    text=&quot;Door&quot;,
+                    icon_value=icons[&quot;door&quot;].icon_id
+                    ).preset_operator = &quot;archipack.door&quot;
+</code></pre>
+
+<h4 id="register-and-unregister-function">Register and unregister function:</h4>
+<pre><code> archipack_myobject.register()
+</code></pre>
+
+<pre><code> archipack_myobject.unregister()
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Programming/" class="btn btn-neutral float-right" title="Bulk updates">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../../features/Importing-dxf/" class="btn btn-neutral" title="Importing dxf"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../../features/Importing-dxf/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../Programming/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '../..';</script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/require.js"></script>
+      <script src="../../search/search.js"></script>
+
+</body>
+</html>
