@@ -1,0 +1,326 @@
+Manipulable
+===========
+
+Manipulable objects provide on-screen handles to modiy properties.
+
+Requirements
+------------
+
+   * The object mesh or scale or location (something) must update on parameter change.
+   * We need a place to store manipulator data (type, and openGl 3d points location, name of property we should manipulate)
+   * On manipulate start, draw gl feedback using 3d points location.
+   * When manipulating occur, update object's manipulated data and 3d gl points location so manipulator update on screen.
+  
+
+Implementation, the easy way for simple objects
+-----------------------------------------------
+
+Typical setup on objects with one single main PropertyGroup.  
+
+Requirements
+""""""""""""
+
+   * The PropertyGroup name must be prefixed with archipack\_
+   * The PropertyGroup must inherit from **Manipulable**.  
+   * You **MUST** implement setup_manipulators and call it from update.
+   * You **MUST** update the manipulators location of gl points. 
+
+Implementation sample
+"""""""""""""""""""""
+
+.. code-block:: python
+
+	def update(self, context):
+	   self.update(context)
+
+	class archipack_your_object(Manipulable, PropertyGroup):
+		 
+		 width = FloatProperty(update=update)
+		 n_parts = IntProperty(update=update)
+		 z = FloatProperty(update=update)
+
+		 # Implement setup_manipulators method
+		 def setup_manipulators(self):
+
+			if len(self.manipulators) > 0:
+				return
+
+			# Sample 1 : add a size manipulator        
+			s = self.manipulators.add()
+			# manipulator type
+			s.type_key = 'SIZE'
+			# define property name we manipulate
+			s.prop1_name = "width"
+			
+			# Sample 2 : add a counter manipulator
+			s = self.manipulators.add()
+			s.prop1_name = "n_parts"
+			s.type_key = 'COUNTER'
+			
+			# Sample 3 : add size manipulator draw on xz plane 
+			s = self.manipulators.add()
+			s.type_key = 'SIZE'
+			s.prop1_name = "z"
+			# draw this one over xz plane 
+			s.normal = (0, 1, 0)
+
+
+		 def update(self, context):
+			
+			o = self.find_in_selection(context, self.auto_update)
+			if o is None:
+				return
+
+			# you MUST call setup_manipulators
+			self.setup_manipulators()
+
+			.. update your mesh
+			
+			# Update manipulators location in object local space
+			x = 0.5 * self.width
+			# width
+			self.manipulators[0].set_pts([(-x, 0, 0), (x, 0, 0), (1, 0, 0)])
+			# counter
+			self.manipulators[1].set_pts([(-x, 0, 0), (-x, 0.5, 0), (1, 0, 0)])
+			# z
+			self.manipulators[2].set_pts([(-x, 0, 0), (-x, 0, self.z), (-1, 0, 0)])
+		
+		
+.. _updating-manipulator:
+
+Updating manipulator location
+-----------------------------
+
+.. code-block:: python
+
+	self.manipulators[x].set_pts([p0, p1, p2], normal=Vector((0, 0, 1)))
+
+
+For size type manipulators
+""""""""""""""""""""""""""
+
+   * p0 and p1 are start and end location of manipulator vector 3d in object local space
+   * p2 is a vector used to scale/direction manipulator by default use Vector((1, 0, 0)) to place on the right side at 1 unit 
+   * normal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1)) 
+
+For arc / radius type manipulators
+""""""""""""""""""""""""""""""""""
+   
+   * p0 is center vector 3d in object local space
+   * p1 and p2 are vector 3d arc start and arc end points relative to center
+   * normal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1)) 
+
+
+
+Manipulation Operator
+---------------------
+
+in invoke method use manipulable_invoke(context, event)  
+
+Implementation sample
+"""""""""""""""""""""
+
+.. code-block:: python
+	:caption: Manipulate Operator
+	:name: manipulate-py
+
+	class ARCHIPACK_OT_your_object_manipulate(Operator):
+		bl_idname = "archipack.your_object_manipulate"
+		bl_label = "Manipulate"
+		bl_description = "Manipulate"
+		bl_options = {'REGISTER', 'UNDO'}
+
+		@classmethod
+		def poll(self, context):
+			return archipack_your_object.filter(context.active_object)
+
+		def invoke(self, context, event):
+			d = archipack_your_object.datablock(context.active_object)
+			d.manipulable_invoke(context)
+			return {'FINISHED'}
+        
+
+  
+Create Operator
+---------------
+
+Requirements
+""""""""""""
+
+   * **MUST** inherit from ArchipackCreateTool  
+   * **MUST** call manipulate()  
+
+   
+manipulate takes care of auto_manipulate so when creating many objects you may set it to false  
+
+Implementation sample Archipack's Window (stripped down)
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+.. code-block:: python
+	:caption: Create Operator
+	:name: create-py
+	
+	class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
+		bl_idname = "archipack.window"
+		bl_label = "Window"
+		bl_description = "Window"
+			def execute(self, context):
+			if context.mode == "OBJECT":
+				# ensure context is free from other objects
+				bpy.ops.object.select_all(action="DESELECT")
+				# o is created base object
+				o = self.create(context)
+				o.location = bpy.context.scene.cursor_location
+				# o must be selected and active
+				o.select = True
+				context.scene.objects.active = o
+				self.manipulate()
+				return {'FINISHED'}
+			else:
+				self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+				return {'CANCELLED'}
+
+.. _available-manipulators:
+
+Available manipulators (type_key)
+---------------------------------
+
+   * SIZE : Modify a size by one side.
+   * DUMB_SIZE : Display a size, not editable
+   * SIZE_LOC : Modify a size by any side, for objects with pivot at center, preserving other side moving object according.
+   * SNAP_SIZE_LOC : Modify a size by any side, snap aware one for objects with pivot at center, preserving other side moving object according.
+   * ANGLE : Modify an angle
+   * DUMB_ANGLE : Display an angle, not editable
+   * ARC_ANGLE_RADIUS : Modify angle and radius, specify angle property name in .prop1_name and radius in .prop2_name
+   * COUNTER : Modify an integer, step by step when clicking on arrows.
+   * DELTA_LOC : Modify location of an object, use prop1_name to setup axis in ['x', 'y', 'z']
+   * DUMB_STRING : Draw a string, use prop1_name as string to draw.
+   * WALL_SNAP : Draggable snap point, prop1_name is a part identifier, prop2_name is z property to draw placeholder, manipulate parts based objects (currently wall, fences, slab)
+
+
+Manipulator data structure
+--------------------------
+
+   * archipack_manipulator PropertyGroup to store each manipulator properties.
+   * Manipulable to add manipulation ability on a PropertyGroup
+   * Manipulator instance taking care of screen gl drawing, mouse and keyboard events, updating data according changes.
+
+archipack_manipulator implementation
+""""""""""""""""""""""""""""""""""""
+
+.. code-block:: python
+
+	class archipack_manipulator(PropertyGroup):  
+		"""
+			A property group to add to manipulable objects
+			type_key: type of manipulator
+			prop1_name = the property name of object to modify
+			prop2_name = another property name of object to modify (eg: angle and radius)
+			p0, p1, p2 3d Vectors as base points to represent manipulators on screen
+			normal Vector normal of plane on with draw manipulator
+		"""  
+		type_key = StringProperty(default='SIZE')  
+
+		# How 3d points are stored in manipulators ?
+		# SIZE = 2 absolute positionned and a scaling vector
+		# RADIUS = 1 absolute positionned (center) and 2 relatives (sides)
+		# POLYGON = 2 absolute positionned and a relative vector (for rect polygons)
+
+		pts_mode = StringProperty(default='SIZE')
+		prop1_name = StringProperty()
+		prop2_name = StringProperty()
+		p0 = FloatVectorProperty(subtype='XYZ')
+		p1 = FloatVectorProperty(subtype='XYZ')
+		p2 = FloatVectorProperty(subtype='XYZ')
+
+		# allow orientation of manipulators by default on xy plane,
+		# but may be used to constrain heights on local object space
+
+		normal = FloatVectorProperty(subtype='XYZ', default=(0, 0, 1))
+
+		def set_pts(self, pts, normal=None):
+			"""
+				set 3d location of gl points (in object space)
+				pts: array of 3 vectors 3d
+				normal: optionnal vector 3d default to Z axis
+			"""
+
+
+Manipulable implementation (stripped down)
+""""""""""""""""""""""""""""""""""""""""""
+
+.. code-block:: python
+
+	class Manipulable():
+		"""
+			A class extending PropertyGroup to setup gl manipulators
+			Beware : prevent crash calling manipulable_disable()
+					 before changing manipulated data structure
+		"""
+		manipulators = CollectionProperty(
+				type=archipack_manipulator,
+				description="store 3d points to draw gl manipulators"
+				)
+
+		 def manipulable_invoke(self, context):
+			"""
+				call this in operator invoke()
+				May override when needed
+			"""
+			if self.manipulate_mode:
+				self.manipulable_disable(context)
+				return False
+
+			self.manip_stack = []
+			self.manipulable_setup(context)
+			self.manipulate_mode = True
+			# dont forget to call base class _invoke
+			self._manipulable_invoke(context)
+
+		 def manipulable_setup(self, context):
+			"""
+				Implement the setup part as per parent object basis
+				This is default implementation for simple objects
+				with manipulators linked to base object properties
+				May override when needed
+			"""
+			self.manipulable_disable(context)
+			o = context.active_object
+			self.setup_manipulators()
+			for m in self.manipulators:
+				# m.setup create Manipulator instance
+				self.manip_stack.append(m.setup(context, o, self))
+
+		# Callbacks
+		def manipulable_release(self, context):
+			"""
+				Override with action to do on mouse release
+				eg: big update
+			"""
+			return
+
+		def manipulable_exit(self, context):
+			"""
+				Override with action to do when modal exit
+			"""
+			return
+
+		def manipulable_manipulate(self, context, event, manipulator):
+			"""
+				Override with action to do when a handle is active (pressed and mousemove)
+			"""
+			return
+
+
+While not required for simple manipulations, you may override manipulable_setup() 
+in your object data propertygroup to handle manipulator setup.  
+Use manipulable datablock .setup(object, datablock) method to create manipulator hanlder.  
+Manipulators handlers do hold references to base object, datablock to modify, take care of drawing
+gl handles on screen, and handle mouse and keyboard inputs.
+
+.. warning::
+	Data structure change and manipulators
+	
+	Before any data structure changes on manipulable properties, you **MUST** call .manipulable_disable(context)
+	update your datastructure, then set .manipulable_refresh = True  
+	Failing to do so will result in ACCESS_VIOLATION crash errors.

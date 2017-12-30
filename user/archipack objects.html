@@ -1,0 +1,711 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Archipack objects &mdash; Archipack 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="author" title="About these documents"
+              href="../about.html"/>
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
+        <link rel="up" title="User guide" href="../user guide.html"/>
+        <link rel="next" title="2d to 3d" href="2d to 3d.html"/>
+        <link rel="prev" title="User guide" href="../user guide.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Archipack
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../user guide.html">User guide</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Archipack objects</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#common-properties">Common properties</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#archipack-material">Archipack material</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#manipulate">Manipulate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#presets">Presets</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#window">Window</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#available-utility">Available utility</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#main-properties">Main properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#components">Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#rows">Rows</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#materials">Materials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#portal">Portal</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#door">Door</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Available utility</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#size">Size</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Door</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Frame</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#panels">Panels</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#stair">Stair</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id4">Presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id5">Main properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#parts">Parts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#steps">Steps</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#handrail">Handrail</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#string">String</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#post">Post</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#subs">Subs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id6">Panels</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#rails">Rails</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id7">Materials</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#wall">Wall</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id8">Main properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#t-parent">T Parent</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#utils">Utils</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#wall-parts">Wall parts</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#slab">Slab</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id9">Main properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#fence">Fence</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id10">Main properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#roof">Roof</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id11">Main properties</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#truss">Truss</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id12">Main properties</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="2d to 3d.html">2d to 3d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced features.html">Advanced features</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../extending archipack.html">Extending archipack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Archipack</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../user guide.html">User guide</a> &raquo;</li>
+        
+      <li>Archipack objects</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/user/archipack objects.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="archipack-objects">
+<h1>Archipack objects<a class="headerlink" href="#archipack-objects" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="common-properties">
+<h2>Common properties<a class="headerlink" href="#common-properties" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="archipack-material">
+<h3>Archipack material<a class="headerlink" href="#archipack-material" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id13">
+<a class="reference internal image-reference" href="../_images/ui_archipack_material.png"><img alt="Archipack material selector" src="../_images/ui_archipack_material.png" style="width: 215.0px; height: 60.0px;" /></a>
+<p class="caption"><span class="caption-text">Select / create / delete material sets for objects</span></p>
+</div>
+</div>
+<div class="section" id="manipulate">
+<h3>Manipulate<a class="headerlink" href="#manipulate" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id14">
+<a class="reference internal image-reference" href="../_images/ui_manipulate.png"><img alt="Manipulate button" src="../_images/ui_manipulate.png" style="width: 215.0px; height: 30.0px;" /></a>
+<p class="caption"><span class="caption-text">Manipulate: display manipulators on screen</span></p>
+</div>
+</div>
+<div class="section" id="presets">
+<h3>Presets<a class="headerlink" href="#presets" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id15">
+<a class="reference internal image-reference" href="../_images/ui_preset.png"><img alt="Preset selector" src="../_images/ui_preset.png" style="width: 215.0px; height: 34.0px;" /></a>
+<p class="caption"><span class="caption-text">Select / create / delete presets for objects</span></p>
+</div>
+</div>
+</div>
+<div class="section" id="window">
+<h2>Window<a class="headerlink" href="#window" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="available-utility">
+<h3>Available utility<a class="headerlink" href="#available-utility" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Delete: take care of removing every component of the window</li>
+<li>Refresh: update linked windows with missing parts (eg on copy)</li>
+<li>Unlink: make this window unique, only available on linked windows</li>
+</ul>
+</div></blockquote>
+<div class="figure" id="id16">
+<a class="reference internal image-reference" href="../_images/ui_win_door_utils.png"><img alt="Utility buttons" src="../_images/ui_win_door_utils.png" style="width: 215.0px; height: 30.0px;" /></a>
+<p class="caption"><span class="caption-text">Utility buttons</span></p>
+</div>
+</div>
+<div class="section" id="main-properties">
+<h3>Main properties<a class="headerlink" href="#main-properties" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Type: window type in [Swing, Rail]</li>
+<li>Width: of opening</li>
+<li>Depth: of wall</li>
+<li>Height: of opening</li>
+<li>Altitude: bottom of opening, from pivot point</li>
+<li>Offset: offset of frame from inside part</li>
+<li>Shape: window shape in [Rectangle, Top elliptic, Top round, Top oblique, Full circle]</li>
+</ul>
+</div></blockquote>
+<div class="figure" id="id17">
+<a class="reference internal image-reference" href="../_images/ui_window_main.png"><img alt="Main window properties" src="../_images/ui_window_main.png" style="width: 215.0px; height: 218.0px;" /></a>
+<p class="caption"><span class="caption-text">Main window properties</span></p>
+</div>
+</div>
+<div class="section" id="components">
+<h3>Components<a class="headerlink" href="#components" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id18">
+<a class="reference internal image-reference" href="../_images/ui_window_components.png"><img alt="Window components" src="../_images/ui_window_components.png" style="width: 215.0px; height: 746.0px;" /></a>
+<p class="caption"><span class="caption-text">Window components</span></p>
+</div>
+<div class="section" id="frame">
+<h4>Frame<a class="headerlink" href="#frame" title="Permalink to this headline">¶</a></h4>
+<div class="versionadded">
+<ul>
+<span class="versionmodified">New in version 1.3.5: </span><li><p class="first">Overflow : how much the frame overflow opening</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="handle">
+<h4>Handle<a class="headerlink" href="#handle" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li>Altitude from pivot point</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="out-frame">
+<h4>Out frame<a class="headerlink" href="#out-frame" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li>Front width: width of the front part of the frame</li>
+<li>Front depth: depth of the front part of the frame</li>
+<li>Side depth: depth of side part of frame</li>
+<li>Offset: Overflow of hole to make negative joints aroud frame</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="rows">
+<h3>Rows<a class="headerlink" href="#rows" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id19">
+<a class="reference internal image-reference" href="../_images/ui_window_rows.png"><img alt="Window rows" src="../_images/ui_window_rows.png" style="width: 215.0px; height: 297.0px;" /></a>
+<p class="caption"><span class="caption-text">Rows and columns of panels</span></p>
+</div>
+<div class="section" id="parameters">
+<h4>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li>Number of rows</li>
+<li>Panels: number of columns for current row</li>
+<li>col %: percent of width for the panel</li>
+<li>fixed: type of frame</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="materials">
+<h3>Materials<a class="headerlink" href="#materials" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id20">
+<a class="reference internal image-reference" href="../_images/ui_window_materials.png"><img alt="Window holes materials" src="../_images/ui_window_materials.png" style="width: 215.0px; height: 114.0px;" /></a>
+<p class="caption"><span class="caption-text">Set index of materials of the hole</span></p>
+</div>
+</div>
+<div class="section" id="portal">
+<h3>Portal<a class="headerlink" href="#portal" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id21">
+<a class="reference internal image-reference" href="../_images/ui_window_portal.png"><img alt="Window portal light" src="../_images/ui_window_portal.png" style="width: 215.0px; height: 29.0px;" /></a>
+<p class="caption"><span class="caption-text">Generate a portal light for this window</span></p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p>Open a window ?</p>
+<p>Panels are separate objects, so you are able to select and rotate/slide the way you want.</p>
+<p>Bend window to fit a curved wall ?</p>
+<p class="last">Add a subdivide modifier in “simple” mode with say 2 or more subdivisions.
+Add a SimpleDeform modifier in “Bend” mode and set angle according your needs.
+Do the same with the hole object, and each panels.</p>
+</div>
+</div>
+</div>
+<div class="section" id="door">
+<h2>Door<a class="headerlink" href="#door" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id1">
+<h3>Available utility<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Delete: take care of removing every component of the door</li>
+<li>Refresh: update linked doors with missing parts (eg on copy)</li>
+<li>Unlink: make this door unique, only available on linked doors</li>
+</ul>
+</div></blockquote>
+<div class="figure" id="id22">
+<a class="reference internal image-reference" href="../_images/ui_win_door_utils.png"><img alt="Utility buttons" src="../_images/ui_win_door_utils.png" style="width: 215.0px; height: 30.0px;" /></a>
+<p class="caption"><span class="caption-text">Utility buttons</span></p>
+</div>
+</div>
+<div class="section" id="size">
+<h3>Size<a class="headerlink" href="#size" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Width: of opening</li>
+<li>Depth: of wall</li>
+<li>Height: of opening</li>
+<li>Offset: offset of frame from inside part</li>
+</ul>
+</div></blockquote>
+<div class="figure" id="id23">
+<a class="reference internal image-reference" href="../_images/ui_door_main.png"><img alt="Door size" src="../_images/ui_door_main.png" style="width: 215.0px; height: 150.0px;" /></a>
+<p class="caption"><span class="caption-text">Door size</span></p>
+</div>
+</div>
+<div class="section" id="id2">
+<h3>Door<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id24">
+<a class="reference internal image-reference" href="../_images/ui_door_door.png"><img alt="Door" src="../_images/ui_door_door.png" style="width: 215.0px; height: 152.0px;" /></a>
+<p class="caption"><span class="caption-text">Door</span></p>
+</div>
+</div>
+<div class="section" id="id3">
+<h3>Frame<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id25">
+<a class="reference internal image-reference" href="../_images/ui_door_frame.png"><img alt="Door frame" src="../_images/ui_door_frame.png" style="width: 215.0px; height: 64.0px;" /></a>
+<p class="caption"><span class="caption-text">Door frame</span></p>
+</div>
+</div>
+<div class="section" id="panels">
+<h3>Panels<a class="headerlink" href="#panels" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Model: shape of the front part of the door panel</li>
+<li>Distribution or sub parts in [Regular, 1/3]</li>
+<li>h: number of horizontal subparts</li>
+<li>v: number of vertical subparts</li>
+<li>Bottom: space of subparts from bottom</li>
+<li>Spacing: spacing between subparts</li>
+<li>Border: spacing of subparts from border</li>
+<li>Bevel: bevel amount of subparts</li>
+</ul>
+</div></blockquote>
+<div class="figure" id="id26">
+<a class="reference internal image-reference" href="../_images/ui_door_panels.png"><img alt="Door panels style" src="../_images/ui_door_panels.png" style="width: 221.0px; height: 251.0px;" /></a>
+<p class="caption"><span class="caption-text">Door panels style</span></p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p>Open a door ?</p>
+<p class="last">Panels are separate objects, so you are able to select and rotate/slide the way you want.</p>
+</div>
+</div>
+</div>
+<div class="section" id="stair">
+<h2>Stair<a class="headerlink" href="#stair" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id4">
+<h3>Presets<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id27">
+<a class="reference internal image-reference" href="../_images/ui_stair_presets.png"><img alt="Stair presets" src="../_images/ui_stair_presets.png" style="width: 215.0px; height: 95.0px;" /></a>
+<p class="caption"><span class="caption-text">Stair presets</span></p>
+</div>
+<p>Beside saved presets, stair implements basic presets including I, L, U, O and user defined overall shapes.</p>
+</div>
+<div class="section" id="id5">
+<h3>Main properties<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id28">
+<a class="reference internal image-reference" href="../_images/ui_stair_main.png"><img alt="Stair properties" src="../_images/ui_stair_main.png" style="width: 215.0px; height: 121.0px;" /></a>
+<p class="caption"><span class="caption-text">Stair properties</span></p>
+</div>
+</div>
+<div class="section" id="parts">
+<h3>Parts<a class="headerlink" href="#parts" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id29">
+<a class="reference internal image-reference" href="../_images/ui_stair_parts.png"><img alt="Stair parts" src="../_images/ui_stair_parts.png" style="width: 215.0px; height: 490.0px;" /></a>
+<p class="caption"><span class="caption-text">Stair parts</span></p>
+</div>
+<p>Stairs allow unlimited number of parts</p>
+<blockquote>
+<div><ul class="simple">
+<li>Parts type in [Straight, Curve, Dual-curve] stair and landing</li>
+<li>Curved parts allow border shape in [Straight, Curve]</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="steps">
+<h3>Steps<a class="headerlink" href="#steps" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id30">
+<a class="reference internal image-reference" href="../_images/ui_stair_steps.png"><img alt="Steps" src="../_images/ui_stair_steps.png" style="width: 215.0px; height: 179.0px;" /></a>
+<p class="caption"><span class="caption-text">Steps</span></p>
+</div>
+</div>
+<div class="section" id="handrail">
+<h3>Handrail<a class="headerlink" href="#handrail" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id31">
+<a class="reference internal image-reference" href="../_images/ui_stair_handrail.png"><img alt="Handrail" src="../_images/ui_stair_handrail.png" style="width: 215.0px; height: 206.0px;" /></a>
+<p class="caption"><span class="caption-text">Handrail</span></p>
+</div>
+</div>
+<div class="section" id="string">
+<h3>String<a class="headerlink" href="#string" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id32">
+<a class="reference internal image-reference" href="../_images/ui_stair_string.png"><img alt="String" src="../_images/ui_stair_string.png" style="width: 215.0px; height: 148.0px;" /></a>
+<p class="caption"><span class="caption-text">String</span></p>
+</div>
+</div>
+<div class="section" id="post">
+<h3>Post<a class="headerlink" href="#post" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id33">
+<a class="reference internal image-reference" href="../_images/ui_stair_post.png"><img alt="Post" src="../_images/ui_stair_post.png" style="width: 215.0px; height: 264.0px;" /></a>
+<p class="caption"><span class="caption-text">Post</span></p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<dl class="last docutils">
+<dt>Advanced use of defined custom mesh as post using vertex groups</dt>
+<dd><ul class="first last simple">
+<li>“Bottom” vertex group vertices follow steps</li>
+<li>“Slope” vertex group vertices are affected by overall slope.</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="subs">
+<h3>Subs<a class="headerlink" href="#subs" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id34">
+<a class="reference internal image-reference" href="../_images/ui_stair_subs.png"><img alt="Subs" src="../_images/ui_stair_subs.png" style="width: 215.0px; height: 260.0px;" /></a>
+<p class="caption"><span class="caption-text">Subs</span></p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<dl class="last docutils">
+<dt>Advanced use of defined custom mesh as subs using vertex groups</dt>
+<dd><ul class="first last simple">
+<li>“Bottom” vertex group vertices follow either steps or slope (as defined by Bottom)</li>
+<li>“Slope” vertex group vertices are affected by overall slope.</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="id6">
+<h3>Panels<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id35">
+<a class="reference internal image-reference" href="../_images/ui_stair_panels.png"><img alt="Panels" src="../_images/ui_stair_panels.png" style="width: 215.0px; height: 176.0px;" /></a>
+<p class="caption"><span class="caption-text">Panels</span></p>
+</div>
+</div>
+<div class="section" id="rails">
+<h3>Rails<a class="headerlink" href="#rails" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id36">
+<a class="reference internal image-reference" href="../_images/ui_stair_rails.png"><img alt="Rails" src="../_images/ui_stair_rails.png" style="width: 215.0px; height: 240.0px;" /></a>
+<p class="caption"><span class="caption-text">Rails</span></p>
+</div>
+</div>
+<div class="section" id="id7">
+<h3>Materials<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id37">
+<a class="reference internal image-reference" href="../_images/ui_stair_materials.png"><img alt="Materials" src="../_images/ui_stair_materials.png" style="width: 215.0px; height: 350.0px;" /></a>
+<p class="caption"><span class="caption-text">Materials</span></p>
+</div>
+<p>Define material indexes for stair components</p>
+</div>
+</div>
+<div class="section" id="wall">
+<h2>Wall<a class="headerlink" href="#wall" title="Permalink to this headline">¶</a></h2>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">2d to 3d walls are not Archipack walls objects</p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">When drawing a wall, snapping the last segment to the first one automatically close your wall.</p>
+</div>
+<div class="section" id="id8">
+<h3>Main properties<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id38">
+<a class="reference internal image-reference" href="../_images/ui_wall_main.png"><img alt="Wall" src="../_images/ui_wall_main.png" style="width: 215.0px; height: 254.0px;" /></a>
+<p class="caption"><span class="caption-text">Wall</span></p>
+</div>
+</div>
+<div class="section" id="t-parent">
+<h3>T Parent<a class="headerlink" href="#t-parent" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id39">
+<a class="reference internal image-reference" href="../_images/ui_wall_tparent.png"><img alt="Wall T link parent" src="../_images/ui_wall_tparent.png" style="width: 215.0px; height: 27.0px;" /></a>
+<p class="caption"><span class="caption-text">Wall T Link parent</span></p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">When you start drawing a wall with mouse over a parent wall, the draw tool automatically make your new wall a T child of the parent wall</p>
+</div>
+</div>
+<div class="section" id="utils">
+<h3>Utils<a class="headerlink" href="#utils" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Reverse: reverse wall segments</li>
+<li>Fit roof: fit segment heights to surrounding roof</li>
+</ul>
+</div></blockquote>
+<div class="figure" id="id40">
+<a class="reference internal image-reference" href="../_images/ui_wall_utils.png"><img alt="Wall utils" src="../_images/ui_wall_utils.png" style="width: 215.0px; height: 52.0px;" /></a>
+<p class="caption"><span class="caption-text">Wall utils</span></p>
+</div>
+</div>
+<div class="section" id="wall-parts">
+<h3>Wall parts<a class="headerlink" href="#wall-parts" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Split: cut a segment in two parts</li>
+<li>Remove: remove current segment</li>
+<li>Splits: split segment to adjust altitude of sub parts</li>
+<li>alt: altitude of sub part</li>
+<li>pos: normalized location of split along segment in range [0-1]</li>
+</ul>
+</div></blockquote>
+<div class="figure" id="id41">
+<a class="reference internal image-reference" href="../_images/ui_wall_parts.png"><img alt="Wall parts" src="../_images/ui_wall_parts.png" style="width: 215.0px; height: 212.0px;" /></a>
+<p class="caption"><span class="caption-text">Wall parts</span></p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Wall part 1 angle define rotation about parent wall segment when wall is a T child</p>
+</div>
+</div>
+</div>
+<div class="section" id="slab">
+<h2>Slab<a class="headerlink" href="#slab" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id9">
+<h3>Main properties<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+<div class="section" id="fence">
+<h2>Fence<a class="headerlink" href="#fence" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id10">
+<h3>Main properties<a class="headerlink" href="#id10" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+<div class="section" id="roof">
+<h2>Roof<a class="headerlink" href="#roof" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id11">
+<h3>Main properties<a class="headerlink" href="#id11" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+<div class="section" id="truss">
+<h2>Truss<a class="headerlink" href="#truss" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id12">
+<h3>Main properties<a class="headerlink" href="#id12" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="2d to 3d.html" class="btn btn-neutral float-right" title="2d to 3d" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../user guide.html" class="btn btn-neutral" title="User guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, stephen leger.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

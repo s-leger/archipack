@@ -1,0 +1,237 @@
+2d to 3d
+========
+
+.. note::
+	2d to 3d panel is only available when one or more curves are selected / active
+
+	2d to 3d tools only work with linear segments, and compute approximation of bezier curves segments at input time.
+
+Detect
+------
+
+This set of tools does compute all intersections of a set of curves and detect polygons.  
+
+Once detected you may choose between 3 select tools to select lines/polygons and create objects from selection.  
+You are able to use any select tool at any time, detected data remains valid until you reselect another set of curves and repress "Detect".  
+
+Detect find polygons for ~ 1k segment / second, so it may take some time.
+
+.. figure:: ../img/ui_detect_main.png
+   :scale: 100 %
+   :alt: Detect 
+
+   Detect
+   
+`2d to 3d video tutorial <https://www.youtube.com/watch?v=BvWZI-3DDG4>`_
+
+
+Options
+"""""""
+
+ * Bezier resolution : number of steps to estimate each bezier curved segment.  
+ * Extend end: try to extend segments to find intersections, allow to fill small gaps between lines. Typically 1 cm should be enougth, setting too high will require more time.  
+ * Extend all segs: Extend only work for line ends, when checked the tool will try to extend all segments instead (slowest, but may be safer in some situations).
+
+
+Typical (generic) workflow
+""""""""""""""""""""""""""
+
+ #. Select one or more curves
+ #. Expand "Detect" options, choose extend limit and extend all segs when apply (see Polygonize)
+ #. press "Detect", wait till done ( ~ 1k segment/sec)
+ #. press "Polygons / Lines / Points" to start a select tool
+ #. Select one or many lines, using click and drag to select into an area.
+ #. Use keyboard to generate your objects (see on-screen options)
+ #. Repeat 5 and 6 according your needs, then Right click or press esc to exit
+
+Architectural workflow
+""""""""""""""""""""""
+
+ #. Clean up, Detect and possibly use "Points" to fill missing parts
+ #. select curves, and Detect 
+ #. Use "Polygons" to create openings objects (windows and doors)
+ #. Use "Polygons" to create walls / slabs.. 
+ #. Use "Lines" to output guide lines for fences
+
+
+Select tools
+""""""""""""
+
+(shortcut) Common select actions
+################################
+
+ * **a** Select all / none
+ * **i** Select inverse
+ * **b** Select biggest than current (apply only on polygons)
+ * **s** Save current selection
+ * **l** Load saved selection
+ * **shift** Unselect on click or click & drag to unselect in area
+ * **ctrl** Select when area fully contains polygon (Deselect when shift is pressed)
+
+
+Select Polygons
+"""""""""""""""
+
+This tool allow to select areas and build objects from selection.
+
+.. figure:: ../img/ui_detect_polygon.png
+   :scale: 100 %
+   :alt: Polygons 
+
+   Polygons
+   
+(shortcut) Select Polygons actions
+##################################
+
+ * **o** Selection as closed curves
+ * **u** Union of selection boundary as closed curves
+ * **f** 2d Surface using union of boundarys
+ * **e** 3d Wall using union of boundarys
+ * **w** start/exit a tool to create Window over selection
+ * **d** start/exit a tool to create Door over selection
+ * **r** Best fit rectangle of selection as closed curve
+
+
+Creating windows / doors
+########################
+
+This tool create one object at time.  
+With an area selected, press either w for window or d for door does start a special create tool.
+Press left mouse and drag to set the desired direction of opening, release to create the object.
+Pressing w or d when running the create tool cancel the action and allow to select another polygon.
+
+Select Lines
+""""""""""""
+
+This tool allow to select lines and build curves from selection.
+
+.. figure:: ../img/ui_detect_lines.png
+   :scale: 100 %
+   :alt: Lines
+
+   Lines
+   
+(shortcut) Select Lines actions
+###############################
+
+ * **u** Union of selected lines as curve
+ * **f** selected lines as curve
+
+Select Points
+"""""""""""""
+
+This tool allow to select points and build curves from selection.
+Intended to fill missing parts of walls, eg when the wall is cut on openings like with doors.
+
+.. figure:: ../img/ui_detect_points.png
+   :scale: 100 %
+   :alt: Points
+
+   Points
+
+(shortcut) Select Points actions
+################################
+
+ * **alt + f** best fit rectangle around selected points as curve
+ * **f** line as seen on screen as curve
+
+
+
+
+Simplify
+--------
+
+Simplify input curve(s), using Douglas Peuker method or Topology preserving method.
+Use this tool to clean up your curves from unnecessary points.
+
+.. figure:: ../img/ui_simplify.png
+   :scale: 100 %
+   :alt: Simplify 
+
+   Simplify
+
+Options
+"""""""
+ * Bezier resolution : input bezier curves approximation.
+ * Tolerance : Keep points who when removed change the overall shape more than this distance.
+ * Preserve Topology : use slower Topology preserving method (prevent self intersecting to occur)
+
+ 
+Offset
+------
+
+Offset is a line at a distance from a curve(s) on it right or left side.   
+
+.. figure:: ../img/ui_offset.png
+   :scale: 100 %
+   :alt: Offset 
+
+   Offset
+
+`Demo video <https://www.youtube.com/watch?v=9dZPpFHi-74>`_
+
+Options
+"""""""
+ * Bezier resolution : input bezier curves approximation. 
+ * Distance : offset distance. 
+ * Side : avaliable side for offset are : left, right.
+ * Resolution : determines the number of segments used to approximate a quarter circle around a point.
+ * Style: available styles of joins between offset segments are : round, mitre, and bevel.
+ * Mitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.
+
+.. tip::
+	While this tool does work with closed splines, when expanding it may result in open curve.
+
+	
+Buffer
+------
+
+Buffer is an approximate representation of all points within a given distance of the input curve(s).
+Use this tool to build eg wall from axis / border, road from axis and so on.   
+
+.. figure:: ../img/ui_buffer.png
+   :scale: 100 %
+   :alt: Buffer 
+
+   Buffer
+
+`Demo video <https://www.youtube.com/watch?v=dUoEfnXuK50>`_
+
+Options
+"""""""
+ * Bezier resolution : input bezier curves approximation. 
+ * Distance : when positive distance has an effect of dilation, when negative erosion. 
+ * Side : avaliable side for buffer are : both, left, right.
+ * Resolution : determines the number of segments used to approximate a quarter circle around a point.
+ * Cap: available styles of caps are : round, flat, and square. 
+ * Join: available styles of joins between offset segments are : round, mitre, and bevel.
+ * Mitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.
+
+.. tip::
+	While this tool does work with closed splines, endpoints may suffer from square cap artefact.
+
+	
+Boolean operations
+------------------
+
+Provides 2d boolean operations between curves.  
+Boolean is able to take account of the closed state of curves (areas).  
+
+.. figure:: ../img/ui_boolean.png
+   :scale: 100 %
+   :alt: Boolean 
+
+   Boolean
+
+`Demo video <https://www.youtube.com/watch?v=qdg-wDt9fA8>`_
+
+Operations
+""""""""""
+ * Union
+ * Intersection
+ * Differences (selection - active and active - selection)
+ * Symmetric difference
+
+.. tip::
+	2d to 3d Detect method can be significantely faster when performing complex operations between many objects.
+	

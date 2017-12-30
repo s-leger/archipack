@@ -1,0 +1,600 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Manipulable &mdash; Archipack 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="author" title="About these documents"
+              href="../about.html"/>
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
+        <link rel="up" title="Extending archipack" href="../extending archipack.html"/>
+        <link rel="next" title="Preset system" href="preset system.html"/>
+        <link rel="prev" title="ArchipackObject" href="archipackObject.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Archipack
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="developper guide.html">Developper guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bulk updates.html">Bulk update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="archipackObject.html">ArchipackObject</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Manipulable</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#implementation-the-easy-way-for-simple-objects">Implementation, the easy way for simple objects</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Requirements</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#implementation-sample">Implementation sample</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#updating-manipulator-location">Updating manipulator location</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#for-size-type-manipulators">For size type manipulators</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#for-arc-radius-type-manipulators">For arc / radius type manipulators</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#manipulation-operator">Manipulation Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Implementation sample</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#create-operator">Create Operator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Requirements</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#implementation-sample-archipack-s-window-stripped-down">Implementation sample Archipack’s Window (stripped down)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#available-manipulators-type-key">Available manipulators (type_key)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#manipulator-data-structure">Manipulator data structure</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#archipack-manipulator-implementation">archipack_manipulator implementation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#manipulable-implementation-stripped-down">Manipulable implementation (stripped down)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="preset system.html">Preset system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feedback panel.html">Feedback panel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cutters.html">Cutters</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Archipack</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../extending archipack.html">Extending archipack</a> &raquo;</li>
+        
+      <li>Manipulable</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/dev/manipulable.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="manipulable">
+<h1>Manipulable<a class="headerlink" href="#manipulable" title="Permalink to this headline">¶</a></h1>
+<p>Manipulable objects provide on-screen handles to modiy properties.</p>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>The object mesh or scale or location (something) must update on parameter change.</li>
+<li>We need a place to store manipulator data (type, and openGl 3d points location, name of property we should manipulate)</li>
+<li>On manipulate start, draw gl feedback using 3d points location.</li>
+<li>When manipulating occur, update object’s manipulated data and 3d gl points location so manipulator update on screen.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="implementation-the-easy-way-for-simple-objects">
+<h2>Implementation, the easy way for simple objects<a class="headerlink" href="#implementation-the-easy-way-for-simple-objects" title="Permalink to this headline">¶</a></h2>
+<p>Typical setup on objects with one single main PropertyGroup.</p>
+<div class="section" id="id1">
+<h3>Requirements<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>The PropertyGroup name must be prefixed with archipack_</li>
+<li>The PropertyGroup must inherit from <strong>Manipulable</strong>.</li>
+<li>You <strong>MUST</strong> implement setup_manipulators and call it from update.</li>
+<li>You <strong>MUST</strong> update the manipulators location of gl points.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="implementation-sample">
+<h3>Implementation sample<a class="headerlink" href="#implementation-sample" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+   <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">archipack_your_object</span><span class="p">(</span><span class="n">Manipulable</span><span class="p">,</span> <span class="n">PropertyGroup</span><span class="p">):</span>
+
+         <span class="n">width</span> <span class="o">=</span> <span class="n">FloatProperty</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="n">update</span><span class="p">)</span>
+         <span class="n">n_parts</span> <span class="o">=</span> <span class="n">IntProperty</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="n">update</span><span class="p">)</span>
+         <span class="n">z</span> <span class="o">=</span> <span class="n">FloatProperty</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="n">update</span><span class="p">)</span>
+
+         <span class="c1"># Implement setup_manipulators method</span>
+         <span class="k">def</span> <span class="nf">setup_manipulators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">return</span>
+
+                <span class="c1"># Sample 1 : add a size manipulator</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="o">.</span><span class="n">add</span><span class="p">()</span>
+                <span class="c1"># manipulator type</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">type_key</span> <span class="o">=</span> <span class="s1">&#39;SIZE&#39;</span>
+                <span class="c1"># define property name we manipulate</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">prop1_name</span> <span class="o">=</span> <span class="s2">&quot;width&quot;</span>
+
+                <span class="c1"># Sample 2 : add a counter manipulator</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="o">.</span><span class="n">add</span><span class="p">()</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">prop1_name</span> <span class="o">=</span> <span class="s2">&quot;n_parts&quot;</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">type_key</span> <span class="o">=</span> <span class="s1">&#39;COUNTER&#39;</span>
+
+                <span class="c1"># Sample 3 : add size manipulator draw on xz plane</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="o">.</span><span class="n">add</span><span class="p">()</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">type_key</span> <span class="o">=</span> <span class="s1">&#39;SIZE&#39;</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">prop1_name</span> <span class="o">=</span> <span class="s2">&quot;z&quot;</span>
+                <span class="c1"># draw this one over xz plane</span>
+                <span class="n">s</span><span class="o">.</span><span class="n">normal</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+
+         <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+
+                <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_in_selection</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">auto_update</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">o</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                        <span class="k">return</span>
+
+                <span class="c1"># you MUST call setup_manipulators</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">setup_manipulators</span><span class="p">()</span>
+
+                <span class="o">..</span> <span class="n">update</span> <span class="n">your</span> <span class="n">mesh</span>
+
+                <span class="c1"># Update manipulators location in object local space</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span>
+                <span class="c1"># width</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
+                <span class="c1"># counter</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
+                <span class="c1"># z</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="updating-manipulator-location">
+<span id="updating-manipulator"></span><h2>Updating manipulator location<a class="headerlink" href="#updating-manipulator-location" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">],</span> <span class="n">normal</span><span class="o">=</span><span class="n">Vector</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+</pre></div>
+</div>
+<div class="section" id="for-size-type-manipulators">
+<h3>For size type manipulators<a class="headerlink" href="#for-size-type-manipulators" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>p0 and p1 are start and end location of manipulator vector 3d in object local space</li>
+<li>p2 is a vector used to scale/direction manipulator by default use Vector((1, 0, 0)) to place on the right side at 1 unit</li>
+<li>normal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1))</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="for-arc-radius-type-manipulators">
+<h3>For arc / radius type manipulators<a class="headerlink" href="#for-arc-radius-type-manipulators" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>p0 is center vector 3d in object local space</li>
+<li>p1 and p2 are vector 3d arc start and arc end points relative to center</li>
+<li>normal is optionnal allow to set a plane to draw manipulator default to plane xy with Vector((0, 0, 1))</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="manipulation-operator">
+<h2>Manipulation Operator<a class="headerlink" href="#manipulation-operator" title="Permalink to this headline">¶</a></h2>
+<p>in invoke method use manipulable_invoke(context, event)</p>
+<div class="section" id="id2">
+<h3>Implementation sample<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<div class="literal-block-wrapper docutils container" id="manipulate-py">
+<div class="code-block-caption"><span class="caption-text">Manipulate Operator</span><a class="headerlink" href="#manipulate-py" title="Permalink to this code">¶</a></div>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_your_object_manipulate</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.your_object_manipulate&quot;</span>
+        <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Manipulate&quot;</span>
+        <span class="n">bl_description</span> <span class="o">=</span> <span class="s2">&quot;Manipulate&quot;</span>
+        <span class="n">bl_options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;REGISTER&#39;</span><span class="p">,</span> <span class="s1">&#39;UNDO&#39;</span><span class="p">}</span>
+
+        <span class="nd">@classmethod</span>
+        <span class="k">def</span> <span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">archipack_your_object</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">invoke</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">archipack_your_object</span><span class="o">.</span><span class="n">datablock</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
+                <span class="n">d</span><span class="o">.</span><span class="n">manipulable_invoke</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="create-operator">
+<h2>Create Operator<a class="headerlink" href="#create-operator" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id3">
+<h3>Requirements<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li><strong>MUST</strong> inherit from ArchipackCreateTool</li>
+<li><strong>MUST</strong> call manipulate()</li>
+</ul>
+</div></blockquote>
+<p>manipulate takes care of auto_manipulate so when creating many objects you may set it to false</p>
+</div>
+<div class="section" id="implementation-sample-archipack-s-window-stripped-down">
+<h3>Implementation sample Archipack’s Window (stripped down)<a class="headerlink" href="#implementation-sample-archipack-s-window-stripped-down" title="Permalink to this headline">¶</a></h3>
+<div class="literal-block-wrapper docutils container" id="create-py">
+<div class="code-block-caption"><span class="caption-text">Create Operator</span><a class="headerlink" href="#create-py" title="Permalink to this code">¶</a></div>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_window</span><span class="p">(</span><span class="n">ArchipackCreateTool</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
+        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.window&quot;</span>
+        <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Window&quot;</span>
+        <span class="n">bl_description</span> <span class="o">=</span> <span class="s2">&quot;Window&quot;</span>
+                <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;OBJECT&quot;</span><span class="p">:</span>
+                        <span class="c1"># ensure context is free from other objects</span>
+                        <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">object</span><span class="o">.</span><span class="n">select_all</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">&quot;DESELECT&quot;</span><span class="p">)</span>
+                        <span class="c1"># o is created base object</span>
+                        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                        <span class="n">o</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">cursor_location</span>
+                        <span class="c1"># o must be selected and active</span>
+                        <span class="n">o</span><span class="o">.</span><span class="n">select</span> <span class="o">=</span> <span class="bp">True</span>
+                        <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">o</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">manipulate</span><span class="p">()</span>
+                        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
+                <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">report</span><span class="p">({</span><span class="s1">&#39;WARNING&#39;</span><span class="p">},</span> <span class="s2">&quot;Archipack: Option only valid in Object mode&quot;</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;CANCELLED&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="available-manipulators-type-key">
+<span id="available-manipulators"></span><h2>Available manipulators (type_key)<a class="headerlink" href="#available-manipulators-type-key" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>SIZE : Modify a size by one side.</li>
+<li>DUMB_SIZE : Display a size, not editable</li>
+<li>SIZE_LOC : Modify a size by any side, for objects with pivot at center, preserving other side moving object according.</li>
+<li>SNAP_SIZE_LOC : Modify a size by any side, snap aware one for objects with pivot at center, preserving other side moving object according.</li>
+<li>ANGLE : Modify an angle</li>
+<li>DUMB_ANGLE : Display an angle, not editable</li>
+<li>ARC_ANGLE_RADIUS : Modify angle and radius, specify angle property name in .prop1_name and radius in .prop2_name</li>
+<li>COUNTER : Modify an integer, step by step when clicking on arrows.</li>
+<li>DELTA_LOC : Modify location of an object, use prop1_name to setup axis in [‘x’, ‘y’, ‘z’]</li>
+<li>DUMB_STRING : Draw a string, use prop1_name as string to draw.</li>
+<li>WALL_SNAP : Draggable snap point, prop1_name is a part identifier, prop2_name is z property to draw placeholder, manipulate parts based objects (currently wall, fences, slab)</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="manipulator-data-structure">
+<h2>Manipulator data structure<a class="headerlink" href="#manipulator-data-structure" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>archipack_manipulator PropertyGroup to store each manipulator properties.</li>
+<li>Manipulable to add manipulation ability on a PropertyGroup</li>
+<li>Manipulator instance taking care of screen gl drawing, mouse and keyboard events, updating data according changes.</li>
+</ul>
+</div></blockquote>
+<div class="section" id="archipack-manipulator-implementation">
+<h3>archipack_manipulator implementation<a class="headerlink" href="#archipack-manipulator-implementation" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">archipack_manipulator</span><span class="p">(</span><span class="n">PropertyGroup</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                A property group to add to manipulable objects</span>
+<span class="sd">                type_key: type of manipulator</span>
+<span class="sd">                prop1_name = the property name of object to modify</span>
+<span class="sd">                prop2_name = another property name of object to modify (eg: angle and radius)</span>
+<span class="sd">                p0, p1, p2 3d Vectors as base points to represent manipulators on screen</span>
+<span class="sd">                normal Vector normal of plane on with draw manipulator</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">type_key</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s1">&#39;SIZE&#39;</span><span class="p">)</span>
+
+        <span class="c1"># How 3d points are stored in manipulators ?</span>
+        <span class="c1"># SIZE = 2 absolute positionned and a scaling vector</span>
+        <span class="c1"># RADIUS = 1 absolute positionned (center) and 2 relatives (sides)</span>
+        <span class="c1"># POLYGON = 2 absolute positionned and a relative vector (for rect polygons)</span>
+
+        <span class="n">pts_mode</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s1">&#39;SIZE&#39;</span><span class="p">)</span>
+        <span class="n">prop1_name</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">()</span>
+        <span class="n">prop2_name</span> <span class="o">=</span> <span class="n">StringProperty</span><span class="p">()</span>
+        <span class="n">p0</span> <span class="o">=</span> <span class="n">FloatVectorProperty</span><span class="p">(</span><span class="n">subtype</span><span class="o">=</span><span class="s1">&#39;XYZ&#39;</span><span class="p">)</span>
+        <span class="n">p1</span> <span class="o">=</span> <span class="n">FloatVectorProperty</span><span class="p">(</span><span class="n">subtype</span><span class="o">=</span><span class="s1">&#39;XYZ&#39;</span><span class="p">)</span>
+        <span class="n">p2</span> <span class="o">=</span> <span class="n">FloatVectorProperty</span><span class="p">(</span><span class="n">subtype</span><span class="o">=</span><span class="s1">&#39;XYZ&#39;</span><span class="p">)</span>
+
+        <span class="c1"># allow orientation of manipulators by default on xy plane,</span>
+        <span class="c1"># but may be used to constrain heights on local object space</span>
+
+        <span class="n">normal</span> <span class="o">=</span> <span class="n">FloatVectorProperty</span><span class="p">(</span><span class="n">subtype</span><span class="o">=</span><span class="s1">&#39;XYZ&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">def</span> <span class="nf">set_pts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pts</span><span class="p">,</span> <span class="n">normal</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+                <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                        set 3d location of gl points (in object space)</span>
+<span class="sd">                        pts: array of 3 vectors 3d</span>
+<span class="sd">                        normal: optionnal vector 3d default to Z axis</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="manipulable-implementation-stripped-down">
+<h3>Manipulable implementation (stripped down)<a class="headerlink" href="#manipulable-implementation-stripped-down" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Manipulable</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                A class extending PropertyGroup to setup gl manipulators</span>
+<span class="sd">                Beware : prevent crash calling manipulable_disable()</span>
+<span class="sd">                                 before changing manipulated data structure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">manipulators</span> <span class="o">=</span> <span class="n">CollectionProperty</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="n">archipack_manipulator</span><span class="p">,</span>
+                        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;store 3d points to draw gl manipulators&quot;</span>
+                        <span class="p">)</span>
+
+         <span class="k">def</span> <span class="nf">manipulable_invoke</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                        call this in operator invoke()</span>
+<span class="sd">                        May override when needed</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">manipulate_mode</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">manipulable_disable</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="bp">False</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">manip_stack</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manipulable_setup</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manipulate_mode</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="c1"># dont forget to call base class _invoke</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_manipulable_invoke</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+         <span class="k">def</span> <span class="nf">manipulable_setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                        Implement the setup part as per parent object basis</span>
+<span class="sd">                        This is default implementation for simple objects</span>
+<span class="sd">                        with manipulators linked to base object properties</span>
+<span class="sd">                        May override when needed</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manipulable_disable</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">setup_manipulators</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">:</span>
+                        <span class="c1"># m.setup create Manipulator instance</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">manip_stack</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="p">))</span>
+
+        <span class="c1"># Callbacks</span>
+        <span class="k">def</span> <span class="nf">manipulable_release</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                        Override with action to do on mouse release</span>
+<span class="sd">                        eg: big update</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="k">return</span>
+
+        <span class="k">def</span> <span class="nf">manipulable_exit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                        Override with action to do when modal exit</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="k">return</span>
+
+        <span class="k">def</span> <span class="nf">manipulable_manipulate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">event</span><span class="p">,</span> <span class="n">manipulator</span><span class="p">):</span>
+                <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">                        Override with action to do when a handle is active (pressed and mousemove)</span>
+<span class="sd">                &quot;&quot;&quot;</span>
+                <span class="k">return</span>
+</pre></div>
+</div>
+<p>While not required for simple manipulations, you may override manipulable_setup()
+in your object data propertygroup to handle manipulator setup.
+Use manipulable datablock .setup(object, datablock) method to create manipulator hanlder.
+Manipulators handlers do hold references to base object, datablock to modify, take care of drawing
+gl handles on screen, and handle mouse and keyboard inputs.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>Data structure change and manipulators</p>
+<p class="last">Before any data structure changes on manipulable properties, you <strong>MUST</strong> call .manipulable_disable(context)
+update your datastructure, then set .manipulable_refresh = True
+Failing to do so will result in ACCESS_VIOLATION crash errors.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="preset system.html" class="btn btn-neutral float-right" title="Preset system" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="archipackObject.html" class="btn btn-neutral" title="ArchipackObject" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, stephen leger.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

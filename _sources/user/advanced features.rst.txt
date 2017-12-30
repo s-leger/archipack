@@ -1,0 +1,11 @@
+Advanced features
+=================
+
+AutoBoolean
+-----------
+
+Custom holes and walls
+----------------------
+
+Presets
+-------

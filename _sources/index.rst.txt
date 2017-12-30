@@ -1,0 +1,25 @@
+Welcome to Archipack's documentation!
+=====================================
+
+Archipack for Blender is a toolset for architectural visualisation
+
+.. note::
+   Archipack dosen't work under Blender 2.8 series
+
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+   
+   user guide
+   extending archipack
+   about
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

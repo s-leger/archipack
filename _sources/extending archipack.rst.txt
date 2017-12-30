@@ -1,0 +1,14 @@
+Extending archipack
+===================
+
+.. toctree::
+   :maxdepth: 2
+   
+   dev/developper guide
+   dev/bulk updates
+   dev/archipackObject
+   dev/manipulable
+   dev/preset system
+   dev/feedback panel
+   dev/cutters
+

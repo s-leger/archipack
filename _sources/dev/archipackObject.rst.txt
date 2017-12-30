@@ -1,0 +1,6 @@
+ArchipackObject
+===============
+
+
+Archipack enabled object
+------------------------

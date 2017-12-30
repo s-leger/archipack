@@ -1,0 +1,36 @@
+About
+=====
+
+Aknowledgements
+---------------
+
+I would like to thank every one making this possible
+""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Archipack is dedicated to Ana.  
+
+People making Blender better every day
+""""""""""""""""""""""""""""""""""""""
+Ton, ideasman42, mont29, hackerman, dalai, dr_sybren, pablo and every core developper and contributors.  
+
+Special thank to  
+""""""""""""""""
+Antonyoia, for paving the parametric objects way with archimesh.  
+BlendingJake, for contribution in Floors (JARCH-viz).  
+Okavango for inspiration with NP station, pushing forward the CAD community on blender.  
+Coders and contributors of addons releasing public code.  
+dpdp (Daniel Pool) for contributions in tutorials and help in ba forums.  
+
+Donators 
+""""""""
+Pushig archipack forward.
+
+People of #blenderpython
+""""""""""""""""""""""""
+For kindness, support, inspiration, testing, reporting errors and general help.  
+meta-androcto, lijenstina, linda_bliblubli, Tynkatopi, nBurn, bzztploink, mirlip, gidio  
+
+   
+*Hope i don't forget anyone involved in the archipack's effort, if so, don't take offence and drop me a line.*
+  
+  

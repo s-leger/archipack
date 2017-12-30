@@ -1,0 +1,439 @@
+Archipack objects
+=================
+
+Common properties
+-----------------
+
+
+Archipack material
+""""""""""""""""""
+
+
+.. figure:: ../img/ui_archipack_material.png
+   :scale: 100 %
+   :alt: Archipack material selector
+
+   Select / create / delete material sets for objects
+   
+
+Manipulate
+""""""""""
+
+.. figure:: ../img/ui_manipulate.png
+   :scale: 100 %
+   :alt: Manipulate button
+
+   Manipulate: display manipulators on screen
+
+   
+Presets
+"""""""
+
+.. figure:: ../img/ui_preset.png
+   :scale: 100 %
+   :alt: Preset selector
+   
+   Select / create / delete presets for objects
+
+
+Window
+------
+
+Available utility
+"""""""""""""""""
+
+ * Delete: take care of removing every component of the window
+ * Refresh: update linked windows with missing parts (eg on copy)
+ * Unlink: make this window unique, only available on linked windows
+
+.. figure:: ../img/ui_win_door_utils.png
+   :scale: 100 %
+   :alt: Utility buttons
+   
+   Utility buttons
+ 
+
+	
+	
+Main properties
+"""""""""""""""
+
+ * Type: window type in [Swing, Rail]
+ * Width: of opening 
+ * Depth: of wall
+ * Height: of opening
+ * Altitude: bottom of opening, from pivot point
+ * Offset: offset of frame from inside part
+ * Shape: window shape in [Rectangle, Top elliptic, Top round, Top oblique, Full circle]
+
+.. figure:: ../img/ui_window_main.png
+   :scale: 100 %
+   :alt: Main window properties
+
+   Main window properties
+ 
+Components 
+""""""""""
+
+.. figure:: ../img/ui_window_components.png
+   :scale: 100 %
+   :alt: Window components
+
+   Window components
+ 
+
+Frame
+##### 
+.. versionadded:: 1.3.5
+
+   * Overflow : how much the frame overflow opening
+
+Handle
+######
+ * Altitude from pivot point
+ 
+Out frame
+#########
+
+ * Front width: width of the front part of the frame
+ * Front depth: depth of the front part of the frame
+ * Side depth: depth of side part of frame
+ * Offset: Overflow of hole to make negative joints aroud frame
+ 
+ 
+Rows
+""""
+
+.. figure:: ../img/ui_window_rows.png
+   :scale: 100 %
+   :alt: Window rows
+
+   Rows and columns of panels
+
+Parameters
+##########
+ * Number of rows
+ * Panels: number of columns for current row
+ * col %: percent of width for the panel
+ * fixed: type of frame
+
+Materials
+"""""""""
+
+.. figure:: ../img/ui_window_materials.png
+   :scale: 100 %
+   :alt: Window holes materials
+
+   Set index of materials of the hole
+
+Portal
+""""""
+
+.. figure:: ../img/ui_window_portal.png
+   :scale: 100 %
+   :alt: Window portal light
+
+   Generate a portal light for this window
+ 
+ 
+.. tip::
+
+	Open a window ?
+	
+	Panels are separate objects, so you are able to select and rotate/slide the way you want.
+	
+	Bend window to fit a curved wall ?
+	
+	Add a subdivide modifier in "simple" mode with say 2 or more subdivisions.
+	Add a SimpleDeform modifier in "Bend" mode and set angle according your needs.
+	Do the same with the hole object, and each panels.
+
+	
+Door
+----
+
+Available utility
+"""""""""""""""""
+   
+ * Delete: take care of removing every component of the door
+ * Refresh: update linked doors with missing parts (eg on copy)
+ * Unlink: make this door unique, only available on linked doors
+
+.. figure:: ../img/ui_win_door_utils.png
+   :scale: 100 %
+   :alt: Utility buttons
+   
+   Utility buttons	
+	
+Size
+""""
+   
+ * Width: of opening 
+ * Depth: of wall
+ * Height: of opening
+ * Offset: offset of frame from inside part
+
+
+.. figure:: ../img/ui_door_main.png
+   :scale: 100 %
+   :alt: Door size
+
+   Door size 
+ 
+Door
+""""
+
+.. figure:: ../img/ui_door_door.png
+   :scale: 100 %
+   :alt: Door
+
+   Door
+   
+Frame
+"""""
+
+.. figure:: ../img/ui_door_frame.png
+   :scale: 100 %
+   :alt: Door frame
+
+   Door frame
+
+Panels
+""""""
+
+ * Model: shape of the front part of the door panel
+ * Distribution or sub parts in [Regular, 1/3]
+ * h: number of horizontal subparts 
+ * v: number of vertical subparts
+ * Bottom: space of subparts from bottom
+ * Spacing: spacing between subparts
+ * Border: spacing of subparts from border
+ * Bevel: bevel amount of subparts
+
+.. figure:: ../img/ui_door_panels.png
+   :scale: 100 %
+   :alt: Door panels style
+
+   Door panels style 
+ 
+.. tip::
+	Open a door ?
+	
+	Panels are separate objects, so you are able to select and rotate/slide the way you want.
+	 
+ 
+Stair
+-----
+ 
+Presets
+"""""""
+
+.. figure:: ../img/ui_stair_presets.png
+   :scale: 100 %
+   :alt: Stair presets
+
+   Stair presets
+
+Beside saved presets, stair implements basic presets including I, L, U, O and user defined overall shapes.
+
+Main properties
+"""""""""""""""
+
+.. figure:: ../img/ui_stair_main.png
+   :scale: 100 %
+   :alt: Stair properties
+
+   Stair properties
+   
+Parts
+"""""
+
+.. figure:: ../img/ui_stair_parts.png
+   :scale: 100 %
+   :alt: Stair parts
+
+   Stair parts
+  
+Stairs allow unlimited number of parts  
+
+ * Parts type in [Straight, Curve, Dual-curve] stair and landing  
+ * Curved parts allow border shape in [Straight, Curve]   
+   
+Steps
+"""""
+
+.. figure:: ../img/ui_stair_steps.png
+   :scale: 100 %
+   :alt: Steps
+
+   Steps
+
+   
+Handrail
+""""""""
+
+.. figure:: ../img/ui_stair_handrail.png
+   :scale: 100 %
+   :alt: Handrail
+
+   Handrail
+
+
+String
+""""""
+
+.. figure:: ../img/ui_stair_string.png
+   :scale: 100 %
+   :alt: String
+
+   String
+
+
+Post
+""""
+
+.. figure:: ../img/ui_stair_post.png
+   :scale: 100 %
+   :alt: Post
+
+   Post
+   
+.. tip::
+	Advanced use of defined custom mesh as post using vertex groups
+	 * "Bottom" vertex group vertices follow steps
+	 * "Slope" vertex group vertices are affected by overall slope.
+
+
+Subs
+""""
+
+.. figure:: ../img/ui_stair_subs.png
+   :scale: 100 %
+   :alt: Subs
+
+   Subs
+   
+.. tip::
+	Advanced use of defined custom mesh as subs using vertex groups
+	 * "Bottom" vertex group vertices follow either steps or slope (as defined by Bottom)  
+	 * "Slope" vertex group vertices are affected by overall slope.
+   
+Panels
+""""""
+
+.. figure:: ../img/ui_stair_panels.png
+   :scale: 100 %
+   :alt: Panels
+
+   Panels
+   
+
+Rails
+"""""
+
+.. figure:: ../img/ui_stair_rails.png
+   :scale: 100 %
+   :alt: Rails
+
+   Rails
+
+
+Materials
+"""""""""
+
+.. figure:: ../img/ui_stair_materials.png
+   :scale: 100 %
+   :alt: Materials
+
+   Materials
+  
+Define material indexes for stair components
+      
+   
+Wall
+----
+
+.. note::
+	2d to 3d walls are not Archipack walls objects
+
+.. tip::
+	When drawing a wall, snapping the last segment to the first one automatically close your wall.
+
+Main properties
+"""""""""""""""
+
+.. figure:: ../img/ui_wall_main.png
+   :scale: 100 %
+   :alt: Wall
+
+   Wall
+
+
+T Parent
+""""""""
+
+.. figure:: ../img/ui_wall_tparent.png
+   :scale: 100 %
+   :alt: Wall T link parent
+
+   Wall T Link parent
+
+.. tip::
+	When you start drawing a wall with mouse over a parent wall, the draw tool automatically make your new wall a T child of the parent wall
+   
+   
+Utils
+"""""
+
+ * Reverse: reverse wall segments
+ * Fit roof: fit segment heights to surrounding roof 
+
+
+.. figure:: ../img/ui_wall_utils.png
+   :scale: 100 %
+   :alt: Wall utils
+
+   Wall utils
+   
+Wall parts
+""""""""""
+
+ * Split: cut a segment in two parts
+ * Remove: remove current segment
+ * Splits: split segment to adjust altitude of sub parts
+ * alt: altitude of sub part
+ * pos: normalized location of split along segment in range [0-1]
+ 
+.. figure:: ../img/ui_wall_parts.png
+   :scale: 100 %
+   :alt: Wall parts
+
+   Wall parts
+
+.. tip::
+	Wall part 1 angle define rotation about parent wall segment when wall is a T child
+
+
+Slab
+----
+
+Main properties
+"""""""""""""""
+
+Fence
+-----
+
+Main properties
+"""""""""""""""
+
+Roof
+----
+
+Main properties
+"""""""""""""""
+
+Truss
+-----
+
+Main properties
+"""""""""""""""

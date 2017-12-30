@@ -1,0 +1,507 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>2d to 3d &mdash; Archipack 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="author" title="About these documents"
+              href="../about.html"/>
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
+        <link rel="up" title="User guide" href="../user guide.html"/>
+        <link rel="next" title="Advanced features" href="advanced features.html"/>
+        <link rel="prev" title="Archipack objects" href="archipack objects.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Archipack
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../user guide.html">User guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="archipack objects.html">Archipack objects</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">2d to 3d</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#detect">Detect</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#options">Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#typical-generic-workflow">Typical (generic) workflow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#architectural-workflow">Architectural workflow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#select-tools">Select tools</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#select-polygons">Select Polygons</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#select-lines">Select Lines</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#select-points">Select Points</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#simplify">Simplify</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Options</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#offset">Offset</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Options</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#buffer">Buffer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id4">Options</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#boolean-operations">Boolean operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#operations">Operations</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="advanced features.html">Advanced features</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../extending archipack.html">Extending archipack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Archipack</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../user guide.html">User guide</a> &raquo;</li>
+        
+      <li>2d to 3d</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/user/2d to 3d.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="d-to-3d">
+<h1>2d to 3d<a class="headerlink" href="#d-to-3d" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>2d to 3d panel is only available when one or more curves are selected / active</p>
+<p class="last">2d to 3d tools only work with linear segments, and compute approximation of bezier curves segments at input time.</p>
+</div>
+<div class="section" id="detect">
+<h2>Detect<a class="headerlink" href="#detect" title="Permalink to this headline">¶</a></h2>
+<p>This set of tools does compute all intersections of a set of curves and detect polygons.</p>
+<p>Once detected you may choose between 3 select tools to select lines/polygons and create objects from selection.
+You are able to use any select tool at any time, detected data remains valid until you reselect another set of curves and repress “Detect”.</p>
+<p>Detect find polygons for ~ 1k segment / second, so it may take some time.</p>
+<div class="figure" id="id6">
+<a class="reference internal image-reference" href="../_images/ui_detect_main.png"><img alt="Detect" src="../_images/ui_detect_main.png" style="width: 215.0px; height: 147.0px;" /></a>
+<p class="caption"><span class="caption-text">Detect</span></p>
+</div>
+<p><a class="reference external" href="https://www.youtube.com/watch?v=BvWZI-3DDG4">2d to 3d video tutorial</a></p>
+<div class="section" id="options">
+<h3>Options<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Bezier resolution : number of steps to estimate each bezier curved segment.</li>
+<li>Extend end: try to extend segments to find intersections, allow to fill small gaps between lines. Typically 1 cm should be enougth, setting too high will require more time.</li>
+<li>Extend all segs: Extend only work for line ends, when checked the tool will try to extend all segments instead (slowest, but may be safer in some situations).</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="typical-generic-workflow">
+<h3>Typical (generic) workflow<a class="headerlink" href="#typical-generic-workflow" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Select one or more curves</li>
+<li>Expand “Detect” options, choose extend limit and extend all segs when apply (see Polygonize)</li>
+<li>press “Detect”, wait till done ( ~ 1k segment/sec)</li>
+<li>press “Polygons / Lines / Points” to start a select tool</li>
+<li>Select one or many lines, using click and drag to select into an area.</li>
+<li>Use keyboard to generate your objects (see on-screen options)</li>
+<li>Repeat 5 and 6 according your needs, then Right click or press esc to exit</li>
+</ol>
+</div></blockquote>
+</div>
+<div class="section" id="architectural-workflow">
+<h3>Architectural workflow<a class="headerlink" href="#architectural-workflow" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Clean up, Detect and possibly use “Points” to fill missing parts</li>
+<li>select curves, and Detect</li>
+<li>Use “Polygons” to create openings objects (windows and doors)</li>
+<li>Use “Polygons” to create walls / slabs..</li>
+<li>Use “Lines” to output guide lines for fences</li>
+</ol>
+</div></blockquote>
+</div>
+<div class="section" id="select-tools">
+<h3>Select tools<a class="headerlink" href="#select-tools" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="shortcut-common-select-actions">
+<h4>(shortcut) Common select actions<a class="headerlink" href="#shortcut-common-select-actions" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><strong>a</strong> Select all / none</li>
+<li><strong>i</strong> Select inverse</li>
+<li><strong>b</strong> Select biggest than current (apply only on polygons)</li>
+<li><strong>s</strong> Save current selection</li>
+<li><strong>l</strong> Load saved selection</li>
+<li><strong>shift</strong> Unselect on click or click &amp; drag to unselect in area</li>
+<li><strong>ctrl</strong> Select when area fully contains polygon (Deselect when shift is pressed)</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="select-polygons">
+<h3>Select Polygons<a class="headerlink" href="#select-polygons" title="Permalink to this headline">¶</a></h3>
+<p>This tool allow to select areas and build objects from selection.</p>
+<div class="figure" id="id7">
+<a class="reference internal image-reference" href="../_images/ui_detect_polygon.png"><img alt="Polygons" src="../_images/ui_detect_polygon.png" style="width: 215.0px; height: 29.0px;" /></a>
+<p class="caption"><span class="caption-text">Polygons</span></p>
+</div>
+<div class="section" id="shortcut-select-polygons-actions">
+<h4>(shortcut) Select Polygons actions<a class="headerlink" href="#shortcut-select-polygons-actions" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><strong>o</strong> Selection as closed curves</li>
+<li><strong>u</strong> Union of selection boundary as closed curves</li>
+<li><strong>f</strong> 2d Surface using union of boundarys</li>
+<li><strong>e</strong> 3d Wall using union of boundarys</li>
+<li><strong>w</strong> start/exit a tool to create Window over selection</li>
+<li><strong>d</strong> start/exit a tool to create Door over selection</li>
+<li><strong>r</strong> Best fit rectangle of selection as closed curve</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="creating-windows-doors">
+<h4>Creating windows / doors<a class="headerlink" href="#creating-windows-doors" title="Permalink to this headline">¶</a></h4>
+<p>This tool create one object at time.
+With an area selected, press either w for window or d for door does start a special create tool.
+Press left mouse and drag to set the desired direction of opening, release to create the object.
+Pressing w or d when running the create tool cancel the action and allow to select another polygon.</p>
+</div>
+</div>
+<div class="section" id="select-lines">
+<h3>Select Lines<a class="headerlink" href="#select-lines" title="Permalink to this headline">¶</a></h3>
+<p>This tool allow to select lines and build curves from selection.</p>
+<div class="figure" id="id8">
+<a class="reference internal image-reference" href="../_images/ui_detect_lines.png"><img alt="Lines" src="../_images/ui_detect_lines.png" style="width: 215.0px; height: 30.0px;" /></a>
+<p class="caption"><span class="caption-text">Lines</span></p>
+</div>
+<div class="section" id="shortcut-select-lines-actions">
+<h4>(shortcut) Select Lines actions<a class="headerlink" href="#shortcut-select-lines-actions" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><strong>u</strong> Union of selected lines as curve</li>
+<li><strong>f</strong> selected lines as curve</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="select-points">
+<h3>Select Points<a class="headerlink" href="#select-points" title="Permalink to this headline">¶</a></h3>
+<p>This tool allow to select points and build curves from selection.
+Intended to fill missing parts of walls, eg when the wall is cut on openings like with doors.</p>
+<div class="figure" id="id9">
+<a class="reference internal image-reference" href="../_images/ui_detect_points.png"><img alt="Points" src="../_images/ui_detect_points.png" style="width: 215.0px; height: 27.0px;" /></a>
+<p class="caption"><span class="caption-text">Points</span></p>
+</div>
+<div class="section" id="shortcut-select-points-actions">
+<h4>(shortcut) Select Points actions<a class="headerlink" href="#shortcut-select-points-actions" title="Permalink to this headline">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><strong>alt + f</strong> best fit rectangle around selected points as curve</li>
+<li><strong>f</strong> line as seen on screen as curve</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+</div>
+<div class="section" id="simplify">
+<h2>Simplify<a class="headerlink" href="#simplify" title="Permalink to this headline">¶</a></h2>
+<p>Simplify input curve(s), using Douglas Peuker method or Topology preserving method.
+Use this tool to clean up your curves from unnecessary points.</p>
+<div class="figure" id="id10">
+<a class="reference internal image-reference" href="../_images/ui_simplify.png"><img alt="Simplify" src="../_images/ui_simplify.png" style="width: 215.0px; height: 121.0px;" /></a>
+<p class="caption"><span class="caption-text">Simplify</span></p>
+</div>
+<div class="section" id="id1">
+<h3>Options<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Bezier resolution : input bezier curves approximation.</li>
+<li>Tolerance : Keep points who when removed change the overall shape more than this distance.</li>
+<li>Preserve Topology : use slower Topology preserving method (prevent self intersecting to occur)</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="offset">
+<h2>Offset<a class="headerlink" href="#offset" title="Permalink to this headline">¶</a></h2>
+<p>Offset is a line at a distance from a curve(s) on it right or left side.</p>
+<div class="figure" id="id11">
+<a class="reference internal image-reference" href="../_images/ui_offset.png"><img alt="Offset" src="../_images/ui_offset.png" style="width: 215.0px; height: 206.0px;" /></a>
+<p class="caption"><span class="caption-text">Offset</span></p>
+</div>
+<p><a class="reference external" href="https://www.youtube.com/watch?v=9dZPpFHi-74">Demo video</a></p>
+<div class="section" id="id2">
+<h3>Options<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Bezier resolution : input bezier curves approximation.</li>
+<li>Distance : offset distance.</li>
+<li>Side : avaliable side for offset are : left, right.</li>
+<li>Resolution : determines the number of segments used to approximate a quarter circle around a point.</li>
+<li>Style: available styles of joins between offset segments are : round, mitre, and bevel.</li>
+<li>Mitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.</li>
+</ul>
+</div></blockquote>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">While this tool does work with closed splines, when expanding it may result in open curve.</p>
+</div>
+</div>
+</div>
+<div class="section" id="buffer">
+<h2>Buffer<a class="headerlink" href="#buffer" title="Permalink to this headline">¶</a></h2>
+<p>Buffer is an approximate representation of all points within a given distance of the input curve(s).
+Use this tool to build eg wall from axis / border, road from axis and so on.</p>
+<div class="figure" id="id12">
+<a class="reference internal image-reference" href="../_images/ui_buffer.png"><img alt="Buffer" src="../_images/ui_buffer.png" style="width: 215.0px; height: 233.0px;" /></a>
+<p class="caption"><span class="caption-text">Buffer</span></p>
+</div>
+<p><a class="reference external" href="https://www.youtube.com/watch?v=dUoEfnXuK50">Demo video</a></p>
+<div class="section" id="id4">
+<h3>Options<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Bezier resolution : input bezier curves approximation.</li>
+<li>Distance : when positive distance has an effect of dilation, when negative erosion.</li>
+<li>Side : avaliable side for buffer are : both, left, right.</li>
+<li>Resolution : determines the number of segments used to approximate a quarter circle around a point.</li>
+<li>Cap: available styles of caps are : round, flat, and square.</li>
+<li>Join: available styles of joins between offset segments are : round, mitre, and bevel.</li>
+<li>Mitre limit : The ratio of the distance from the corner to the end of the mitred offset corner is the miter ratio. Corners with a ratio which exceed the limit will be beveled.</li>
+</ul>
+</div></blockquote>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">While this tool does work with closed splines, endpoints may suffer from square cap artefact.</p>
+</div>
+</div>
+</div>
+<div class="section" id="boolean-operations">
+<h2>Boolean operations<a class="headerlink" href="#boolean-operations" title="Permalink to this headline">¶</a></h2>
+<p>Provides 2d boolean operations between curves.
+Boolean is able to take account of the closed state of curves (areas).</p>
+<div class="figure" id="id13">
+<a class="reference internal image-reference" href="../_images/ui_boolean.png"><img alt="Boolean" src="../_images/ui_boolean.png" style="width: 215.0px; height: 206.0px;" /></a>
+<p class="caption"><span class="caption-text">Boolean</span></p>
+</div>
+<p><a class="reference external" href="https://www.youtube.com/watch?v=qdg-wDt9fA8">Demo video</a></p>
+<div class="section" id="operations">
+<h3>Operations<a class="headerlink" href="#operations" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><ul class="simple">
+<li>Union</li>
+<li>Intersection</li>
+<li>Differences (selection - active and active - selection)</li>
+<li>Symmetric difference</li>
+</ul>
+</div></blockquote>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">2d to 3d Detect method can be significantely faster when performing complex operations between many objects.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="advanced features.html" class="btn btn-neutral float-right" title="Advanced features" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="archipack objects.html" class="btn btn-neutral" title="Archipack objects" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, stephen leger.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
