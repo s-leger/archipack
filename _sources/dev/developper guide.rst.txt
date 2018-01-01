@@ -73,8 +73,9 @@ Implementation sample (a box)
 
 .. code-block:: python
 	:caption: Minimal implementation using all features
-	:name: property-py
-	
+	:name: toolkit-property-py
+	:emphasize-lines: 5,11,17,23,25,105
+		
 	def update(self, context):
 		self.update(context)
 
@@ -233,7 +234,8 @@ Implementation sample (a box)
 
 .. code-block:: python
 	:caption: Minimal implementation using all features
-	:name: panel-py
+	:name: toolkit-panel-py
+	:emphasize-lines: 11,23,29-36
 	
 	class ARCHIPACK_PT_myobject(Panel):
 		bl_idname = "ARCHIPACK_PT_myobject"
@@ -306,8 +308,9 @@ Implementation sample
 
 .. code-block:: python
 	:caption: Minimal implementation using all features
-	:name: create-py
-	
+	:name: toolkit-create-py
+	:emphasize-lines: 1-2,11,14,17,20,27
+		
 	class ARCHIPACK_OT_myobject(ArchipackCreateTool, Operator):
 		bl_idname = "archipack.myobject"
 		bl_label = "Myobject"
@@ -377,8 +380,9 @@ Implementation sample
 
 .. code-block:: python
 	:caption: Minimal implementation using all features
-	:name: preset-menu-py
-	
+	:name: toolkit-preset-menu-py
+	:emphasize-lines: 4
+		
 	class ARCHIPACK_OT_myobject_preset_menu(PresetMenuOperator, Operator):
 		bl_idname = "archipack.myobject_preset_menu"
 		bl_label = "Myobject preset"
@@ -410,7 +414,8 @@ Implementation sample
 
 .. code-block:: python
 	:caption: Minimal implementation using all features
-	:name: preset-py
+	:name: toolkit-preset-py
+	:emphasize-lines: 5,9
 	
 	class ARCHIPACK_OT_myobject_preset(ArchipackPreset, Operator):
 		"""Add a Myobject Preset"""
@@ -446,7 +451,8 @@ Implementation sample
 
 .. code-block:: python
 	:caption: Minimal implementation using all features
-	:name: manipulate-py
+	:name: toolkit-manipulate-py
+	:emphasize-lines: 9,13
 	
 	class ARCHIPACK_OT_myobject_manipulate(Operator):
 		bl_idname = "archipack.myobject_manipulate"
@@ -480,8 +486,9 @@ Implementation sample
 
 .. code-block:: python
 	:caption: Minimal implementation using all features
-	:name: register-py
-	
+	:name: toolkit-register-py
+	:emphasize-lines: 1-3,11-13
+		
 	def register():
 		bpy.utils.register_class(archipack_myobject)
 		Mesh.archipack_myobject = CollectionProperty(type=archipack_myobject)

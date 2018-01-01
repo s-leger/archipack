@@ -1,0 +1,55 @@
+Archipack Tools
+===============
+
+AutoBoolean
+-----------
+
+Update holes for walls when you add or copy window / door by hand.
+
+.. figure:: ../img/ui_autoboolean.png
+   :scale: 100 %
+   :alt: AutoBoolean
+
+   AutoBoolean
+
+Apply holes
+"""""""""""
+
+When exporting or in order to clean up your scene, you might want to apply booleans and cleanup holes objects.
+
+.. note::
+	With regular archipack wall you are able to undo this operation at any time by selecting the wall and use AutoBoolean 
+
+.. warning::
+	With 2d to 3d walls there is no undo for this operation, so use with care !
+
+
+Make objects safe to edit
+-------------------------
+
+Archipack objects are regular blender mesh so you may edit them at any time.
+However, modifying any parameter after edit will regenerate mesh and you'll then loose your changes.
+
+.. figure:: ../img/ui_kill_params.png
+   :scale: 100 %
+   :alt: Kill parameters
+
+   Kill parameters
+
+In order to prevent any parameter edit and get a "safe to edit by hand" non archipack aware mesh, use either "selected" or "all" found in Archipack Tools -> Kill parameters.
+
+.. warning::
+	There is no undo for this operation, so use with care !
+
+
+Rendering Manipulators
+----------------------
+
+Use the Render button to add manipulators over rendered image.
+
+.. figure:: ../img/ui_rendering.png
+   :scale: 100 %
+   :alt: Rendering
+
+   Rendering
+   

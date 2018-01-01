@@ -1,0 +1,77 @@
+Setup
+=====
+
+Download
+--------
+
+`Download <https://github.com/s-leger/archipack>`_ press the green "Clone or download" button and select Download ZIP
+
+.. figure:: ./img/download.png
+   :scale: 100 %
+   :alt: Download
+
+   Download
+   
+Install the add-on
+------------------
+
+Open user preferences   
+  
+
+.. figure:: ./img/setup_user_prefs.png
+   :scale: 100 %
+   :alt: Open preferences
+   
+   Open preferences
+
+
+Press "Install from file", select downloaded archipack-master.zip  
+
+
+.. figure:: ./img/setup_button.png
+   :scale: 100 %
+   :alt: Setup
+   
+   Setup
+   
+Activate the add-on  
+-------------------
+
+.. figure:: ./img/setup_activate.png
+   :scale: 100 %
+   :alt: Activate
+   
+   Activate
+   
+
+Presets
+-------
+
+In user preferences -> Add-ons -> Archpack, press "Render presets thumbs" once, confirm and wait a bit till done. 
+
+.. _default material library:
+
+Default material library
+------------------------
+
+ * Download the `default material library for Cycles <https://github.com/s-leger/images/raw/master/archipack_matlib.blend>`_
+ * Save this file into a writeable folder.  
+ * In user preferences -> Add-ons -> Archpack, add the full path to this folder into "Material library, Folder path" 
+
+ 
+.. _material library add-on:
+
+Optional Material Library add-on
+--------------------------------
+
+Material Library add-on allow to save scene materials to library so you may share them across projects.
+
+ * Activate Material Library add-on
+ * Setup Additional path to the same folder as archipack material library
+ 
+.. figure:: ./img/setup_matlib.png
+   :scale: 100 %
+   :alt: Material Library
+   
+   Material Library
+ 

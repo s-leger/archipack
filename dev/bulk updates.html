@@ -95,25 +95,20 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../intro.html">Welcome</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../intro.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="developper guide.html">Developper guide</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Bulk update</a></li>
 <li class="toctree-l2"><a class="reference internal" href="archipackObject.html">ArchipackObject</a></li>
-<li class="toctree-l2"><a class="reference internal" href="manipulable.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="manipulable.html#indices-and-tables">Indices and tables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="preset system.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="preset system.html#indices-and-tables">Indices and tables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="feedback panel.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="feedback panel.html#indices-and-tables">Indices and tables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cutters.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cutters.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manipulable.html">Manipulable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preset system.html">Preset system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feedback panel.html">Feedback panel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pygeos.html">PyGEOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cutters.html">Cutters</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
 </ul>
 
             
@@ -181,6 +176,21 @@
             
   <div class="section" id="bulk-update">
 <h1>Bulk update<a class="headerlink" href="#bulk-update" title="Permalink to this headline">¶</a></h1>
+<p>Archipack objects are designed so any parameter change trigger full mesh rebuild.
+In order to do bulk parameter updades, there is a special variable “auto_update” to prevent such updates while setting your parameters.
+Setting this variable back to True does trigger an update.</p>
+<div class="literal-block-wrapper docutils container" id="bulk-update-py">
+<div class="code-block-caption"><span class="caption-text">Stair bulk update sample</span><a class="headerlink" href="#bulk-update-py" title="Permalink to this code">¶</a></div>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">o</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">archipack_stair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="hll"><span class="n">d</span><span class="o">.</span><span class="n">auto_update</span> <span class="o">=</span> <span class="bp">False</span>
+</span>
+<span class="c1"># setup presets according your needs</span>
+
+<span class="hll"><span class="n">d</span><span class="o">.</span><span class="n">auto_update</span> <span class="o">=</span> <span class="bp">True</span>
+</span></pre></div>
+</div>
+</div>
 </div>
 
 

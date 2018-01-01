@@ -95,6 +95,7 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="developper guide.html">Developper guide</a></li>
@@ -230,18 +231,18 @@
 </div>
 <div class="section" id="implementation-sample">
 <h3>Implementation sample<a class="headerlink" href="#implementation-sample" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+<div class="highlight-python" id="manipulable-property-py"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
    <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
-<span class="k">class</span> <span class="nc">archipack_your_object</span><span class="p">(</span><span class="n">Manipulable</span><span class="p">,</span> <span class="n">PropertyGroup</span><span class="p">):</span>
-
+<span class="hll"><span class="k">class</span> <span class="nc">archipack_your_object</span><span class="p">(</span><span class="n">Manipulable</span><span class="p">,</span> <span class="n">PropertyGroup</span><span class="p">):</span>
+</span>
          <span class="n">width</span> <span class="o">=</span> <span class="n">FloatProperty</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="n">update</span><span class="p">)</span>
          <span class="n">n_parts</span> <span class="o">=</span> <span class="n">IntProperty</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="n">update</span><span class="p">)</span>
          <span class="n">z</span> <span class="o">=</span> <span class="n">FloatProperty</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="n">update</span><span class="p">)</span>
 
          <span class="c1"># Implement setup_manipulators method</span>
-         <span class="k">def</span> <span class="nf">setup_manipulators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-
+<span class="hll">         <span class="k">def</span> <span class="nf">setup_manipulators</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                         <span class="k">return</span>
 
@@ -276,15 +277,15 @@
 
                 <span class="o">..</span> <span class="n">update</span> <span class="n">your</span> <span class="n">mesh</span>
 
-                <span class="c1"># Update manipulators location in object local space</span>
-                <span class="n">x</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span>
-                <span class="c1"># width</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
-                <span class="c1"># counter</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
-                <span class="c1"># z</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
-</pre></div>
+<span class="hll">                <span class="c1"># Update manipulators location in object local space</span>
+</span><span class="hll">                <span class="n">x</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span>
+</span><span class="hll">                <span class="c1"># width</span>
+</span><span class="hll">                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
+</span><span class="hll">                <span class="c1"># counter</span>
+</span><span class="hll">                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
+</span><span class="hll">                <span class="c1"># z</span>
+</span><span class="hll">                <span class="bp">self</span><span class="o">.</span><span class="n">manipulators</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_pts</span><span class="p">([(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)])</span>
+</span></pre></div>
 </div>
 </div>
 </div>
@@ -319,8 +320,8 @@
 <p>in invoke method use manipulable_invoke(context, event)</p>
 <div class="section" id="id2">
 <h3>Implementation sample<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="manipulate-py">
-<div class="code-block-caption"><span class="caption-text">Manipulate Operator</span><a class="headerlink" href="#manipulate-py" title="Permalink to this code">¶</a></div>
+<div class="literal-block-wrapper docutils container" id="manipulable-manipulate-py">
+<div class="code-block-caption"><span class="caption-text">Manipulate Operator</span><a class="headerlink" href="#manipulable-manipulate-py" title="Permalink to this code">¶</a></div>
 <div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_your_object_manipulate</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
         <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.your_object_manipulate&quot;</span>
         <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Manipulate&quot;</span>
@@ -354,10 +355,10 @@
 </div>
 <div class="section" id="implementation-sample-archipack-s-window-stripped-down">
 <h3>Implementation sample Archipack’s Window (stripped down)<a class="headerlink" href="#implementation-sample-archipack-s-window-stripped-down" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="create-py">
-<div class="code-block-caption"><span class="caption-text">Create Operator</span><a class="headerlink" href="#create-py" title="Permalink to this code">¶</a></div>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_window</span><span class="p">(</span><span class="n">ArchipackCreateTool</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
-        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.window&quot;</span>
+<div class="literal-block-wrapper docutils container" id="manipulable-create-py">
+<div class="code-block-caption"><span class="caption-text">Create Operator</span><a class="headerlink" href="#manipulable-create-py" title="Permalink to this code">¶</a></div>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="hll"><span class="k">class</span> <span class="nc">ARCHIPACK_OT_window</span><span class="p">(</span><span class="n">ArchipackCreateTool</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
+</span>        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.window&quot;</span>
         <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Window&quot;</span>
         <span class="n">bl_description</span> <span class="o">=</span> <span class="s2">&quot;Window&quot;</span>
                 <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
@@ -370,8 +371,8 @@
                         <span class="c1"># o must be selected and active</span>
                         <span class="n">o</span><span class="o">.</span><span class="n">select</span> <span class="o">=</span> <span class="bp">True</span>
                         <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">o</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">manipulate</span><span class="p">()</span>
-                        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
+<span class="hll">                        <span class="bp">self</span><span class="o">.</span><span class="n">manipulate</span><span class="p">()</span>
+</span>                        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
                 <span class="k">else</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">report</span><span class="p">({</span><span class="s1">&#39;WARNING&#39;</span><span class="p">},</span> <span class="s2">&quot;Archipack: Option only valid in Object mode&quot;</span><span class="p">)</span>
                         <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;CANCELLED&#39;</span><span class="p">}</span>

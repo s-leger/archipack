@@ -1,3 +1,137 @@
 Preset system
 =============
 
+Blender does support advanced presets system right out of the box.  
+The api take care of serialisation and unserialisation.  
+Archipack does extend this api to provide thumbs and on screen seekable menu.  
+
+There are two kind of presets
+-----------------------------
+ * Factory stored under /addon/presets/
+ * User defined, stored under /user profile/presets/  
+
+Techically they are the same, but factory's one are shipped with addon where user defined one will be stored on user prefs directory.
+
+
+Requirements
+""""""""""""
+In order to make objects "preset aware" one need 2 operators.  
+
+ * Preset menu Operator 
+ * Save / destroy preset Operator
+
+
+
+Preset menu Operator
+--------------------
+
+Requirements  
+""""""""""""
+ * **MUST** inherit from PresetMenuOperator  
+ * preset_subdir must match object PropertyGroup name, with archipack_ prefix
+
+Implementation sample 
+"""""""""""""""""""""
+
+.. code-block:: python
+	:emphasize-lines: 1,5
+	
+	class ARCHIPACK_OT_fence_preset_menu(PresetMenuOperator, Operator):
+		bl_idname = "archipack.fence_preset_menu"
+		bl_label = "Fence Presets"
+		# Alter this using the base PropertyGroup class name (MUST use archipack_ prefix)
+		preset_subdir = "archipack_fence"
+
+
+**Preset menu Operator may use a "preset_operator" option eg in draw a window / draw a door**
+
+ * preset_operator: string, bl_idname of operator to call after selection, in the form "category.operator".  
+
+When not specified, default to create operator, using preset_subdir as operator bl_idname, eg: bpy.ops.archipack.fence 
+
+The operator handling preset operation must take "filename" as string input and handle loading of preset, where filename is a python preset absolute filename with path.
+
+Implementation sample 
+"""""""""""""""""""""
+
+.. code-block:: python
+
+        row.operator("archipack.fence_preset_menu",
+                    text="Fence",
+                    icon_value=icons["fence"].icon_id
+                    ).preset_operator = "archipack.fence"
+
+
+Save / Destroy preset operator
+------------------------------
+
+This operator does take care of rendering thumbs on save.
+
+Requirements 
+""""""""""""
+ * **MUST** inherit from ArchipackPreset
+ * You may add properties you dont want to save in presets in blacklist, HIDDEN and SKIP_SAVE property are ignored by default.  
+ * preset_menu **MUST** match menu preset operator class name.  
+
+Implementation sample 
+"""""""""""""""""""""
+
+.. code-block:: python
+	:emphasize-lines: 1,5,10
+	
+	class ARCHIPACK_OT_fence_preset(ArchipackPreset, Operator):
+		"""Add a Fence Preset"""
+		bl_idname = "archipack.fence_preset"
+		bl_label = "Add Fence Preset"
+		preset_menu = "ARCHIPACK_OT_fence_preset_menu"
+		
+		@property
+		def blacklist(self):
+			# Blacklist property you want store by name  
+			return ['n_parts', 'parts', 'manipulators', 'user_defined_path']
+
+
+Call from object panel
+----------------------
+
+Implementation sample 
+"""""""""""""""""""""
+
+.. code-block:: python
+
+	row = box.row(align=True)
+	row.operator("archipack.fence_preset_menu", text=bpy.types.ARCHIPACK_OT_fence_preset.bl_label)
+	row.operator("archipack.fence_preset", text="", icon='ZOOMIN')
+	row.operator("archipack.fence_preset", text="", icon='ZOOMOUT').remove_active = True
+			
+
+Create Operator
+---------------
+
+Requirements 
+""""""""""""
+	* **MUST** Inherits from ArchipackCreateTool to handle filename input  
+	* **MUST** call load_preset method.
+
+Implementation sample 
+"""""""""""""""""""""
+
+.. code-block:: python
+	:emphasize-lines: 1,15
+	
+	class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):
+		bl_idname = "archipack.fence"
+		bl_label = "Fence"
+		bl_description = "Fence"
+		bl_category = 'Archipack'
+		bl_options = {'REGISTER', 'UNDO'}
+
+		def create(self, context):
+			m = bpy.data.meshes.new("Fence")
+			o = bpy.data.objects.new("Fence", m)
+			d = m.archipack_fence.add()
+			context.scene.objects.link(o)
+			o.select = True
+			context.scene.objects.active = o
+			self.load_preset(d)
+			...

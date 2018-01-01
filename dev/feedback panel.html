@@ -39,7 +39,7 @@
         <link rel="search" title="Search" href="../search.html"/>
     <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
         <link rel="up" title="Extending archipack" href="../extending archipack.html"/>
-        <link rel="next" title="Welcome to Archipack’s documentation!" href="cutters.html"/>
+        <link rel="next" title="Cutters" href="cutters.html"/>
         <link rel="prev" title="Preset system" href="preset system.html"/> 
 
   
@@ -95,8 +95,7 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../intro.html">Welcome</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../intro.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="developper guide.html">Developper guide</a></li>
@@ -104,13 +103,18 @@
 <li class="toctree-l2"><a class="reference internal" href="archipackObject.html">ArchipackObject</a></li>
 <li class="toctree-l2"><a class="reference internal" href="manipulable.html">Manipulable</a></li>
 <li class="toctree-l2"><a class="reference internal" href="preset system.html">Preset system</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Feedback panel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cutters.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cutters.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Feedback panel</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#archipack-gl-classes">Archipack gl classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#implementation-sample">Implementation sample</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html#indices-and-tables">Indices and tables</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cutters.html">Cutters</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
 </ul>
 
             
@@ -178,6 +182,70 @@
             
   <div class="section" id="feedback-panel">
 <h1>Feedback panel<a class="headerlink" href="#feedback-panel" title="Permalink to this headline">¶</a></h1>
+<p>Feedback panel provide easy to use on-screen instructions for hints and shortcuts.</p>
+<div class="figure" id="id1">
+<a class="reference internal image-reference" href="../_images/feedbackPanel.jpg"><img alt="Feedback panel sample" src="../_images/feedbackPanel.jpg" style="width: 546.0px; height: 160.0px;" /></a>
+<p class="caption"><span class="caption-text">Feedback panel sample</span></p>
+</div>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>In order to use in your addon, you may copy archipack_gl.py</p>
+</div>
+<div class="section" id="archipack-gl-classes">
+<h2>Archipack gl classes<a class="headerlink" href="#archipack-gl-classes" title="Permalink to this headline">¶</a></h2>
+<p>archipack_gl provide some classes to draw either 2d or 3d (coords in pixels or world)</p>
+<blockquote>
+<div><ul class="simple">
+<li>Lines</li>
+<li>Arc</li>
+<li>Text</li>
+<li>Handles (tri and square)</li>
+<li>Editable text</li>
+<li>Cursor fence (like with B shorcut)</li>
+<li>Cursor area (like when dragging with B shorcut)</li>
+<li>FeedbackPanel</li>
+</ul>
+</div></blockquote>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">FeedbackPanel interface will remain stable, while other parts currently need some cleanup and are likely to change. Use it as wrapper around opengl to allow easy update when gl Api change - benefit from archpack’s updates.</p>
+</div>
+<div class="section" id="implementation-sample">
+<h3>Implementation sample<a class="headerlink" href="#implementation-sample" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">.archipack_gl</span> <span class="kn">import</span> <span class="n">FeedbackPanel</span>
+
+<span class="c1"># modal Operator invoke sample</span>
+   <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span> <span class="o">=</span> <span class="n">FeedbackPanel</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Archipack&quot;</span><span class="p">)</span>
+   <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">instructions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s2">&quot;Draw a wall&quot;</span><span class="p">,</span> <span class="s2">&quot;Click &amp; Drag to start&quot;</span><span class="p">,</span> <span class="p">[</span>
+                                <span class="p">(</span><span class="s1">&#39;CTRL&#39;</span><span class="p">,</span> <span class="s1">&#39;Snap&#39;</span><span class="p">),</span>
+                                <span class="p">(</span><span class="s1">&#39;MMBTN&#39;</span><span class="p">,</span> <span class="s1">&#39;Constraint to axis&#39;</span><span class="p">),</span>
+                                <span class="p">(</span><span class="s1">&#39;X Y&#39;</span><span class="p">,</span> <span class="s1">&#39;Constraint to axis&#39;</span><span class="p">),</span>
+                                <span class="p">(</span><span class="s1">&#39;RIGHTCLICK or ESC&#39;</span><span class="p">,</span> <span class="s1">&#39;exit without change&#39;</span><span class="p">)</span>
+                                <span class="p">])</span>
+   <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
+   <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+   <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">SpaceView3D</span><span class="o">.</span><span class="n">draw_handler_add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">draw_callback</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="s1">&#39;WINDOW&#39;</span><span class="p">,</span> <span class="s1">&#39;POST_PIXEL&#39;</span><span class="p">)</span>
+
+<span class="c1"># !!! panel must be enabled</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
+<span class="c1"># and may be disabled</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">disable</span><span class="p">()</span>
+
+
+<span class="c1"># you may setup instructions right on invoke or</span>
+<span class="c1"># in Operator modal you are able to change instructions on the fly</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">instructions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">&#39;Title&#39;</span><span class="p">,</span> <span class="s1">&#39;Hints about usage&#39;</span><span class="p">,</span> <span class="p">[</span>
+<span class="p">(</span><span class="s1">&#39;SHORTCUT&#39;</span><span class="p">,</span> <span class="s1">&#39;Hints about shortcut&#39;</span><span class="p">),</span>
+<span class="o">...</span>
+<span class="p">])</span>
+
+<span class="c1"># draw_callback handler sample (defined as Operator method)</span>
+<span class="k">def</span> <span class="nf">draw_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
 </div>
 
 
@@ -190,7 +258,7 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="cutters.html" class="btn btn-neutral float-right" title="Welcome to Archipack’s documentation!" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="cutters.html" class="btn btn-neutral float-right" title="Cutters" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="preset system.html" class="btn btn-neutral" title="Preset system" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>

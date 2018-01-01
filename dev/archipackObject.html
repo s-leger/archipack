@@ -39,8 +39,8 @@
         <link rel="search" title="Search" href="../search.html"/>
     <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
         <link rel="up" title="Extending archipack" href="../extending archipack.html"/>
-        <link rel="next" title="Welcome to Archipack’s documentation!" href="manipulable.html"/>
-        <link rel="prev" title="Welcome to Archipack’s documentation!" href="bulk updates.html"/> 
+        <link rel="next" title="Manipulable" href="manipulable.html"/>
+        <link rel="prev" title="Bulk update" href="bulk updates.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -95,29 +95,27 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../intro.html">Welcome</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../intro.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="developper guide.html">Developper guide</a></li>
-<li class="toctree-l2"><a class="reference internal" href="bulk updates.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="bulk updates.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bulk updates.html">Bulk update</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">ArchipackObject</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#archipack-enabled-object">Archipack enabled object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#implementation">Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#base-object-propertygroup">Base object PropertyGroup</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#register-module">Register module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ui-panel">Ui Panel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#manipulate-operator">Manipulate Operator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#create-operator">Create Operator</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="manipulable.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="manipulable.html#indices-and-tables">Indices and tables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="preset system.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="preset system.html#indices-and-tables">Indices and tables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="feedback panel.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="feedback panel.html#indices-and-tables">Indices and tables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cutters.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cutters.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manipulable.html">Manipulable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="preset system.html">Preset system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feedback panel.html">Feedback panel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cutters.html">Cutters</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
 </ul>
 
             
@@ -185,8 +183,125 @@
             
   <div class="section" id="archipackobject">
 <h1>ArchipackObject<a class="headerlink" href="#archipackobject" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="archipack-enabled-object">
-<h2>Archipack enabled object<a class="headerlink" href="#archipack-enabled-object" title="Permalink to this headline">¶</a></h2>
+<p>ArchipackObject base class provide functions to support “copy to selected” and easy access to datablock.</p>
+<blockquote>
+<div><ul class="simple">
+<li>filter(o) : return boolean, ensure object contains your datablock eg : archipack_window.filter(o) may use it in poll</li>
+<li>datablock(o) : return datablock or None, ensure object contains your datablock eg : d = archipack_window.datablock(o)</li>
+<li>find_in_selection(context, auto_update=True) : store context and find current instance in selection. return object or None. Wont store context and always return None if auto_update is False</li>
+<li>restore_context(context) : restore context - active + selection</li>
+</ul>
+</div></blockquote>
+<div class="section" id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>PropertyGroup <strong>MUST</strong> inherits from ArchipackObject</li>
+<li>PropertyGroup <strong>MUST</strong> use archipack_ prefix and you <strong>MUST</strong> use the same name for bpy.types.Mesh.property</li>
+<li>PropertyGroup <strong>MUST</strong> be registered as bpy.types.Mesh property to handle alt + d</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="base-object-propertygroup">
+<h2>Base object PropertyGroup<a class="headerlink" href="#base-object-propertygroup" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="hll"><span class="k">class</span> <span class="nc">archipack_door</span><span class="p">(</span><span class="n">ArchipackObject</span><span class="p">,</span> <span class="n">Manipulable</span><span class="p">,</span> <span class="n">PropertyGroup</span><span class="p">):</span>
+</span>        <span class="o">...</span>
+        <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+
+                <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_in_selection</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">auto_update</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">o</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                        <span class="k">return</span>
+
+                <span class="c1"># update object&#39;s mesh (see bmesh_utils as reference)</span>
+                <span class="n">bmed</span><span class="o">.</span><span class="n">buildmesh</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">verts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">faces</span><span class="p">)</span>
+
+                <span class="c1"># restore context</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">resore_context</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="register-module">
+<h2>Register module<a class="headerlink" href="#register-module" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">register</span><span class="p">():</span>
+<span class="hll">   <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">archipack_door</span><span class="p">)</span>
+</span><span class="hll">   <span class="n">Mesh</span><span class="o">.</span><span class="n">archipack_door</span> <span class="o">=</span> <span class="n">CollectionProperty</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">archipack_door</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</div>
+<div class="section" id="ui-panel">
+<h2>Ui Panel<a class="headerlink" href="#ui-panel" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">poll</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">archipack_door</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">draw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="n">o</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">archipack_door</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">o</span><span class="p">):</span>
+        <span class="k">return</span>
+    <span class="n">layout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layout</span>
+    <span class="n">layout</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s1">&#39;archipack.door_manipulate&#39;</span><span class="p">,</span> <span class="n">icon</span><span class="o">=</span><span class="s1">&#39;HAND&#39;</span><span class="p">)</span>
+    <span class="n">props</span> <span class="o">=</span> <span class="n">archipack_door</span><span class="o">.</span><span class="n">datablock</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="manipulate-operator">
+<h2>Manipulate Operator<a class="headerlink" href="#manipulate-operator" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_door_manipulate</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.door_manipulate&quot;</span>
+        <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Manipulate&quot;</span>
+        <span class="n">bl_description</span> <span class="o">=</span> <span class="s2">&quot;Manipulate&quot;</span>
+        <span class="n">bl_options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;REGISTER&#39;</span><span class="p">,</span> <span class="s1">&#39;UNDO&#39;</span><span class="p">}</span>
+
+        <span class="nd">@classmethod</span>
+        <span class="k">def</span> <span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">archipack_door</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">invoke</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">archipack_door</span><span class="o">.</span><span class="n">datablock</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
+                <span class="n">d</span><span class="o">.</span><span class="n">manipulable_invoke</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="create-operator">
+<h2>Create Operator<a class="headerlink" href="#create-operator" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_truss</span><span class="p">(</span><span class="n">ArchipackCreateTool</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
+        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.truss&quot;</span>
+        <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Truss&quot;</span>
+        <span class="n">bl_description</span> <span class="o">=</span> <span class="s2">&quot;Create Truss&quot;</span>
+        <span class="n">bl_category</span> <span class="o">=</span> <span class="s1">&#39;Archipack&#39;</span>
+        <span class="n">bl_options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;REGISTER&#39;</span><span class="p">,</span> <span class="s1">&#39;UNDO&#39;</span><span class="p">}</span>
+
+        <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="n">m</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">meshes</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;Truss&quot;</span><span class="p">)</span>
+                <span class="n">o</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;Truss&quot;</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+
+                <span class="c1"># add propertyGroup to mesh</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">archipack_truss</span><span class="o">.</span><span class="n">add</span><span class="p">()</span>
+
+                <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+                <span class="n">o</span><span class="o">.</span><span class="n">select</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">o</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">load_preset</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_material</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+                <span class="n">m</span><span class="o">.</span><span class="n">auto_smooth_angle</span> <span class="o">=</span> <span class="mf">1.15</span>
+                <span class="k">return</span> <span class="n">o</span>
+
+        <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;OBJECT&quot;</span><span class="p">:</span>
+                        <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">object</span><span class="o">.</span><span class="n">select_all</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="s2">&quot;DESELECT&quot;</span><span class="p">)</span>
+                        <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                        <span class="n">o</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">cursor_location</span>
+                        <span class="n">o</span><span class="o">.</span><span class="n">select</span> <span class="o">=</span> <span class="bp">True</span>
+                        <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">o</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">manipulate</span><span class="p">()</span>
+                        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
+                <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">report</span><span class="p">({</span><span class="s1">&#39;WARNING&#39;</span><span class="p">},</span> <span class="s2">&quot;Archipack: Option only valid in Object mode&quot;</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;CANCELLED&#39;</span><span class="p">}</span>
+</pre></div>
+</div>
 </div>
 </div>
 
@@ -200,10 +315,10 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="manipulable.html" class="btn btn-neutral float-right" title="Welcome to Archipack’s documentation!" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="manipulable.html" class="btn btn-neutral float-right" title="Manipulable" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="bulk updates.html" class="btn btn-neutral" title="Welcome to Archipack’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="bulk updates.html" class="btn btn-neutral" title="Bulk update" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

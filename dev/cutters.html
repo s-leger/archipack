@@ -39,7 +39,7 @@
         <link rel="search" title="Search" href="../search.html"/>
     <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
         <link rel="up" title="Extending archipack" href="../extending archipack.html"/>
-        <link rel="next" title="Welcome to Archipack’s documentation!" href="../about.html"/>
+        <link rel="next" title="About" href="../about.html"/>
         <link rel="prev" title="Feedback panel" href="feedback panel.html"/> 
 
   
@@ -95,8 +95,7 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../intro.html">Welcome</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../intro.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="developper guide.html">Developper guide</a></li>
@@ -105,11 +104,21 @@
 <li class="toctree-l2"><a class="reference internal" href="manipulable.html">Manipulable</a></li>
 <li class="toctree-l2"><a class="reference internal" href="preset system.html">Preset system</a></li>
 <li class="toctree-l2"><a class="reference internal" href="feedback panel.html">Feedback panel</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Cutters</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Cutters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#different-ways-to-handle-cuts">Different ways to handle cuts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#robust-and-interactive-boolean-aka-hybrid-mode">Robust and interactive Boolean, aka “hybrid” mode</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#performance">Performance</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bissect-way-in-depth">Bissect way in depth</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Performance</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
 </ul>
 
             
@@ -177,6 +186,40 @@
             
   <div class="section" id="cutters">
 <h1>Cutters<a class="headerlink" href="#cutters" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="different-ways-to-handle-cuts">
+<h2>Different ways to handle cuts<a class="headerlink" href="#different-ways-to-handle-cuts" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><ul class="simple">
+<li>Compute every “part” intersection with cutters while generating mesh, but this may require complex analysis and lead to long processing time.</li>
+<li>Using boolean modifiers (the way walls handle windows and doors) require a complex setup to prevent circular dependancy and to handle “robust” and still full interactive holes.</li>
+<li>Take advantage of bmesh bissect on a “degenerate” state of mesh, only selecting faces to be removed when overall shape is concave or when we need to make holes inside a structure.</li>
+</ul>
+</div></blockquote>
+<p>Current slab, floor and roofs implementation use bmesh approach.</p>
+</div>
+<div class="section" id="robust-and-interactive-boolean-aka-hybrid-mode">
+<h2>Robust and interactive Boolean, aka “hybrid” mode<a class="headerlink" href="#robust-and-interactive-boolean-aka-hybrid-mode" title="Permalink to this headline">¶</a></h2>
+<p>Booleans are done in two steps, first step merge all holes into one object (union), then use result to cut wall using another boolean. This prevent stacking booleans cutters and is much stronger, while keeping full interactivity.
+The first step may take advantage of carve mode when holes overlap, to avoid common issues with overlapping holes.</p>
+<div class="section" id="performance">
+<h3>Performance<a class="headerlink" href="#performance" title="Permalink to this headline">¶</a></h3>
+<p>Deps graph reevaluate each child over 2 boolean ops, so with many holes, moving parent may slow down significantely.
+As workarround, archipack tools provide ability to apply modifiers.
+Using auto-boolean restore the whole stack.</p>
+</div>
+</div>
+<div class="section" id="bissect-way-in-depth">
+<h2>Bissect way in depth<a class="headerlink" href="#bissect-way-in-depth" title="Permalink to this headline">¶</a></h2>
+<p>On roofs, each part may use her own cutter, with her own offset, so eg rafters may be cut a bit inside of the overall hole so there is a space left for a beam arround hole. Also Tiles does use different cuts than others to be able to go sligthly out/in of roof boundaries.
+Bissect operation is done on simple faces aka “degenerate state”, before geometry cleanup, solidify and/or bevel and computing uvs, making the cut operation lightweight (select and erase faces), and let bmesh deal with closing volumes and so on.
+All modelling ops are then done through bmesh, doing so prevent creating temporary mesh data filling orpheans on parameters changes.</p>
+<div class="section" id="id1">
+<h3>Performance<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>Current implementation is able to run realtime, at a pretty decent rate on common objects.
+Roofs does implement a “throttle” update for tiles, only computing final result a bit after last user interaction.
+This way, users take advantage of real-time manipulators on screen even on medium to large roofs.</p>
+</div>
+</div>
 </div>
 
 
@@ -189,7 +232,7 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../about.html" class="btn btn-neutral float-right" title="Welcome to Archipack’s documentation!" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="../about.html" class="btn btn-neutral float-right" title="About" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="feedback panel.html" class="btn btn-neutral" title="Feedback panel" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>

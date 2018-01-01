@@ -1,0 +1,62 @@
+Manipulate mode
+===============
+
+Archipack's objects main properties are "manipulables" right on screen
+
+.. _manipulate mode:
+
+Manipulate mode
+---------------
+
+ * Press "Manipulate" to toggle manipulate mode
+ * Right click or esc does exit
+
+.. figure:: ../img/ui_manipulate.png
+   :scale: 100 %
+   :alt: Manipulate button
+
+   Manipulate: display manipulators on screen
+
+
+Manipulators handles
+--------------------
+
+.. figure:: ../img/manipulators.png
+   :scale: 100 %
+   :alt: Wall in manipulate mode
+
+   Wall in manipulate mode
+
+Manipulables handles are white, eg: small arrow or squares
+They provide snap ability, keyboard entry and constraints, like transform.translate do.
+
+.. tip::
+	Squares handles
+	
+	Some objects like wall / slab / fences does provide "free form" manipulators as squares handles on edges.
+	Those handles are "selectable" so you are able to move more than one at time.
+
+Snapping
+""""""""
+
+Choose a snap to vertex mode.
+Press ctrl while moving to enable snap
+
+Constraints
+"""""""""""
+
+Press either x, y, z while moving to enable constraints.
+Subsequent press on x, y, z toggle constraint from local object direction, to world direction
+
+Keyboard
+""""""""
+
+Keyboard entry are allowed, either in relative or absolute mode
+ * Relative with a +- sign
+ * Absolute without sign
+ 
+
+Manipulators text
+-----------------
+Click on text allow to enter precise values on keyboard
+

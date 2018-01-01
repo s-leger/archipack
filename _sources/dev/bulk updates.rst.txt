@@ -1,3 +1,20 @@
 Bulk update
 ===========
 
+Archipack objects are designed so any parameter change trigger full mesh rebuild.  
+In order to do bulk parameter updades, there is a special variable "auto_update" to prevent such updates while setting your parameters.
+Setting this variable back to True does trigger an update.
+
+.. code-block:: python
+	:caption: Stair bulk update sample
+	:name: bulk-update-py
+	:emphasize-lines: 3,7
+		
+	o = context.active_object
+	d = o.data.archipack_stair[0]
+	d.auto_update = False
+
+	# setup presets according your needs
+
+	d.auto_update = True
+

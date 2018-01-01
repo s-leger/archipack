@@ -37,10 +37,10 @@ Typical (generic) workflow
 """"""""""""""""""""""""""
 
  #. Select one or more curves
- #. Expand "Detect" options, choose extend limit and extend all segs when apply (see Polygonize)
+ #. Expand "Detect" options, choose extend limit and extend all segs when apply
  #. press "Detect", wait till done ( ~ 1k segment/sec)
  #. press "Polygons / Lines / Points" to start a select tool
- #. Select one or many lines, using click and drag to select into an area.
+ #. Select one or many lines, using click and drag to select into an area
  #. Use keyboard to generate your objects (see on-screen options)
  #. Repeat 5 and 6 according your needs, then Right click or press esc to exit
 
@@ -48,9 +48,9 @@ Architectural workflow
 """"""""""""""""""""""
 
  #. Clean up, Detect and possibly use "Points" to fill missing parts
- #. select curves, and Detect 
+ #. Select curves, and Detect 
  #. Use "Polygons" to create openings objects (windows and doors)
- #. Use "Polygons" to create walls / slabs.. 
+ #. Use "Polygons" to create walls / slabs, slab cutters.. 
  #. Use "Lines" to output guide lines for fences
 
 
@@ -91,6 +91,8 @@ This tool allow to select areas and build objects from selection.
  * **d** start/exit a tool to create Door over selection
  * **r** Best fit rectangle of selection as closed curve
 
+.. note::
+	Walls done with this tool are not full fledged archipack's walls.
 
 Creating windows / doors
 ########################
@@ -168,7 +170,7 @@ Offset is a line at a distance from a curve(s) on it right or left side.
 
    Offset
 
-`Demo video <https://www.youtube.com/watch?v=9dZPpFHi-74>`_
+`Offset demo video <https://www.youtube.com/watch?v=9dZPpFHi-74>`_
 
 Options
 """""""
@@ -195,7 +197,7 @@ Use this tool to build eg wall from axis / border, road from axis and so on.
 
    Buffer
 
-`Demo video <https://www.youtube.com/watch?v=dUoEfnXuK50>`_
+`Buffer demo video <https://www.youtube.com/watch?v=dUoEfnXuK50>`_
 
 Options
 """""""
@@ -223,7 +225,7 @@ Boolean is able to take account of the closed state of curves (areas).
 
    Boolean
 
-`Demo video <https://www.youtube.com/watch?v=qdg-wDt9fA8>`_
+`Boolean demo video <https://www.youtube.com/watch?v=qdg-wDt9fA8>`_
 
 Operations
 """"""""""

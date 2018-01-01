@@ -1,0 +1,56 @@
+.. _archipack materials:
+
+Materials
+=========
+
+By default, archipack set "dumb" materials to objects.
+Archipack does provide a material loader taking advantage of libraries of predefined materials to re-use materials across projects, and quickly set all materials of objects.
+
+see :ref:`default material library`
+
+.. figure:: ../img/ui_archipack_material.png
+   :scale: 100 %
+   :alt: Archipack material selector
+
+   Select / create / delete material sets for objects
+ 
+Material sets
+-------------
+
+Archipack objects use more than one material so "Material Sets" are predefined groups of materials.
+
+.. figure:: ../img/material_set.png
+   :scale: 100 %
+   :alt: Archipack material set
+
+   Archipack material set
+
+Load
+""""
+
+If not found in current in scene (by material name), archipack try to load materials from libraries when you create an object and when you choose a material set.
+
+Save
+""""
+
+When you save a set, current material names are saved, so you have to ensure the materials are stored in your libraries.
+Material sets store material names only, so you may use different sets of material libraries eg to handle more than one renderer.
+
+Remove
+""""""
+
+Removing a set dosent remove material. This only remove the set definition.
+
+Sharing materials across projects
+---------------------------------
+
+Material Library add-on allow to save scene materials to library for re-use.
+
+see :ref:`material library add-on`
+
+.. figure:: ../img/matlib_vx.png
+   :scale: 100 %
+   :alt: Material Library
+
+   Material Library
+

@@ -8,16 +8,19 @@ Common properties
 Archipack material
 """"""""""""""""""
 
+see :ref:`archipack materials`
 
 .. figure:: ../img/ui_archipack_material.png
    :scale: 100 %
    :alt: Archipack material selector
 
    Select / create / delete material sets for objects
-   
+ 
 
 Manipulate
 """"""""""
+
+see :ref:`manipulate mode`
 
 .. figure:: ../img/ui_manipulate.png
    :scale: 100 %
@@ -28,6 +31,9 @@ Manipulate
    
 Presets
 """""""
+
+Objects with preset feature provide buttons to allow saving / removing and reloading user defined presets.
+The preset system does render a thumbnail on save - thumbnails are 150 x 100 pixels.
 
 .. figure:: ../img/ui_preset.png
    :scale: 100 %
@@ -417,8 +423,54 @@ Wall parts
 Slab
 ----
 
+Creating slabs
+""""""""""""""
+
+ #. Either select a curve (boundary of your slab), or a wall.
+ #. Use appropriate tool found in "Add archipack" panel (slab from curve, slab from wall, ceiling from wall)
+ 
 Main properties
 """""""""""""""
+
+ * Slab cutter: create a cutter to make hole(s) on the slab
+ * Auto-synch: try to synch surrounding wall when you manipulate the slab
+ 
+.. figure:: ../img/ui_slab_main.png
+   :scale: 100 %
+   :alt: Slab
+
+   Slab
+
+.. note::
+	Auto-synch still experimental and may produce incorrect results, so use with caution
+	
+Slab parts
+""""""""""
+
+ * Balcony: Create a balcony from the segment, with a fence. Fence is kept in synch with slab on edit.  
+ 
+.. figure:: ../img/ui_slab_parts.png
+   :scale: 100 %
+   :alt: Slab parts
+
+   Slab parts
+
+  
+Slab cutter
+-----------
+
+.. figure:: ../img/ui_slab_cutter.png
+   :scale: 100 %
+   :alt: Slab cutter
+
+   Slab cutter
+
+Slab cutter does cut holes on the slab.
+
+Options
+"""""""
+ * Mode: boolean operation in [Difference, Intersection]
+ * From curve: use a curve as input to define overall shape of the cutter
 
 Fence
 -----
@@ -426,14 +478,348 @@ Fence
 Main properties
 """""""""""""""
 
-Roof
-----
+.. figure:: ../img/ui_fence_main.png
+   :scale: 100 %
+   :alt: Fence
+
+   Fence
+
+Parts
+"""""
+
+.. figure:: ../img/ui_fence_parts.png
+   :scale: 100 %
+   :alt: Fence parts
+
+   Fence parts   
+   
+Handrail
+""""""""
+
+.. figure:: ../img/ui_fence_handrail.png
+   :scale: 100 %
+   :alt: Handrail
+
+   Handrail
+
+
+Post
+""""
+
+.. figure:: ../img/ui_fence_post.png
+   :scale: 100 %
+   :alt: Post
+
+   Post
+   
+.. tip::
+	Advanced use of defined custom mesh as post using vertex groups
+	 * "Bottom" vertex group vertices follow steps
+	 * "Slope" vertex group vertices are affected by overall slope.
+
+
+Subs
+""""
+
+.. figure:: ../img/ui_fence_subs.png
+   :scale: 100 %
+   :alt: Subs
+
+   Subs
+   
+.. tip::
+	Advanced use of defined custom mesh as subs using vertex groups
+	 * "Bottom" vertex group vertices follow either steps or slope (as defined by Bottom)  
+	 * "Slope" vertex group vertices are affected by overall slope.
+   
+Panels
+""""""
+
+.. figure:: ../img/ui_fence_panels.png
+   :scale: 100 %
+   :alt: Panels
+
+   Panels
+   
+
+Rails
+"""""
+
+.. figure:: ../img/ui_fence_rails.png
+   :scale: 100 %
+   :alt: Rails
+
+   Rails
+
+
+Materials
+"""""""""
+
+.. figure:: ../img/ui_fence_materials.png
+   :scale: 100 %
+   :alt: Materials
+
+   Materials
+  
+Define material indexes for fence components
+  
+
+Floor
+-----
 
 Main properties
 """""""""""""""
+
+ * Floor cutter: create a cutter to make hole(s) on the floor
+ * From curve: use a curve to define boundary shape
+ 
+.. figure:: ../img/ui_floor_main.png
+   :scale: 100 %
+   :alt: Floor
+
+   Floor
+
+Parts
+"""""
+
+.. figure:: ../img/ui_floor_parts.png
+   :scale: 100 %
+   :alt: Floor parts
+
+   Floor parts   
+   
+Components
+""""""""""
+
+ * Floor patterns 
+	* Windmill
+	* Hexagon
+	* Stepping stone
+	* Hopscotch
+	* Regular tiles
+	* Herringbome
+	* Herringbone parquet
+	* Square parquet
+	* Board
+ * Random thickness
+ * Solidify: Extrude tiles
+ * Grout: Make grout under tiles
+ * Bevel: Apply a bevel on tiles borders
+ * Random Material: Randomize material ids of tiles
+    
+
+.. figure:: ../img/ui_floor_components.png
+   :scale: 100 %
+   :alt: Floor components
+
+   Floor components
+
+Floor cutter
+------------
+
+.. figure:: ../img/ui_floor_cutter.png
+   :scale: 100 %
+   :alt: Floor cutter
+
+   Floor cutter
+
+Floor cutter does cut holes on the floor.
+
+Options
+"""""""
+ * Mode: boolean operation in [Difference, Intersection]
+ * From curve: use a curve as input to define overall shape of the cutter
+   
+   
+Roof
+----
+
+.. figure:: ../img/roof_cutter_low.png
+   :scale: 100 %
+   :alt: Archipack Roof
+
+Utility
+"""""""
+
+ * Parent: link as child of another roof
+ * Roof Cutter: create a cutter to make hole / cut borders of the roof
+ 
+.. figure:: ../img/ui_roof_main.png
+   :scale: 100 %
+   :alt: Roof utility
+   
+   Roof utility
+   
+   
+Main properties
+"""""""""""""""
+ * Quick Edit: Throttle updates
+ * Draft mode: Only draw external edges for fast shape prototyping 
+ * Slope: slope in percent of width
+ * Width: width of the first part
+ 
+.. figure:: ../img/ui_roof_size.png
+   :scale: 100 %
+   :alt: Roof size
+   
+   Roof size (basic)
+ 
+Parts
+"""""
+
+.. figure:: ../img/ui_roof_parts.png
+   :scale: 100 %
+   :alt: Roof parts
+   
+   Roof parts
+
+Covering
+""""""""
+
+ * Covering
+	* Eternit®
+	* Braas® 1 (tile 1 ondulation)
+	* Braas® 2 (tile 2 ondulations)
+	* Lauze stone 
+	* Roman
+	* Round
+	* Square
+	* Ondule
+	* Metal
+	
+.. figure:: ../img/ui_roof_covering.png
+   :scale: 100 %
+   :alt: Covering
+   
+   Covering
+
+Hip
+"""
+
+.. figure:: ../img/ui_roof_hip.png
+   :scale: 100 %
+   :alt: Hip
+   
+   Hip
+   
+Beam
+""""
+
+.. figure:: ../img/ui_roof_beam.png
+   :scale: 100 %
+   :alt: Beam
+   
+   Beam
+
+Gutter
+""""""
+
+.. figure:: ../img/ui_roof_gutter.png
+   :scale: 100 %
+   :alt: Gutter
+   
+   Gutter
+   
+
+Fascia
+""""""
+
+.. figure:: ../img/ui_roof_fascia.png
+   :scale: 100 %
+   :alt: Fascia
+   
+   Fascia   
+
+Bargeboard
+""""""""""
+
+.. figure:: ../img/ui_roof_bargeboard.png
+   :scale: 100 %
+   :alt: Bargeboard
+   
+   Bargeboard
+   
+   
+Roof cutter
+-----------
+
+Options
+"""""""
+ * Mode: boolean operation in [Difference, Intersection]
+ * From curve: use a curve as input to define overall shape of the cutter
+
+
+.. figure:: ../img/ui_roof_cutter.png
+   :scale: 100 %
+   :alt: Roof cutter
+
+   Roof cutter
+
+Roof cutter does cut the roof either to create hole or on borders.
+ 
+Parts
+"""""
+
+ * Border type
+	* Side: Add bargeboards
+	* Side link: Raw cut between linked parts
+	* Top: Add hip
+	* Bottom: Add gutter
+
 
 Truss
 -----
 
 Main properties
 """""""""""""""
+
+ * Type
+	* Prolyte® E20 
+	* Prolyte® X30 
+	* Prolyte® H30
+	* Prolyte® H40
+	* Opti Trilite® 100
+	* Opti Trilite® 200
+	* User defined
+
+.. figure:: ../img/ui_truss.png
+   :scale: 100 %
+   :alt: Truss
+
+   Truss
+
+Reference point
+---------------
+
+Main properties
+"""""""""""""""
+
+.. figure:: ../img/ui_ref_2d.png
+   :scale: 100 %
+   :alt: Reference point (3d space)
+
+   Reference point (3d space)
+
+.. figure:: ../img/ui_ref_3d.png
+   :scale: 100 %
+   :alt: Reference point (2d space)
+
+   Reference point (2d space)
+
+
+.. _custom objects:
+   
+Custom objects
+--------------
+
+Use any (clean and closed) mesh as custom hole or wall.
+
+Custom wall
+"""""""""""
+
+Select the wall, press "Custom wall" in Add Archipack -> Custom objects. Undo by selecting the wall and press "selected" in Archipack Tools -> Kill parameters.
+
+Custom hole
+"""""""""""
+
+Select the hole, press "Custom hole" in Add Archipack -> Custom objects. Undo by selecting the hole and press "X" next to "Custom hole".

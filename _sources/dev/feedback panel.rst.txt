@@ -1,3 +1,70 @@
 Feedback panel
 ==============
 
+Feedback panel provide easy to use on-screen instructions for hints and shortcuts.
+
+.. figure:: ../img/feedbackPanel.jpg
+   :scale: 100 %
+   :alt: Feedback panel sample
+
+   Feedback panel sample
+
+
+Requirements
+------------
+
+In order to use in your addon, you may copy archipack_gl.py
+
+Archipack gl classes
+--------------------
+
+archipack_gl provide some classes to draw either 2d or 3d (coords in pixels or world)
+
+ * Lines
+ * Arc
+ * Text
+ * Handles (tri and square)
+ * Editable text
+ * Cursor fence (like with B shorcut)
+ * Cursor area (like when dragging with B shorcut)
+ * FeedbackPanel
+
+.. note::
+	FeedbackPanel interface will remain stable, while other parts currently need some cleanup and are likely to change. Use it as wrapper around opengl to allow easy update when gl Api change - benefit from archpack's updates.
+
+Implementation sample
+"""""""""""""""""""""
+
+.. code-block:: python
+
+	from .archipack_gl import FeedbackPanel
+
+	# modal Operator invoke sample
+	   self.feedback = FeedbackPanel(title="Archipack")
+	   self.feedback.instructions(context, "Draw a wall", "Click & Drag to start", [
+					('CTRL', 'Snap'),
+					('MMBTN', 'Constraint to axis'),
+					('X Y', 'Constraint to axis'),
+					('RIGHTCLICK or ESC', 'exit without change')
+					])
+	   self.feedback.enable()
+	   args = (self, context)
+	   self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
+
+	# !!! panel must be enabled
+	self.feedback.enable()
+	# and may be disabled
+	self.feedback.disable()
+
+
+	# you may setup instructions right on invoke or
+	# in Operator modal you are able to change instructions on the fly
+	self.feedback.instructions(context, 'Title', 'Hints about usage', [
+	('SHORTCUT', 'Hints about shortcut'),
+	...
+	])
+
+	# draw_callback handler sample (defined as Operator method)
+	def draw_callback(self, _self, context):
+		self.feedback.draw(context)
+

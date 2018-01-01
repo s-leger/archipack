@@ -1,0 +1,477 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Add Archipack &mdash; Archipack 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="author" title="About these documents"
+              href="../about.html"/>
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
+        <link rel="up" title="User guide" href="../user guide.html"/>
+        <link rel="next" title="Archipack objects" href="archipack objects.html"/>
+        <link rel="prev" title="Archipack Tools" href="archipack tools.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Archipack
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../user guide.html">User guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="2d to 3d.html">2d to 3d</a></li>
+<li class="toctree-l2"><a class="reference internal" href="archipack tools.html">Archipack Tools</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Add Archipack</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#window">Window</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#add">Add</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#draw">Draw</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#door">Door</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Add</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id2">Draw</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#stair">Stair</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Add</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#wall">Wall</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id4">Add</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id5">Draw</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#wall-from-curve-s">Wall from curve(s)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#fence">Fence</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id6">Add</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fence-from-curve">Fence from curve</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#truss">Truss</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id7">Add</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#slab">Slab</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#slab-from-curve">Slab from curve</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#wall-from-slab">Wall from slab</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#slab-from-wall">Slab from Wall</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ceiling-from-wall">Ceiling from Wall</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#roof">Roof</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id8">Add</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#floor">Floor</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id9">Add</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#floor-from-wall">Floor from wall</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#floor-from-curve">Floor from curve</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-objects">Custom objects</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="archipack objects.html">Archipack objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manipulate mode.html">Manipulate mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="materials.html">Materials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../extending archipack.html">Extending archipack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Archipack</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../user guide.html">User guide</a> &raquo;</li>
+        
+      <li>Add Archipack</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/user/add archipack.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="add-archipack">
+<h1>Add Archipack<a class="headerlink" href="#add-archipack" title="Permalink to this headline">¶</a></h1>
+<p>Add archipack objects, alt+a also does show archipack objects to add, but dosen’t provide draw tools.</p>
+<div class="figure" id="id10">
+<a class="reference internal image-reference" href="../_images/ui_add_panel.png"><img alt="Add Archipack" src="../_images/ui_add_panel.png" style="width: 215.0px; height: 424.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Archipack</span></p>
+</div>
+<div class="section" id="window">
+<h2>Window<a class="headerlink" href="#window" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id11">
+<a class="reference internal image-reference" href="../_images/add_window.png"><img alt="Add Window" src="../_images/add_window.png" style="width: 215.0px; height: 29.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Window</span></p>
+</div>
+<div class="section" id="add">
+<h3>Add<a class="headerlink" href="#add" title="Permalink to this headline">¶</a></h3>
+<p>Add a window at cursor location</p>
+</div>
+<div class="section" id="draw">
+<h3>Draw<a class="headerlink" href="#draw" title="Permalink to this headline">¶</a></h3>
+<p>Draw tool display a preset chooser, and allow to “Paint” windows over walls.
+By default, windows are linked (modifications on any does modify all)</p>
+<blockquote>
+<div><ul class="simple">
+<li>Press shift to make unique window (non linked)</li>
+<li>Press alt on invoke, to use current selected windows as preset, and draw linked windows.</li>
+<li>Press c while drawing to display the preset chooser again so you wont have to restart the tool to choose another window.</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="door">
+<h2>Door<a class="headerlink" href="#door" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id12">
+<a class="reference internal image-reference" href="../_images/add_door.png"><img alt="Add Door" src="../_images/add_door.png" style="width: 215.0px; height: 27.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Door</span></p>
+</div>
+<div class="section" id="id1">
+<h3>Add<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>Add a door at cursor location</p>
+</div>
+<div class="section" id="id2">
+<h3>Draw<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<p>Draw tool display a preset chooser, and allow to “Paint” door over walls.
+By default, doors are linked (modifications on any does modify all)</p>
+<blockquote>
+<div><ul class="simple">
+<li>Press shift to make unique door (non linked)</li>
+<li>Press alt on invoke, to use current selected doors as preset, and draw linked doors.</li>
+<li>Press c while drawing to display the preset chooser again so you wont have to restart the tool to choose another door.</li>
+</ul>
+</div></blockquote>
+</div>
+</div>
+<div class="section" id="stair">
+<h2>Stair<a class="headerlink" href="#stair" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id13">
+<a class="reference internal image-reference" href="../_images/add_stair.png"><img alt="Add Stair" src="../_images/add_stair.png" style="width: 215.0px; height: 26.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Stair</span></p>
+</div>
+<div class="section" id="id3">
+<h3>Add<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<p>Add a stair at cursor location</p>
+</div>
+</div>
+<div class="section" id="wall">
+<h2>Wall<a class="headerlink" href="#wall" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id14">
+<a class="reference internal image-reference" href="../_images/add_wall.png"><img alt="Add Wall" src="../_images/add_wall.png" style="width: 215.0px; height: 26.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Wall</span></p>
+</div>
+<div class="section" id="id4">
+<h3>Add<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<p>Add a wall at cursor location</p>
+</div>
+<div class="section" id="id5">
+<h3>Draw<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<p>Draw tool allow to “Paint” wall.</p>
+<blockquote>
+<div><ul class="simple">
+<li>Press ctrl to enable snap</li>
+<li>Press x or y enable constraint, subsequent press on x y toggle between local and global axis</li>
+<li>Use keyboard and type in length of the segment</li>
+</ul>
+</div></blockquote>
+<p>In order to close a wall with the draw tool, simply snap the last segment to first one.</p>
+</div>
+<div class="section" id="wall-from-curve-s">
+<h3>Wall from curve(s)<a class="headerlink" href="#wall-from-curve-s" title="Permalink to this headline">¶</a></h3>
+<p>Build a wall for each selected curve</p>
+</div>
+</div>
+<div class="section" id="fence">
+<h2>Fence<a class="headerlink" href="#fence" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id15">
+<a class="reference internal image-reference" href="../_images/add_fence.png"><img alt="Add Fence" src="../_images/add_fence.png" style="width: 215.0px; height: 27.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Fence</span></p>
+</div>
+<div class="section" id="id6">
+<h3>Add<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
+<p>Add a fence at cursor location</p>
+</div>
+<div class="section" id="fence-from-curve">
+<h3>Fence from curve<a class="headerlink" href="#fence-from-curve" title="Permalink to this headline">¶</a></h3>
+<p>Build a fence for each selected curve</p>
+</div>
+</div>
+<div class="section" id="truss">
+<h2>Truss<a class="headerlink" href="#truss" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id16">
+<a class="reference internal image-reference" href="../_images/add_truss.png"><img alt="Add Truss" src="../_images/add_truss.png" style="width: 215.0px; height: 25.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Truss</span></p>
+</div>
+<div class="section" id="id7">
+<h3>Add<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h3>
+<p>Add a truss at cursor location</p>
+</div>
+</div>
+<div class="section" id="slab">
+<h2>Slab<a class="headerlink" href="#slab" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id17">
+<a class="reference internal image-reference" href="../_images/add_slab.png"><img alt="Add Slab" src="../_images/add_slab.png" style="width: 215.0px; height: 56.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Slab</span></p>
+</div>
+<div class="section" id="slab-from-curve">
+<h3>Slab from curve<a class="headerlink" href="#slab-from-curve" title="Permalink to this headline">¶</a></h3>
+<p>Build a slab from selected curve</p>
+</div>
+<div class="section" id="wall-from-slab">
+<h3>Wall from slab<a class="headerlink" href="#wall-from-slab" title="Permalink to this headline">¶</a></h3>
+<p>Create a wall over selected slab</p>
+</div>
+<div class="section" id="slab-from-wall">
+<h3>Slab from Wall<a class="headerlink" href="#slab-from-wall" title="Permalink to this headline">¶</a></h3>
+<p>Create a slab under selected wall</p>
+</div>
+<div class="section" id="ceiling-from-wall">
+<h3>Ceiling from Wall<a class="headerlink" href="#ceiling-from-wall" title="Permalink to this headline">¶</a></h3>
+<p>Create a slab over selected wall</p>
+</div>
+</div>
+<div class="section" id="roof">
+<h2>Roof<a class="headerlink" href="#roof" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id18">
+<a class="reference internal image-reference" href="../_images/add_roof.png"><img alt="Add Roof" src="../_images/add_roof.png" style="width: 215.0px; height: 26.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Roof</span></p>
+</div>
+<div class="section" id="id8">
+<h3>Add<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h3>
+<p>Create a roof at cursor location</p>
+</div>
+</div>
+<div class="section" id="floor">
+<h2>Floor<a class="headerlink" href="#floor" title="Permalink to this headline">¶</a></h2>
+<div class="figure" id="id19">
+<a class="reference internal image-reference" href="../_images/add_floor.png"><img alt="Add Floor" src="../_images/add_floor.png" style="width: 215.0px; height: 30.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Floor</span></p>
+</div>
+<div class="section" id="id9">
+<h3>Add<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h3>
+<p>Create a floor at cursor location</p>
+</div>
+<div class="section" id="floor-from-wall">
+<h3>Floor from wall<a class="headerlink" href="#floor-from-wall" title="Permalink to this headline">¶</a></h3>
+<p>Create a floor inside selected wall</p>
+</div>
+<div class="section" id="floor-from-curve">
+<h3>Floor from curve<a class="headerlink" href="#floor-from-curve" title="Permalink to this headline">¶</a></h3>
+<p>Create a floor using selected curve as boundary</p>
+</div>
+</div>
+<div class="section" id="custom-objects">
+<h2>Custom objects<a class="headerlink" href="#custom-objects" title="Permalink to this headline">¶</a></h2>
+<p>Use custom mesh as wall or hole
+see <a class="reference internal" href="archipack objects.html#custom-objects"><span class="std std-ref">Custom objects</span></a></p>
+<div class="figure" id="id20">
+<a class="reference internal image-reference" href="../_images/add_custom.png"><img alt="Add Custom" src="../_images/add_custom.png" style="width: 215.0px; height: 81.0px;" /></a>
+<p class="caption"><span class="caption-text">Add Custom</span></p>
+</div>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="archipack objects.html" class="btn btn-neutral float-right" title="Archipack objects" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="archipack tools.html" class="btn btn-neutral" title="Archipack Tools" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, stephen leger.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

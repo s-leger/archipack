@@ -1,0 +1,225 @@
+Add Archipack
+=============
+
+Add archipack objects, alt+a also does show archipack objects to add, but dosen't provide draw tools.
+
+.. figure:: ../img/ui_add_panel.png
+   :scale: 100 %
+   :alt: Add Archipack
+   
+   Add Archipack
+
+Window
+------
+
+.. figure:: ../img/add_window.png
+   :scale: 100 %
+   :alt: Add Window
+   	
+   Add Window
+   
+Add
+"""
+
+Add a window at cursor location
+
+Draw
+""""
+
+Draw tool display a preset chooser, and allow to "Paint" windows over walls.
+By default, windows are linked (modifications on any does modify all)
+
+ * Press shift to make unique window (non linked)
+ * Press alt on invoke, to use current selected windows as preset, and draw linked windows.
+ * Press c while drawing to display the preset chooser again so you wont have to restart the tool to choose another window.
+
+ 
+Door
+----
+
+.. figure:: ../img/add_door.png
+   :scale: 100 %
+   :alt: Add Door
+   	
+   Add Door
+   
+Add
+"""
+
+Add a door at cursor location
+
+Draw
+""""
+
+Draw tool display a preset chooser, and allow to "Paint" door over walls.
+By default, doors are linked (modifications on any does modify all)
+
+ * Press shift to make unique door (non linked)
+ * Press alt on invoke, to use current selected doors as preset, and draw linked doors.
+ * Press c while drawing to display the preset chooser again so you wont have to restart the tool to choose another door.
+
+Stair
+-----
+
+.. figure:: ../img/add_stair.png
+   :scale: 100 %
+   :alt: Add Stair
+   	
+   Add Stair
+   
+Add
+"""
+
+Add a stair at cursor location
+
+Wall
+----
+
+.. figure:: ../img/add_wall.png
+   :scale: 100 %
+   :alt: Add Wall
+   	
+   Add Wall
+  
+Add
+"""
+
+Add a wall at cursor location
+
+Draw
+""""
+
+Draw tool allow to "Paint" wall.
+
+ * Press ctrl to enable snap
+ * Press x or y enable constraint, subsequent press on x y toggle between local and global axis
+ * Use keyboard and type in length of the segment
+
+In order to close a wall with the draw tool, simply snap the last segment to first one. 
+
+Wall from curve(s)
+""""""""""""""""""
+
+Build a wall for each selected curve
+
+
+Fence
+-----
+
+.. figure:: ../img/add_fence.png
+   :scale: 100 %
+   :alt: Add Fence
+   	
+   Add Fence
+  
+Add
+"""
+
+Add a fence at cursor location
+
+Fence from curve
+""""""""""""""""
+
+Build a fence for each selected curve
+
+
+Truss
+-----
+
+.. figure:: ../img/add_truss.png
+   :scale: 100 %
+   :alt: Add Truss
+   	
+   Add Truss
+  
+Add
+"""
+
+Add a truss at cursor location
+
+
+Slab
+----
+
+.. figure:: ../img/add_slab.png
+   :scale: 100 %
+   :alt: Add Slab
+   	
+   Add Slab
+  
+Slab from curve
+""""""""""""""""
+
+Build a slab from selected curve
+
+Wall from slab
+""""""""""""""
+
+Create a wall over selected slab
+
+Slab from Wall
+""""""""""""""
+
+Create a slab under selected wall
+
+Ceiling from Wall
+"""""""""""""""""
+
+Create a slab over selected wall
+
+
+Roof
+----
+
+.. figure:: ../img/add_roof.png
+   :scale: 100 %
+   :alt: Add Roof
+   	
+   Add Roof
+  
+Add
+"""
+
+Create a roof at cursor location
+
+
+Floor
+-----
+
+.. figure:: ../img/add_floor.png
+   :scale: 100 %
+   :alt: Add Floor
+   	
+   Add Floor
+  
+Add
+"""
+
+Create a floor at cursor location
+
+Floor from wall
+"""""""""""""""
+
+Create a floor inside selected wall
+
+Floor from curve
+""""""""""""""""
+
+Create a floor using selected curve as boundary
+
+
+Custom objects
+--------------
+
+Use custom mesh as wall or hole
+see :ref:`custom objects`
+
+.. figure:: ../img/add_custom.png
+   :scale: 100 %
+   :alt: Add Custom
+   	
+   Add Custom
+   
+
+
+

@@ -1,3 +1,39 @@
 Cutters
 =======
 
+Different ways to handle cuts
+-----------------------------
+
+ * Compute every "part" intersection with cutters while generating mesh, but this may require complex analysis and lead to long processing time.
+ * Using boolean modifiers (the way walls handle windows and doors) require a complex setup to prevent circular dependancy and to handle "robust" and still full interactive holes.
+ * Take advantage of bmesh bissect on a "degenerate" state of mesh, only selecting faces to be removed when overall shape is concave or when we need to make holes inside a structure.
+
+Current slab, floor and roofs implementation use bmesh approach.
+
+Robust and interactive Boolean, aka "hybrid" mode
+-------------------------------------------------
+
+Booleans are done in two steps, first step merge all holes into one object (union), then use result to cut wall using another boolean. This prevent stacking booleans cutters and is much stronger, while keeping full interactivity.
+The first step may take advantage of carve mode when holes overlap, to avoid common issues with overlapping holes.
+
+Performance
+"""""""""""
+
+Deps graph reevaluate each child over 2 boolean ops, so with many holes, moving parent may slow down significantely.   
+As workarround, archipack tools provide ability to apply modifiers.  
+Using auto-boolean restore the whole stack.  
+
+Bissect way in depth
+--------------------
+
+On roofs, each part may use her own cutter, with her own offset, so eg rafters may be cut a bit inside of the overall hole so there is a space left for a beam arround hole. Also Tiles does use different cuts than others to be able to go sligthly out/in of roof boundaries.  
+Bissect operation is done on simple faces aka "degenerate state", before geometry cleanup, solidify and/or bevel and computing uvs, making the cut operation lightweight (select and erase faces), and let bmesh deal with closing volumes and so on.  
+All modelling ops are then done through bmesh, doing so prevent creating temporary mesh data filling orpheans on parameters changes.
+
+Performance 
+"""""""""""
+
+Current implementation is able to run realtime, at a pretty decent rate on common objects.
+Roofs does implement a "throttle" update for tiles, only computing final result a bit after last user interaction.
+This way, users take advantage of real-time manipulators on screen even on medium to large roofs.
+ 

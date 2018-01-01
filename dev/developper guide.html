@@ -95,6 +95,7 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Developper guide</a><ul>
@@ -289,34 +290,34 @@ More complex objects may require to build uvs maps knowing vertex location, and 
 </div>
 <div class="section" id="implementation-sample-a-box">
 <h3>Implementation sample (a box)<a class="headerlink" href="#implementation-sample-a-box" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="property-py">
-<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#property-py" title="Permalink to this code">¶</a></div>
+<div class="literal-block-wrapper docutils container" id="toolkit-property-py">
+<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#toolkit-property-py" title="Permalink to this code">¶</a></div>
 <div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">archipack_myobject</span><span class="p">(</span><span class="n">ArchipackObject</span><span class="p">,</span> <span class="n">Manipulable</span><span class="p">,</span> <span class="n">PropertyGroup</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot; Archipack toolkit sample&quot;&quot;&quot;</span>
+<span class="hll"><span class="k">class</span> <span class="nc">archipack_myobject</span><span class="p">(</span><span class="n">ArchipackObject</span><span class="p">,</span> <span class="n">Manipulable</span><span class="p">,</span> <span class="n">PropertyGroup</span><span class="p">):</span>
+</span>        <span class="sd">&quot;&quot;&quot; Archipack toolkit sample&quot;&quot;&quot;</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">FloatProperty</span><span class="p">(</span>
                         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Width&quot;</span><span class="p">,</span>
                         <span class="n">default</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
                         <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;LENGTH&#39;</span><span class="p">,</span> <span class="n">subtype</span><span class="o">=</span><span class="s1">&#39;DISTANCE&#39;</span><span class="p">,</span>
-                        <span class="n">update</span><span class="o">=</span><span class="n">update</span>
-                        <span class="p">)</span>
+<span class="hll">                        <span class="n">update</span><span class="o">=</span><span class="n">update</span>
+</span>                        <span class="p">)</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">FloatProperty</span><span class="p">(</span>
                         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Depth&quot;</span><span class="p">,</span>
                         <span class="n">default</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
                         <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;LENGTH&#39;</span><span class="p">,</span> <span class="n">subtype</span><span class="o">=</span><span class="s1">&#39;DISTANCE&#39;</span><span class="p">,</span>
-                        <span class="n">update</span><span class="o">=</span><span class="n">update</span>
-                        <span class="p">)</span>
+<span class="hll">                        <span class="n">update</span><span class="o">=</span><span class="n">update</span>
+</span>                        <span class="p">)</span>
         <span class="n">z</span> <span class="o">=</span> <span class="n">FloatProperty</span><span class="p">(</span>
                         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Height&quot;</span><span class="p">,</span>
                         <span class="n">default</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
                         <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;LENGTH&#39;</span><span class="p">,</span> <span class="n">subtype</span><span class="o">=</span><span class="s1">&#39;DISTANCE&#39;</span><span class="p">,</span>
-                        <span class="n">update</span><span class="o">=</span><span class="n">update</span>
-                        <span class="p">)</span>
-        <span class="n">auto_update</span> <span class="o">=</span> <span class="n">BoolProperty</span><span class="p">(</span>
-                        <span class="c1"># Wont save auto_update state in any case</span>
+<span class="hll">                        <span class="n">update</span><span class="o">=</span><span class="n">update</span>
+</span>                        <span class="p">)</span>
+<span class="hll">        <span class="n">auto_update</span> <span class="o">=</span> <span class="n">BoolProperty</span><span class="p">(</span>
+</span>                        <span class="c1"># Wont save auto_update state in any case</span>
                         <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;SKIP_SAVE&#39;</span><span class="p">},</span>
                         <span class="n">default</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
                         <span class="n">update</span><span class="o">=</span><span class="n">update</span>
@@ -395,8 +396,8 @@ More complex objects may require to build uvs maps knowing vertex location, and 
                         <span class="c1"># draw this one on xz plane</span>
                         <span class="n">s</span><span class="o">.</span><span class="n">normal</span> <span class="o">=</span> <span class="n">Vector</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
 
-        <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-
+<span class="hll">        <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+</span>
                 <span class="c1"># provide support for &quot;copy to selected&quot;</span>
                 <span class="n">o</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_in_selection</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">auto_update</span><span class="p">)</span>
 
@@ -447,8 +448,8 @@ More complex objects may require to build uvs maps knowing vertex location, and 
 </div>
 <div class="section" id="id3">
 <h3>Implementation sample (a box)<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="panel-py">
-<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#panel-py" title="Permalink to this code">¶</a></div>
+<div class="literal-block-wrapper docutils container" id="toolkit-panel-py">
+<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#toolkit-panel-py" title="Permalink to this code">¶</a></div>
 <div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_PT_myobject</span><span class="p">(</span><span class="n">Panel</span><span class="p">):</span>
         <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;ARCHIPACK_PT_myobject&quot;</span>
         <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;MyObject&quot;</span>
@@ -459,8 +460,8 @@ More complex objects may require to build uvs maps knowing vertex location, and 
         <span class="nd">@classmethod</span>
         <span class="k">def</span> <span class="nf">poll</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
                 <span class="c1"># ensure your object panel only show when active object is the right one</span>
-                <span class="k">return</span> <span class="n">archipack_myobject</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
-
+<span class="hll">                <span class="k">return</span> <span class="n">archipack_myobject</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
+</span>
         <span class="k">def</span> <span class="nf">draw</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
                 <span class="n">o</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">archipack_myobject</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">o</span><span class="p">):</span>
@@ -471,21 +472,21 @@ More complex objects may require to build uvs maps knowing vertex location, and 
                 <span class="n">props</span> <span class="o">=</span> <span class="n">archipack_myobject</span><span class="o">.</span><span class="n">datablock</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
 
                 <span class="c1"># Manipulate mode operator</span>
-                <span class="n">layout</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s1">&#39;archipack.myobject_manipulate&#39;</span><span class="p">,</span> <span class="n">icon</span><span class="o">=</span><span class="s1">&#39;HAND&#39;</span><span class="p">)</span>
-
+<span class="hll">                <span class="n">layout</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s1">&#39;archipack.myobject_manipulate&#39;</span><span class="p">,</span> <span class="n">icon</span><span class="o">=</span><span class="s1">&#39;HAND&#39;</span><span class="p">)</span>
+</span>
                 <span class="n">box</span> <span class="o">=</span> <span class="n">layout</span><span class="o">.</span><span class="n">box</span><span class="p">()</span>
                 <span class="n">row</span> <span class="o">=</span> <span class="n">box</span><span class="o">.</span><span class="n">row</span><span class="p">(</span><span class="n">align</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
 
                 <span class="c1"># Presets operators</span>
-                <span class="n">row</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s2">&quot;archipack.myobject_preset_menu&quot;</span><span class="p">,</span>
-                                         <span class="n">text</span><span class="o">=</span><span class="n">bpy</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ARCHIPACK_OT_myobject_preset_menu</span><span class="o">.</span><span class="n">bl_label</span><span class="p">)</span>
-                <span class="n">row</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s2">&quot;archipack.myobject_preset&quot;</span><span class="p">,</span>
-                                          <span class="n">text</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-                                          <span class="n">icon</span><span class="o">=</span><span class="s1">&#39;ZOOMIN&#39;</span><span class="p">)</span>
-                <span class="n">row</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s2">&quot;archipack.myobject_preset&quot;</span><span class="p">,</span>
-                                          <span class="n">text</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-                                          <span class="n">icon</span><span class="o">=</span><span class="s1">&#39;ZOOMOUT&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">remove_active</span> <span class="o">=</span> <span class="bp">True</span>
-
+<span class="hll">                <span class="n">row</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s2">&quot;archipack.myobject_preset_menu&quot;</span><span class="p">,</span>
+</span><span class="hll">                                         <span class="n">text</span><span class="o">=</span><span class="n">bpy</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">ARCHIPACK_OT_myobject_preset_menu</span><span class="o">.</span><span class="n">bl_label</span><span class="p">)</span>
+</span><span class="hll">                <span class="n">row</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s2">&quot;archipack.myobject_preset&quot;</span><span class="p">,</span>
+</span><span class="hll">                                          <span class="n">text</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span class="hll">                                          <span class="n">icon</span><span class="o">=</span><span class="s1">&#39;ZOOMIN&#39;</span><span class="p">)</span>
+</span><span class="hll">                <span class="n">row</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="s2">&quot;archipack.myobject_preset&quot;</span><span class="p">,</span>
+</span><span class="hll">                                          <span class="n">text</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span class="hll">                                          <span class="n">icon</span><span class="o">=</span><span class="s1">&#39;ZOOMOUT&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">remove_active</span> <span class="o">=</span> <span class="bp">True</span>
+</span>
                 <span class="n">row</span> <span class="o">=</span> <span class="n">layout</span><span class="o">.</span><span class="n">row</span><span class="p">()</span>
                 <span class="n">box</span> <span class="o">=</span> <span class="n">row</span><span class="o">.</span><span class="n">box</span><span class="p">()</span>
                 <span class="n">box</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s2">&quot;Size&quot;</span><span class="p">)</span>
@@ -520,11 +521,11 @@ bl_idname name is archipack. prefix and then your object name</p>
 </div>
 <div class="section" id="id6">
 <h3>Implementation sample<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="create-py">
-<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#create-py" title="Permalink to this code">¶</a></div>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_myobject</span><span class="p">(</span><span class="n">ArchipackCreateTool</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
-        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.myobject&quot;</span>
-        <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Myobject&quot;</span>
+<div class="literal-block-wrapper docutils container" id="toolkit-create-py">
+<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#toolkit-create-py" title="Permalink to this code">¶</a></div>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="hll"><span class="k">class</span> <span class="nc">ARCHIPACK_OT_myobject</span><span class="p">(</span><span class="n">ArchipackCreateTool</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
+</span><span class="hll">        <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.myobject&quot;</span>
+</span>        <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Myobject&quot;</span>
         <span class="n">bl_description</span> <span class="o">=</span> <span class="s2">&quot;Create Myobject&quot;</span>
         <span class="n">bl_category</span> <span class="o">=</span> <span class="s1">&#39;Archipack&#39;</span>
         <span class="n">bl_options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;REGISTER&#39;</span><span class="p">,</span> <span class="s1">&#39;UNDO&#39;</span><span class="p">}</span>
@@ -532,24 +533,24 @@ bl_idname name is archipack. prefix and then your object name</p>
         <span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
 
                 <span class="c1"># Create an empty mesh datablock</span>
-                <span class="n">m</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">meshes</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;Myobject&quot;</span><span class="p">)</span>
-
+<span class="hll">                <span class="n">m</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">meshes</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;Myobject&quot;</span><span class="p">)</span>
+</span>
                 <span class="c1"># Create an object using the mesh datablock</span>
-                <span class="n">o</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;Myobject&quot;</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
-
+<span class="hll">                <span class="n">o</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;Myobject&quot;</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+</span>
                 <span class="c1"># Add your properties on mesh datablock</span>
-                <span class="n">d</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">archipack_myobject</span><span class="o">.</span><span class="n">add</span><span class="p">()</span>
-
+<span class="hll">                <span class="n">d</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">archipack_myobject</span><span class="o">.</span><span class="n">add</span><span class="p">()</span>
+</span>
                 <span class="c1"># Link object into scene</span>
-                <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
-
+<span class="hll">                <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">link</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+</span>
                 <span class="c1"># select and make active</span>
                 <span class="n">o</span><span class="o">.</span><span class="n">select</span> <span class="o">=</span> <span class="bp">True</span>
                 <span class="n">context</span><span class="o">.</span><span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">o</span>
 
                 <span class="c1"># Load preset into datablock</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">load_preset</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
-
+<span class="hll">                <span class="bp">self</span><span class="o">.</span><span class="n">load_preset</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+</span>
                 <span class="c1"># add a material</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">add_material</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">o</span>
@@ -591,13 +592,13 @@ bl_idname name is archipack. prefix and then your object name then _preset_menu<
 </div>
 <div class="section" id="id9">
 <h3>Implementation sample<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="preset-menu-py">
-<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#preset-menu-py" title="Permalink to this code">¶</a></div>
+<div class="literal-block-wrapper docutils container" id="toolkit-preset-menu-py">
+<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#toolkit-preset-menu-py" title="Permalink to this code">¶</a></div>
 <div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_myobject_preset_menu</span><span class="p">(</span><span class="n">PresetMenuOperator</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
         <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.myobject_preset_menu&quot;</span>
         <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Myobject preset&quot;</span>
-        <span class="n">preset_subdir</span> <span class="o">=</span> <span class="s2">&quot;archipack_myobject&quot;</span>
-</pre></div>
+<span class="hll">        <span class="n">preset_subdir</span> <span class="o">=</span> <span class="s2">&quot;archipack_myobject&quot;</span>
+</span></pre></div>
 </div>
 </div>
 </div>
@@ -621,18 +622,18 @@ bl_idname name is archipack. prefix and then your object name then _preset</p>
 </div>
 <div class="section" id="id12">
 <h3>Implementation sample<a class="headerlink" href="#id12" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="preset-py">
-<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#preset-py" title="Permalink to this code">¶</a></div>
+<div class="literal-block-wrapper docutils container" id="toolkit-preset-py">
+<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#toolkit-preset-py" title="Permalink to this code">¶</a></div>
 <div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_myobject_preset</span><span class="p">(</span><span class="n">ArchipackPreset</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Add a Myobject Preset&quot;&quot;&quot;</span>
         <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.myobject_preset&quot;</span>
         <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Add Myobject preset&quot;</span>
-        <span class="n">preset_menu</span> <span class="o">=</span> <span class="s2">&quot;ARCHIPACK_OT_myobject_preset_menu&quot;</span>
-
+<span class="hll">        <span class="n">preset_menu</span> <span class="o">=</span> <span class="s2">&quot;ARCHIPACK_OT_myobject_preset_menu&quot;</span>
+</span>
         <span class="nd">@property</span>
         <span class="k">def</span> <span class="nf">blacklist</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-                <span class="k">return</span> <span class="p">[</span><span class="s1">&#39;manipulators&#39;</span><span class="p">]</span>
-</pre></div>
+<span class="hll">                <span class="k">return</span> <span class="p">[</span><span class="s1">&#39;manipulators&#39;</span><span class="p">]</span>
+</span></pre></div>
 </div>
 </div>
 </div>
@@ -656,8 +657,8 @@ bl_idname name is archipack. prefix and then your object name then _manipulate</
 </div>
 <div class="section" id="id15">
 <h3>Implementation sample<a class="headerlink" href="#id15" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="manipulate-py">
-<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#manipulate-py" title="Permalink to this code">¶</a></div>
+<div class="literal-block-wrapper docutils container" id="toolkit-manipulate-py">
+<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#toolkit-manipulate-py" title="Permalink to this code">¶</a></div>
 <div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ARCHIPACK_OT_myobject_manipulate</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
         <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;archipack.myobject_manipulate&quot;</span>
         <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Manipulate&quot;</span>
@@ -666,12 +667,12 @@ bl_idname name is archipack. prefix and then your object name then _manipulate</
 
         <span class="nd">@classmethod</span>
         <span class="k">def</span> <span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">archipack_myobject</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
-
+<span class="hll">                <span class="k">return</span> <span class="n">archipack_myobject</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
+</span>
         <span class="k">def</span> <span class="nf">invoke</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
                 <span class="n">d</span> <span class="o">=</span> <span class="n">archipack_myobject</span><span class="o">.</span><span class="n">datablock</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">active_object</span><span class="p">)</span>
-                <span class="n">d</span><span class="o">.</span><span class="n">manipulable_invoke</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-                <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
+<span class="hll">                <span class="n">d</span><span class="o">.</span><span class="n">manipulable_invoke</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+</span>                <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
 </pre></div>
 </div>
 </div>
@@ -691,22 +692,22 @@ bl_idname name is archipack. prefix and then your object name then _manipulate</
 </div>
 <div class="section" id="id17">
 <h3>Implementation sample<a class="headerlink" href="#id17" title="Permalink to this headline">¶</a></h3>
-<div class="literal-block-wrapper docutils container" id="register-py">
-<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#register-py" title="Permalink to this code">¶</a></div>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">register</span><span class="p">():</span>
-        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">archipack_myobject</span><span class="p">)</span>
-        <span class="n">Mesh</span><span class="o">.</span><span class="n">archipack_myobject</span> <span class="o">=</span> <span class="n">CollectionProperty</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">archipack_myobject</span><span class="p">)</span>
-        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">ARCHIPACK_PT_myobject</span><span class="p">)</span>
+<div class="literal-block-wrapper docutils container" id="toolkit-register-py">
+<div class="code-block-caption"><span class="caption-text">Minimal implementation using all features</span><a class="headerlink" href="#toolkit-register-py" title="Permalink to this code">¶</a></div>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="hll"><span class="k">def</span> <span class="nf">register</span><span class="p">():</span>
+</span><span class="hll">        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">archipack_myobject</span><span class="p">)</span>
+</span><span class="hll">        <span class="n">Mesh</span><span class="o">.</span><span class="n">archipack_myobject</span> <span class="o">=</span> <span class="n">CollectionProperty</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">archipack_myobject</span><span class="p">)</span>
+</span>        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">ARCHIPACK_PT_myobject</span><span class="p">)</span>
         <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">ARCHIPACK_OT_myobject</span><span class="p">)</span>
         <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">ARCHIPACK_OT_myobject_preset_menu</span><span class="p">)</span>
         <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">ARCHIPACK_OT_myobject_preset</span><span class="p">)</span>
         <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">register_class</span><span class="p">(</span><span class="n">ARCHIPACK_OT_myobject_manipulate</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">unregister</span><span class="p">():</span>
-        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">unregister_class</span><span class="p">(</span><span class="n">archipack_myobject</span><span class="p">)</span>
-        <span class="k">del</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">archipack_myobject</span>
-        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">unregister_class</span><span class="p">(</span><span class="n">ARCHIPACK_PT_myobject</span><span class="p">)</span>
+<span class="hll"><span class="k">def</span> <span class="nf">unregister</span><span class="p">():</span>
+</span><span class="hll">        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">unregister_class</span><span class="p">(</span><span class="n">archipack_myobject</span><span class="p">)</span>
+</span><span class="hll">        <span class="k">del</span> <span class="n">Mesh</span><span class="o">.</span><span class="n">archipack_myobject</span>
+</span>        <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">unregister_class</span><span class="p">(</span><span class="n">ARCHIPACK_PT_myobject</span><span class="p">)</span>
         <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">unregister_class</span><span class="p">(</span><span class="n">ARCHIPACK_OT_myobject</span><span class="p">)</span>
         <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">unregister_class</span><span class="p">(</span><span class="n">ARCHIPACK_OT_myobject_preset_menu</span><span class="p">)</span>
         <span class="n">bpy</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">unregister_class</span><span class="p">(</span><span class="n">ARCHIPACK_OT_myobject_preset</span><span class="p">)</span>

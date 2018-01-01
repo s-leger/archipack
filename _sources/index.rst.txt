@@ -12,14 +12,8 @@ Archipack for Blender is a toolset for architectural visualisation
    :maxdepth: 2
    :caption: Contents:
    
+   setup
    user guide
    extending archipack
    about
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

@@ -1,0 +1,301 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Archipack Tools &mdash; Archipack 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="author" title="About these documents"
+              href="../about.html"/>
+        <link rel="index" title="Index"
+              href="../genindex.html"/>
+        <link rel="search" title="Search" href="../search.html"/>
+    <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
+        <link rel="up" title="User guide" href="../user guide.html"/>
+        <link rel="next" title="Add Archipack" href="add archipack.html"/>
+        <link rel="prev" title="2d to 3d" href="2d to 3d.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Archipack
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../user guide.html">User guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="2d to 3d.html">2d to 3d</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Archipack Tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#autoboolean">AutoBoolean</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#apply-holes">Apply holes</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#make-objects-safe-to-edit">Make objects safe to edit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#rendering-manipulators">Rendering Manipulators</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="add archipack.html">Add Archipack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="archipack objects.html">Archipack objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manipulate mode.html">Manipulate mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="materials.html">Materials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../extending archipack.html">Extending archipack</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Archipack</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../user guide.html">User guide</a> &raquo;</li>
+        
+      <li>Archipack Tools</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/user/archipack tools.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="archipack-tools">
+<h1>Archipack Tools<a class="headerlink" href="#archipack-tools" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="autoboolean">
+<h2>AutoBoolean<a class="headerlink" href="#autoboolean" title="Permalink to this headline">¶</a></h2>
+<p>Update holes for walls when you add or copy window / door by hand.</p>
+<div class="figure" id="id1">
+<a class="reference internal image-reference" href="../_images/ui_autoboolean.png"><img alt="AutoBoolean" src="../_images/ui_autoboolean.png" style="width: 215.0px; height: 149.0px;" /></a>
+<p class="caption"><span class="caption-text">AutoBoolean</span></p>
+</div>
+<div class="section" id="apply-holes">
+<h3>Apply holes<a class="headerlink" href="#apply-holes" title="Permalink to this headline">¶</a></h3>
+<p>When exporting or in order to clean up your scene, you might want to apply booleans and cleanup holes objects.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">With regular archipack wall you are able to undo this operation at any time by selecting the wall and use AutoBoolean</p>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">With 2d to 3d walls there is no undo for this operation, so use with care !</p>
+</div>
+</div>
+</div>
+<div class="section" id="make-objects-safe-to-edit">
+<h2>Make objects safe to edit<a class="headerlink" href="#make-objects-safe-to-edit" title="Permalink to this headline">¶</a></h2>
+<p>Archipack objects are regular blender mesh so you may edit them at any time.
+However, modifying any parameter after edit will regenerate mesh and you’ll then loose your changes.</p>
+<div class="figure" id="id2">
+<a class="reference internal image-reference" href="../_images/ui_kill_params.png"><img alt="Kill parameters" src="../_images/ui_kill_params.png" style="width: 215.0px; height: 65.0px;" /></a>
+<p class="caption"><span class="caption-text">Kill parameters</span></p>
+</div>
+<p>In order to prevent any parameter edit and get a “safe to edit by hand” non archipack aware mesh, use either “selected” or “all” found in Archipack Tools -&gt; Kill parameters.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">There is no undo for this operation, so use with care !</p>
+</div>
+</div>
+<div class="section" id="rendering-manipulators">
+<h2>Rendering Manipulators<a class="headerlink" href="#rendering-manipulators" title="Permalink to this headline">¶</a></h2>
+<p>Use the Render button to add manipulators over rendered image.</p>
+<div class="figure" id="id3">
+<a class="reference internal image-reference" href="../_images/ui_rendering.png"><img alt="Rendering" src="../_images/ui_rendering.png" style="width: 215.0px; height: 95.0px;" /></a>
+<p class="caption"><span class="caption-text">Rendering</span></p>
+</div>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="add archipack.html" class="btn btn-neutral float-right" title="Add Archipack" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="2d to 3d.html" class="btn btn-neutral" title="2d to 3d" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, stephen leger.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

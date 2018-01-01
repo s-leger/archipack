@@ -1,6 +1,129 @@
 ArchipackObject
 ===============
 
+ArchipackObject base class provide functions to support "copy to selected" and easy access to datablock.
 
-Archipack enabled object
-------------------------
+ * filter(o) : return boolean, ensure object contains your datablock eg : archipack_window.filter(o) may use it in poll
+ * datablock(o) : return datablock or None, ensure object contains your datablock eg : d = archipack_window.datablock(o) 
+ * find_in_selection(context, auto_update=True) : store context and find current instance in selection. return object or None. Wont store context and always return None if auto_update is False
+ * restore_context(context) : restore context - active + selection
+
+ 
+Implementation
+--------------
+ * PropertyGroup **MUST** inherits from ArchipackObject  
+ * PropertyGroup **MUST** use archipack\_ prefix and you **MUST** use the same name for bpy.types.Mesh.property
+ * PropertyGroup **MUST** be registered as bpy.types.Mesh property to handle alt + d
+
+Base object PropertyGroup
+-------------------------
+
+.. code-block:: python
+	:emphasize-lines: 1
+	
+	class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
+		...
+		def update(self, context):
+			
+			o = self.find_in_selection(context, self.auto_update)
+			
+			if o is None:
+				return
+
+			# update object's mesh (see bmesh_utils as reference)
+			bmed.buildmesh(context, o, self.verts, self.faces)
+			
+			# restore context
+			self.resore_context(context)
+
+
+Register module
+---------------
+
+.. code-block:: python
+	:emphasize-lines: 2-3
+	
+	def register():
+	   bpy.utils.register_class(archipack_door)
+	   Mesh.archipack_door = CollectionProperty(type=archipack_door)
+
+
+Ui Panel
+--------
+
+.. code-block:: python
+
+    @classmethod
+    def poll(cls, context):
+        return archipack_door.filter(context.active_object)
+
+    def draw(self, context):
+        o = context.active_object
+        if not archipack_door.filter(o):
+            return
+        layout = self.layout
+        layout.operator('archipack.door_manipulate', icon='HAND')
+        props = archipack_door.datablock(o)
+
+
+Manipulate Operator
+-------------------
+
+.. code-block:: python
+
+	class ARCHIPACK_OT_door_manipulate(Operator):
+		bl_idname = "archipack.door_manipulate"
+		bl_label = "Manipulate"
+		bl_description = "Manipulate"
+		bl_options = {'REGISTER', 'UNDO'}
+
+		@classmethod
+		def poll(self, context):
+			return archipack_door.filter(context.active_object)
+
+		def invoke(self, context, event):
+			d = archipack_door.datablock(context.active_object)
+			d.manipulable_invoke(context)
+			return {'FINISHED'}
+
+
+Create Operator
+---------------
+
+.. code-block:: python
+
+	class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
+		bl_idname = "archipack.truss"
+		bl_label = "Truss"
+		bl_description = "Create Truss"
+		bl_category = 'Archipack'
+		bl_options = {'REGISTER', 'UNDO'}
+
+		def create(self, context):
+			m = bpy.data.meshes.new("Truss")
+			o = bpy.data.objects.new("Truss", m)
+			
+			# add propertyGroup to mesh
+			d = m.archipack_truss.add()
+			
+			context.scene.objects.link(o)
+			o.select = True
+			context.scene.objects.active = o
+			self.load_preset(d)
+			self.add_material(o)
+			m.auto_smooth_angle = 1.15
+			return o
+
+		def execute(self, context):
+			if context.mode == "OBJECT":
+				bpy.ops.object.select_all(action="DESELECT")
+				o = self.create(context)
+				o.location = bpy.context.scene.cursor_location
+				o.select = True
+				context.scene.objects.active = o
+				self.manipulate()
+				return {'FINISHED'}
+			else:
+				self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+				return {'CANCELLED'}
+

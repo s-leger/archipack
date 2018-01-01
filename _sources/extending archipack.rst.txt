@@ -10,5 +10,6 @@ Extending archipack
    dev/manipulable
    dev/preset system
    dev/feedback panel
+   dev/pygeos
    dev/cutters
 

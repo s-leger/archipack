@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Advanced features &mdash; Archipack 1.0 documentation</title>
+  <title>Materials &mdash; Archipack 1.0 documentation</title>
   
 
   
@@ -40,7 +40,7 @@
     <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
         <link rel="up" title="User guide" href="../user guide.html"/>
         <link rel="next" title="Extending archipack" href="../extending archipack.html"/>
-        <link rel="prev" title="2d to 3d" href="2d to 3d.html"/> 
+        <link rel="prev" title="Manipulate mode" href="manipulate mode.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -95,22 +95,27 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../intro.html">Welcome</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../intro.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../user guide.html">User guide</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="archipack objects.html">Archipack objects</a></li>
 <li class="toctree-l2"><a class="reference internal" href="2d to 3d.html">2d to 3d</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Advanced features</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#autoboolean">AutoBoolean</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#custom-holes-and-walls">Custom holes and walls</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#presets">Presets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="archipack tools.html">Archipack Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="add archipack.html">Add Archipack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="archipack objects.html">Archipack objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manipulate mode.html">Manipulate mode</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Materials</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#material-sets">Material sets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#load">Load</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#save">Save</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#remove">Remove</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#sharing-materials-across-projects">Sharing materials across projects</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../extending archipack.html">Extending archipack</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html">Welcome to Archipack’s documentation!</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../about.html#indices-and-tables">Indices and tables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
 </ul>
 
             
@@ -157,13 +162,13 @@
         
           <li><a href="../user guide.html">User guide</a> &raquo;</li>
         
-      <li>Advanced features</li>
+      <li>Materials</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="../_sources/user/advanced features.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/user/materials.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -176,16 +181,44 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="advanced-features">
-<h1>Advanced features<a class="headerlink" href="#advanced-features" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="autoboolean">
-<h2>AutoBoolean<a class="headerlink" href="#autoboolean" title="Permalink to this headline">¶</a></h2>
+  <div class="section" id="materials">
+<span id="archipack-materials"></span><h1>Materials<a class="headerlink" href="#materials" title="Permalink to this headline">¶</a></h1>
+<p>By default, archipack set “dumb” materials to objects.
+Archipack does provide a material loader taking advantage of libraries of predefined materials to re-use materials across projects, and quickly set all materials of objects.</p>
+<p>see <a class="reference internal" href="../setup.html#default-material-library"><span class="std std-ref">Default material library</span></a></p>
+<div class="figure" id="id1">
+<a class="reference internal image-reference" href="../_images/ui_archipack_material.png"><img alt="Archipack material selector" src="../_images/ui_archipack_material.png" style="width: 215.0px; height: 60.0px;" /></a>
+<p class="caption"><span class="caption-text">Select / create / delete material sets for objects</span></p>
 </div>
-<div class="section" id="custom-holes-and-walls">
-<h2>Custom holes and walls<a class="headerlink" href="#custom-holes-and-walls" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="material-sets">
+<h2>Material sets<a class="headerlink" href="#material-sets" title="Permalink to this headline">¶</a></h2>
+<p>Archipack objects use more than one material so “Material Sets” are predefined groups of materials.</p>
+<div class="figure" id="id2">
+<a class="reference internal image-reference" href="../_images/material_set.png"><img alt="Archipack material set" src="../_images/material_set.png" style="width: 253.0px; height: 255.0px;" /></a>
+<p class="caption"><span class="caption-text">Archipack material set</span></p>
 </div>
-<div class="section" id="presets">
-<h2>Presets<a class="headerlink" href="#presets" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="load">
+<h3>Load<a class="headerlink" href="#load" title="Permalink to this headline">¶</a></h3>
+<p>If not found in current in scene (by material name), archipack try to load materials from libraries when you create an object and when you choose a material set.</p>
+</div>
+<div class="section" id="save">
+<h3>Save<a class="headerlink" href="#save" title="Permalink to this headline">¶</a></h3>
+<p>When you save a set, current material names are saved, so you have to ensure the materials are stored in your libraries.
+Material sets store material names only, so you may use different sets of material libraries eg to handle more than one renderer.</p>
+</div>
+<div class="section" id="remove">
+<h3>Remove<a class="headerlink" href="#remove" title="Permalink to this headline">¶</a></h3>
+<p>Removing a set dosent remove material. This only remove the set definition.</p>
+</div>
+</div>
+<div class="section" id="sharing-materials-across-projects">
+<h2>Sharing materials across projects<a class="headerlink" href="#sharing-materials-across-projects" title="Permalink to this headline">¶</a></h2>
+<p>Material Library add-on allow to save scene materials to library for re-use.</p>
+<p>see <a class="reference internal" href="../setup.html#material-library-add-on"><span class="std std-ref">Optional Material Library add-on</span></a></p>
+<div class="figure" id="id3">
+<a class="reference internal image-reference" href="../_images/matlib_vx.png"><img alt="Material Library" src="../_images/matlib_vx.png" style="width: 247.0px; height: 363.0px;" /></a>
+<p class="caption"><span class="caption-text">Material Library</span></p>
+</div>
 </div>
 </div>
 
@@ -202,7 +235,7 @@
         <a href="../extending archipack.html" class="btn btn-neutral float-right" title="Extending archipack" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="2d to 3d.html" class="btn btn-neutral" title="2d to 3d" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="manipulate mode.html" class="btn btn-neutral" title="Manipulate mode" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

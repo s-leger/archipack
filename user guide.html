@@ -38,8 +38,8 @@
               href="genindex.html"/>
         <link rel="search" title="Search" href="search.html"/>
     <link rel="top" title="Archipack 1.0 documentation" href="index.html"/>
-        <link rel="next" title="Archipack objects" href="user/archipack objects.html"/>
-        <link rel="prev" title="Welcome to Archipack’s documentation!" href="index.html"/> 
+        <link rel="next" title="2d to 3d" href="user/2d to 3d.html"/>
+        <link rel="prev" title="Setup" href="setup.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -94,10 +94,14 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">User guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html">Archipack objects</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user/2d to 3d.html">2d to 3d</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/advanced features.html">Advanced features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack tools.html">Archipack Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html">Add Archipack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html">Archipack objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/manipulate mode.html">Manipulate mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/materials.html">Materials</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="extending archipack.html">Extending archipack</a></li>
@@ -169,18 +173,6 @@
 <h1>User guide<a class="headerlink" href="#user-guide" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="user/archipack objects.html">Archipack objects</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#common-properties">Common properties</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#window">Window</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#door">Door</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#stair">Stair</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#wall">Wall</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#slab">Slab</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#fence">Fence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#roof">Roof</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#truss">Truss</a></li>
-</ul>
-</li>
 <li class="toctree-l1"><a class="reference internal" href="user/2d to 3d.html">2d to 3d</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="user/2d to 3d.html#detect">Detect</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user/2d to 3d.html#simplify">Simplify</a></li>
@@ -189,10 +181,52 @@
 <li class="toctree-l2"><a class="reference internal" href="user/2d to 3d.html#boolean-operations">Boolean operations</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="user/advanced features.html">Advanced features</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="user/advanced features.html#autoboolean">AutoBoolean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/advanced features.html#custom-holes-and-walls">Custom holes and walls</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user/advanced features.html#presets">Presets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user/archipack tools.html">Archipack Tools</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack tools.html#autoboolean">AutoBoolean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack tools.html#make-objects-safe-to-edit">Make objects safe to edit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack tools.html#rendering-manipulators">Rendering Manipulators</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user/add archipack.html">Add Archipack</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#window">Window</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#door">Door</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#stair">Stair</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#wall">Wall</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#fence">Fence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#truss">Truss</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#slab">Slab</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#roof">Roof</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#floor">Floor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/add archipack.html#custom-objects">Custom objects</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user/archipack objects.html">Archipack objects</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#common-properties">Common properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#window">Window</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#door">Door</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#stair">Stair</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#wall">Wall</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#slab">Slab</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#slab-cutter">Slab cutter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#fence">Fence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#floor">Floor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#floor-cutter">Floor cutter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#roof">Roof</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#roof-cutter">Roof cutter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#truss">Truss</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#reference-point">Reference point</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/archipack objects.html#custom-objects">Custom objects</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user/manipulate mode.html">Manipulate mode</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user/manipulate mode.html#id1">Manipulate mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/manipulate mode.html#manipulators-handles">Manipulators handles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/manipulate mode.html#manipulators-text">Manipulators text</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user/materials.html">Materials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user/materials.html#material-sets">Material sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/materials.html#sharing-materials-across-projects">Sharing materials across projects</a></li>
 </ul>
 </li>
 </ul>
@@ -209,10 +243,10 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="user/archipack objects.html" class="btn btn-neutral float-right" title="Archipack objects" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="user/2d to 3d.html" class="btn btn-neutral float-right" title="2d to 3d" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="index.html" class="btn btn-neutral" title="Welcome to Archipack’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="setup.html" class="btn btn-neutral" title="Setup" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

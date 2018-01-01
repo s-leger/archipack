@@ -39,8 +39,8 @@
         <link rel="search" title="Search" href="../search.html"/>
     <link rel="top" title="Archipack 1.0 documentation" href="../index.html"/>
         <link rel="up" title="User guide" href="../user guide.html"/>
-        <link rel="next" title="Advanced features" href="advanced features.html"/>
-        <link rel="prev" title="Archipack objects" href="archipack objects.html"/> 
+        <link rel="next" title="Archipack Tools" href="archipack tools.html"/>
+        <link rel="prev" title="User guide" href="../user guide.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -95,8 +95,8 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../user guide.html">User guide</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="archipack objects.html">Archipack objects</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">2d to 3d</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#detect">Detect</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#options">Options</a></li>
@@ -117,7 +117,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#buffer">Buffer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id4">Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Options</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#boolean-operations">Boolean operations</a><ul>
@@ -126,7 +126,11 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="advanced features.html">Advanced features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="archipack tools.html">Archipack Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="add archipack.html">Add Archipack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="archipack objects.html">Archipack objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manipulate mode.html">Manipulate mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="materials.html">Materials</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../extending archipack.html">Extending archipack</a></li>
@@ -209,7 +213,7 @@
 <p>Once detected you may choose between 3 select tools to select lines/polygons and create objects from selection.
 You are able to use any select tool at any time, detected data remains valid until you reselect another set of curves and repress “Detect”.</p>
 <p>Detect find polygons for ~ 1k segment / second, so it may take some time.</p>
-<div class="figure" id="id6">
+<div class="figure" id="id4">
 <a class="reference internal image-reference" href="../_images/ui_detect_main.png"><img alt="Detect" src="../_images/ui_detect_main.png" style="width: 215.0px; height: 147.0px;" /></a>
 <p class="caption"><span class="caption-text">Detect</span></p>
 </div>
@@ -229,10 +233,10 @@ You are able to use any select tool at any time, detected data remains valid unt
 <blockquote>
 <div><ol class="arabic simple">
 <li>Select one or more curves</li>
-<li>Expand “Detect” options, choose extend limit and extend all segs when apply (see Polygonize)</li>
+<li>Expand “Detect” options, choose extend limit and extend all segs when apply</li>
 <li>press “Detect”, wait till done ( ~ 1k segment/sec)</li>
 <li>press “Polygons / Lines / Points” to start a select tool</li>
-<li>Select one or many lines, using click and drag to select into an area.</li>
+<li>Select one or many lines, using click and drag to select into an area</li>
 <li>Use keyboard to generate your objects (see on-screen options)</li>
 <li>Repeat 5 and 6 according your needs, then Right click or press esc to exit</li>
 </ol>
@@ -243,9 +247,9 @@ You are able to use any select tool at any time, detected data remains valid unt
 <blockquote>
 <div><ol class="arabic simple">
 <li>Clean up, Detect and possibly use “Points” to fill missing parts</li>
-<li>select curves, and Detect</li>
+<li>Select curves, and Detect</li>
 <li>Use “Polygons” to create openings objects (windows and doors)</li>
-<li>Use “Polygons” to create walls / slabs..</li>
+<li>Use “Polygons” to create walls / slabs, slab cutters..</li>
 <li>Use “Lines” to output guide lines for fences</li>
 </ol>
 </div></blockquote>
@@ -270,7 +274,7 @@ You are able to use any select tool at any time, detected data remains valid unt
 <div class="section" id="select-polygons">
 <h3>Select Polygons<a class="headerlink" href="#select-polygons" title="Permalink to this headline">¶</a></h3>
 <p>This tool allow to select areas and build objects from selection.</p>
-<div class="figure" id="id7">
+<div class="figure" id="id5">
 <a class="reference internal image-reference" href="../_images/ui_detect_polygon.png"><img alt="Polygons" src="../_images/ui_detect_polygon.png" style="width: 215.0px; height: 29.0px;" /></a>
 <p class="caption"><span class="caption-text">Polygons</span></p>
 </div>
@@ -287,6 +291,10 @@ You are able to use any select tool at any time, detected data remains valid unt
 <li><strong>r</strong> Best fit rectangle of selection as closed curve</li>
 </ul>
 </div></blockquote>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Walls done with this tool are not full fledged archipack’s walls.</p>
+</div>
 </div>
 <div class="section" id="creating-windows-doors">
 <h4>Creating windows / doors<a class="headerlink" href="#creating-windows-doors" title="Permalink to this headline">¶</a></h4>
@@ -299,7 +307,7 @@ Pressing w or d when running the create tool cancel the action and allow to sele
 <div class="section" id="select-lines">
 <h3>Select Lines<a class="headerlink" href="#select-lines" title="Permalink to this headline">¶</a></h3>
 <p>This tool allow to select lines and build curves from selection.</p>
-<div class="figure" id="id8">
+<div class="figure" id="id6">
 <a class="reference internal image-reference" href="../_images/ui_detect_lines.png"><img alt="Lines" src="../_images/ui_detect_lines.png" style="width: 215.0px; height: 30.0px;" /></a>
 <p class="caption"><span class="caption-text">Lines</span></p>
 </div>
@@ -317,7 +325,7 @@ Pressing w or d when running the create tool cancel the action and allow to sele
 <h3>Select Points<a class="headerlink" href="#select-points" title="Permalink to this headline">¶</a></h3>
 <p>This tool allow to select points and build curves from selection.
 Intended to fill missing parts of walls, eg when the wall is cut on openings like with doors.</p>
-<div class="figure" id="id9">
+<div class="figure" id="id7">
 <a class="reference internal image-reference" href="../_images/ui_detect_points.png"><img alt="Points" src="../_images/ui_detect_points.png" style="width: 215.0px; height: 27.0px;" /></a>
 <p class="caption"><span class="caption-text">Points</span></p>
 </div>
@@ -336,7 +344,7 @@ Intended to fill missing parts of walls, eg when the wall is cut on openings lik
 <h2>Simplify<a class="headerlink" href="#simplify" title="Permalink to this headline">¶</a></h2>
 <p>Simplify input curve(s), using Douglas Peuker method or Topology preserving method.
 Use this tool to clean up your curves from unnecessary points.</p>
-<div class="figure" id="id10">
+<div class="figure" id="id8">
 <a class="reference internal image-reference" href="../_images/ui_simplify.png"><img alt="Simplify" src="../_images/ui_simplify.png" style="width: 215.0px; height: 121.0px;" /></a>
 <p class="caption"><span class="caption-text">Simplify</span></p>
 </div>
@@ -354,11 +362,11 @@ Use this tool to clean up your curves from unnecessary points.</p>
 <div class="section" id="offset">
 <h2>Offset<a class="headerlink" href="#offset" title="Permalink to this headline">¶</a></h2>
 <p>Offset is a line at a distance from a curve(s) on it right or left side.</p>
-<div class="figure" id="id11">
+<div class="figure" id="id9">
 <a class="reference internal image-reference" href="../_images/ui_offset.png"><img alt="Offset" src="../_images/ui_offset.png" style="width: 215.0px; height: 206.0px;" /></a>
 <p class="caption"><span class="caption-text">Offset</span></p>
 </div>
-<p><a class="reference external" href="https://www.youtube.com/watch?v=9dZPpFHi-74">Demo video</a></p>
+<p><a class="reference external" href="https://www.youtube.com/watch?v=9dZPpFHi-74">Offset demo video</a></p>
 <div class="section" id="id2">
 <h3>Options<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
 <blockquote>
@@ -381,13 +389,13 @@ Use this tool to clean up your curves from unnecessary points.</p>
 <h2>Buffer<a class="headerlink" href="#buffer" title="Permalink to this headline">¶</a></h2>
 <p>Buffer is an approximate representation of all points within a given distance of the input curve(s).
 Use this tool to build eg wall from axis / border, road from axis and so on.</p>
-<div class="figure" id="id12">
+<div class="figure" id="id10">
 <a class="reference internal image-reference" href="../_images/ui_buffer.png"><img alt="Buffer" src="../_images/ui_buffer.png" style="width: 215.0px; height: 233.0px;" /></a>
 <p class="caption"><span class="caption-text">Buffer</span></p>
 </div>
-<p><a class="reference external" href="https://www.youtube.com/watch?v=dUoEfnXuK50">Demo video</a></p>
-<div class="section" id="id4">
-<h3>Options<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference external" href="https://www.youtube.com/watch?v=dUoEfnXuK50">Buffer demo video</a></p>
+<div class="section" id="id3">
+<h3>Options<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
 <blockquote>
 <div><ul class="simple">
 <li>Bezier resolution : input bezier curves approximation.</li>
@@ -409,11 +417,11 @@ Use this tool to build eg wall from axis / border, road from axis and so on.</p>
 <h2>Boolean operations<a class="headerlink" href="#boolean-operations" title="Permalink to this headline">¶</a></h2>
 <p>Provides 2d boolean operations between curves.
 Boolean is able to take account of the closed state of curves (areas).</p>
-<div class="figure" id="id13">
+<div class="figure" id="id11">
 <a class="reference internal image-reference" href="../_images/ui_boolean.png"><img alt="Boolean" src="../_images/ui_boolean.png" style="width: 215.0px; height: 206.0px;" /></a>
 <p class="caption"><span class="caption-text">Boolean</span></p>
 </div>
-<p><a class="reference external" href="https://www.youtube.com/watch?v=qdg-wDt9fA8">Demo video</a></p>
+<p><a class="reference external" href="https://www.youtube.com/watch?v=qdg-wDt9fA8">Boolean demo video</a></p>
 <div class="section" id="operations">
 <h3>Operations<a class="headerlink" href="#operations" title="Permalink to this headline">¶</a></h3>
 <blockquote>
@@ -442,10 +450,10 @@ Boolean is able to take account of the closed state of curves (areas).</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="advanced features.html" class="btn btn-neutral float-right" title="Advanced features" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="archipack tools.html" class="btn btn-neutral float-right" title="Archipack Tools" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="archipack objects.html" class="btn btn-neutral" title="Archipack objects" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="../user guide.html" class="btn btn-neutral" title="User guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

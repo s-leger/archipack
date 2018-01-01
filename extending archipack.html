@@ -39,7 +39,7 @@
         <link rel="search" title="Search" href="search.html"/>
     <link rel="top" title="Archipack 1.0 documentation" href="index.html"/>
         <link rel="next" title="Developper guide" href="dev/developper guide.html"/>
-        <link rel="prev" title="Advanced features" href="user/advanced features.html"/> 
+        <link rel="prev" title="Materials" href="user/materials.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -94,6 +94,7 @@
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="setup.html">Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Extending archipack</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="dev/developper guide.html">Developper guide</a></li>
@@ -102,6 +103,7 @@
 <li class="toctree-l2"><a class="reference internal" href="dev/manipulable.html">Manipulable</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dev/preset system.html">Preset system</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dev/feedback panel.html">Feedback panel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/pygeos.html">PyGEOS</a></li>
 <li class="toctree-l2"><a class="reference internal" href="dev/cutters.html">Cutters</a></li>
 </ul>
 </li>
@@ -187,7 +189,12 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="dev/bulk updates.html">Bulk update</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dev/archipackObject.html">ArchipackObject</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="dev/archipackObject.html#archipack-enabled-object">Archipack enabled object</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/archipackObject.html#implementation">Implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/archipackObject.html#base-object-propertygroup">Base object PropertyGroup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/archipackObject.html#register-module">Register module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/archipackObject.html#ui-panel">Ui Panel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/archipackObject.html#manipulate-operator">Manipulate Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/archipackObject.html#create-operator">Create Operator</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="dev/manipulable.html">Manipulable</a><ul>
@@ -200,9 +207,29 @@
 <li class="toctree-l2"><a class="reference internal" href="dev/manipulable.html#manipulator-data-structure">Manipulator data structure</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="dev/preset system.html">Preset system</a></li>
-<li class="toctree-l1"><a class="reference internal" href="dev/feedback panel.html">Feedback panel</a></li>
-<li class="toctree-l1"><a class="reference internal" href="dev/cutters.html">Cutters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dev/preset system.html">Preset system</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev/preset system.html#there-are-two-kind-of-presets">There are two kind of presets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/preset system.html#preset-menu-operator">Preset menu Operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/preset system.html#save-destroy-preset-operator">Save / Destroy preset operator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/preset system.html#call-from-object-panel">Call from object panel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/preset system.html#create-operator">Create Operator</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev/feedback panel.html">Feedback panel</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev/feedback panel.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/feedback panel.html#archipack-gl-classes">Archipack gl classes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev/pygeos.html">PyGEOS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev/pygeos.html#usage-sample">Usage Sample</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dev/cutters.html">Cutters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev/cutters.html#different-ways-to-handle-cuts">Different ways to handle cuts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/cutters.html#robust-and-interactive-boolean-aka-hybrid-mode">Robust and interactive Boolean, aka “hybrid” mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/cutters.html#bissect-way-in-depth">Bissect way in depth</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
@@ -220,7 +247,7 @@
         <a href="dev/developper guide.html" class="btn btn-neutral float-right" title="Developper guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="user/advanced features.html" class="btn btn-neutral" title="Advanced features" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="user/materials.html" class="btn btn-neutral" title="Materials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   
