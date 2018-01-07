@@ -63,6 +63,7 @@ if "bpy" in locals():
     imp.reload(archipack_truss)
     # imp.reload(archipack_toolkit)
     imp.reload(archipack_floor)
+    imp.reload(archipack_blind)
     imp.reload(archipack_rendering)
     # imp.reload(archipack_envi)
     imp.reload(archipack_io)
@@ -89,6 +90,7 @@ else:
     from . import archipack_truss
     # from . import archipack_toolkit
     from . import archipack_floor
+    from . import archipack_blind
     from . import archipack_rendering
     # from . import archipack_envi
     from . import archipack_io
@@ -596,7 +598,13 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.floor_preset_menu",
                     text="",
                     icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
-
+        row = box.row(align=True)
+        row.operator("archipack.blind_preset_menu",
+                    text="Blind"
+                    # ,
+                    # icon_value=icons["floor"].icon_id
+                    ).preset_operator = "archipack.blind"
+        
         box.label(text="Custom objects")
         box.operator("archipack.wall", text="Custom wall")
 
@@ -717,6 +725,7 @@ def register():
     archipack_slab.register()
     archipack_fence.register()
     archipack_truss.register()
+    archipack_blind.register()
     # archipack_toolkit.register()
     archipack_floor.register()
     archipack_rendering.register()
@@ -758,6 +767,7 @@ def unregister():
     archipack_slab.unregister()
     archipack_fence.unregister()
     archipack_truss.unregister()
+    archipack_blind.unregister()
     # archipack_toolkit.unregister()
     archipack_floor.unregister()
     archipack_rendering.unregister()

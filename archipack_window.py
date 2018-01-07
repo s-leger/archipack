@@ -583,6 +583,19 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
             )
+    blind_inside = BoolProperty(
+            default=False,
+            name="Blind inside",
+            description="Generate a blind inside",
+            update=update
+            )
+    blind_outside = BoolProperty(
+            default=False,
+            name="Blind outside",
+            description="Generate a blind outside",
+            update=update
+            )         
+    
     blind_enable = BoolProperty(
             name="Blind",
             default=False, update=update,
@@ -710,7 +723,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             description="Generate a portal",
             update=update
             )
-
+             
     @property
     def shape(self):
         if self.window_type == 'RAIL':
@@ -905,31 +918,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             )
 
     @property
-    def blind(self):
-        # profil blind
-        #  y0
-        #  | / | / | /
-        #  y1
-        # xn x1 x0
-        dx = self.z / self.blind_z
-        nx = int(self.z / dx)
-        y0 = -0.5 * self.offset
-        # -0.5 * self.y + 0.5 * (0.5 * self.y - self.offset)
-        # 0.5 * (-0.5 * self.y-0.5 * self.offset)
-        y1 = y0 + self.blind_y
-        nx = int(self.z / self.blind_z)
-        dx = self.z / nx
-        open = 1.0 - self.blind_open / 100
-        return WindowPanel(
-            False,                      # profil closed
-            [int((i + (i % 2)) / 2) for i in range(2 * nx)],     # x index
-            [self.z - (dx * i * open) for i in range(nx + 1)],     # x
-            [[y1, y0][i % 2] for i in range(2 * nx)],     #
-            [5 for i in range(2 * nx - 1)],     # material index
-            closed_path=False                           #
-            )
-
-    @property
     def verts(self):
         center, origin, size, radius = self.get_radius()
         is_not_circle = self.shape != 'CIRCLE'
@@ -979,9 +967,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 Vector((size.x + 2 * (self.frame_x + self.in_tablet_x), size.y, size.z)),
                 radius, self.angle_y, 0, shape_z=None, path_type='HORIZONTAL')
 
-        if is_not_circle and self.blind_enable:
-            verts += self.blind.vertices(self.curve_steps, offset, center, origin,
-                Vector((-self.x, 0, 0)), radius, 0, 0, shape_z=None, path_type='HORIZONTAL')
         return verts
 
     @property
@@ -1002,11 +987,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             tablet = self.in_tablet
             faces += tablet.faces(self.curve_steps, path_type='HORIZONTAL', offset=verts_offset)
             verts_offset += tablet.n_verts(self.curve_steps, path_type='HORIZONTAL')
-        if is_not_circle and self.blind_enable:
-            blind = self.blind
-            faces += blind.faces(self.curve_steps, path_type='HORIZONTAL', offset=verts_offset)
-            verts_offset += blind.n_verts(self.curve_steps, path_type='HORIZONTAL')
-
+        
         return faces
 
     @property
@@ -1019,8 +1000,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             mat += self.out_tablet.mat(self.curve_steps, 0, 0, path_type='HORIZONTAL')
         if is_not_circle and self.in_tablet_enable:
             mat += self.in_tablet.mat(self.curve_steps, 0, 0, path_type='HORIZONTAL')
-        if is_not_circle and self.blind_enable:
-            mat += self.blind.mat(self.curve_steps, 0, 0, path_type='HORIZONTAL')
         return mat
 
     @property
@@ -1038,11 +1017,82 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         if is_not_circle and self.in_tablet_enable:
             uvs += self.in_tablet.uv(self.curve_steps, center, origin, size, radius,
                 self.angle_y, 0, 0, self.frame_x, path_type='HORIZONTAL')
-        if is_not_circle and self.blind_enable:
-            uvs += self.blind.uv(self.curve_steps, center, origin, size, radius,
-                self.angle_y, 0, 0, self.frame_x, path_type='HORIZONTAL')
         return uvs
+    
+    def find_blind(self, o, inside):
+        for child in o.children:
+            if child.type == 'MESH' and 'archipack_blind' in child.data:
+                loc = o.matrix_world.inverted() * child.matrix_world.translation
+                if inside:
+                    if loc.y > 0:
+                        return child
+                elif loc.y < 0:
+                    return child
+        return None
+    
+    def update_blind(self, context, o, inside, enabled):
 
+        blind = self.find_blind(o, inside)
+        
+        if enabled:
+            if inside:
+                overflow = 2 * self.frame_overflow
+                style = 'VENITIAN'
+            else:
+                overflow = 0
+                style = 'SLAT'
+            
+            x = self.x + overflow
+            z = self.z + overflow
+            a = self.altitude - 0.5 * overflow
+            
+            if blind is None:
+                bpy.ops.archipack.blind(
+                    width=x, 
+                    height=z, 
+                    altitude=a, 
+                    style=style,
+                    auto_manipulate=False
+                    )
+                blind = context.active_object
+                blind.parent = o
+            else:
+                d = blind.data.archipack_blind[0]
+                if (d.width != x or 
+                        d.height != z or 
+                        d.altitude != a):
+                    d.auto_update = False
+                    d.width = x
+                    d.height = z
+                    d.altitude = a
+                    d.auto_update = True
+            
+            if inside:
+                # offset for handle + half width
+                w = 0.06 + 0.02
+                tM = Matrix([
+                    [-1, 0, 0, 0],
+                    [0, -1, 0, 0.5 * self.y + w],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                ])
+            else:
+                tM = Matrix([
+                    [1, 0, 0, 0],
+                    [0, 1, 0, -0.5 * self.offset],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                ])
+            blind.matrix_world = o.matrix_world * tM
+            
+        elif blind is not None:
+            d = blind.data
+            context.scene.objects.unlink(blind)
+            bpy.data.objects.remove(blind)
+            bpy.data.meshes.remove(d)
+
+        context.scene.objects.active = o
+    
     def find_portal(self, o):
         for child in o.children:
             if child.type == 'LAMP':
@@ -1165,7 +1215,12 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         # update portal
         dl = archipack_window.datablock(linked)
         dl.update_portal(context, linked)
-
+    
+    def _synch_blind(self, context, o, linked, childs):
+        dl = archipack_window.datablock(linked)
+        dl.update_blind(context, linked, True, dl.blind_inside)
+        dl.update_blind(context, linked, False, dl.blind_outside)
+        
     def _synch_childs(self, context, o, linked, childs):
         """
             sub synch childs nodes of linked object
@@ -1262,6 +1317,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         for linked in context.selected_objects:
             if linked != o:
                 self._synch_portal(context, o, linked, childs)
+                self._synch_blind(context, o, linked, childs)
                 self._synch_childs(context, o, linked, childs)
                 if hole is not None:
                     self._synch_hole(context, linked, hole)
@@ -1481,6 +1537,8 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             bmed.buildmesh(context, o, self.verts, self.faces, self.matids, self.uvs)
 
         self.update_portal(context, o)
+        self.update_blind(context, o, True, self.blind_inside)
+        self.update_blind(context, o, False, self.blind_outside)
         self.update_childs(context, o)
 
         # update hole
@@ -1553,41 +1611,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
 
         bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
         return hole_obj
-
-    def robust_hole(self, context, tM):
-        hole = self.hole
-        center, origin, size, radius = self.get_radius()
-
-        if self.out_frame is False:
-            x0 = 0
-        else:
-            x0 = min(self.frame_x - 0.001, self.out_frame_y + self.out_frame_offset)
-
-        if self.out_tablet_enable:
-            x0 -= min(self.frame_x - 0.001, self.out_tablet_z)
-        shape_z = [0, x0]
-
-        m = bpy.data.meshes.new("hole")
-        o = bpy.data.objects.new("hole", m)
-        o['archipack_robusthole'] = True
-        context.scene.objects.link(o)
-        verts = hole.vertices(self.curve_steps, Vector((0, self.altitude, 0)), center, origin, size, radius,
-            self.angle_y, 0, shape_z=shape_z, path_type=self.shape)
-
-        verts = [tM * Vector(v) for v in verts]
-
-        faces = hole.faces(self.curve_steps, path_type=self.shape)
-
-        matids = hole.mat(self.curve_steps, 2, 2, path_type=self.shape)
-
-        uvs = hole.uv(self.curve_steps, center, origin, size, radius,
-            self.angle_y, 0, 0, self.frame_x, path_type=self.shape)
-
-        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
-        # MaterialUtils.add_wall2_materials(o)
-        o.select = True
-        context.scene.objects.active = o
-        return o
 
 
 class ARCHIPACK_PT_window(Panel):
@@ -1695,12 +1718,15 @@ class ARCHIPACK_PT_window(Panel):
                     box.prop(prop, 'in_tablet_y')
                     box.prop(prop, 'in_tablet_z')
                 box = layout.box()
-                row = box.row(align=True)
+                box.prop(prop, 'blind_inside')
+                box.prop(prop, 'blind_outside')
+                """
                 row.prop(prop, 'blind_enable')
                 if prop.blind_enable:
                     box.prop(prop, 'blind_open')
                     box.prop(prop, 'blind_y')
                     box.prop(prop, 'blind_z')
+                """
         if prop.window_shape != 'CIRCLE':
             row = layout.row()
             if prop.display_panels:
@@ -1734,8 +1760,9 @@ class ARCHIPACK_PT_window(Panel):
             box.prop(prop, 'hole_outside_mat')
 
         layout.prop(prop, 'portal', icon="LAMP_AREA")
+        
 
-
+        
 class ARCHIPACK_PT_window_panel(Panel):
     bl_idname = "ARCHIPACK_PT_window_panel"
     bl_label = "Window panel"
