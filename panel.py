@@ -136,10 +136,12 @@ class Panel():
             number of verts and faces sections along path
         """
         n_path_verts = 2
-        if path_type in ['QUADRI', 'RECTANGLE']:
+        if path_type == 'RECTANGLE':
             n_path_verts = 4 + self.subdiv_x + 2 * self.subdiv_y
             if self.closed_path:
                 n_path_verts += self.subdiv_x
+        elif path_type == 'QUADRI':
+            n_path_verts = 4
         elif path_type in ['ROUND', 'ELLIPSIS']:
             n_path_verts = steps + 3
         elif path_type == 'CIRCLE':
@@ -631,6 +633,7 @@ class Panel():
             uv_r = 2 * pi * radius.x / steps
             uv_v = [uv_r for i in range(steps + 1)]
         elif path_type == 'QUADRI':
+            # dosent support subdiv
             dy = 0.5 * tan(angle_y) * size.x
             uv_v = [size.y - dy, size.x, size.y + dy, size.x]
         elif path_type == 'HORIZONTAL':

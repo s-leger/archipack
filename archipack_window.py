@@ -33,7 +33,7 @@ from bpy.props import (
     CollectionProperty, FloatVectorProperty, EnumProperty, StringProperty
 )
 from mathutils import Vector, Matrix
-from math import tan, sqrt
+from math import tan, sqrt, pi, sin, cos
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as WindowPanel
 from .archipack_handle import create_handle, window_handle_vertical_01, window_handle_vertical_02
@@ -424,6 +424,367 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
         self.restore_context(context)
 
 
+class archipack_window_shutter(ArchipackObject, PropertyGroup):
+    center = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    origin = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    size = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    radius = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    angle_y = FloatProperty(
+            name='angle',
+            unit='ROTATION',
+            subtype='ANGLE',
+            min=-1.5, max=1.5,
+            default=0, precision=2,
+            description='angle'
+            )
+    frame_y = FloatProperty(
+            name='Depth',
+            min=0,
+            default=0.06, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
+            description='frame depth'
+            )
+    frame_x = FloatProperty(
+            name='Width',
+            min=0,
+            default=0.06, precision=2,
+            unit='LENGTH', subtype='DISTANCE',
+            description='frame width'
+            )
+    curve_steps = IntProperty(
+            name="curve steps",
+            min=1,
+            max=128,
+            default=1
+            )
+    shape = EnumProperty(
+            name='Shape',
+            items=(
+                ('RECTANGLE', 'Rectangle', '', 0),
+                ('ROUND', 'Top Round', '', 1),
+                ('ELLIPSIS', 'Top elliptic', '', 2),
+                ('QUADRI', 'Top oblique', '', 3),
+                ('CIRCLE', 'Full circle', '', 4)
+                ),
+            default='RECTANGLE'
+            )
+    pivot = FloatProperty(
+            name='pivot',
+            min=-1, max=1,
+            default=-1, precision=2,
+            description='pivot'
+            )
+    offset = FloatProperty(
+            name='offset',
+            default=0, precision=2,
+            description='x offset'
+            )
+    hinge_enable = BoolProperty(
+            name="Hinge",
+            default=False
+            )
+    hinge_count = IntProperty(
+            name="#Hinge",
+            min=0,
+            max=4,
+            default=2
+            )
+        
+    @property
+    def shutter(self):
+        
+        chanfer = 0.004
+        border =  self.frame_x
+        spacing = 0.75 * self.frame_x
+        x0 = 0
+        x1 = border - 0.5 * spacing
+        x3 = chanfer
+        w = 0.5 * self.frame_y
+        # offset pivot point on outside part 
+        y0 = 0
+        y1 = y0 + w
+        y2 = y1 - 0.5 * w
+        y3 = y1 - chanfer
+        y4 = y0 + chanfer
+        
+        # profil carre avec support pour verre
+        # p ______       y1
+        # / |      y3
+        # |       
+        # x          y2  
+        # |          y4
+        #  \______|      y0
+        # x0 x3   x1
+        #
+       
+        side = WindowPanel(
+            False,  # closed
+            [2, 1, 0, 0, 0, 1, 2],  # x index
+            [x0, x3, x1],
+            [y0, y0, y4, y2, y3, y1, y1],
+            [5, 5, 5, 5, 5, 5, 5],  # materials
+            closed_path=True,    #
+            subdiv_x=0,
+            subdiv_y=1
+            )
+
+        #     /   y2-y3
+        #  __/    y1-y0
+        #   x2 x3
+        # x2 = 0.5 * self.panel_spacing
+        x2 = 0.5 * spacing
+        x3 = x2 + chanfer
+        y2 = y1 - chanfer
+        y3 = y0 + chanfer
+
+        face = WindowPanel(
+            False,              # profil closed
+            [0, 1, 2],          # x index
+            [0, x2, x3],
+            [y1, y1, y2],
+            [5, 5, 5],          # material index
+            side_cap_front=2,   # cap index
+            closed_path=True
+            )
+
+        back = WindowPanel(
+            False,              # profil closed
+            [0, 1, 2],          # x index
+            [x3, x2, 0],
+            [y3, y0, y0],
+            [5, 5, 5],          # material index
+            side_cap_back=0,    # cap index
+            closed_path=True
+            )
+
+        return side, face, back
+    
+    def hinge(self, altitude, verts):
+        chanfer = 0.004
+        
+        seg = 12
+        deg = 2 * pi / seg
+        radius = 0.005
+        x = 0
+        y = 0
+        z = altitude
+        size = 0.03
+        
+        d = (self.offset + self.pivot * chanfer) / radius
+        tM = Matrix([
+            [radius, 0, 0, x],
+            [0, radius, 0, y],
+            [0, 0, size, z],
+            [0, 0, 0, 1]
+        ])
+        if self.pivot < 0:
+            verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 0)) for a in range(seg - 2)])
+            verts.extend([
+                tM * Vector((d, cos(deg * (seg - 3)), 0)),
+                tM * Vector((d, 1, 0)),
+            ])
+        else:
+            verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 0)) for a in range(3, seg + 1)])
+            verts.extend([
+                tM * Vector((d, 1, 0)), 
+                tM * Vector((d, cos(deg * (seg - 3)), 0)),
+            ])
+
+        if self.pivot < 0:
+            verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 1)) for a in range(seg - 2)])
+            verts.extend([
+                tM * Vector((d, cos(deg * (seg - 3)), 1)),
+                tM * Vector((d, 1, 1)),
+            ])
+        else:
+            verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 1)) for a in range(3, seg + 1)])
+            verts.extend([
+                tM * Vector((d, 1, 1)),
+                tM * Vector((d, cos(deg * (seg - 3)), 1)),
+            ])
+    
+    @property
+    def verts(self):
+    
+        side, face, back = self.shutter
+        border = self.frame_x
+        spacing = 0.75 * self.frame_x
+        
+        x1 = border - 0.5 * spacing
+        offset = Vector((self.offset, 0, 0))
+        verts = side.vertices(self.curve_steps, offset, self.center, self.origin, self.size,
+            self.radius, self.angle_y, self.pivot, shape_z=None, path_type=self.shape)
+            
+        p_radius = self.radius.copy()
+        p_radius.x -= x1
+        p_radius.y -= x1
+        
+        p_size = Vector((self.size.x - 2 * x1, (self.size.y - 2 * x1) / 2, 0))
+        
+        for j in range(2):
+            if j < 1:
+                shape = 'RECTANGLE'
+            else:
+                shape = self.shape
+            offset = Vector((
+                self.offset + self.pivot * x1, # + (self.pivot - 0.5) * self.size.x + p_size.x * 0.5 + x1,
+                p_size.y * j + x1, 
+                0))
+                    
+            origin = Vector((
+                self.origin.x + self.pivot * x1, #p_size.x * 0.5 - 0.5 * self.size.x + x1, 
+                p_size.y * j + x1, 
+                0))
+                
+            verts += face.vertices(self.curve_steps, offset, self.center, origin,
+                p_size, p_radius, self.angle_y, self.pivot, shape_z=None, path_type=shape)
+            verts += back.vertices(self.curve_steps, offset, self.center, origin,
+                p_size, p_radius, self.angle_y, self.pivot, shape_z=None, path_type=shape)
+        
+        if self.hinge_enable:
+            z0 = 0.15
+            dz = (self.size.y - 2 * z0) / (self.hinge_count - 1) 
+            for j in range(self.hinge_count):
+                self.hinge(z0 + dz * j, verts)
+        
+        return verts
+
+    @property
+    def faces(self):
+        
+        side, face, back = self.shutter
+
+        faces = side.faces(self.curve_steps, path_type=self.shape)
+        faces_offset = side.n_verts(self.curve_steps, path_type=self.shape)
+    
+        for j in range(2):
+            if j < 1:
+                shape = 'RECTANGLE'
+            else:
+                shape = self.shape
+            faces += face.faces(self.curve_steps, path_type=shape, offset=faces_offset)
+            faces_offset += face.n_verts(self.curve_steps, path_type=shape)
+            faces += back.faces(self.curve_steps, path_type=shape, offset=faces_offset)
+            faces_offset += back.n_verts(self.curve_steps, path_type=shape)
+            
+        if self.hinge_enable:
+            seg = 12
+            for j in range(self.hinge_count):
+                faces.append(tuple([faces_offset + i + seg for i in range(seg - 1, -1, -1)]))
+                faces.append(tuple([faces_offset + i for i in range(seg)]))
+                faces.extend([tuple([faces_offset + i + f for f in (1, 0, seg, seg + 1)]) for i in range(seg - 1)])
+                faces.append((
+                    faces_offset, 
+                    faces_offset + seg - 1, 
+                    faces_offset + 2 * seg - 1,
+                    faces_offset + seg 
+                    ))
+                
+                faces_offset += 2 * seg
+        
+        return faces
+
+    @property
+    def uvs(self):
+    
+        side, face, back = self.shutter
+
+        border = self.frame_x
+        spacing = 0.75 * self.frame_x
+        x1 = border - 0.5 * spacing
+        
+        uvs = side.uv(self.curve_steps, 
+            self.center, 
+            self.origin, 
+            self.size, 
+            self.radius, 
+            self.angle_y, 
+            self.pivot, 
+            self.frame_x, 0, 
+            path_type=self.shape)
+            
+        p_radius = self.radius.copy()
+        p_radius.x -= x1
+        p_radius.y -= x1
+        p_size = Vector((self.size.x - 2 * x1, (self.size.y - 2 * x1) / 2, 0))
+        
+        for j in range(2):
+            if j < 1:
+                shape = 'RECTANGLE'
+            else:
+                shape = self.shape
+            origin = Vector((
+                self.origin.x + self.pivot * x1, # p_size.x * 0.5 - 0.5 * self.size.x + x1, 
+                p_size.y * j + x1, 
+                0))
+            uvs += face.uv(self.curve_steps, self.center, origin, p_size,
+                p_radius, self.angle_y, self.pivot, 0, 0, path_type=shape)
+            uvs += back.uv(self.curve_steps, self.center, origin, p_size, 
+                p_radius, self.angle_y, self.pivot, 0, 0, path_type=shape)            
+        
+        if self.hinge_enable:
+            seg = 12
+            deg = 2 * pi / seg
+            radius = 0.005
+            x = 0
+            y = 0
+            z = 0
+            size = 0.04
+            tM = Matrix([
+                [radius, 0, 0, x],
+                [0, radius, 0, y],
+                [0, 0, size, z],
+                [0, 0, 0, 1]
+            ])
+            
+            for j in range(self.hinge_count):            
+                uvs.append(tuple([(tM * Vector((sin(deg * a), cos(deg * a), 0))).to_2d() for a in range(seg)]))
+                uvs.append(tuple([(tM * Vector((sin(deg * a), cos(deg * a), 0))).to_2d() for a in range(seg)]))
+                uvs.extend([[(0,0), (0,1), (1,1), (1,0)] for i in range(seg)])
+        
+        return uvs
+
+    @property
+    def matids(self):
+        
+        side, face, back = self.shutter
+        mat = side.mat(self.curve_steps, 5, 5, path_type=self.shape)
+        for j in range(2):
+            if j < 1:
+                shape = 'RECTANGLE'
+            else:
+                shape = self.shape
+            mat += face.mat(self.curve_steps, 5, 5, path_type=shape)
+            mat += back.mat(self.curve_steps, 5, 5, path_type=shape)
+            
+        if self.hinge_enable:            
+            for j in range(self.hinge_count):
+                seg = 12
+                mat.extend([3, 3])
+                mat.extend([3 for i in range(seg)])
+        
+        return mat
+
+    def update(self, context):
+
+        o = self.find_in_selection(context)
+
+        if o is None:
+            return
+
+        bmed.buildmesh(context, o, self.verts, self.faces, self.matids, self.uvs)
+
+        self.restore_context(context)
+        
+       
 class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
     x = FloatProperty(
             name='Width',
@@ -583,6 +944,19 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
             )
+    blind_inside = BoolProperty(
+            default=False,
+            name="Blind inside",
+            description="Generate a blind inside",
+            update=update
+            )
+    blind_outside = BoolProperty(
+            default=False,
+            name="Blind outside",
+            description="Generate a blind outside",
+            update=update
+            )         
+    # internal blind, keep for compatibility
     blind_enable = BoolProperty(
             name="Blind",
             default=False, update=update,
@@ -710,7 +1084,20 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             description="Generate a portal",
             update=update
             )
-
+    shutter_enable = BoolProperty(
+            name="Shutters",
+            default=False, update=update,
+            )         
+    shutter_left = IntProperty(
+            name="#Left",
+            default=1,
+            update=update
+            )
+    shutter_right = IntProperty(
+            name="#Right",
+            default=1,
+            update=update
+            )
     @property
     def shape(self):
         if self.window_type == 'RAIL':
@@ -905,33 +1292,8 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             )
 
     @property
-    def blind(self):
-        # profil blind
-        #  y0
-        #  | / | / | /
-        #  y1
-        # xn x1 x0
-        dx = self.z / self.blind_z
-        nx = int(self.z / dx)
-        y0 = -0.5 * self.offset
-        # -0.5 * self.y + 0.5 * (0.5 * self.y - self.offset)
-        # 0.5 * (-0.5 * self.y-0.5 * self.offset)
-        y1 = y0 + self.blind_y
-        nx = int(self.z / self.blind_z)
-        dx = self.z / nx
-        open = 1.0 - self.blind_open / 100
-        return WindowPanel(
-            False,                      # profil closed
-            [int((i + (i % 2)) / 2) for i in range(2 * nx)],     # x index
-            [self.z - (dx * i * open) for i in range(nx + 1)],     # x
-            [[y1, y0][i % 2] for i in range(2 * nx)],     #
-            [5 for i in range(2 * nx - 1)],     # material index
-            closed_path=False                           #
-            )
-
-    @property
     def verts(self):
-        center, origin, size, radius = self.get_radius()
+        center, origin, size, radius = self.get_radius(self._x, self._z)
         is_not_circle = self.shape != 'CIRCLE'
         offset = Vector((0, self.altitude + self.frame_x - self.frame_overflow, 0))
         verts = self.window.vertices(self.curve_steps, offset, center, origin,
@@ -979,9 +1341,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 Vector((size.x + 2 * (self.frame_x + self.in_tablet_x), size.y, size.z)),
                 radius, self.angle_y, 0, shape_z=None, path_type='HORIZONTAL')
 
-        if is_not_circle and self.blind_enable:
-            verts += self.blind.vertices(self.curve_steps, offset, center, origin,
-                Vector((-self.x, 0, 0)), radius, 0, 0, shape_z=None, path_type='HORIZONTAL')
         return verts
 
     @property
@@ -1002,11 +1361,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             tablet = self.in_tablet
             faces += tablet.faces(self.curve_steps, path_type='HORIZONTAL', offset=verts_offset)
             verts_offset += tablet.n_verts(self.curve_steps, path_type='HORIZONTAL')
-        if is_not_circle and self.blind_enable:
-            blind = self.blind
-            faces += blind.faces(self.curve_steps, path_type='HORIZONTAL', offset=verts_offset)
-            verts_offset += blind.n_verts(self.curve_steps, path_type='HORIZONTAL')
-
+        
         return faces
 
     @property
@@ -1019,13 +1374,11 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             mat += self.out_tablet.mat(self.curve_steps, 0, 0, path_type='HORIZONTAL')
         if is_not_circle and self.in_tablet_enable:
             mat += self.in_tablet.mat(self.curve_steps, 0, 0, path_type='HORIZONTAL')
-        if is_not_circle and self.blind_enable:
-            mat += self.blind.mat(self.curve_steps, 0, 0, path_type='HORIZONTAL')
         return mat
 
     @property
     def uvs(self):
-        center, origin, size, radius = self.get_radius()
+        center, origin, size, radius = self.get_radius(self._x, self._z)
         uvs = self.window.uv(self.curve_steps, center, origin, size, radius,
             self.angle_y, 0, 0, self.frame_x, path_type=self.shape)
         is_not_circle = self.shape != 'CIRCLE'
@@ -1038,11 +1391,99 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         if is_not_circle and self.in_tablet_enable:
             uvs += self.in_tablet.uv(self.curve_steps, center, origin, size, radius,
                 self.angle_y, 0, 0, self.frame_x, path_type='HORIZONTAL')
-        if is_not_circle and self.blind_enable:
-            uvs += self.blind.uv(self.curve_steps, center, origin, size, radius,
-                self.angle_y, 0, 0, self.frame_x, path_type='HORIZONTAL')
         return uvs
+    
+    def find_blind(self, o, inside):
+        for child in o.children:
+            if child.type == 'MESH' and 'archipack_blind' in child.data:
+                loc = o.matrix_world.inverted() * child.matrix_world.translation
+                if inside:
+                    if loc.y > 0:
+                        return child
+                elif loc.y < 0:
+                    return child
+        return None
+    
+    def update_blind(self, context, o, inside):
 
+        blind = self.find_blind(o, inside)
+        if inside:
+            enabled = self.blind_inside
+            overflow = 2 * self.frame_overflow
+            style = 'VENITIAN'
+            # half width + handle
+            y = 0.02 + 0.08
+        else:
+            enabled = self.blind_outside
+            overflow = 0
+            style = 'SLAT'
+            y = -0.5 * (self.y - self.offset)
+            
+        if enabled:
+            
+            x = self.x + overflow
+            z = self.z + overflow
+            a = self.altitude - 0.5 * overflow
+            
+            if blind is None:
+                bpy.ops.archipack.blind(
+                    x=x, 
+                    z=z, 
+                    offset_y=y,
+                    altitude=a, 
+                    frame_enable=inside,
+                    frame_depth=2 * y,
+                    frame_height=0.04,
+                    style=style,
+                    auto_manipulate=False
+                    )
+                blind = context.active_object
+                blind.parent = o
+                blind.select = False
+            else:
+                blind.select = True
+                context.scene.objects.active = blind
+                d = blind.data.archipack_blind[0]
+                if (d.x != x or 
+                        d.z != z or
+                        d.offset_y != y or
+                        d.altitude != a):
+                    d.auto_update = False
+                    d.x = x
+                    d.z = z
+                    d.offset_y = y
+                    d.altitude = a
+                    d.auto_update = True
+                blind.select = False
+                
+            if inside:
+                tM = Matrix([
+                    [-1, 0, 0, 0],
+                    [0, -1, 0, 0.5 * self.y],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                ])
+            else:
+                tM = Matrix([
+                    [1, 0, 0, 0],
+                    [0, 1, 0, -0.5 * self.y],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                ])
+            blind.matrix_world = o.matrix_world * tM
+            
+        elif blind is not None:
+            self.remove_blind(context, blind)
+
+        context.scene.objects.active = o
+    
+    def remove_blind(self, context, blind):
+        if blind.type == "MESH" and "archipack_blind" in blind.data:
+            d = blind.data
+            context.scene.objects.unlink(blind)
+            bpy.data.objects.remove(blind)
+            bpy.data.meshes.remove(d)
+            
     def find_portal(self, o):
         for child in o.children:
             if child.type == 'LAMP':
@@ -1108,6 +1549,14 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 self.remove_handle(context, child)
                 context.scene.objects.unlink(child)
                 bpy.data.objects.remove(child, do_unlink=True)
+    
+    def remove_shutters(self, context, childs, to_remove):
+        for child in childs:
+            if to_remove < 1:
+                return
+            to_remove -= 1
+            context.scene.objects.unlink(child)
+            bpy.data.objects.remove(child, do_unlink=True)
 
     def remove_handle(self, context, o):
         handle = self.find_handle(o)
@@ -1142,6 +1591,18 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
 
     def get_childs_panels(self, context, o):
         return [child for child in o.children if archipack_window_panel.filter(child)]
+    
+    def get_childs_shutters(self, context, o, left_side):
+        if left_side:
+            return [child for child in o.children 
+                if (archipack_window_shutter.filter(child) and
+                    child.data.archipack_window_shutter[0].pivot > 0)
+                ]
+        else: 
+            return [child for child in o.children 
+                if (archipack_window_shutter.filter(child) and
+                    child.data.archipack_window_shutter[0].pivot < 0)
+                ]
 
     def adjust_size_and_origin(self, size, origin, pivot, materials):
         if len(size) > 1:
@@ -1165,7 +1626,12 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         # update portal
         dl = archipack_window.datablock(linked)
         dl.update_portal(context, linked)
-
+    
+    def _synch_blind(self, context, o, linked, childs):
+        dl = archipack_window.datablock(linked)
+        dl.update_blind(context, linked, True)
+        dl.update_blind(context, linked, False)
+        
     def _synch_childs(self, context, o, linked, childs):
         """
             sub synch childs nodes of linked object
@@ -1230,6 +1696,59 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         # restore context
         context.scene.objects.active = o
 
+    def _synch_shutters(self, context, o, linked, left_side):
+        """
+            sub synch childs nodes of linked object
+        """
+        childs = self.get_childs_shutters(context, o, left_side)
+        # remove childs not found on source
+        l_childs = self.get_childs_shutters(context, linked, left_side)
+        c_names = [c.data.name for c in childs]
+        for c in l_childs:
+            try:
+                id = c_names.index(c.data.name)
+            except:
+                context.scene.objects.unlink(c)
+                bpy.data.objects.remove(c, do_unlink=True)
+
+        # children ordering may not be the same, so get the right l_childs order
+        l_childs = self.get_childs_shutters(context, linked, left_side)
+        l_names = [c.data.name for c in l_childs]
+        order = []
+        for c in childs:
+            try:
+                id = l_names.index(c.data.name)
+            except:
+                id = -1
+            order.append(id)
+
+        # add missing childs and update other ones
+        for i, child in enumerate(childs):
+            if order[i] < 0:
+                p = bpy.data.objects.new("Shutter", child.data)
+                context.scene.objects.link(p)
+                p.lock_location[1] = True
+                p.lock_location[2] = True
+                p.lock_rotation[1] = True
+                p.lock_scale[0] = True
+                p.lock_scale[1] = True
+                p.lock_scale[2] = True
+                p.parent = linked
+                p.matrix_world = linked.matrix_world.copy()
+                m = p.archipack_material.add()
+                m.category = 'window'
+                m.material = o.archipack_material[0].material
+            else:
+                p = l_childs[order[i]]
+
+            # self.synch_locks(p)
+
+            p.location = child.location.copy()
+            p.rotation_euler = child.rotation_euler.copy()
+            
+        # restore context
+        context.scene.objects.active = o
+        
     def _synch_hole(self, context, linked, hole):
         l_hole = self.find_hole(linked)
         if l_hole is None:
@@ -1257,15 +1776,133 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         o.select = True
         context.scene.objects.active = o
         childs = self.get_childs_panels(context, o)
+        
         hole = self.find_hole(o)
         bpy.ops.object.select_linked(type='OBDATA')
         for linked in context.selected_objects:
             if linked != o:
                 self._synch_portal(context, o, linked, childs)
+                self._synch_blind(context, o, linked, childs)
                 self._synch_childs(context, o, linked, childs)
+                self._synch_shutters(context, o, linked, True)
+                self._synch_shutters(context, o, linked, False)
                 if hole is not None:
                     self._synch_hole(context, linked, hole)
+    
+    def get_shutter_row(self, x, y, left_side):
+        n_shutters = self.shutter_left + self.shutter_right
+        size = Vector((x / n_shutters, y, 0))
+        origin = []
+        ttl = 0
+        xh = x / 2
+        # offset pivot
+        if left_side:
+            n_shutters = self.shutter_left
+            ttl -= size.x
+        else:
+            ttl += self.shutter_left * size.x
+            n_shutters = self.shutter_right
+            
+        for i in range(n_shutters):
+            ttl += size.x
+            origin.append(Vector((ttl - xh, 0)))
+        return size, origin
+    
+    def update_shutter(self, context, o, left_side):
+        # wanted childs
+        if self.shutter_enable:
+            if left_side:
+                side = 0
+                pivot = 1
+                n_shutters = self.shutter_left
+            else:
+                pivot = -1
+                n_shutters = self.shutter_right 
+                side = n_shutters - 1
+                
+        else:
+            n_shutters = 0
+            
+        # real childs
+        childs = self.get_childs_shutters(context, o, left_side)
+        n_childs = len(childs)
 
+        # remove child
+        if n_childs > n_shutters:
+            self.remove_shutters(context, childs, n_childs - n_shutters)
+        
+        if not self.shutter_enable or n_shutters == 0:
+            return
+        
+        childs = self.get_childs_shutters(context, o, left_side)
+        n_childs = len(childs)
+        
+        location_y = -0.5 * self.y - 0.25 * self.frame_y
+        if self.out_frame:
+            location_y -= self.out_frame_y2
+        # Note: radius is slightly wrong: not taking overflow in account
+        center, origin, size, radius = self.get_radius(self.x, self.z)
+        offset = Vector((0.05, 0))
+        size, origin = self.get_shutter_row(self.x, self.z, left_side)
+        
+        if self.z > 1.5:
+            hinge_count = 3
+        else:
+            hinge_count = 2
+            
+        for panel in range(n_shutters):
+                
+            if panel >= n_childs:
+                bpy.ops.archipack.window_shutter(
+                    center=center,
+                    origin=Vector((origin[panel].x, offset.y, 0)),
+                    size=size,
+                    radius=radius,
+                    pivot=pivot,
+                    shape=self.shape,
+                    offset=pivot * offset.x,
+                    curve_steps=self.curve_steps,
+                    frame_x=self.frame_x,
+                    frame_y=self.frame_y,
+                    angle_y=self.angle_y,
+                    hinge_enable=panel == side,
+                    hinge_count=hinge_count,
+                    material=o.archipack_material[0].material
+                )
+                child = context.active_object
+                # parenting at 0, 0, 0 before set object matrix_world
+                # so location remains local from frame
+                child.parent = o
+                child.matrix_world = o.matrix_world.copy()
+                child.rotation_euler.z = pi 
+            else:
+                child = childs[panel]
+                child.select = True
+                context.scene.objects.active = child
+                props = archipack_window_shutter.datablock(child)
+                if props is not None:
+                    props.origin = Vector((origin[panel].x, offset.y, 0))
+                    props.center = center
+                    props.radius = radius
+                    props.size = size
+                    props.pivot = pivot
+                    props.shape = self.shape
+                    props.offset = pivot * offset.x
+                    props.curve_steps = self.curve_steps
+                    props.frame_x = self.frame_x
+                    props.frame_y = self.frame_y
+                    props.angle_y = self.angle_y
+                    props.hinge_enable = panel == side
+                    props.hinge_count = hinge_count
+                    props.update(context)
+                    
+            # location y + frame width.
+            child.location = Vector((
+                origin[panel].x - pivot * offset.x + (side - panel) * size.x, 
+                origin[panel].y + location_y + (side - panel) * pivot * 0.5 * self.frame_y,
+                self.altitude + offset.y
+                ))
+                       
     def update_childs(self, context, o):
         """
             pass params to childrens
@@ -1276,7 +1913,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         child_n = 0
         row_n = 0
         location_y = 0.5 * self.y - self.offset + 0.5 * self.frame_y
-        center, origin, size, radius = self.get_radius()
+        center, origin, size, radius = self.get_radius(self._x, self._z)
         offset = Vector((0, 0))
         handle = 'NONE'
         if self.shape != 'CIRCLE':
@@ -1404,69 +2041,69 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
     def _z(self):
         return self.z + 2 * (self.frame_overflow - self.frame_x)
 
-    def _get_tri_radius(self):
+    def _get_tri_radius(self, _x, _z):
         return Vector((0, self.y, 0)), Vector((0, 0, 0)), \
-            Vector((self._x, self._z, 0)), Vector((self._x, 0, 0))
+            Vector((_x, _z, 0)), Vector((_x, 0, 0))
 
-    def _get_quad_radius(self):
-        fx_z = self._z / self._x
-        center_y = min(self._x / (self._x - self.frame_x) * self._z - self.frame_x * (1 + sqrt(1 + fx_z * fx_z)),
-            abs(tan(self.angle_y) * (self._x)))
+    def _get_quad_radius(self, _x, _z):
+        fx_z = _z / _x
+        center_y = min(_x / (_x - self.frame_x) * _z - self.frame_x * (1 + sqrt(1 + fx_z * fx_z)),
+            abs(tan(self.angle_y) * (_x)))
         if self.angle_y < 0:
-            center_x = 0.5 * self._x
+            center_x = 0.5 * _x
         else:
-            center_x = -0.5 * self._x
+            center_x = -0.5 * _x
         return Vector((center_x, center_y, 0)), Vector((0, 0, 0)), \
-            Vector((self._x, self._z, 0)), Vector((self._x, 0, 0))
+            Vector((_x, _z, 0)), Vector((_x, 0, 0))
 
-    def _get_round_radius(self):
+    def _get_round_radius(self, _x, _z):
         """
             bound radius to available space
             return center, origin, size, radius
         """
-        x = 0.5 * self._x - self.frame_x
+        x = 0.5 * _x - self.frame_x
         # minimum space available
-        y = self._z - sum([row.height for row in self.rows[:self.n_rows - 1]]) - 2 * self.frame_x
+        y = _z - sum([row.height for row in self.rows[:self.n_rows - 1]]) - 2 * self.frame_x
         y = min(y, x)
         # minimum radius inside
         r = y + x * (x - (y * y / x)) / (2 * y)
         radius = max(self.radius, 0.001 + self.frame_x + r)
-        return Vector((0, self._z - radius, 0)), Vector((0, 0, 0)), \
-            Vector((self._x, self._z, 0)), Vector((radius, 0, 0))
+        return Vector((0, _z - radius, 0)), Vector((0, 0, 0)), \
+            Vector((_x, _z, 0)), Vector((radius, 0, 0))
 
-    def _get_circle_radius(self):
+    def _get_circle_radius(self, _x, _z):
         """
             return center, origin, size, radius
         """
-        return Vector((0, 0.5 * self._x, 0)), Vector((0, 0, 0)), \
-            Vector((self._x, self._z, 0)), Vector((0.5 * self._x, 0, 0))
+        return Vector((0, 0.5 * _x, 0)), Vector((0, 0, 0)), \
+            Vector((_x, _z, 0)), Vector((0.5 * _x, 0, 0))
 
-    def _get_ellipsis_radius(self):
+    def _get_ellipsis_radius(self, _x, _z):
         """
             return center, origin, size, radius
         """
         y = self.z - sum([row.height for row in self.rows[:self.n_rows - 1]])
         radius_b = max(0, 0.001 - 2 * self.frame_x + min(y, self.elipsis_b))
-        return Vector((0, self._z - radius_b, 0)), Vector((0, 0, 0)), \
-            Vector((self._x, self._z, 0)), Vector((self._x / 2, radius_b, 0))
+        return Vector((0, _z - radius_b, 0)), Vector((0, 0, 0)), \
+            Vector((_x, _z, 0)), Vector((_x / 2, radius_b, 0))
 
-    def get_radius(self):
+    def get_radius(self, _x, _z):
         """
             return center, origin, size, radius
         """
         if self.shape == 'ROUND':
-            return self._get_round_radius()
+            return self._get_round_radius(_x, _z)
         elif self.shape == 'ELLIPSIS':
-            return self._get_ellipsis_radius()
+            return self._get_ellipsis_radius(_x, _z)
         elif self.shape == 'CIRCLE':
-            return self._get_circle_radius()
+            return self._get_circle_radius(_x, _z)
         elif self.shape == 'QUADRI':
-            return self._get_quad_radius()
+            return self._get_quad_radius(_x, _z)
         elif self.shape in ['TRIANGLE', 'PENTAGON']:
-            return self._get_tri_radius()
+            return self._get_tri_radius(_x, _z)
         else:
             return Vector((0, 0, 0)), Vector((0, 0, 0)), \
-                Vector((self._x, self._z, 0)), Vector((0, 0, 0))
+                Vector((_x, _z, 0)), Vector((0, 0, 0))
 
     def update(self, context, childs_only=False):
         # support for "copy to selected"
@@ -1481,8 +2118,12 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             bmed.buildmesh(context, o, self.verts, self.faces, self.matids, self.uvs)
 
         self.update_portal(context, o)
+        self.update_blind(context, o, True)
+        self.update_blind(context, o, False)
         self.update_childs(context, o)
-
+        self.update_shutter(context, o, True)
+        self.update_shutter(context, o, False)
+        
         # update hole
         if childs_only is False and self.find_hole(o) is not None:
             self.interactive_hole(context, o)
@@ -1526,7 +2167,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         """
 
         hole = self.hole
-        center, origin, size, radius = self.get_radius()
+        center, origin, size, radius = self.get_radius(self._x, self._z)
         x0 = 0
         
         if self.out_frame:
@@ -1553,41 +2194,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
 
         bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
         return hole_obj
-
-    def robust_hole(self, context, tM):
-        hole = self.hole
-        center, origin, size, radius = self.get_radius()
-
-        if self.out_frame is False:
-            x0 = 0
-        else:
-            x0 = min(self.frame_x - 0.001, self.out_frame_y + self.out_frame_offset)
-
-        if self.out_tablet_enable:
-            x0 -= min(self.frame_x - 0.001, self.out_tablet_z)
-        shape_z = [0, x0]
-
-        m = bpy.data.meshes.new("hole")
-        o = bpy.data.objects.new("hole", m)
-        o['archipack_robusthole'] = True
-        context.scene.objects.link(o)
-        verts = hole.vertices(self.curve_steps, Vector((0, self.altitude, 0)), center, origin, size, radius,
-            self.angle_y, 0, shape_z=shape_z, path_type=self.shape)
-
-        verts = [tM * Vector(v) for v in verts]
-
-        faces = hole.faces(self.curve_steps, path_type=self.shape)
-
-        matids = hole.mat(self.curve_steps, 2, 2, path_type=self.shape)
-
-        uvs = hole.uv(self.curve_steps, center, origin, size, radius,
-            self.angle_y, 0, 0, self.frame_x, path_type=self.shape)
-
-        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
-        # MaterialUtils.add_wall2_materials(o)
-        o.select = True
-        context.scene.objects.active = o
-        return o
 
 
 class ARCHIPACK_PT_window(Panel):
@@ -1695,12 +2301,22 @@ class ARCHIPACK_PT_window(Panel):
                     box.prop(prop, 'in_tablet_y')
                     box.prop(prop, 'in_tablet_z')
                 box = layout.box()
-                row = box.row(align=True)
+                box.prop(prop, 'blind_inside')
+                box.prop(prop, 'blind_outside')
+                """
                 row.prop(prop, 'blind_enable')
                 if prop.blind_enable:
                     box.prop(prop, 'blind_open')
                     box.prop(prop, 'blind_y')
                     box.prop(prop, 'blind_z')
+                """
+                box = layout.box()
+                row = box.row(align=True)
+                row.prop(prop, 'shutter_enable')
+                if prop.shutter_enable:
+                    box.prop(prop, 'shutter_left')
+                    box.prop(prop, 'shutter_right')
+                    
         if prop.window_shape != 'CIRCLE':
             row = layout.row()
             if prop.display_panels:
@@ -1721,7 +2337,9 @@ class ARCHIPACK_PT_window(Panel):
                     box = layout.box()
                     row = prop.rows[0]
                     row.draw(box, context, True)
-
+        
+        
+        
         row = layout.row(align=True)
         if prop.display_materials:
             row.prop(prop, "display_materials", icon="TRIA_DOWN", icon_only=True, text="Materials", emboss=False)
@@ -1734,7 +2352,7 @@ class ARCHIPACK_PT_window(Panel):
             box.prop(prop, 'hole_outside_mat')
 
         layout.prop(prop, 'portal', icon="LAMP_AREA")
-
+        
 
 class ARCHIPACK_PT_window_panel(Panel):
     bl_idname = "ARCHIPACK_PT_window_panel"
@@ -1746,6 +2364,22 @@ class ARCHIPACK_PT_window_panel(Panel):
     @classmethod
     def poll(cls, context):
         return archipack_window_panel.filter(context.active_object)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("archipack.select_parent")
+
+        
+class ARCHIPACK_PT_window_shutter(Panel):
+    bl_idname = "ARCHIPACK_PT_window_shutter"
+    bl_label = "Shutter"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'ArchiPack'
+
+    @classmethod
+    def poll(cls, context):
+        return archipack_window_shutter.filter(context.active_object)
 
     def draw(self, context):
         layout = self.layout
@@ -1826,19 +2460,20 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
         if archipack_window.filter(o):
             bpy.ops.archipack.disable_manipulate()
             for child in o.children:
+                d = child.data
                 if child.type == 'LAMP':
-                    d = child.data
                     context.scene.objects.unlink(child)
                     bpy.data.objects.remove(child)
                     bpy.data.lamps.remove(d)
                 elif 'archipack_hole' in child:
                     context.scene.objects.unlink(child)
                     bpy.data.objects.remove(child, do_unlink=True)
-                elif child.data is not None and 'archipack_window_panel' in child.data:
-                    for handle in child.children:
-                        if 'archipack_handle' in handle:
-                            context.scene.objects.unlink(handle)
-                            bpy.data.objects.remove(handle, do_unlink=True)
+                elif d is not None:
+                    if 'archipack_window_panel' in d:
+                        for handle in child.children:
+                            if 'archipack_handle' in handle:
+                                context.scene.objects.unlink(handle)
+                                bpy.data.objects.remove(handle, do_unlink=True)
                     context.scene.objects.unlink(child)
                     bpy.data.objects.remove(child, do_unlink=True)
             context.scene.objects.unlink(o)
@@ -1866,9 +2501,12 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
             if archipack_window.filter(o):
                 o.select = True
                 for child in o.children:
+                    d = child.data
                     if 'archipack_hole' in child or (
-                            child.data is not None and
-                            'archipack_window_panel' in child.data):
+                            d is not None and (
+                            'archipack_window_panel' in d or
+                            'archipack_window_shutter' in d
+                            )):
                         child.hide_select = False
                         child.select = True
         if len(context.selected_objects) > 0:
@@ -2265,6 +2903,136 @@ class ARCHIPACK_OT_window_panel(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+            
+class ARCHIPACK_OT_window_shutter(Operator):
+    bl_idname = "archipack.window_shutter"
+    bl_label = "Window shutter"
+    bl_description = "Window shutter"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    center = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    origin = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    size = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    radius = FloatVectorProperty(
+            subtype='XYZ'
+            )
+    angle_y = FloatProperty(
+            name='angle',
+            unit='ROTATION',
+            subtype='ANGLE',
+            min=-1.5, max=1.5,
+            default=0, precision=2,
+            description='angle'
+            )
+    frame_y = FloatProperty(
+            name='Depth',
+            min=0, max=100,
+            default=0.06, precision=2,
+            description='frame depth'
+            )
+    frame_x = FloatProperty(
+            name='Width',
+            min=0, max=100,
+            default=0.06, precision=2,
+            description='frame width'
+            )
+    curve_steps = IntProperty(
+            name="curve steps",
+            min=1,
+            max=128,
+            default=16
+            )
+    shape = EnumProperty(
+            name='Shape',
+            items=(
+                ('RECTANGLE', 'Rectangle', '', 0),
+                ('ROUND', 'Top Round', '', 1),
+                ('ELLIPSIS', 'Top Elliptic', '', 2),
+                ('QUADRI', 'Top oblique', '', 3),
+                ('CIRCLE', 'Full circle', '', 4)
+                ),
+            default='RECTANGLE'
+            )
+    pivot = FloatProperty(
+            name='pivot',
+            min=-1, max=1,
+            default=-1, precision=2,
+            description='pivot'
+            )
+    material = StringProperty(
+            name="material",
+            default=""
+            )
+    offset = FloatProperty(
+            name='offset',
+            default=0, precision=2,
+            description='x offset'
+            )
+    hinge_enable = BoolProperty(
+            name="Hinge",
+            default=False
+            )
+    hinge_count = IntProperty(
+            name="#Hinge",
+            min=0,
+            max=4,
+            default=2
+            )
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Use Properties panel (N) to define parms", icon='INFO')
+
+    def create(self, context):
+        m = bpy.data.meshes.new("Shutter")
+        o = bpy.data.objects.new("Shutter", m)
+        d = m.archipack_window_shutter.add()
+        d.center = self.center
+        d.origin = self.origin
+        d.size = self.size
+        d.radius = self.radius
+        d.frame_y = self.frame_y
+        d.frame_x = self.frame_x
+        d.curve_steps = self.curve_steps
+        d.shape = self.shape
+        d.pivot = self.pivot
+        d.offset = self.offset
+        d.angle_y = self.angle_y
+        d.hinge_enable = self.hinge_enable
+        d.hinge_count = self.hinge_count
+        context.scene.objects.link(o)
+        o.select = True
+        context.scene.objects.active = o
+        m = o.archipack_material.add()
+        m.category = "window"
+        m.material = self.material
+        o.lock_location[1] = True
+        o.lock_location[2] = True
+        o.lock_rotation[1] = True
+        o.lock_scale[0] = True
+        o.lock_scale[1] = True
+        o.lock_scale[2] = True
+        o.show_transparent = True
+        d.update(context)
+        return o
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            o = self.create(context)
+            o.select = True
+            context.scene.objects.active = o
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+            
+            
 # ------------------------------------------------------------------
 # Define operator class to manipulate object
 # ------------------------------------------------------------------
@@ -2315,6 +3083,12 @@ def register():
     Mesh.archipack_window_panel = CollectionProperty(type=archipack_window_panel)
     bpy.utils.register_class(ARCHIPACK_PT_window_panel)
     bpy.utils.register_class(ARCHIPACK_OT_window_panel)
+    
+    bpy.utils.register_class(archipack_window_shutter)
+    Mesh.archipack_window_shutter = CollectionProperty(type=archipack_window_shutter)
+    bpy.utils.register_class(ARCHIPACK_PT_window_shutter)
+    bpy.utils.register_class(ARCHIPACK_OT_window_shutter)
+    
     bpy.utils.register_class(archipack_window)
     Mesh.archipack_window = CollectionProperty(type=archipack_window)
     bpy.utils.register_class(ARCHIPACK_OT_window_preset_menu)
@@ -2332,6 +3106,12 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_window_panel)
     del Mesh.archipack_window_panel
     bpy.utils.unregister_class(ARCHIPACK_OT_window_panel)
+    
+    bpy.utils.unregister_class(archipack_window_shutter)
+    bpy.utils.unregister_class(ARCHIPACK_PT_window_shutter)
+    del Mesh.archipack_window_shutter
+    bpy.utils.unregister_class(ARCHIPACK_OT_window_shutter)
+    
     bpy.utils.unregister_class(archipack_window)
     del Mesh.archipack_window
     bpy.utils.unregister_class(ARCHIPACK_OT_window_preset_menu)

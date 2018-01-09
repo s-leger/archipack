@@ -31,11 +31,11 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': '',
-    'version': (1, 3, 5),
+    'version': (1, 3, 6),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
-    'wiki_url': 'https://github.com/s-leger/archipack/wiki',
+    'wiki_url': 'https://s-leger.github.io/archipack/index.html',
     'tracker_url': 'https://github.com/s-leger/archipack/issues',
     'link': 'https://github.com/s-leger/archipack',
     'support': 'COMMUNITY',
@@ -63,6 +63,7 @@ if "bpy" in locals():
     imp.reload(archipack_truss)
     # imp.reload(archipack_toolkit)
     imp.reload(archipack_floor)
+    imp.reload(archipack_blind)
     imp.reload(archipack_rendering)
     # imp.reload(archipack_envi)
     imp.reload(archipack_io)
@@ -89,6 +90,7 @@ else:
     from . import archipack_truss
     # from . import archipack_toolkit
     from . import archipack_floor
+    from . import archipack_blind
     from . import archipack_rendering
     # from . import archipack_envi
     from . import archipack_io
@@ -596,7 +598,13 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.floor_preset_menu",
                     text="",
                     icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
-
+        row = box.row(align=True)
+        row.operator("archipack.blind_preset_menu",
+                    text="Blind",
+                    icon_value=icons["blind"].icon_id
+                    ).preset_operator = "archipack.blind"
+        
+        box = layout.box()
         box.label(text="Custom objects")
         box.operator("archipack.wall", text="Custom wall")
 
@@ -650,8 +658,12 @@ def draw_menu(self, context):
                     text="Roof",
                     icon_value=icons["roof"].icon_id
                     ).preset_operator = "archipack.roof"
+    layout.operator("archipack.blind_preset_menu",
+                    text="Blind",
+                    icon_value=icons["blind"].icon_id
+                    ).preset_operator = "archipack.blind"
 
-
+                    
 class ARCHIPACK_create_menu(Menu):
     bl_label = 'Archipack'
     bl_idname = 'ARCHIPACK_create_menu'
@@ -717,6 +729,7 @@ def register():
     archipack_slab.register()
     archipack_fence.register()
     archipack_truss.register()
+    archipack_blind.register()
     # archipack_toolkit.register()
     archipack_floor.register()
     archipack_rendering.register()
@@ -758,6 +771,7 @@ def unregister():
     archipack_slab.unregister()
     archipack_fence.unregister()
     archipack_truss.unregister()
+    archipack_blind.unregister()
     # archipack_toolkit.unregister()
     archipack_floor.unregister()
     archipack_rendering.unregister()
