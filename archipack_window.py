@@ -1865,7 +1865,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                     frame_x=self.frame_x,
                     frame_y=self.frame_y,
                     angle_y=self.angle_y,
-                    hinge_enable=panel < 1,
+                    hinge_enable=panel == side,
                     hinge_count=hinge_count,
                     material=o.archipack_material[0].material
                 )
@@ -1892,7 +1892,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                     props.frame_x = self.frame_x
                     props.frame_y = self.frame_y
                     props.angle_y = self.angle_y
-                    props.hinge_enable = panel < 1
+                    props.hinge_enable = panel == side
                     props.hinge_count = hinge_count
                     props.update(context)
                     
