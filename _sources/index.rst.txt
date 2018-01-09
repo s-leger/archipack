@@ -1,6 +1,10 @@
-Welcome to Archipack's documentation!
-=====================================
+Welcome to Archipack documentation!
+===================================
 
+.. figure:: ./img/archipack.png
+   :scale: 100 %
+   :alt: Archipack
+   
 Archipack for Blender is a toolset for architectural visualisation
 
 .. note::
@@ -13,6 +17,7 @@ Archipack for Blender is a toolset for architectural visualisation
    :caption: Contents:
    
    setup
+   whats new
    user guide
    extending archipack
    about

@@ -42,7 +42,26 @@ Activate the add-on
    :alt: Activate
    
    Activate
+
+
+Tab Category
+------------
+
+By default, Archipack's panels are in the left panel of 3d view, under Archipack tab.	
+Change tab name found in "Tab Category" in add-on preferences to move them under other tab.
+
+Use sub-menu
+""""""""""""
+
+.. figure:: ./img/add_menu.png
+   :scale: 100 %
+   :alt: Add Archipack menu
    
+   Add Archipack menu
+   
+* When checked, add menu (shift+a) or view3d->add add "archipack" sub category under mesh. 
+* When disabled, archipack primitives are right on mesh menu.
+
 
 Presets
 -------

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>PyGEOS &mdash; Archipack 1.0 documentation</title>
+  <title>pygeos &mdash; Archipack 1.0 documentation</title>
   
 
   
@@ -104,7 +104,7 @@
 <li class="toctree-l2"><a class="reference internal" href="manipulable.html">Manipulable</a></li>
 <li class="toctree-l2"><a class="reference internal" href="preset system.html">Preset system</a></li>
 <li class="toctree-l2"><a class="reference internal" href="feedback panel.html">Feedback panel</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">PyGEOS</a><ul>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">pygeos</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#usage-sample">Usage Sample</a></li>
 </ul>
 </li>
@@ -158,7 +158,7 @@
         
           <li><a href="../extending archipack.html">Extending archipack</a> &raquo;</li>
         
-      <li>PyGEOS</li>
+      <li>pygeos</li>
     
     
       <li class="wy-breadcrumbs-aside">
@@ -178,8 +178,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="pygeos">
-<h1>PyGEOS<a class="headerlink" href="#pygeos" title="Permalink to this headline">¶</a></h1>
-<p>PyGEOS is a pure python replacement for shapely, based on GEOS library.</p>
+<h1>pygeos<a class="headerlink" href="#pygeos" title="Permalink to this headline">¶</a></h1>
+<p>pygeos is a pure python replacement for shapely, based on GEOS library.
+see <a class="reference external" href="https://shapely.readthedocs.io/en/latest/manual.html">Shapely</a></p>
 <div class="section" id="usage-sample">
 <h2>Usage Sample<a class="headerlink" href="#usage-sample" title="Permalink to this headline">¶</a></h2>
 <p>This sample use osm vectors (roof boundarys) and build walls and roofs according.
@@ -196,7 +197,8 @@ Consider osm vectors as being roof boundarys.</p>
 </div></blockquote>
 <div class="literal-block-wrapper docutils container" id="pygeos-buildings-from-osm-py">
 <div class="code-block-caption"><span class="caption-text">Buid walls and roofs from osm closed lines</span><a class="headerlink" href="#pygeos-buildings-from-osm-py" title="Permalink to this code">¶</a></div>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">archipack.archipack_polylines</span> <span class="kn">import</span> <span class="n">Io</span><span class="p">,</span> <span class="n">ShapelyOps</span><span class="p">,</span> <span class="n">CoordSys</span>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">bpy</span>
+<span class="kn">from</span> <span class="nn">archipack.archipack_polylines</span> <span class="kn">import</span> <span class="n">Io</span><span class="p">,</span> <span class="n">ShapelyOps</span><span class="p">,</span> <span class="n">CoordSys</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">ceil</span>
 
 <span class="c1"># create buildings from closed polygons like osm ones</span>
@@ -224,56 +226,56 @@ Consider osm vectors as being roof boundarys.</p>
 <span class="n">walls_z</span> <span class="o">=</span> <span class="p">[]</span>
 
 <span class="k">for</span> <span class="n">geom</span> <span class="ow">in</span> <span class="n">multipolygon</span><span class="o">.</span><span class="n">geoms</span><span class="p">:</span>
-        <span class="c1"># tM a matrix world, at center</span>
-        <span class="n">tM</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">poly</span><span class="p">,</span> <span class="n">w_pts</span> <span class="o">=</span> <span class="n">ShapelyOps</span><span class="o">.</span><span class="n">min_bounding_rect</span><span class="p">(</span><span class="n">geom</span><span class="p">)</span>
-        <span class="c1"># w always the highest value</span>
-        <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">archipack</span><span class="o">.</span><span class="n">roof</span><span class="p">(</span><span class="n">auto_manipulate</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filepath</span><span class="o">=</span><span class="n">preset</span><span class="p">)</span>
-        <span class="n">o</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
-        <span class="n">z</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">co</span><span class="o">.</span><span class="n">z</span> <span class="k">for</span> <span class="n">co</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">coords</span><span class="p">])</span>
-        <span class="n">zmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">co</span><span class="o">.</span><span class="n">z</span> <span class="k">for</span> <span class="n">co</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">coords</span><span class="p">])</span>
-        <span class="c1"># compute height from w / h</span>
-        <span class="n">height</span> <span class="o">=</span> <span class="n">storey_height</span> <span class="o">*</span> <span class="n">ceil</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span> <span class="o">/</span> <span class="mi">5</span><span class="p">)</span> <span class="o">+</span> <span class="n">zmax</span> <span class="o">-</span> <span class="n">z</span>
-        <span class="k">if</span> <span class="n">use_small_as_axis</span><span class="p">:</span>
-                <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span>
-                <span class="n">rM</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([</span>
-                        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-                        <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-                        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-                        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
-                <span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-                <span class="n">rM</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">()</span>
-        <span class="n">o</span><span class="o">.</span><span class="n">matrix_world</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">world</span> <span class="o">*</span> <span class="n">tM</span> <span class="o">*</span> <span class="n">rM</span> <span class="o">*</span> <span class="n">Matrix</span><span class="p">([</span>
-                <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span> <span class="p">(</span><span class="n">roof_overflow</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">w</span><span class="p">)],</span>
-                <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-                <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">z</span><span class="p">],</span>
-                <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-                <span class="p">])</span>
-        <span class="n">d</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">archipack_roof</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">d</span><span class="o">.</span><span class="n">auto_update</span> <span class="o">=</span> <span class="bp">False</span>
-        <span class="n">d</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">height</span>
-        <span class="n">d</span><span class="o">.</span><span class="n">width_left</span> <span class="o">=</span> <span class="n">roof_overflow</span> <span class="o">+</span> <span class="p">(</span><span class="n">h</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="n">d</span><span class="o">.</span><span class="n">width_right</span> <span class="o">=</span> <span class="n">roof_overflow</span> <span class="o">+</span> <span class="p">(</span><span class="n">h</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="n">d</span><span class="o">.</span><span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">w</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">roof_overflow</span>
-        <span class="n">d</span><span class="o">.</span><span class="n">auto_update</span> <span class="o">=</span> <span class="bp">True</span>
-        <span class="c1"># pygeos geometry.buffer</span>
-        <span class="nb">buffer</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">buffer</span><span class="p">(</span><span class="o">-</span><span class="n">roof_overflow</span><span class="p">,</span>
-                                                <span class="n">resolution</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
-                                                <span class="n">join_style</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-                                                <span class="n">cap_style</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-                                                <span class="n">mitre_limit</span><span class="o">=</span><span class="mi">10</span> <span class="o">*</span> <span class="n">roof_overflow</span><span class="p">,</span>
-                                                <span class="n">single_sided</span><span class="o">=</span><span class="bp">False</span>
-                                                <span class="p">)</span>
-        <span class="c1"># output geom as curve</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">Io</span><span class="o">.</span><span class="n">to_curve</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">geom</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span><span class="p">)</span>
-        <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">archipack</span><span class="o">.</span><span class="n">roof_cutter</span><span class="p">(</span><span class="n">parent</span><span class="o">=</span><span class="n">o</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">auto_manipulate</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-        <span class="n">cutter</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
-        <span class="n">cutter</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">archipack_roof_cutter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">operation</span> <span class="o">=</span> <span class="s1">&#39;INTERSECTION&#39;</span>
-        <span class="n">cutter</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">archipack_roof_cutter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">user_defined_path</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">name</span>
-        <span class="c1"># setup bottom z of wall (polygon.exterior)</span>
-        <span class="k">for</span> <span class="n">co</span> <span class="ow">in</span> <span class="nb">buffer</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
-                <span class="n">co</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">z</span>
-        <span class="n">walls_buffer</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">buffer</span><span class="p">)</span>
+    <span class="c1"># tM a matrix world, at center</span>
+    <span class="n">tM</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">poly</span><span class="p">,</span> <span class="n">w_pts</span> <span class="o">=</span> <span class="n">ShapelyOps</span><span class="o">.</span><span class="n">min_bounding_rect</span><span class="p">(</span><span class="n">geom</span><span class="p">)</span>
+    <span class="c1"># w always the highest value</span>
+    <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">archipack</span><span class="o">.</span><span class="n">roof</span><span class="p">(</span><span class="n">auto_manipulate</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filepath</span><span class="o">=</span><span class="n">preset</span><span class="p">)</span>
+    <span class="n">o</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">co</span><span class="o">.</span><span class="n">z</span> <span class="k">for</span> <span class="n">co</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">coords</span><span class="p">])</span>
+    <span class="n">zmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">co</span><span class="o">.</span><span class="n">z</span> <span class="k">for</span> <span class="n">co</span> <span class="ow">in</span> <span class="n">geom</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">coords</span><span class="p">])</span>
+    <span class="c1"># compute height from w / h</span>
+    <span class="n">height</span> <span class="o">=</span> <span class="n">storey_height</span> <span class="o">*</span> <span class="n">ceil</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span> <span class="o">/</span> <span class="mi">5</span><span class="p">)</span> <span class="o">+</span> <span class="n">zmax</span> <span class="o">-</span> <span class="n">z</span>
+    <span class="k">if</span> <span class="n">use_small_as_axis</span><span class="p">:</span>
+        <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span>
+        <span class="n">rM</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rM</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">()</span>
+    <span class="n">o</span><span class="o">.</span><span class="n">matrix_world</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">world</span> <span class="o">*</span> <span class="n">tM</span> <span class="o">*</span> <span class="n">rM</span> <span class="o">*</span> <span class="n">Matrix</span><span class="p">([</span>
+        <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span> <span class="p">(</span><span class="n">roof_overflow</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">w</span><span class="p">)],</span>
+        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">z</span><span class="p">],</span>
+        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="p">])</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">o</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">archipack_roof</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">auto_update</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">height</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">width_left</span> <span class="o">=</span> <span class="n">roof_overflow</span> <span class="o">+</span> <span class="p">(</span><span class="n">h</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">width_right</span> <span class="o">=</span> <span class="n">roof_overflow</span> <span class="o">+</span> <span class="p">(</span><span class="n">h</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">w</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">roof_overflow</span>
+    <span class="n">d</span><span class="o">.</span><span class="n">auto_update</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="c1"># pygeos geometry.buffer</span>
+    <span class="nb">buffer</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">buffer</span><span class="p">(</span><span class="o">-</span><span class="n">roof_overflow</span><span class="p">,</span>
+                        <span class="n">resolution</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+                        <span class="n">join_style</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                        <span class="n">cap_style</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                        <span class="n">mitre_limit</span><span class="o">=</span><span class="mi">10</span> <span class="o">*</span> <span class="n">roof_overflow</span><span class="p">,</span>
+                        <span class="n">single_sided</span><span class="o">=</span><span class="bp">False</span>
+                        <span class="p">)</span>
+    <span class="c1"># output geom as curve</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">Io</span><span class="o">.</span><span class="n">to_curve</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="n">coords</span><span class="p">,</span> <span class="n">geom</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span><span class="p">)</span>
+    <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">archipack</span><span class="o">.</span><span class="n">roof_cutter</span><span class="p">(</span><span class="n">parent</span><span class="o">=</span><span class="n">o</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">auto_manipulate</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">cutter</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">active_object</span>
+    <span class="n">cutter</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">archipack_roof_cutter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">operation</span> <span class="o">=</span> <span class="s1">&#39;INTERSECTION&#39;</span>
+    <span class="n">cutter</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">archipack_roof_cutter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">user_defined_path</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">name</span>
+    <span class="c1"># setup bottom z of wall (polygon.exterior)</span>
+    <span class="k">for</span> <span class="n">co</span> <span class="ow">in</span> <span class="nb">buffer</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
+        <span class="n">co</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="n">z</span>
+    <span class="n">walls_buffer</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">buffer</span><span class="p">)</span>
 
 <span class="c1"># merge polygons into a pygeos.multipolygon collection</span>
 <span class="c1"># using geom._factory</span>
@@ -287,9 +289,9 @@ Consider osm vectors as being roof boundarys.</p>
 
 <span class="c1"># Fit wall to roof</span>
 <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">data</span> <span class="ow">and</span> <span class="s2">&quot;archipack_wall2&quot;</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
-                <span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">o</span>
-                <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">archipack</span><span class="o">.</span><span class="n">wall2_fit_roof</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">data</span> <span class="ow">and</span> <span class="s2">&quot;archipack_wall2&quot;</span> <span class="ow">in</span> <span class="n">o</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+        <span class="n">scene</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">o</span>
+        <span class="n">bpy</span><span class="o">.</span><span class="n">ops</span><span class="o">.</span><span class="n">archipack</span><span class="o">.</span><span class="n">wall2_fit_roof</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>

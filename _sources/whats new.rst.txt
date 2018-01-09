@@ -1,0 +1,10 @@
+What's new ?
+============
+
+
+Release 1.3.6
+-------------
+
+* Window shutters see :ref:`window components`
+* Blind object see :ref:`blind`
+* Update documentation link

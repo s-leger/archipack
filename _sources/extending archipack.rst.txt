@@ -12,4 +12,3 @@ Extending archipack
    dev/feedback panel
    dev/pygeos
    dev/cutters
-

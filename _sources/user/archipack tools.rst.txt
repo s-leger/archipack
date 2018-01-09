@@ -6,6 +6,10 @@ AutoBoolean
 
 Update holes for walls when you add or copy window / door by hand.
 
+.. tip::
+	Archipack holes are interactive, and update in real-time when you move window / doors / user defined holes or edit any parameter.
+
+	
 .. figure:: ../img/ui_autoboolean.png
    :scale: 100 %
    :alt: AutoBoolean

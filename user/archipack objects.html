@@ -96,6 +96,7 @@
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../whats new.html">What’s new ?</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../user guide.html">User guide</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="2d to 3d.html">2d to 3d</a></li>
 <li class="toctree-l2"><a class="reference internal" href="archipack tools.html">Archipack Tools</a></li>
@@ -193,12 +194,18 @@
 <li class="toctree-l4"><a class="reference internal" href="#id25">Parts</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#id26">Blind</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id28">Presets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id29">Main properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#slat">Slat</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#truss">Truss</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id26">Main properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id30">Main properties</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#reference-point">Reference point</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#id27">Main properties</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id31">Main properties</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#custom-objects">Custom objects</a><ul>
@@ -281,12 +288,19 @@
             
   <div class="section" id="archipack-objects">
 <h1>Archipack objects<a class="headerlink" href="#archipack-objects" title="Permalink to this headline">¶</a></h1>
+<p>Archipack objects are parametric, this means you may alter parameters at any time and objects update in real-time.
+Find objects parameters in the right panel of 3d view (shortcut n by default).</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p>Archipack does support linked copy (alt+d) so when altering one, linked objects update according.</p>
+<p class="last">Parameters also support “Copy to selected”. Select target objects, then source one, right click on parameter to share and use “Copy to selected”.</p>
+</div>
 <div class="section" id="common-properties">
 <h2>Common properties<a class="headerlink" href="#common-properties" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="archipack-material">
 <h3>Archipack material<a class="headerlink" href="#archipack-material" title="Permalink to this headline">¶</a></h3>
 <p>see <a class="reference internal" href="materials.html#archipack-materials"><span class="std std-ref">Materials</span></a></p>
-<div class="figure" id="id29">
+<div class="figure" id="id33">
 <a class="reference internal image-reference" href="../_images/ui_archipack_material.png"><img alt="Archipack material selector" src="../_images/ui_archipack_material.png" style="width: 215.0px; height: 60.0px;" /></a>
 <p class="caption"><span class="caption-text">Select / create / delete material sets for objects</span></p>
 </div>
@@ -294,7 +308,7 @@
 <div class="section" id="manipulate">
 <h3>Manipulate<a class="headerlink" href="#manipulate" title="Permalink to this headline">¶</a></h3>
 <p>see <a class="reference internal" href="manipulate mode.html#id1"><span class="std std-ref">Manipulate mode</span></a></p>
-<div class="figure" id="id30">
+<div class="figure" id="id34">
 <a class="reference internal image-reference" href="../_images/ui_manipulate.png"><img alt="Manipulate button" src="../_images/ui_manipulate.png" style="width: 215.0px; height: 30.0px;" /></a>
 <p class="caption"><span class="caption-text">Manipulate: display manipulators on screen</span></p>
 </div>
@@ -303,9 +317,13 @@
 <h3>Presets<a class="headerlink" href="#presets" title="Permalink to this headline">¶</a></h3>
 <p>Objects with preset feature provide buttons to allow saving / removing and reloading user defined presets.
 The preset system does render a thumbnail on save - thumbnails are 150 x 100 pixels.</p>
-<div class="figure" id="id31">
+<div class="figure" id="id35">
 <a class="reference internal image-reference" href="../_images/ui_preset.png"><img alt="Preset selector" src="../_images/ui_preset.png" style="width: 215.0px; height: 34.0px;" /></a>
 <p class="caption"><span class="caption-text">Select / create / delete presets for objects</span></p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Archipack provide a convenient way to share presets across computers. In file menu -&gt; import / export find “Archipack preset (.apk)”. Exporting pack all presets into a .zip like file, Import simply unzip those presets into presets folder, keeping existing ones.</p>
 </div>
 </div>
 </div>
@@ -320,7 +338,7 @@ The preset system does render a thumbnail on save - thumbnails are 150 x 100 pix
 <li>Unlink: make this window unique, only available on linked windows</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id32">
+<div class="figure" id="id36">
 <a class="reference internal image-reference" href="../_images/ui_win_door_utils.png"><img alt="Utility buttons" src="../_images/ui_win_door_utils.png" style="width: 215.0px; height: 30.0px;" /></a>
 <p class="caption"><span class="caption-text">Utility buttons</span></p>
 </div>
@@ -338,15 +356,15 @@ The preset system does render a thumbnail on save - thumbnails are 150 x 100 pix
 <li>Shape: window shape in [Rectangle, Top elliptic, Top round, Top oblique, Full circle]</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id33">
+<div class="figure" id="id37">
 <a class="reference internal image-reference" href="../_images/ui_window_main.png"><img alt="Main window properties" src="../_images/ui_window_main.png" style="width: 215.0px; height: 218.0px;" /></a>
 <p class="caption"><span class="caption-text">Main window properties</span></p>
 </div>
 </div>
 <div class="section" id="components">
-<h3>Components<a class="headerlink" href="#components" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id34">
-<a class="reference internal image-reference" href="../_images/ui_window_components.png"><img alt="Window components" src="../_images/ui_window_components.png" style="width: 215.0px; height: 746.0px;" /></a>
+<span id="window-components"></span><h3>Components<a class="headerlink" href="#components" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id38">
+<a class="reference internal image-reference" href="../_images/ui_window_components.png"><img alt="Window components" src="../_images/ui_window_components.png" style="width: 215.0px; height: 781.0px;" /></a>
 <p class="caption"><span class="caption-text">Window components</span></p>
 </div>
 <div class="section" id="frame">
@@ -377,10 +395,34 @@ The preset system does render a thumbnail on save - thumbnails are 150 x 100 pix
 </ul>
 </div></blockquote>
 </div>
+<div class="section" id="blind">
+<h4>Blind<a class="headerlink" href="#blind" title="Permalink to this headline">¶</a></h4>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 1.3.6.</span></p>
+</div>
+<p>see <a class="reference internal" href="#id26"><span class="std std-ref">Blind</span></a></p>
+<blockquote>
+<div><ul class="simple">
+<li>Blind inside: Add parametric blind inside</li>
+<li>Blind outside: Add parametric blind outside</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="shutter">
+<h4>Shutter<a class="headerlink" href="#shutter" title="Permalink to this headline">¶</a></h4>
+<div class="versionadded">
+<ul>
+<span class="versionmodified">New in version 1.3.6: </span><li><p class="first">#left: shutters on left side</p>
+</li>
+<li><p class="first">#right: shutters on left side</p>
+</li>
+</ul>
+</div>
+</div>
 </div>
 <div class="section" id="rows">
 <h3>Rows<a class="headerlink" href="#rows" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id35">
+<div class="figure" id="id39">
 <a class="reference internal image-reference" href="../_images/ui_window_rows.png"><img alt="Window rows" src="../_images/ui_window_rows.png" style="width: 215.0px; height: 297.0px;" /></a>
 <p class="caption"><span class="caption-text">Rows and columns of panels</span></p>
 </div>
@@ -398,14 +440,14 @@ The preset system does render a thumbnail on save - thumbnails are 150 x 100 pix
 </div>
 <div class="section" id="materials">
 <h3>Materials<a class="headerlink" href="#materials" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id36">
+<div class="figure" id="id40">
 <a class="reference internal image-reference" href="../_images/ui_window_materials.png"><img alt="Window holes materials" src="../_images/ui_window_materials.png" style="width: 215.0px; height: 114.0px;" /></a>
 <p class="caption"><span class="caption-text">Set index of materials of the hole</span></p>
 </div>
 </div>
 <div class="section" id="portal">
 <h3>Portal<a class="headerlink" href="#portal" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id37">
+<div class="figure" id="id41">
 <a class="reference internal image-reference" href="../_images/ui_window_portal.png"><img alt="Window portal light" src="../_images/ui_window_portal.png" style="width: 215.0px; height: 29.0px;" /></a>
 <p class="caption"><span class="caption-text">Generate a portal light for this window</span></p>
 </div>
@@ -431,7 +473,7 @@ Do the same with the hole object, and each panels.</p>
 <li>Unlink: make this door unique, only available on linked doors</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id38">
+<div class="figure" id="id42">
 <a class="reference internal image-reference" href="../_images/ui_win_door_utils.png"><img alt="Utility buttons" src="../_images/ui_win_door_utils.png" style="width: 215.0px; height: 30.0px;" /></a>
 <p class="caption"><span class="caption-text">Utility buttons</span></p>
 </div>
@@ -446,21 +488,21 @@ Do the same with the hole object, and each panels.</p>
 <li>Offset: offset of frame from inside part</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id39">
+<div class="figure" id="id43">
 <a class="reference internal image-reference" href="../_images/ui_door_main.png"><img alt="Door size" src="../_images/ui_door_main.png" style="width: 215.0px; height: 150.0px;" /></a>
 <p class="caption"><span class="caption-text">Door size</span></p>
 </div>
 </div>
 <div class="section" id="id2">
 <h3>Door<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id40">
+<div class="figure" id="id44">
 <a class="reference internal image-reference" href="../_images/ui_door_door.png"><img alt="Door" src="../_images/ui_door_door.png" style="width: 215.0px; height: 152.0px;" /></a>
 <p class="caption"><span class="caption-text">Door</span></p>
 </div>
 </div>
 <div class="section" id="id3">
 <h3>Frame<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id41">
+<div class="figure" id="id45">
 <a class="reference internal image-reference" href="../_images/ui_door_frame.png"><img alt="Door frame" src="../_images/ui_door_frame.png" style="width: 215.0px; height: 64.0px;" /></a>
 <p class="caption"><span class="caption-text">Door frame</span></p>
 </div>
@@ -479,7 +521,7 @@ Do the same with the hole object, and each panels.</p>
 <li>Bevel: bevel amount of subparts</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id42">
+<div class="figure" id="id46">
 <a class="reference internal image-reference" href="../_images/ui_door_panels.png"><img alt="Door panels style" src="../_images/ui_door_panels.png" style="width: 221.0px; height: 251.0px;" /></a>
 <p class="caption"><span class="caption-text">Door panels style</span></p>
 </div>
@@ -494,7 +536,7 @@ Do the same with the hole object, and each panels.</p>
 <h2>Stair<a class="headerlink" href="#stair" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id4">
 <h3>Presets<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id43">
+<div class="figure" id="id47">
 <a class="reference internal image-reference" href="../_images/ui_stair_presets.png"><img alt="Stair presets" src="../_images/ui_stair_presets.png" style="width: 215.0px; height: 95.0px;" /></a>
 <p class="caption"><span class="caption-text">Stair presets</span></p>
 </div>
@@ -502,14 +544,14 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="id5">
 <h3>Main properties<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id44">
+<div class="figure" id="id48">
 <a class="reference internal image-reference" href="../_images/ui_stair_main.png"><img alt="Stair properties" src="../_images/ui_stair_main.png" style="width: 215.0px; height: 121.0px;" /></a>
 <p class="caption"><span class="caption-text">Stair properties</span></p>
 </div>
 </div>
 <div class="section" id="parts">
 <h3>Parts<a class="headerlink" href="#parts" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id45">
+<div class="figure" id="id49">
 <a class="reference internal image-reference" href="../_images/ui_stair_parts.png"><img alt="Stair parts" src="../_images/ui_stair_parts.png" style="width: 215.0px; height: 490.0px;" /></a>
 <p class="caption"><span class="caption-text">Stair parts</span></p>
 </div>
@@ -523,28 +565,28 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="steps">
 <h3>Steps<a class="headerlink" href="#steps" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id46">
+<div class="figure" id="id50">
 <a class="reference internal image-reference" href="../_images/ui_stair_steps.png"><img alt="Steps" src="../_images/ui_stair_steps.png" style="width: 215.0px; height: 179.0px;" /></a>
 <p class="caption"><span class="caption-text">Steps</span></p>
 </div>
 </div>
 <div class="section" id="handrail">
 <h3>Handrail<a class="headerlink" href="#handrail" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id47">
+<div class="figure" id="id51">
 <a class="reference internal image-reference" href="../_images/ui_stair_handrail.png"><img alt="Handrail" src="../_images/ui_stair_handrail.png" style="width: 215.0px; height: 206.0px;" /></a>
 <p class="caption"><span class="caption-text">Handrail</span></p>
 </div>
 </div>
 <div class="section" id="string">
 <h3>String<a class="headerlink" href="#string" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id48">
+<div class="figure" id="id52">
 <a class="reference internal image-reference" href="../_images/ui_stair_string.png"><img alt="String" src="../_images/ui_stair_string.png" style="width: 215.0px; height: 148.0px;" /></a>
 <p class="caption"><span class="caption-text">String</span></p>
 </div>
 </div>
 <div class="section" id="post">
 <h3>Post<a class="headerlink" href="#post" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id49">
+<div class="figure" id="id53">
 <a class="reference internal image-reference" href="../_images/ui_stair_post.png"><img alt="Post" src="../_images/ui_stair_post.png" style="width: 215.0px; height: 264.0px;" /></a>
 <p class="caption"><span class="caption-text">Post</span></p>
 </div>
@@ -562,7 +604,7 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="subs">
 <h3>Subs<a class="headerlink" href="#subs" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id50">
+<div class="figure" id="id54">
 <a class="reference internal image-reference" href="../_images/ui_stair_subs.png"><img alt="Subs" src="../_images/ui_stair_subs.png" style="width: 215.0px; height: 260.0px;" /></a>
 <p class="caption"><span class="caption-text">Subs</span></p>
 </div>
@@ -580,21 +622,21 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="id6">
 <h3>Panels<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id51">
+<div class="figure" id="id55">
 <a class="reference internal image-reference" href="../_images/ui_stair_panels.png"><img alt="Panels" src="../_images/ui_stair_panels.png" style="width: 215.0px; height: 176.0px;" /></a>
 <p class="caption"><span class="caption-text">Panels</span></p>
 </div>
 </div>
 <div class="section" id="rails">
 <h3>Rails<a class="headerlink" href="#rails" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id52">
+<div class="figure" id="id56">
 <a class="reference internal image-reference" href="../_images/ui_stair_rails.png"><img alt="Rails" src="../_images/ui_stair_rails.png" style="width: 215.0px; height: 240.0px;" /></a>
 <p class="caption"><span class="caption-text">Rails</span></p>
 </div>
 </div>
 <div class="section" id="id7">
 <h3>Materials<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id53">
+<div class="figure" id="id57">
 <a class="reference internal image-reference" href="../_images/ui_stair_materials.png"><img alt="Materials" src="../_images/ui_stair_materials.png" style="width: 215.0px; height: 350.0px;" /></a>
 <p class="caption"><span class="caption-text">Materials</span></p>
 </div>
@@ -613,14 +655,14 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="id8">
 <h3>Main properties<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id54">
+<div class="figure" id="id58">
 <a class="reference internal image-reference" href="../_images/ui_wall_main.png"><img alt="Wall" src="../_images/ui_wall_main.png" style="width: 215.0px; height: 254.0px;" /></a>
 <p class="caption"><span class="caption-text">Wall</span></p>
 </div>
 </div>
 <div class="section" id="t-parent">
 <h3>T Parent<a class="headerlink" href="#t-parent" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id55">
+<div class="figure" id="id59">
 <a class="reference internal image-reference" href="../_images/ui_wall_tparent.png"><img alt="Wall T link parent" src="../_images/ui_wall_tparent.png" style="width: 215.0px; height: 27.0px;" /></a>
 <p class="caption"><span class="caption-text">Wall T Link parent</span></p>
 </div>
@@ -637,7 +679,7 @@ Do the same with the hole object, and each panels.</p>
 <li>Fit roof: fit segment heights to surrounding roof</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id56">
+<div class="figure" id="id60">
 <a class="reference internal image-reference" href="../_images/ui_wall_utils.png"><img alt="Wall utils" src="../_images/ui_wall_utils.png" style="width: 215.0px; height: 52.0px;" /></a>
 <p class="caption"><span class="caption-text">Wall utils</span></p>
 </div>
@@ -653,7 +695,7 @@ Do the same with the hole object, and each panels.</p>
 <li>pos: normalized location of split along segment in range [0-1]</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id57">
+<div class="figure" id="id61">
 <a class="reference internal image-reference" href="../_images/ui_wall_parts.png"><img alt="Wall parts" src="../_images/ui_wall_parts.png" style="width: 215.0px; height: 212.0px;" /></a>
 <p class="caption"><span class="caption-text">Wall parts</span></p>
 </div>
@@ -682,7 +724,7 @@ Do the same with the hole object, and each panels.</p>
 <li>Auto-synch: try to synch surrounding wall when you manipulate the slab</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id58">
+<div class="figure" id="id62">
 <a class="reference internal image-reference" href="../_images/ui_slab_main.png"><img alt="Slab" src="../_images/ui_slab_main.png" style="width: 215.0px; height: 159.0px;" /></a>
 <p class="caption"><span class="caption-text">Slab</span></p>
 </div>
@@ -698,7 +740,7 @@ Do the same with the hole object, and each panels.</p>
 <li>Balcony: Create a balcony from the segment, with a fence. Fence is kept in synch with slab on edit.</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id59">
+<div class="figure" id="id63">
 <a class="reference internal image-reference" href="../_images/ui_slab_parts.png"><img alt="Slab parts" src="../_images/ui_slab_parts.png" style="width: 215.0px; height: 231.0px;" /></a>
 <p class="caption"><span class="caption-text">Slab parts</span></p>
 </div>
@@ -706,7 +748,7 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="slab-cutter">
 <h2>Slab cutter<a class="headerlink" href="#slab-cutter" title="Permalink to this headline">¶</a></h2>
-<div class="figure" id="id60">
+<div class="figure" id="id64">
 <a class="reference internal image-reference" href="../_images/ui_slab_cutter.png"><img alt="Slab cutter" src="../_images/ui_slab_cutter.png" style="width: 215.0px; height: 218.0px;" /></a>
 <p class="caption"><span class="caption-text">Slab cutter</span></p>
 </div>
@@ -725,28 +767,28 @@ Do the same with the hole object, and each panels.</p>
 <h2>Fence<a class="headerlink" href="#fence" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id10">
 <h3>Main properties<a class="headerlink" href="#id10" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id61">
+<div class="figure" id="id65">
 <a class="reference internal image-reference" href="../_images/ui_fence_main.png"><img alt="Fence" src="../_images/ui_fence_main.png" style="width: 215.0px; height: 183.0px;" /></a>
 <p class="caption"><span class="caption-text">Fence</span></p>
 </div>
 </div>
 <div class="section" id="id11">
 <h3>Parts<a class="headerlink" href="#id11" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id62">
+<div class="figure" id="id66">
 <a class="reference internal image-reference" href="../_images/ui_fence_parts.png"><img alt="Fence parts" src="../_images/ui_fence_parts.png" style="width: 215.0px; height: 154.0px;" /></a>
 <p class="caption"><span class="caption-text">Fence parts</span></p>
 </div>
 </div>
 <div class="section" id="id12">
 <h3>Handrail<a class="headerlink" href="#id12" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id63">
+<div class="figure" id="id67">
 <a class="reference internal image-reference" href="../_images/ui_fence_handrail.png"><img alt="Handrail" src="../_images/ui_fence_handrail.png" style="width: 215.0px; height: 231.0px;" /></a>
 <p class="caption"><span class="caption-text">Handrail</span></p>
 </div>
 </div>
 <div class="section" id="id13">
 <h3>Post<a class="headerlink" href="#id13" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id64">
+<div class="figure" id="id68">
 <a class="reference internal image-reference" href="../_images/ui_fence_post.png"><img alt="Post" src="../_images/ui_fence_post.png" style="width: 215.0px; height: 202.0px;" /></a>
 <p class="caption"><span class="caption-text">Post</span></p>
 </div>
@@ -764,7 +806,7 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="id14">
 <h3>Subs<a class="headerlink" href="#id14" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id65">
+<div class="figure" id="id69">
 <a class="reference internal image-reference" href="../_images/ui_fence_subs.png"><img alt="Subs" src="../_images/ui_fence_subs.png" style="width: 215.0px; height: 235.0px;" /></a>
 <p class="caption"><span class="caption-text">Subs</span></p>
 </div>
@@ -782,21 +824,21 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="id15">
 <h3>Panels<a class="headerlink" href="#id15" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id66">
+<div class="figure" id="id70">
 <a class="reference internal image-reference" href="../_images/ui_fence_panels.png"><img alt="Panels" src="../_images/ui_fence_panels.png" style="width: 215.0px; height: 174.0px;" /></a>
 <p class="caption"><span class="caption-text">Panels</span></p>
 </div>
 </div>
 <div class="section" id="id16">
 <h3>Rails<a class="headerlink" href="#id16" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id67">
+<div class="figure" id="id71">
 <a class="reference internal image-reference" href="../_images/ui_fence_rails.png"><img alt="Rails" src="../_images/ui_fence_rails.png" style="width: 215.0px; height: 295.0px;" /></a>
 <p class="caption"><span class="caption-text">Rails</span></p>
 </div>
 </div>
 <div class="section" id="id17">
 <h3>Materials<a class="headerlink" href="#id17" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id68">
+<div class="figure" id="id72">
 <a class="reference internal image-reference" href="../_images/ui_fence_materials.png"><img alt="Materials" src="../_images/ui_fence_materials.png" style="width: 215.0px; height: 148.0px;" /></a>
 <p class="caption"><span class="caption-text">Materials</span></p>
 </div>
@@ -813,14 +855,14 @@ Do the same with the hole object, and each panels.</p>
 <li>From curve: use a curve to define boundary shape</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id69">
+<div class="figure" id="id73">
 <a class="reference internal image-reference" href="../_images/ui_floor_main.png"><img alt="Floor" src="../_images/ui_floor_main.png" style="width: 215.0px; height: 200.0px;" /></a>
 <p class="caption"><span class="caption-text">Floor</span></p>
 </div>
 </div>
 <div class="section" id="id19">
 <h3>Parts<a class="headerlink" href="#id19" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id70">
+<div class="figure" id="id74">
 <a class="reference internal image-reference" href="../_images/ui_floor_parts.png"><img alt="Floor parts" src="../_images/ui_floor_parts.png" style="width: 215.0px; height: 202.0px;" /></a>
 <p class="caption"><span class="caption-text">Floor parts</span></p>
 </div>
@@ -852,7 +894,7 @@ Do the same with the hole object, and each panels.</p>
 <li>Random Material: Randomize material ids of tiles</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id71">
+<div class="figure" id="id75">
 <a class="reference internal image-reference" href="../_images/ui_floor_components.png"><img alt="Floor components" src="../_images/ui_floor_components.png" style="width: 215.0px; height: 490.0px;" /></a>
 <p class="caption"><span class="caption-text">Floor components</span></p>
 </div>
@@ -860,7 +902,7 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="floor-cutter">
 <h2>Floor cutter<a class="headerlink" href="#floor-cutter" title="Permalink to this headline">¶</a></h2>
-<div class="figure" id="id72">
+<div class="figure" id="id76">
 <a class="reference internal image-reference" href="../_images/ui_floor_cutter.png"><img alt="Floor cutter" src="../_images/ui_floor_cutter.png" style="width: 215.0px; height: 224.0px;" /></a>
 <p class="caption"><span class="caption-text">Floor cutter</span></p>
 </div>
@@ -888,7 +930,7 @@ Do the same with the hole object, and each panels.</p>
 <li>Roof Cutter: create a cutter to make hole / cut borders of the roof</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id73">
+<div class="figure" id="id77">
 <a class="reference internal image-reference" href="../_images/ui_roof_main.png"><img alt="Roof utility" src="../_images/ui_roof_main.png" style="width: 215.0px; height: 146.0px;" /></a>
 <p class="caption"><span class="caption-text">Roof utility</span></p>
 </div>
@@ -903,14 +945,14 @@ Do the same with the hole object, and each panels.</p>
 <li>Width: width of the first part</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id74">
+<div class="figure" id="id78">
 <a class="reference internal image-reference" href="../_images/ui_roof_size.png"><img alt="Roof size" src="../_images/ui_roof_size.png" style="width: 215.0px; height: 205.0px;" /></a>
 <p class="caption"><span class="caption-text">Roof size (basic)</span></p>
 </div>
 </div>
 <div class="section" id="id23">
 <h3>Parts<a class="headerlink" href="#id23" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id75">
+<div class="figure" id="id79">
 <a class="reference internal image-reference" href="../_images/ui_roof_parts.png"><img alt="Roof parts" src="../_images/ui_roof_parts.png" style="width: 215.0px; height: 531.0px;" /></a>
 <p class="caption"><span class="caption-text">Roof parts</span></p>
 </div>
@@ -937,42 +979,42 @@ Do the same with the hole object, and each panels.</p>
 </li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id76">
+<div class="figure" id="id80">
 <a class="reference internal image-reference" href="../_images/ui_roof_covering.png"><img alt="Covering" src="../_images/ui_roof_covering.png" style="width: 215.0px; height: 638.0px;" /></a>
 <p class="caption"><span class="caption-text">Covering</span></p>
 </div>
 </div>
 <div class="section" id="hip">
 <h3>Hip<a class="headerlink" href="#hip" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id77">
+<div class="figure" id="id81">
 <a class="reference internal image-reference" href="../_images/ui_roof_hip.png"><img alt="Hip" src="../_images/ui_roof_hip.png" style="width: 215.0px; height: 273.0px;" /></a>
 <p class="caption"><span class="caption-text">Hip</span></p>
 </div>
 </div>
 <div class="section" id="beam">
 <h3>Beam<a class="headerlink" href="#beam" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id78">
+<div class="figure" id="id82">
 <a class="reference internal image-reference" href="../_images/ui_roof_beam.png"><img alt="Beam" src="../_images/ui_roof_beam.png" style="width: 215.0px; height: 481.0px;" /></a>
 <p class="caption"><span class="caption-text">Beam</span></p>
 </div>
 </div>
 <div class="section" id="gutter">
 <h3>Gutter<a class="headerlink" href="#gutter" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id79">
+<div class="figure" id="id83">
 <a class="reference internal image-reference" href="../_images/ui_roof_gutter.png"><img alt="Gutter" src="../_images/ui_roof_gutter.png" style="width: 215.0px; height: 176.0px;" /></a>
 <p class="caption"><span class="caption-text">Gutter</span></p>
 </div>
 </div>
 <div class="section" id="fascia">
 <h3>Fascia<a class="headerlink" href="#fascia" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id80">
+<div class="figure" id="id84">
 <a class="reference internal image-reference" href="../_images/ui_roof_fascia.png"><img alt="Fascia" src="../_images/ui_roof_fascia.png" style="width: 215.0px; height: 148.0px;" /></a>
 <p class="caption"><span class="caption-text">Fascia</span></p>
 </div>
 </div>
 <div class="section" id="bargeboard">
 <h3>Bargeboard<a class="headerlink" href="#bargeboard" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id81">
+<div class="figure" id="id85">
 <a class="reference internal image-reference" href="../_images/ui_roof_bargeboard.png"><img alt="Bargeboard" src="../_images/ui_roof_bargeboard.png" style="width: 215.0px; height: 148.0px;" /></a>
 <p class="caption"><span class="caption-text">Bargeboard</span></p>
 </div>
@@ -988,7 +1030,7 @@ Do the same with the hole object, and each panels.</p>
 <li>From curve: use a curve as input to define overall shape of the cutter</li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id82">
+<div class="figure" id="id86">
 <a class="reference internal image-reference" href="../_images/ui_roof_cutter.png"><img alt="Roof cutter" src="../_images/ui_roof_cutter.png" style="width: 215.0px; height: 308.0px;" /></a>
 <p class="caption"><span class="caption-text">Roof cutter</span></p>
 </div>
@@ -1013,10 +1055,53 @@ Do the same with the hole object, and each panels.</p>
 </div></blockquote>
 </div>
 </div>
+<div class="section" id="id26">
+<span id="id27"></span><h2>Blind<a class="headerlink" href="#id26" title="Permalink to this headline">¶</a></h2>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 1.3.6.</span></p>
+</div>
+<p>Blinds are designed to be created from window object see <a class="reference internal" href="#window-components"><span class="std std-ref">Components</span></a>,
+taking care of size, basic location and parenting blind to window.
+Once created you are able to change blind parameters according your needs.</p>
+<div class="section" id="id28">
+<h3>Presets<a class="headerlink" href="#id28" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id87">
+<a class="reference internal image-reference" href="../_images/ui_blind_presets.png"><img alt="Blind presets" src="../_images/ui_blind_presets.png" style="width: 215.0px; height: 117.0px;" /></a>
+<p class="caption"><span class="caption-text">Blind presets</span></p>
+</div>
+<dl class="docutils">
+<dt>Beside saved presets, blinds implements basic presets including</dt>
+<dd><ul class="first last simple">
+<li>Venitian</li>
+<li>Slat</li>
+<li>Roller curtain</li>
+<li>Blades</li>
+<li>Plated</li>
+<li>Japanese</li>
+<li>Vertical slotted (Maui)</li>
+</ul>
+</dd>
+</dl>
+</div>
+<div class="section" id="id29">
+<h3>Main properties<a class="headerlink" href="#id29" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id88">
+<a class="reference internal image-reference" href="../_images/ui_blind_main.png"><img alt="Blind properties" src="../_images/ui_blind_main.png" style="width: 215.0px; height: 147.0px;" /></a>
+<p class="caption"><span class="caption-text">Blind properties</span></p>
+</div>
+</div>
+<div class="section" id="slat">
+<h3>Slat<a class="headerlink" href="#slat" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id89">
+<a class="reference internal image-reference" href="../_images/ui_blind_slat.png"><img alt="Slat properties" src="../_images/ui_blind_slat.png" style="width: 215.0px; height: 90.0px;" /></a>
+<p class="caption"><span class="caption-text">Slat properties (may vary occording style)</span></p>
+</div>
+</div>
+</div>
 <div class="section" id="truss">
 <h2>Truss<a class="headerlink" href="#truss" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="id26">
-<h3>Main properties<a class="headerlink" href="#id26" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id30">
+<h3>Main properties<a class="headerlink" href="#id30" title="Permalink to this headline">¶</a></h3>
 <blockquote>
 <div><ul class="simple">
 <li><dl class="first docutils">
@@ -1035,7 +1120,7 @@ Do the same with the hole object, and each panels.</p>
 </li>
 </ul>
 </div></blockquote>
-<div class="figure" id="id83">
+<div class="figure" id="id90">
 <a class="reference internal image-reference" href="../_images/ui_truss.png"><img alt="Truss" src="../_images/ui_truss.png" style="width: 215.0px; height: 202.0px;" /></a>
 <p class="caption"><span class="caption-text">Truss</span></p>
 </div>
@@ -1043,20 +1128,20 @@ Do the same with the hole object, and each panels.</p>
 </div>
 <div class="section" id="reference-point">
 <h2>Reference point<a class="headerlink" href="#reference-point" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="id27">
-<h3>Main properties<a class="headerlink" href="#id27" title="Permalink to this headline">¶</a></h3>
-<div class="figure" id="id84">
+<div class="section" id="id31">
+<h3>Main properties<a class="headerlink" href="#id31" title="Permalink to this headline">¶</a></h3>
+<div class="figure" id="id91">
 <a class="reference internal image-reference" href="../_images/ui_ref_2d.png"><img alt="Reference point (3d space)" src="../_images/ui_ref_2d.png" style="width: 215.0px; height: 85.0px;" /></a>
 <p class="caption"><span class="caption-text">Reference point (3d space)</span></p>
 </div>
-<div class="figure" id="id85">
+<div class="figure" id="id92">
 <a class="reference internal image-reference" href="../_images/ui_ref_3d.png"><img alt="Reference point (2d space)" src="../_images/ui_ref_3d.png" style="width: 215.0px; height: 108.0px;" /></a>
 <p class="caption"><span class="caption-text">Reference point (2d space)</span></p>
 </div>
 </div>
 </div>
 <div class="section" id="custom-objects">
-<span id="id28"></span><h2>Custom objects<a class="headerlink" href="#custom-objects" title="Permalink to this headline">¶</a></h2>
+<span id="id32"></span><h2>Custom objects<a class="headerlink" href="#custom-objects" title="Permalink to this headline">¶</a></h2>
 <p>Use any (clean and closed) mesh as custom hole or wall.</p>
 <div class="section" id="custom-wall">
 <h3>Custom wall<a class="headerlink" href="#custom-wall" title="Permalink to this headline">¶</a></h3>

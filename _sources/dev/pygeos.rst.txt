@@ -1,7 +1,8 @@
-PyGEOS
+pygeos
 ======
 
-PyGEOS is a pure python replacement for shapely, based on GEOS library.
+pygeos is a pure python replacement for shapely, based on GEOS library.
+see `Shapely <https://shapely.readthedocs.io/en/latest/manual.html>`_
 
 Usage Sample
 ------------
@@ -20,102 +21,103 @@ Parameters
 
  
 .. code-block:: python
-	:name: pygeos-buildings-from-osm-py
-	:caption: Buid walls and roofs from osm closed lines
-	
-	from archipack.archipack_polylines import Io, ShapelyOps, CoordSys
-	from math import ceil
+    :name: pygeos-buildings-from-osm-py
+    :caption: Buid walls and roofs from osm closed lines
+    
+    import bpy
+    from archipack.archipack_polylines import Io, ShapelyOps, CoordSys
+    from math import ceil
 
-	# create buildings from closed polygons like osm ones
-	# preparation : project your curves over terrain using wrap modifier
+    # create buildings from closed polygons like osm ones
+    # preparation : project your curves over terrain using wrap modifier
 
-	# preset file full path
-	preset = "C:\\Users\\stephen\\AppData\\Roaming\\Blender Foundation\\Blender\\2.79\\scripts\\presets\\archipack_roof\\optimized.py"
+    # preset file full path
+    preset = "C:\\Users\\stephen\\AppData\\Roaming\\Blender Foundation\\Blender\\2.79\\scripts\\presets\\archipack_roof\\optimized.py"
 
-	# over width and length
-	roof_overflow = 1.0
-	storey_height = 2.7
-	use_small_as_axis = False
+    # over width and length
+    roof_overflow = 1.0
+    storey_height = 2.7
+    use_small_as_axis = False
 
-	context = C
-	scene = context.scene
-	curves = context.selected_objects
-	# Coordinate system does store common world matrix of inputs
-	coords = CoordSys(curves)
+    context = C
+    scene = context.scene
+    curves = context.selected_objects
+    # Coordinate system does store common world matrix of inputs
+    coords = CoordSys(curves)
 
-	# input closed curves as pygeos.multipolygon collection
-	multipolygon = Io.curves_to_geomcollection(curves, resolution=12, coordsys=coords)
+    # input closed curves as pygeos.multipolygon collection
+    multipolygon = Io.curves_to_geomcollection(curves, resolution=12, coordsys=coords)
 
-	# osm curves are roofs boundarys, so use a buffer to get wall boundarys (use roof_overflow as distance from roof to wall)
-	walls_buffer = []
-	walls_z = []
+    # osm curves are roofs boundarys, so use a buffer to get wall boundarys (use roof_overflow as distance from roof to wall)
+    walls_buffer = []
+    walls_z = []
 
-	for geom in multipolygon.geoms:
-		# tM a matrix world, at center
-		tM, w, h, poly, w_pts = ShapelyOps.min_bounding_rect(geom)
-		# w always the highest value
-		bpy.ops.archipack.roof(auto_manipulate=False, filepath=preset)
-		o = context.active_object
-		z = min([co.z for co in geom.exterior.coords])
-		zmax = max([co.z for co in geom.exterior.coords])
-		# compute height from w / h
-		height = storey_height * ceil(max(w, h) / 5) + zmax - z
-		if use_small_as_axis:
-			h, w = w, h
-			rM = Matrix([
-				[0, -1, 0, 0],
-				[1, 0, 0, 0],
-				[0, 0, 1, 0],
-				[0, 0, 0, 1],
-			])
-		else:
-			rM = Matrix()      
-		o.matrix_world = coords.world * tM * rM * Matrix([
-			[1, 0, 0, - (roof_overflow + 0.5 * w)],
-			[0, 1, 0, 0],
-			[0, 0, 1, z],
-			[0, 0, 0, 1]
-			])
-		d = o.data.archipack_roof[0]
-		d.auto_update = False
-		d.z = height
-		d.width_left = roof_overflow + (h / 2)
-		d.width_right = roof_overflow + (h / 2)
-		d.parts[0].length = w + 2 * roof_overflow
-		d.auto_update = True
-		# pygeos geometry.buffer
-		buffer = geom.buffer(-roof_overflow,
-							resolution=12,
-							join_style=2,
-							cap_style=3,
-							mitre_limit=10 * roof_overflow,
-							single_sided=False
-							)
-		# output geom as curve
-		result = Io.to_curve(scene, coords, geom, 'buffer')
-		bpy.ops.archipack.roof_cutter(parent=o.name, auto_manipulate=False)
-		cutter = context.active_object
-		cutter.data.archipack_roof_cutter[0].operation = 'INTERSECTION'
-		cutter.data.archipack_roof_cutter[0].user_defined_path = result.name
-		# setup bottom z of wall (polygon.exterior)
-		for co in buffer.exterior.coords:
-			co.z = z
-		walls_buffer.append(buffer)
+    for geom in multipolygon.geoms:
+        # tM a matrix world, at center
+        tM, w, h, poly, w_pts = ShapelyOps.min_bounding_rect(geom)
+        # w always the highest value
+        bpy.ops.archipack.roof(auto_manipulate=False, filepath=preset)
+        o = context.active_object
+        z = min([co.z for co in geom.exterior.coords])
+        zmax = max([co.z for co in geom.exterior.coords])
+        # compute height from w / h
+        height = storey_height * ceil(max(w, h) / 5) + zmax - z
+        if use_small_as_axis:
+            h, w = w, h
+            rM = Matrix([
+                [0, -1, 0, 0],
+                [1, 0, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+            ])
+        else:
+            rM = Matrix()      
+        o.matrix_world = coords.world * tM * rM * Matrix([
+            [1, 0, 0, - (roof_overflow + 0.5 * w)],
+            [0, 1, 0, 0],
+            [0, 0, 1, z],
+            [0, 0, 0, 1]
+            ])
+        d = o.data.archipack_roof[0]
+        d.auto_update = False
+        d.z = height
+        d.width_left = roof_overflow + (h / 2)
+        d.width_right = roof_overflow + (h / 2)
+        d.parts[0].length = w + 2 * roof_overflow
+        d.auto_update = True
+        # pygeos geometry.buffer
+        buffer = geom.buffer(-roof_overflow,
+                            resolution=12,
+                            join_style=2,
+                            cap_style=3,
+                            mitre_limit=10 * roof_overflow,
+                            single_sided=False
+                            )
+        # output geom as curve
+        result = Io.to_curve(scene, coords, geom, 'buffer')
+        bpy.ops.archipack.roof_cutter(parent=o.name, auto_manipulate=False)
+        cutter = context.active_object
+        cutter.data.archipack_roof_cutter[0].operation = 'INTERSECTION'
+        cutter.data.archipack_roof_cutter[0].user_defined_path = result.name
+        # setup bottom z of wall (polygon.exterior)
+        for co in buffer.exterior.coords:
+            co.z = z
+        walls_buffer.append(buffer)
 
-	# merge polygons into a pygeos.multipolygon collection
-	# using geom._factory
-	walls_polys = multipolygon._factory.buildGeometry(walls_buffer)
-	# output single curve with multiple splines
-	walls_curve = Io.to_curve(scene, coords, walls_polys, 'walls')
+    # merge polygons into a pygeos.multipolygon collection
+    # using geom._factory
+    walls_polys = multipolygon._factory.buildGeometry(walls_buffer)
+    # output single curve with multiple splines
+    walls_curve = Io.to_curve(scene, coords, walls_polys, 'walls')
 
-	# Build walls
-	scene.objects.active = walls_curve
-	bpy.ops.archipack.wall2_from_curve(auto_manipulate=False)
+    # Build walls
+    scene.objects.active = walls_curve
+    bpy.ops.archipack.wall2_from_curve(auto_manipulate=False)
 
-	# Fit wall to roof
-	for o in scene.objects:
-		if o.data and "archipack_wall2" in o.data:
-			scene.objects.active = o
-			bpy.ops.archipack.wall2_fit_roof()
+    # Fit wall to roof
+    for o in scene.objects:
+        if o.data and "archipack_wall2" in o.data:
+            scene.objects.active = o
+            bpy.ops.archipack.wall2_fit_roof()
 
 

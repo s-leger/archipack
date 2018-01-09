@@ -1,6 +1,14 @@
 Archipack objects
 =================
 
+Archipack objects are parametric, this means you may alter parameters at any time and objects update in real-time.
+Find objects parameters in the right panel of 3d view (shortcut n by default).
+
+.. tip::
+	Archipack does support linked copy (alt+d) so when altering one, linked objects update according.
+
+	Parameters also support "Copy to selected". Select target objects, then source one, right click on parameter to share and use "Copy to selected".
+	
 Common properties
 -----------------
 
@@ -41,7 +49,10 @@ The preset system does render a thumbnail on save - thumbnails are 150 x 100 pix
    
    Select / create / delete presets for objects
 
-
+.. tip::
+	Archipack provide a convenient way to share presets across computers. In file menu -> import / export find "Archipack preset (.apk)". Exporting pack all presets into a .zip like file, Import simply unzip those presets into presets folder, keeping existing ones.  
+   
+   
 Window
 ------
 
@@ -78,6 +89,8 @@ Main properties
 
    Main window properties
  
+.. _window components:
+
 Components 
 """"""""""
 
@@ -105,7 +118,24 @@ Out frame
  * Front depth: depth of the front part of the frame
  * Side depth: depth of side part of frame
  * Offset: Overflow of hole to make negative joints aroud frame
- 
+
+Blind
+#####
+
+.. versionadded:: 1.3.6
+
+see :ref:`blind`
+
+ * Blind inside: Add parametric blind inside 
+ * Blind outside: Add parametric blind outside 
+
+Shutter
+#######
+
+.. versionadded:: 1.3.6
+
+ * #left: shutters on left side 
+ * #right: shutters on left side
  
 Rows
 """"
@@ -420,6 +450,8 @@ Wall parts
 	Wall part 1 angle define rotation about parent wall segment when wall is a T child
 
 
+	
+	
 Slab
 ----
 
@@ -455,7 +487,9 @@ Slab parts
 
    Slab parts
 
-  
+ 
+ 
+ 
 Slab cutter
 -----------
 
@@ -472,6 +506,8 @@ Options
  * Mode: boolean operation in [Difference, Intersection]
  * From curve: use a curve as input to define overall shape of the cutter
 
+ 
+ 
 Fence
 -----
 
@@ -767,6 +803,55 @@ Parts
 	* Bottom: Add gutter
 
 
+.. _blind:
+
+Blind
+-----
+.. versionadded:: 1.3.6
+
+Blinds are designed to be created from window object see :ref:`window components`, 
+taking care of size, basic location and parenting blind to window. 
+Once created you are able to change blind parameters according your needs.
+
+
+Presets
+"""""""
+
+.. figure:: ../img/ui_blind_presets.png
+   :scale: 100 %
+   :alt: Blind presets
+
+   Blind presets
+
+Beside saved presets, blinds implements basic presets including
+ * Venitian
+ * Slat
+ * Roller curtain
+ * Blades
+ * Plated
+ * Japanese
+ * Vertical slotted (Maui)
+
+Main properties
+"""""""""""""""
+
+.. figure:: ../img/ui_blind_main.png
+   :scale: 100 %
+   :alt: Blind properties
+
+   Blind properties
+   
+Slat
+""""
+
+.. figure:: ../img/ui_blind_slat.png
+   :scale: 100 %
+   :alt: Slat properties
+
+   Slat properties (may vary occording style)
+   
+
+   
 Truss
 -----
 

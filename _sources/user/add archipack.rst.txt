@@ -1,14 +1,34 @@
 Add Archipack
 =============
 
-Add archipack objects, alt+a also does show archipack objects to add, but dosen't provide draw tools.
+Add archipack panel.
 
 .. figure:: ../img/ui_add_panel.png
    :scale: 100 %
-   :alt: Add Archipack
+   :alt: Add Archipack panel
    
-   Add Archipack
+   Add Archipack panel
 
+.. tip::
+	By default, "Add archipack" panel is in the left panel of 3d view, under Archipack tab.
+	
+	Change "Create" tab name found in "Tab Category" in add-on preferences to move it under other tab.
+   
+   
+Add archipack menu (shift+a) or 3d view -> Add menu
+
+.. figure:: ../img/add_menu.png
+   :scale: 100 %
+   :alt: Add Archipack menu
+   
+   Add Archipack menu
+   
+.. tip::
+	By default archipack primitives are in "archipack" sub menu.
+	
+	You may uncheck "Use Sub-menu" in add-on preferences to get buttons right in the main mesh menu.   
+   
+   
 Window
 ------
 
@@ -32,6 +52,10 @@ By default, windows are linked (modifications on any does modify all)
  * Press shift to make unique window (non linked)
  * Press alt on invoke, to use current selected windows as preset, and draw linked windows.
  * Press c while drawing to display the preset chooser again so you wont have to restart the tool to choose another window.
+
+.. tip::
+	Draw tool automatically create interactive holes on the wall.
+	Holes update in real-time when you move the window or edit any parameter.
 
  
 Door
@@ -58,6 +82,11 @@ By default, doors are linked (modifications on any does modify all)
  * Press alt on invoke, to use current selected doors as preset, and draw linked doors.
  * Press c while drawing to display the preset chooser again so you wont have to restart the tool to choose another door.
 
+.. tip::
+	Draw tool automatically create interactive holes on the wall.
+	Holes update in real-time when you move the door or edit any parameter.
+
+	
 Stair
 -----
 
@@ -183,6 +212,8 @@ Add
 Create a roof at cursor location
 
 
+
+
 Floor
 -----
 
@@ -206,6 +237,21 @@ Floor from curve
 """"""""""""""""
 
 Create a floor using selected curve as boundary
+
+
+Blind
+-----
+
+.. figure:: ../img/add_blind.png
+   :scale: 100 %
+   :alt: Add Blind
+   	
+   Add Blind
+  
+Add
+"""
+
+Create a blind at cursor location
 
 
 Custom objects
