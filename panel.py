@@ -502,6 +502,56 @@ class Panel():
             # horizontal trapezoid if size.y < center.y
             return 'PENTAGON'
 
+    def avaliable_vertical_space(self, steps, offset, center, origin, size, radius,
+            angle_y, pivot, shape_z=None, path_type='ROUND', axis='XZ'):
+        """
+         Compute avaliable vertical space on both side of the panel
+         for hinges
+        """
+        x = 0
+
+        if path_type == 'ROUND':
+            radius = Vector((radius.x - x, 0))
+            x_left = size.x / 2 * (pivot - 1) + x
+            x_right = size.x / 2 * (pivot + 1) - x
+            y0, y1, a0, da = self._intersect_arc(center, radius, origin.x + x_left, origin.x + x_right)
+            left = y0 - origin.y - x
+            right = y1 - origin.y - x
+
+        elif path_type == 'ELLIPSIS':
+            radius = Vector((radius.x - x, radius.y - x))
+            x_left = size.x / 2 * (pivot - 1) + x
+            x_right = size.x / 2 * (pivot + 1) - x
+            y0, y1, a0, da = self._intersect_arc_elliptic(center, radius, origin.x + x_left, origin.x + x_right)
+            left = y0 - origin.y - x
+            right = y1 - origin.y - x
+
+        elif path_type == 'QUADRI':
+            x_left = size.x / 2 * (pivot - 1) + x
+            x_right = size.x / 2 * (pivot + 1) - x
+            sx = x * sqrt(radius.x * radius.x + center.y * center.y) / radius.x
+            dy = size.y - sx
+            y0 = self._intersect_line(center, radius.x, origin.x + x_left)
+            y1 = self._intersect_line(center, radius.x, origin.x + x_right)
+            # bottom left
+            left = dy - y0 - x
+            right = dy - y1 - x
+
+        elif path_type == 'HORIZONTAL':
+            left, right = size, size
+        elif path_type == 'VERTICAL':
+            left, right = size, size
+        elif path_type == 'CIRCLE':
+            left = 2 * radius.x
+            right = left
+        else:
+            y0 = offset.y + x
+            y1 = offset.y + size.y - x
+            dy = y1 - y0
+            left, right = dy, dy
+
+        return left, right
+
     ############################
     # Vertices
     ############################

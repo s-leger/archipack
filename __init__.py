@@ -64,6 +64,7 @@ if "bpy" in locals():
     # imp.reload(archipack_toolkit)
     imp.reload(archipack_floor)
     imp.reload(archipack_blind)
+    imp.reload(archipack_kitchen)
     imp.reload(archipack_rendering)
     # imp.reload(archipack_envi)
     imp.reload(archipack_io)
@@ -91,6 +92,7 @@ else:
     # from . import archipack_toolkit
     from . import archipack_floor
     from . import archipack_blind
+    from . import archipack_kitchen
     from . import archipack_rendering
     # from . import archipack_envi
     from . import archipack_io
@@ -603,7 +605,11 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Blind",
                     icon_value=icons["blind"].icon_id
                     ).preset_operator = "archipack.blind"
-        
+        row = box.row(align=True)
+        row.operator("archipack.kitchen_preset_menu",
+                    text="Kitchen",
+                    icon_value=icons["kitchen"].icon_id
+                    ).preset_operator = "archipack.kitchen"
         box = layout.box()
         box.label(text="Custom objects")
         box.operator("archipack.wall", text="Custom wall")
@@ -662,7 +668,11 @@ def draw_menu(self, context):
                     text="Blind",
                     icon_value=icons["blind"].icon_id
                     ).preset_operator = "archipack.blind"
-
+    layout.operator("archipack.kitchen_preset_menu",
+                    text="Kitchen",
+                    icon_value=icons["kitchen"].icon_id
+                    ).preset_operator = "archipack.kitchen"
+                    
                     
 class ARCHIPACK_create_menu(Menu):
     bl_label = 'Archipack'
@@ -730,6 +740,7 @@ def register():
     archipack_fence.register()
     archipack_truss.register()
     archipack_blind.register()
+    archipack_kitchen.register()
     # archipack_toolkit.register()
     archipack_floor.register()
     archipack_rendering.register()
@@ -772,6 +783,7 @@ def unregister():
     archipack_fence.unregister()
     archipack_truss.unregister()
     archipack_blind.unregister()
+    archipack_kitchen.unregister()
     # archipack_toolkit.unregister()
     archipack_floor.unregister()
     archipack_rendering.unregister()
