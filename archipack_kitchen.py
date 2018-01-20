@@ -79,6 +79,8 @@ mat_dishwasher_handle = 12
 mat_cooker_side = 9
 mat_cooker_top = 12
 mat_sink = 9
+mat_range_body = 9
+mat_range_filter = 12
 
 
 def update(self, context):
@@ -129,7 +131,25 @@ def chanfer_square(x, y, z, r, sx, sy):
 
 def make_box(tM, x0, x1, y0, y1, z0, z1, r, idmat, chanfer, verts, faces, matids, uvs):
     f = len(verts)
-    if chanfer and r != 0:
+    if chanfer == 2 and r != 0:
+        # Chanfer right front 
+        s = 5
+        dx, dy = x1 - x0, y1 - y0
+        r = min(abs(r), abs(dx), abs(dy))
+        ry = r
+        if dy < 0:
+            ry = -ry
+        rx = r
+        if dx < 0:
+            rx = -rx
+        y2 = y1 - ry
+        x2 = x0 + rx
+        x3 = x1 - rx
+        verts.extend([tM * Vector((v)) for v in [
+            (x1, y0, z0), (x1, y1, z0), (x2, y1, z0), (x0, y2, z0), (x0, y0, z0),
+            (x1, y0, z1), (x1, y1, z1), (x2, y1, z1), (x0, y2, z1), (x0, y0, z1)
+            ]])
+    elif chanfer and r != 0:
         s = 6
         dx, dy = x1 - x0, y1 - y0
         r = min(abs(r), 0.3 * abs(dx), 0.3 * abs(dy))
@@ -146,6 +166,7 @@ def make_box(tM, x0, x1, y0, y1, z0, z1, r, idmat, chanfer, verts, faces, matids
             (x1, y0, z0), (x1, y2, z0), (x3, y1, z0), (x2, y1, z0), (x0, y2, z0), (x0, y0, z0),
             (x1, y0, z1), (x1, y2, z1), (x3, y1, z1), (x2, y1, z1), (x0, y2, z1), (x0, y0, z1)
             ]])
+        
     else:
         s = 4
         verts.extend([tM * Vector((v)) for v in [
@@ -162,7 +183,7 @@ def make_box(tM, x0, x1, y0, y1, z0, z1, r, idmat, chanfer, verts, faces, matids
     # top
     faces.append(tuple([f + 2 * s - 1 - i for i in range(s)]))
     matids.extend([idmat for i in range(s + 2)])
-    uvs.extend([[(0, 0), (1, 0), (1, 1), (0, 1)] for i in range(s + 2)])
+    # uvs.extend([[(0, 0), (1, 0), (1, 1), (0, 1)] for i in range(s)])
 
 
 def dishwasher_door(size, verts, faces, matids, uvs):
@@ -535,6 +556,71 @@ def cook_top(tM, x, y, z, r, sx, sy, verts, faces, matids, uvs):
     matids.append(mat_cooker_top)
 
 
+def rangehood(tM, x, y, z, z0, th, door_y, verts, faces, matids, uvs):
+    cm = x / 60
+    x0 = 0
+    x1 = th
+    x2 = 0.5 * (x - th)
+    x3 = 0.5 * (x + th)
+    x4 = x - th
+    x5 = x
+    
+    y0 = 0
+    y1 = -th
+    y2 = -th - 10 * cm
+    y4 = -y - 15 * cm
+    y3 = y4 + th
+    
+    z1 = z0 + th
+    z2 = z0 + z
+    f = len(verts)
+    verts.extend([tM * Vector(v) for v in [
+        (x0, y0, z2), (x0, y4, z2), (x5, y0, z2),
+        (x5, y4, z2), (x1, y1, z0), (x1, y3, z0),
+        (x4, y3, z0), (x4, y1, z0), (x0, y0, z0),
+        (x0, y4, z0), (x5, y4, z0), (x5, y0, z0),
+        (x1, y1, z1), (x1, y3, z1), (x4, y3, z1),
+        (x4, y1, z1), (x1, y2, z1), (x4, y2, z1),
+        (x2, y3, z1), (x2, y2, z1), (x3, y3, z1),
+        (x3, y2, z1)
+        ]])
+    faces.extend([tuple([f + i for i in v]) for v in [
+        (0, 1, 3, 2), (6, 5, 13, 18, 20, 14), (0, 2, 11, 8),
+        (1, 0, 8, 9), (3, 1, 9, 10), (2, 3, 10, 11),
+        (4, 5, 9, 8), (6, 7, 11, 10), (7, 4, 8, 11),
+        (5, 6, 10, 9), (21, 17, 14, 20), (7, 6, 14, 17, 15),
+        (4, 7, 15, 12), (5, 4, 12, 16, 13), (12, 15, 17, 21, 19, 16),
+        (16, 19, 18, 13), (19, 21, 20, 18)
+        ]])
+    matids.extend([    
+        mat_range_body, mat_range_body, mat_range_body,
+        mat_range_body, mat_range_body, mat_range_body,
+        mat_range_body, mat_range_body, mat_range_body,
+        mat_range_body, mat_range_filter, mat_range_body,
+        mat_range_body, mat_range_body, mat_range_body,
+        mat_range_filter, mat_range_body
+        ])
+    uvs.extend([
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.5, 1.0), (0.933, 0.75), (0.933, 0.25), (0.5, 0.0), (0.067, 0.25), (0.067, 0.75)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)],
+        [(0.5, 1.0), (0.933, 0.75), (0.933, 0.25), (0.5, 0.0), (0.067, 0.25), (0.067, 0.75)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        ])
+    
+    
 def handle_01(tM, verts, faces, matids, uvs):
     # Horizontal
     f = len(verts)
@@ -1010,9 +1096,8 @@ class archipack_kitchen_module(ArchipackObject, PropertyGroup):
                 ("14", "Door T w glass", "Door Top with glass"),
                 ("15", "Double w glass", "Double with glass"),
                 ("54", "Oven", "Oven"),
-                # ("55", "Microwave", "Microwave"),
-                # ("56", "Cooker", "Cooker"),
-                # ("57", "Range hood", "Range hood"),
+                ("55", "Range hood", "Range hood"),
+                # ("56", "Microwave", "Microwave"),
                 # ("58", "Freezer", "Freezer"),
                 ("59", "Dishwasher", "Dishwasher"),
                 ("0", "None", "None"),
@@ -1216,14 +1301,14 @@ class archipack_kitchen_module(ArchipackObject, PropertyGroup):
         style = int(kitchen.door_style)
         handle_style = int(kitchen.handle)
         module_type = int(module.type)
-        vertical_type = cab.vertical_type
+        cab_location = cab.location
         th = kitchen.thickness
 
         if 10 < module_type < 20:
             # module with glass
             style = 20 + style % 10
 
-        mat_side, mat_ext, mat_int = vertical_type, vertical_type, mat_inside
+        mat_side, mat_ext, mat_int = cab_location, cab_location, mat_inside
         border_overflow = 2 * border > size.y or 2 * border > size.x
 
         if border_overflow:
@@ -1291,7 +1376,7 @@ class archipack_kitchen_module(ArchipackObject, PropertyGroup):
             if module_type == 1:
                 # drawer
                 sy = kitchen.y + cab.dy - th
-                if vertical_type == 2:
+                if cab_location == 2:
                     sy = kitchen.yw + cab.dy - th
                 x0 = 0.5 * size.x * pivot
                 y0 = kitchen.door_y
@@ -1315,7 +1400,7 @@ class archipack_kitchen_module(ArchipackObject, PropertyGroup):
             # -------------
             # Handles
             # -------------
-            if module_type < 50 and module.handle:
+            if module_type != 6 and module_type < 50 and module.handle:
 
                 # offset from borders
                 handle_offset_x = min(kitchen.handle_x, size.x, size.y)
@@ -1415,26 +1500,33 @@ class archipack_kitchen_module(ArchipackObject, PropertyGroup):
 class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
     # Define properties
     type = EnumProperty(
+            # 0 for regular, 1 corner L, 2 corner R, 3 corner L+R
             items=(
-                ('1', "Floor", ""),
-                ('11', "Floor corner L", ""),
-                ('21', "Floor corner R", ""),
-                # ('31', "Floor corner L+R", ""),
-                ('2', "Wall", ""),
-                ('12', "Wall corner L", ""),
-                ('22', "Wall corner R", ""),
-                # ('32', "Wall corner L+R", ""),
-                ('3', "Full", ""),
-                ('13', "Full corner L", ""),
-                ('23', "Full corner R", ""),
-                # ('33', "Full corner L+R", ""),
+                ('0', "Cabinet", ""),
+                ('1', "Corner L", ""),
+                ('2', "Corner R", ""),
+                ('3', "Corner 45 degree", ""),
+                ('4', "Cabinet without left side", ""),
+                ('5', "Cabinet without right side", ""),
+                ('6', "Cabinet without sides", ""),
+                ('7', "Corner 45 degree without sides", ""),
                 ),
             name="Type",
-            default="1",
+            default="0",
             description="Type of cabinet",
             update=update
             )
-
+    cab_location = EnumProperty(
+            items=(
+                ('1', "Floor", ""),
+                ('2', "Wall", ""),
+                ('3', "Full", ""),
+                ),
+            name="Location",
+            default="1",
+            description="Location of cabinet",
+            update=update
+            )
     # Cabinet width
     x = FloatProperty(
             name='width', min=0.001, default=0.60, precision=3,
@@ -1617,30 +1709,30 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
             )
 
     @property
-    def vertical_type(self):
+    def location(self):
         """
          also define material id for doors and sides
          1 for floor, 2 for wall, 3 for full
         """
-        return int(self.type) % 10
+        return int(self.cab_location)
 
     @property
-    def horizontal_type(self):
+    def cab_type(self):
         """
          0 for regular, 1 corner L, 2 corner R, 3 corner L+R
         """
-        return int((int(self.type) - self.vertical_type) / 10)
+        return int(self.type)
 
     @property
     def countertop_hole(self):
         """ Test if hole is needed in countertop
         """
-        return int(self.counter) > 10 and self.vertical_type == 1
+        return int(self.counter) > 10 and self.location == 1
 
     @property
     def board_left(self):
         """ Space in use for left board and """
-        if self.panel_left and self.horizontal_type != 2:
+        if self.panel_left and self.cab_type != 2:
             return self.panel_left_width
         else:
             return 0
@@ -1648,7 +1740,7 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
     @property
     def board_right(self):
         """ Space in use for right board"""
-        if self.panel_right and self.horizontal_type != 1:
+        if self.panel_right and self.cab_type != 1:
             return self.panel_right_width
         else:
             return 0
@@ -1692,10 +1784,10 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
         row = box.row(align=True)
 
         if self.expand:
-            row.prop(self, "expand", icon="TRIA_DOWN", icon_only=True, text="Cabinet " + str(num + 1), emboss=False)
+            row.prop(self, "expand", icon="TRIA_DOWN", icon_only=True, text="Cab " + str(num + 1), emboss=False)
         else:
-            row.prop(self, "expand", icon="TRIA_RIGHT", icon_only=True, text="Cabinet " + str(num + 1), emboss=False)
-
+            row.prop(self, "expand", icon="TRIA_RIGHT", icon_only=True, text="Cab " + str(num + 1), emboss=False)
+        row.prop(self, 'cab_location', text="")
         row.prop(self, 'type', text="")
         row.operator("archipack.kitchen_insert", icon="ZOOMIN", text="").index = num
         row.operator("archipack.kitchen_remove", icon="ZOOMOUT", text="").index = num
@@ -1722,7 +1814,7 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
             if self.rotate == '4':
                 row.prop(self, 'angle', text="")
 
-            if self.vertical_type == 1:
+            if self.location == 1:
                 if prop.counter:
                     row = box.row(align=True)
                     row.prop(self, 'counter', text="")
@@ -1733,7 +1825,7 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
                         row.prop(self, 'counter_x')
                         row.prop(self, 'counter_y')
 
-            if self.vertical_type != 2:
+            if self.location != 2:
                 if prop.baseboard:
                     row = box.row(align=True)
                     row.prop(self, 'baseboard', text="Baseboard")
@@ -1993,6 +2085,22 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         else:
             return self.z_full - self.z_wall
 
+    def cabinet_depth(self, cab):
+        if cab.location == 2:
+            y = self.yw
+        else:
+            y = self.y
+        return y
+    
+    def cabinet_height(self, cab):
+        cab_location = cab.location
+        if cab_location == 1:
+            return self.height_default + cab.dz
+        elif cab_location == 2:
+            return self.height_wall + cab.dz
+        else:
+            return self.height_full + cab.dz
+        
     def insert_part(self, context, where):
         self.manipulable_disable(context)
         self.auto_update = False
@@ -2010,62 +2118,68 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         self.cabinet_num -= 1
         self.setup_manipulators()
         self.auto_update = True
-
-    def cabinet_height(self, cab):
-        vertical_type = cab.vertical_type
-        if vertical_type == 1:
-            return self.height_default + cab.dz
-        elif vertical_type == 2:
-            return self.height_wall + cab.dz
-        else:
-            return self.height_full + cab.dz
-
+    
     def create_cabinet(self, cab, tM, verts, faces, matids, uvs):
-        sx, sy, sz = cab.x, self.y + cab.dy, self.cabinet_height(cab)
+        cab_depth = self.cabinet_depth(cab)
+        sx, sy, sz = cab.x, cab_depth + cab.dy, self.cabinet_height(cab)
         door_y = self.door_y
         th = self.thickness
-
+        
+        z0 = 0
+        z1 = sz
+        
         # also define material id
-        vertical_type = cab.vertical_type
+        cab_location = cab.location
 
-        horizontal_type = cab.horizontal_type
+        cab_type = cab.cab_type
         countertop_hole = cab.countertop_hole
         door_style = int(self.door_style)
-
-        if vertical_type == 2:
-            sy = self.yw + cab.dy
         
-        # Side boards on corners so there is no door opening conflict
-        if horizontal_type > 0:
+        # wall cabinet
+        if cab_location == 2:
+            # range hood
+            module = cab.modules[0]
+            if module.type == '55':
+                if module.modules == 0 or self.z_mode == '2':
+                    # user defined height / absolute z mode
+                    zd = module.z
+                else:
+                    zd = self.module_size * module.modules
+                z0 += zd
+                
+        # Side boards on corners to prevent door opening conflict
+        if 0 < cab_type < 3:
             
             sx += self.y
 
             y0 = -sy - door_y
             y1 = -sy
 
-            if horizontal_type == 1:
+            if cab_type == 1:
                 # Left corner
                 sx += max(door_y, cab.panel_right_width)
-                x0 = cab.x
-                x1 = x0 + sy + max(door_y, cab.panel_right_width)
-            elif horizontal_type == 2:
+                x0 = cab.x + self.y - cab_depth
+                x1 = cab.x + self.y + cab.dy + max(door_y, cab.panel_right_width)
+            elif cab_type == 2:
                 # Right corner
                 sx += max(door_y, cab.panel_left_width)
                 x0 = 0
-                x1 = self.y + max(door_y, cab.panel_left_width)
-
+                x1 = cab_depth + max(door_y, cab.panel_left_width)
+            
             make_box(tM, x0, x1, y1, y0, 0, sz, self.door_chanfer,
-                vertical_type, door_style > 10, verts, faces, matids, uvs)
-
+                cab_location, door_style > 10, verts, faces, matids, uvs)
+ 
         f = len(verts)
-
+        
+        # cabinet box size
         x0 = 0
         x1 = th
         x2 = sx - th
         x3 = sx
-        # z top inside
-        zi = sz - th
+        # z top inside variable for cabinets hole on top
+        zi = z1 - th
 
+        # gl location of cab number
         m_pos = tM * Vector((0.5 * sx, -0.5 * sy, sz))
         cab.manipulators[0].set_pts([
                 m_pos,
@@ -2076,90 +2190,165 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         if countertop_hole:
             # cabinet with hole on top
             zi = sz
-
-        verts.extend([tM * Vector((v)) for v in [
-            # external faces
-            (x0, 0, 0), (x0, -sy, 0), (x0, -sy, sz), (x0, 0, sz),
-            (x3, 0, 0), (x3, -sy, 0), (x3, -sy, sz), (x3, 0, sz),
-            # internal
-            (x1, -th, th), (x1, -sy, th), (x1, -sy, zi), (x1, -th, zi),
-            (x2, -th, th), (x2, -sy, th), (x2, -sy, zi), (x2, -th, zi)
-            ]])
-
-        if countertop_hole:
-            # cabinet with hole on top
-            faces.extend([tuple([f + i for i in j]) for j in [
-                (0, 1, 2, 3), (4, 7, 6, 5), (0, 3, 7, 4), (0, 4, 5, 1),
-                (3, 11, 15, 7), (8, 11, 10, 9),
-                (12, 13, 14, 15), (8, 12, 15, 11), (8, 9, 13, 12),
-                (7, 15, 14, 6), (1, 9, 10, 2), (2, 10, 11, 3),
-                (6, 14, 13, 5), (5, 13, 9, 1)
-                ]])
-
-            matids.extend([
-                vertical_type, vertical_type, vertical_type, vertical_type, vertical_type,
-                mat_inside, mat_inside, mat_inside, mat_inside,
-                vertical_type, vertical_type, vertical_type, vertical_type, vertical_type
-                ])
+        """
+        ('0', "Cabinet", ""),
+        ('1', "Corner L", ""),
+        ('2', "Corner R", ""),
+        ('3', "Corner 45 degree", ""),
+        ('4', "Cabinet without left side", ""),
+        ('5', "Cabinet without right side", ""),
+        ('6', "Cabinet without sides", ""),
+        ('7', "Corner 45 degree without sides", ""),
+        """
+        
+        """
+            wall
+           0  x0____x3   x0 ___ x3
+               |    |      |   |
+               |    |   -sy\   | 
+        y1=-sy |____|    y1 \__| 
+        
+        """
+        
+        # corner 45
+        chanfer = False
+        dy = 0
+        y1 = -sy
+        
+        if cab_type in {3, 7}:
+            chanfer = 2
+            # 45 degree part
+            x3 = cab.x + cab_depth
+            y1 = -x3
+            dy = cab.x
+            x2 = x3
+            
+        z2 = z0 + th
+        # bottom
+        make_box(tM, x0, x3, 0, y1, z0, z2, dy, 
+            cab_location, chanfer, verts, faces, matids, uvs)
+        
+        matids[-1] = mat_inside
+        
+        # back
+        make_box(tM, x0, x3, 0, -th, z2, z1, 0, 
+            cab_location, False, verts, faces, matids, uvs)
+        
+        matids[-2] = mat_inside
+        
+        # L side
+        if cab_type not in {4, 6, 7}:
+            make_box(tM, x0, x0 + th, -th, -sy, z0 + th, zi, 0, 
+                cab_location, False, verts, faces, matids, uvs)
+                
+            matids[-3] = mat_inside
         else:
-            # regular   cabinet
-            faces.extend([tuple([f + i for i in j]) for j in [
-                (0, 1, 2, 3), (4, 7, 6, 5), (0, 3, 7, 4), (0, 4, 5, 1), (3, 2, 6, 7),
-                # internal sides
-                (8, 11, 10, 9), (12, 13, 14, 15),
-                # internal back
-                (8, 12, 15, 11),
-                # internal bottom / top
-                (8, 9, 13, 12), (11, 15, 14, 10),
-                # front
-                (1, 9, 10, 2), (2, 10, 14, 6), (6, 14, 13, 5), (5, 13, 9, 1)
-                ]])
-
-            matids.extend([
-                vertical_type, vertical_type, vertical_type, vertical_type, vertical_type,
-                mat_inside, mat_inside, mat_inside, mat_inside, mat_inside,
-                vertical_type, vertical_type, vertical_type, vertical_type
-                ])
-
+            # extend shelves
+            x1 -= th
+        
+        # R side (is back part 2 of 45 degree)
+        if cab_type not in {5, 6}:
+            make_box(tM, x3 - th, x3, -th, y1, z0 + th, zi, 0, 
+                cab_location, False, verts, faces, matids, uvs)
+                
+            matids[-5] = mat_inside
+        else:
+            # extend shelves
+            x2 += th
+            
+        # top
+        if not countertop_hole:
+            make_box(tM, x0, x3, -th, y1, z1 - th, z1, dy, 
+                cab_location, chanfer, verts, faces, matids, uvs)
+            if cab_type in {3, 7}:
+                matids[-7] = mat_inside
+            else:
+                matids[-6] = mat_inside
+        
+        # corner 45 "Right" side of in front 
+        if cab_type == 3:
+            make_box(tM, x0 + dy, x3 - th, y1 + th, y1, z0 + th, z1 - th, 0, 
+                cab_location, False, verts, faces, matids, uvs)
+            matids[-4] = mat_inside
+            # offset shelves
+            y1 += th
+            dy -= th
+            
         # -----------------
         # side boards
         # -----------------
-        if cab.panel_left and horizontal_type != 2:
-            f = len(verts)
+        if cab.panel_left and cab_type != 2:
             x = -cab.board_left
             y = sy + door_y
             make_box(tM, x, 0, 0, -y, 0, sz, self.door_chanfer,
-                vertical_type, door_style > 10, verts, faces, matids, uvs)
+                cab_location, door_style > 10, verts, faces, matids, uvs)
 
-        if cab.panel_right and horizontal_type != 1:
-            f = len(verts)
-            x4 = x3 + cab.board_right
-            y = sy + door_y
-            make_box(tM, x3, x4, 0, -y, 0, sz, self.door_chanfer,
-                vertical_type, door_style > 10, verts, faces, matids, uvs)
+        if cab.panel_right and cab_type != 1:
+            # corner 45 "Right" board in front 
+            if cab_type in {3, 7}:
+                make_box(tM, x0 + dy + th - door_y, x3, y1 - th, y1 - th - cab.board_right, 0, sz, self.door_chanfer, 
+                    cab_location, door_style > 10, verts, faces, matids, uvs)
+            else:
+                x4 = x3 + cab.board_right
+                y = sy + door_y
+                make_box(tM, x3, x4, 0, -y, 0, sz, self.door_chanfer,
+                    cab_location, door_style > 10, verts, faces, matids, uvs)
 
         # -----------------
         # sink / cook top
         # -----------------
-        if vertical_type == 1:
+        if cab_location == 1:
             counter_type = int(cab.counter)
             hx = cab.counter_x
             hy = cab.counter_y
+            tM2 = tM.copy()
             cx = 0.5 * cab.x
-            if horizontal_type == 2:
+            if cab_type == 2:
                 cx += self.y
-            cy = 0.5 * (self.y + cab.dy)
+            cy = 0.5 * (cab_depth + cab.dy)
             r = 0.02
+            
+            # corner 45 rotate 45 deg
+            if cab_type in {3, 7}:
+                sq2 = 0.5 * 2 ** 0.5
+                tM2 = tM * Matrix([
+                    [sq2, sq2, 0, 0.5 * cab.x],
+                    [-sq2, sq2, 0, -(cab_depth + cab.dy) - 0.5 * cab.x],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                    ])
+                cx = 0 # cab_depth + cab.x
+                cy = -0.5 * cab.x  #(cab_depth + cab.dy) + 0.5 * cab.x
+            
             if counter_type == 11:
-                sink(tM, cx, -cy, sz + self.counter_z, r, hx, hy, verts, faces, matids, uvs)
+                sink(tM2, cx, -cy, sz + self.counter_z, r, hx, hy, verts, faces, matids, uvs)
             elif counter_type == 2:
-                cook_top(tM, cx, -cy, sz + self.counter_z, r, hx, hy, verts, faces, matids, uvs)
+                cook_top(tM2, cx, -cy, sz + self.counter_z, r, hx, hy, verts, faces, matids, uvs)
 
         # -----------------
         # shelves
         # -----------------
-        z0 = 0
-
+        tM2 = tM.copy()
+        
+        if cab_type in {3, 7}: 
+            
+            a = pi / 4
+            ca = cos(a)
+            sa = sin(a)
+            x = 0.5 * (cab_depth + cab.dy + door_y) * (2 ** 0.5)
+            y = cab_depth + cab.dy + door_y - x
+            loc = Vector((
+                x * ca + y * sa, 
+                x * -sa + y * ca, 
+                0))
+            sx = (cab.x - door_y) * (2 ** 0.5)   
+            tM2 = tM * Matrix([
+                [ca, sa, 0, loc.x],
+                [-sa, ca, 0, loc.y],
+                [0, 0, 1, loc.z],
+                [0, 0, 0, 1]
+                ])
+                
         for i, module in enumerate(cab.modules):
 
             module_type = int(module.type)
@@ -2184,11 +2373,17 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             # calculate separation
             space = zd / (module.shelves + 1)
             z1 = z0 + th
+            
 
+            
             if module_type == 54:
-                oven_cab(tM, sx, sy, zd, z0, th, door_y, verts, faces, matids, uvs)
+                oven_cab(tM2, sx, sy, zd, z0, th, door_y, verts, faces, matids, uvs)
+            elif module_type == 55:
+
+                rangehood(tM2, sx, sy, zd, z0 - zd, th, door_y, verts, faces, matids, uvs)
+                zd = 0
             elif module_type == 59:
-                dishwasher_cab(tM, sx, sy, zd, z0, th, door_y, verts, faces, matids, uvs)
+                dishwasher_cab(tM2, sx, sy, zd, z0, th, door_y, verts, faces, matids, uvs)
             else:
                 
                 # Ground not needed on 1 element
@@ -2202,7 +2397,8 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 for x in range(start, module.shelves + 1):
                     f = len(verts)
                     z2 = z1 - th
-                    make_box(tM, x1, x2, -th, -sy, z2, z1, 0, mat_inside, False, verts, faces, matids, uvs)
+                    make_box(tM, x1, x2, -th, y1, z2, z1, dy, 
+                        mat_inside, chanfer, verts, faces, matids, uvs)
 
                     z1 += space
 
@@ -2222,25 +2418,27 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             # side boards size
             board_left = cab.board_left
             board_right = cab.board_right
-
+            cab_depth = self.cabinet_depth(cab)
+            
             z = cab.pz
-            horizontal_type = cab.horizontal_type
-
+            cab_type = cab.cab_type
+            cab_location = cab.location
+            
             if self.baseboard:
                 z += self.base_height
 
             # Wall
-            if cab.vertical_type == 2:
-                z += self.altitude_wall
+            if cab_location == 2:
+                z += self.altitude_wall - cab.dz
 
             if cab.reset_location:
                 loc = Vector((0, 0, 0))
                 a = 0
 
             # rotate R cab
-            if horizontal_type == 2:
+            if cab_type == 2:
 
-                dx = self.y + door_y
+                dx = cab_depth + door_y
                 a += pi / 2
                 # use last rotation and move basis location
                 loc += Vector((dx * ca, dx * -sa, 0))
@@ -2283,14 +2481,22 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 dz = -z
                 dy = -cab.py
 
-            if horizontal_type == 1:
+            # add translation for current cab to border
+            if cab_type == 1:
+                # Corner L
                 a += pi / 2
-                # add translation for current cab to border
                 dx += self.y + max(door_y, cab.panel_right_width)
-                loc = tM * Vector((dx, dy - self.y - door_y, dz))
-            elif horizontal_type == 2:
+                loc = tM * Vector((dx, dy - cab_depth - door_y, dz))
+            elif cab_type == 2:
+                # Corner R
                 dx += self.y + board_right + max(door_y, cab.panel_left_width)
                 loc = tM * Vector((dx, 0, dz))
+            elif cab_type in {3, 7}:
+                # Corner 45
+                a += pi / 2
+                dx += cab_depth
+                dy -= cab.x + cab_depth + board_right
+                loc = tM * Vector((dx, dy, dz))
             else:
                 # add translation for current cab to border
                 loc = tM * Vector((dx + board_right, dy, dz))
@@ -2304,6 +2510,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
 
         board_left = cab.board_left
         board_right = cab.board_right
+        cab_type = cab.cab_type
 
         z0 = 0
         z1 = sz
@@ -2312,17 +2519,39 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         y1 = y0 + sy
         x0 = -board_left
         x1 = sx + board_right
-        horizontal_type = cab.horizontal_type
-
-        if horizontal_type == 1:
+        
+        if cab_type == 1:
             # Left corner
             x1 += min(self.base_sink + max(door_y, cab.panel_right_width), self.y - sy)
 
-        elif horizontal_type == 2:
+        elif cab_type == 2:
             # Right corner
             x0 = - (y0 + sy)
             x1 += self.y + cab.dy + max(door_y, cab.panel_left_width)
 
+        elif cab_type in {3, 7}:
+            # left board
+            f = len(verts)
+            x2 = self.base_sink * 0.5 * 2 ** 0.5
+            make_box(tM, x2, x0, y0, y1, z0, z1, 0, mat_baseboard, False, verts, faces, matids, uvs)
+            
+            # right board
+            x1 += self.base_sink 
+            y0 = board_right + self.y + cab.dy + cab.x
+            y1 = y0 - x2
+            make_box(tM, x1 + sy, x1, -y0, -y1, z0, z1, 0, mat_baseboard, False, verts, faces, matids, uvs)
+            faces.pop(-2)
+            faces.pop(-10)
+            faces.extend([tuple([f + i for i in v]) for v in [
+                (1, 0, 8, 11),
+                (5, 1, 11, 15),
+                (4, 5, 15, 12),
+                (0, 4, 12, 8)
+                ]])
+            matids.extend([mat_baseboard for i in range(2)])
+            uvs.extend([[(0, 0), (1, 0), (1, 1), (0, 1)] for i in range(2)])
+            return
+            
         # offset sides
         if cab.base_left:
             x0 += cab.base_sink
@@ -2341,10 +2570,10 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             make_box(tM, x1 - sy, x1, 0, y1, z0, z1, 0, mat_baseboard, False, verts, faces, matids, uvs)
 
         # Corners
-        if horizontal_type > 0:
+        if 0 < cab_type < 3:
             y1 = -(self.y + cab.dy + door_y)
             # Left
-            if horizontal_type == 1:
+            if cab_type == 1:
                 x0 = x1
                 y0 += sy
 
@@ -2362,7 +2591,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         z_accum = 0
 
         for cab in self.cabinets:
-
+            cab_depth = self.cabinet_depth(cab)
             # side boards size
             board_left = cab.board_left
             board_right = cab.board_right
@@ -2372,12 +2601,12 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 a = 0
                 z_accum = 0
 
-            vertical_type = cab.vertical_type
-            horizontal_type = cab.horizontal_type
+            cab_location = cab.location
+            cab_type = cab.cab_type
 
             # rotate R cab
-            if horizontal_type == 2:
-                dx = self.y + door_y
+            if cab_type == 2:
+                dx = cab_depth + door_y
                 a += pi / 2
                 loc += Vector((dx * ca, dx * -sa, 0))
             else:
@@ -2411,7 +2640,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 [0, 0, 0, 1]
                 ])
 
-            if vertical_type != 2 and cab.baseboard:
+            if cab_location != 2 and cab.baseboard:
                 self.create_baseboard(cab, z_accum, tM, verts, faces, matids, uvs)
 
             if cab.lock_p:
@@ -2424,22 +2653,29 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 dz = 0
                 dy = -cab.py
 
-            if horizontal_type == 1:
+            if cab_type == 1:
                 a += pi / 2
                 # add translation for current cab to border
-                dx += self.y + max(door_y, cab.panel_right_width)
-                loc = tM * Vector((dx, dy - self.y - door_y, dz))
-            elif horizontal_type == 2:
-                dx += self.y + board_right + max(door_y, cab.panel_left_width)
+                dx += cab_depth + max(door_y, cab.panel_right_width)
+                loc = tM * Vector((dx, dy - cab_depth - door_y, dz))
+            elif cab_type == 2:
+                dx += cab_depth + board_right + max(door_y, cab.panel_left_width)
                 loc = tM * Vector((dx, 0, dz))
+            elif cab_type in {3, 7}:
+                # Corner 45
+                a += pi / 2
+                dx += cab_depth
+                dy -= cab.x + cab_depth + board_right
+                loc = tM * Vector((dx, dy, dz))
             else:
                 # add translation for current cab to border
                 loc = tM * Vector((dx + board_right, dy, dz))
 
-    def create_counter(self, cab, tM, verts, faces, matids, uvs, start_new):
+    def create_counter(self, cab, tM, verts, faces, matids, uvs, start_new, remove_last):
         sx, sy, sz = cab.x, self.y + cab.dy, self.counter_z
         over = self.counter_y
-
+        cab_depth = self.cabinet_depth(cab)
+        
         z0 = cab.dz + cab.pz
         z2 = z0 + sz
         z1 = z2 - self.counter_chanfer
@@ -2452,44 +2688,80 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             ts -= cab.px
 
         countertop_hole = cab.countertop_hole
-        horizontal_type = cab.horizontal_type
+        cab_type = cab.cab_type
 
         f = len(verts)
         y0 = 0
         y2 = -(sy + over)
         y1 = y2 + self.counter_chanfer
 
+        # first section
         if start_new:
+        
             verts.extend([tM * Vector(v) for v in [
                 (ts, y0, z0), (ts, y2, z0), (ts, y2, z1), (ts, y1, z2), (ts, y0, z2)
                 ]])
-            faces.extend([tuple([f + i for i in v]) for v in [
-                # side faces
-                (0, 1, 2, 3, 4),
-                # bottom,      back,        up,           chanfer,      front
-                (0, 4, 9, 5), (4, 3, 8, 9), (3, 2, 7, 8), (2, 1, 6, 7), (1, 0, 5, 6),
-                # side faces
-                (9, 8, 7, 6, 5)
+            # start face
+            faces.extend([tuple([f + i for i in v]) for v in [    
+                (0, 1, 2, 3, 4)
                 ]])
-            matids.extend([mat_counter for i in range(7)])
+            matids.append(mat_counter)
+        
         else:
-            if countertop_hole and horizontal_type != 2:
-                # use last section
-                f -= 5
-            else:
-                # move verts
-                # keep the last section for holes
+            # remove closing face
+            faces.pop(-1)
+            matids.pop(-1)
+            # use last section as first one
+            f -= 5
+            # remove last section of Left corner
+            if remove_last:
                 for i in range(5):
                     verts.pop(-1)
-
+                    faces.pop(-1)
+                    matids.pop(-1)
+                f -= 5
+                
+        # side faces
+        # 45 corners use generate own faces
+        if cab_type in {3, 7}:
+            # add section when board left > 0
+            if cab.board_left > 0:
+                ts += cab.board_left
+                faces.extend([tuple([f + i for i in v]) for v in [
+                    # bottom,      back,        up,           chanfer,      front
+                    (0, 4, 9, 5), (4, 3, 8, 9), (3, 2, 7, 8), (2, 1, 6, 7), (1, 0, 5, 6)
+                    ]])
+                f = len(verts)
+                verts.extend([tM * Vector(v) for v in [
+                    (ts, y0, z0), (ts, y2, z0), (ts, y2, z1), (ts, y1, z2), (ts, y0, z2)
+                    ]])
+                
+                matids.extend([mat_counter for i in range(5)])
+                   
+        else:
+            # countertop holes generate own faces, except L corner
+            if not countertop_hole or cab_type == 1:
+                faces.extend([tuple([f + i for i in v]) for v in [
+                    # bottom,      back,        up,           chanfer,      front
+                    (0, 4, 9, 5), (4, 3, 8, 9), (3, 2, 7, 8), (2, 1, 6, 7), (1, 0, 5, 6)
+                    ]])
+                matids.extend([mat_counter for i in range(5)])
+                
+                # close all but Corner
+                if cab_type != 1:
+                    faces.extend([tuple([f + i for i in v]) for v in [
+                        # end side faces
+                        (9, 8, 7, 6, 5)
+                        ]])
+                    matids.append(mat_counter)
+    
+        # at this point f is first vert of last section
         if countertop_hole:
 
-            # replace last face
-            faces.pop(-1)
-
-            # Add corner section of R cornder before hole
-            if horizontal_type == 2:
-                # make faces using corner section
+            # R corner section before hole
+            # use current faces
+            if cab_type == 2:
+                # make 2nd section of faces using corner section as start
                 f = len(verts)
                 # Corner R
                 x0 = -cab.px
@@ -2499,110 +2771,121 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 verts.extend([tM * Vector(v) for v in [
                     (x0, y0, z0), (x2, y2, z0), (x2, y2, z1), (x1, y1, z2), (x0, y0, z2)
                     ]])
-
-            else:
-                # keep faces of R corner section
-                if start_new:
-                    for i in range(5):
-                        faces.pop(-1)
-                        matids.pop(-1)
-
+          
             hx = cab.counter_x
             hy = cab.counter_y
             cx = 0.5 * sx
-            if horizontal_type == 2:
+            if cab_type == 2:
                 cx += self.y
             cy = 0.5 * sy
             r = 0.02
+            tM2 = tM.copy()
+            
+            # corner 45 rotate 45 deg
+            if cab_type in {3, 7}:
+                
+                sq2 = 0.5 * 2 ** 0.5
+                tM2 = tM * Matrix([
+                    [sq2, sq2, 0, 0.5 * cab.x],
+                    [-sq2, sq2, 0, -(cab_depth + cab.dy) - 0.5 * cab.x],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                    ])
+                cx = 0 # cab_depth + cab.x
+                cy = -0.5 * cab.x  #(cab_depth + cab.dy) + 0.5 * cab.x
+            
+            # add verts for hole
+            verts.extend([tM2 * Vector(v) for v in chanfer_square(cx, -cy, z0, r, hx, hy)])
+            verts.extend([tM2 * Vector(v) for v in chanfer_square(cx, -cy, z2, r, hx, hy)])
+            
+            if cab_type not in {3, 7}:    
+                faces.extend([tuple([f + i for i in v]) for v in [
+                    (17, 33, 32, 16), (10, 26, 25, 9), (18, 34, 33, 17),
+                    (11, 27, 26, 10), (19, 35, 34, 18), (12, 28, 27, 11),
+                    (20, 36, 35, 19), (13, 29, 28, 12), (6, 22, 21, 5),
+                    (5, 21, 36, 20), (14, 30, 29, 13), (7, 23, 22, 6),
+                    (15, 31, 30, 14), (8, 24, 23, 7), (16, 32, 31, 15),
+                    (9, 25, 24, 8),
+                    (12, 11, 10, 9, 8, 7, 6, 5, 1, 0),
+                    (13, 37, 38, 20, 19, 18, 17, 16, 15, 14),
+                    (13, 12, 0, 37), (20, 38, 1, 5), (0, 4, 41, 37),
+                    (4, 3, 21, 22, 23, 24, 25, 26, 27, 28),
+                    (29, 30, 31, 32, 33, 34, 35, 36, 40, 41),
+                    (36, 21, 3, 40),
+                    (29, 41, 4, 28), (3, 2, 39, 40), (2, 1, 38, 39),
+                    (41, 40, 39, 38, 37)
+                    ]])
 
-            verts.extend([tM * Vector(v) for v in chanfer_square(cx, -cy, z0, r, hx, hy)])
-            verts.extend([tM * Vector(v) for v in chanfer_square(cx, -cy, z2, r, hx, hy)])
+                matids.extend([mat_counter for i in range(28)])
 
-            faces.extend([tuple([f + i for i in v]) for v in [
-                (17, 33, 32, 16), (10, 26, 25, 9), (18, 34, 33, 17),
-                (11, 27, 26, 10), (19, 35, 34, 18), (12, 28, 27, 11),
-                (20, 36, 35, 19), (13, 29, 28, 12), (6, 22, 21, 5),
-                (5, 21, 36, 20), (14, 30, 29, 13), (7, 23, 22, 6),
-                (15, 31, 30, 14), (8, 24, 23, 7), (16, 32, 31, 15),
-                (9, 25, 24, 8),
-                (12, 11, 10, 9, 8, 7, 6, 5, 1, 0),
-                (13, 37, 38, 20, 19, 18, 17, 16, 15, 14),
-                (13, 12, 0, 37), (20, 38, 1, 5), (0, 4, 41, 37),
-                (4, 3, 21, 22, 23, 24, 25, 26, 27, 28),
-                (29, 30, 31, 32, 33, 34, 35, 36, 40, 41),
-                (36, 21, 3, 40),
-                (29, 41, 4, 28), (3, 2, 39, 40), (2, 1, 38, 39),
-                (41, 40, 39, 38, 37)
-                ]])
-
-            matids.extend([mat_counter for i in range(27)])
-
-            uvs.extend([
-                [(0.016, 0.962), (0.016, 0.999), (0.344, 0.999), (0.344, 0.962)],
-                [(0.353, 0.962), (0.353, 0.999), (0.344, 0.999), (0.344, 0.962)],
-                [(0.007, 0.962), (0.007, 0.999), (0.016, 0.999), (0.016, 0.962)],
-                [(0.508, 0.962), (0.508, 0.999), (0.501, 0.999), (0.501, 0.962)],
-                [(0.945, 0.962), (0.945, 0.999), (0.952, 0.999), (0.952, 0.962)],
-                [(0.517, 0.962), (0.517, 0.999), (0.508, 0.999), (0.508, 0.962)],
-                [(0.936, 0.962), (0.936, 0.999), (0.945, 0.999), (0.945, 0.962)],
-                [(0.936, 0.962), (0.936, 0.999), (0.517, 0.999), (0.517, 0.962)],
-                [(0.508, 0.962), (0.508, 0.999), (0.517, 0.999), (0.517, 0.962)],
-                [(0.517, 0.962), (0.517, 0.999), (0.936, 0.999), (0.936, 0.962)],
-                [(0.945, 0.962), (0.945, 0.999), (0.936, 0.999), (0.936, 0.962)],
-                [(0.007, 0.962), (0.007, 0.999), (0.0, 0.999), (0.0, 0.962)],
-                [(0.952, 0.962), (0.952, 0.999), (0.945, 0.999), (0.945, 0.962)],
-                [(0.016, 0.962), (0.016, 0.999), (0.007, 0.999), (0.007, 0.962)],
-                [(0.344, 0.962), (0.344, 0.999), (0.353, 0.999), (0.353, 0.962)],
-                [(0.344, 0.962), (0.344, 0.999), (0.016, 0.999), (0.016, 0.962)],
-                [(0.453, 0.518), (0.517, 0.47), (0.508, 0.469), (0.501, 0.465), (0.499, 0.461),
-                (0.499, 0.287), (0.501, 0.283), (0.508, 0.279), (0.517, 0.278), (0.453, 0.22)],
-                [(0.936, 0.47), (1.0, 0.518), (1.0, 0.22), (0.936, 0.278), (0.945, 0.279),
-                (0.952, 0.283), (0.954, 0.287), (0.954, 0.461), (0.952, 0.465), (0.945, 0.469)],
-                [(0.936, 0.47), (0.517, 0.47), (0.453, 0.518), (1.0, 0.518)],
-                [(0.936, 0.278), (1.0, 0.22), (0.453, 0.22), (0.517, 0.278)],
-                [(0.453, 0.962), (0.453, 1.0), (1.0, 1.0), (1.0, 0.962)],
-                [(0.453, 0.518), (0.453, 0.221), (0.517, 0.278), (0.508, 0.279), (0.501, 0.283),
-                (0.499, 0.287), (0.499, 0.461), (0.501, 0.465), (0.508, 0.469), (0.517, 0.47)],
-                [(0.936, 0.47), (0.945, 0.469), (0.952, 0.465), (0.954, 0.461), (0.954, 0.287),
-                (0.952, 0.283), (0.945, 0.279), (0.936, 0.278), (1.0, 0.221), (1.0, 0.518)],
-                [(0.936, 0.278), (0.517, 0.278), (0.453, 0.221), (1.0, 0.221)],
-                [(0.936, 0.47), (1.0, 0.518), (0.453, 0.518), (0.517, 0.47)],
-                [(0.453, 0.038), (0.453, 0.037), (1.0, 0.037), (1.0, 0.038)],
-                [(0.453, 0.037), (0.453, 0.0), (1.0, 0.0), (1.0, 0.037)]
-                ])
-
-        # corner edges
-        # move last 4 verts
-        if horizontal_type > 0:
-
-            f = len(verts)
+                uvs.extend([
+                    [(0.016, 0.962), (0.016, 0.999), (0.344, 0.999), (0.344, 0.962)],
+                    [(0.353, 0.962), (0.353, 0.999), (0.344, 0.999), (0.344, 0.962)],
+                    [(0.007, 0.962), (0.007, 0.999), (0.016, 0.999), (0.016, 0.962)],
+                    [(0.508, 0.962), (0.508, 0.999), (0.501, 0.999), (0.501, 0.962)],
+                    [(0.945, 0.962), (0.945, 0.999), (0.952, 0.999), (0.952, 0.962)],
+                    [(0.517, 0.962), (0.517, 0.999), (0.508, 0.999), (0.508, 0.962)],
+                    [(0.936, 0.962), (0.936, 0.999), (0.945, 0.999), (0.945, 0.962)],
+                    [(0.936, 0.962), (0.936, 0.999), (0.517, 0.999), (0.517, 0.962)],
+                    [(0.508, 0.962), (0.508, 0.999), (0.517, 0.999), (0.517, 0.962)],
+                    [(0.517, 0.962), (0.517, 0.999), (0.936, 0.999), (0.936, 0.962)],
+                    [(0.945, 0.962), (0.945, 0.999), (0.936, 0.999), (0.936, 0.962)],
+                    [(0.007, 0.962), (0.007, 0.999), (0.0, 0.999), (0.0, 0.962)],
+                    [(0.952, 0.962), (0.952, 0.999), (0.945, 0.999), (0.945, 0.962)],
+                    [(0.016, 0.962), (0.016, 0.999), (0.007, 0.999), (0.007, 0.962)],
+                    [(0.344, 0.962), (0.344, 0.999), (0.353, 0.999), (0.353, 0.962)],
+                    [(0.344, 0.962), (0.344, 0.999), (0.016, 0.999), (0.016, 0.962)],
+                    [(0.453, 0.518), (0.517, 0.47), (0.508, 0.469), (0.501, 0.465), (0.499, 0.461),
+                    (0.499, 0.287), (0.501, 0.283), (0.508, 0.279), (0.517, 0.278), (0.453, 0.22)],
+                    [(0.936, 0.47), (1.0, 0.518), (1.0, 0.22), (0.936, 0.278), (0.945, 0.279),
+                    (0.952, 0.283), (0.954, 0.287), (0.954, 0.461), (0.952, 0.465), (0.945, 0.469)],
+                    [(0.936, 0.47), (0.517, 0.47), (0.453, 0.518), (1.0, 0.518)],
+                    [(0.936, 0.278), (1.0, 0.22), (0.453, 0.22), (0.517, 0.278)],
+                    [(0.453, 0.962), (0.453, 1.0), (1.0, 1.0), (1.0, 0.962)],
+                    [(0.453, 0.518), (0.453, 0.221), (0.517, 0.278), (0.508, 0.279), (0.501, 0.283),
+                    (0.499, 0.287), (0.499, 0.461), (0.501, 0.465), (0.508, 0.469), (0.517, 0.47)],
+                    [(0.936, 0.47), (0.945, 0.469), (0.952, 0.465), (0.954, 0.461), (0.954, 0.287),
+                    (0.952, 0.283), (0.945, 0.279), (0.936, 0.278), (1.0, 0.221), (1.0, 0.518)],
+                    [(0.936, 0.278), (0.517, 0.278), (0.453, 0.221), (1.0, 0.221)],
+                    [(0.936, 0.47), (1.0, 0.518), (0.453, 0.518), (0.517, 0.47)],
+                    [(0.453, 0.038), (0.453, 0.037), (1.0, 0.037), (1.0, 0.038)],
+                    [(0.453, 0.037), (0.453, 0.0), (1.0, 0.0), (1.0, 0.037)]
+                    ])
+        
+        # Corner edges
+        # corner section faces and verts
+        if 0 < cab_type < 3:
+                
+            # f = len(verts)
 
             door_y = self.door_y
 
-            if horizontal_type == 1:
+            if cab_type == 1:
                 # Corner L
                 x0 = sx + max(door_y, cab.panel_right_width) + self.y
                 x2 = sx + max(door_y, cab.panel_right_width) - over
                 x1 = x2 + self.counter_chanfer
 
-            elif horizontal_type == 2:
+            elif cab_type == 2:
                 # Corner R
                 x0 = -cab.px
                 x2 = -y1 - cab.px
                 x1 = x2 - self.counter_chanfer
 
-            if horizontal_type == 1 or not countertop_hole:
-                # add corner section after hole when type = L
+            # add corner section after hole when type = L
+            if cab_type == 1 or not countertop_hole:
+                f = len(verts)
                 verts.extend([tM * Vector(v) for v in [
                     (x0, y0, z0), (x2, y2, z0), (x2, y2, z1), (x1, y1, z2), (x0, y0, z2)
                     ]])
 
-            if horizontal_type == 1:
+            if cab_type == 1:
                 # Corner L
                 y0 = -(self.y + max(door_y, cab.panel_right_width))
                 y1 = y0
                 y2 = y0
-            elif horizontal_type == 2:
+                
+            elif cab_type == 2:
                 # Corner R
                 x0 = sx + self.y + cab.board_right + max(door_y, cab.panel_left_width)
                 x1 = x0
@@ -2610,27 +2893,119 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 y0 = 0
                 y2 = -(sy + over)
                 y1 = y2 + self.counter_chanfer
+            
             # add ending section
             verts.extend([tM * Vector(v) for v in [
                 (x0, y0, z0), (x2, y2, z0), (x2, y2, z1), (x1, y1, z2), (x0, y0, z2)
                 ]])
 
-            if horizontal_type == 1 or not countertop_hole:
+            if cab_type == 1 or not countertop_hole:
                 # add faces section after hole when type = L
-                # remove end face
-                faces.pop(-1)
                 faces.extend([tuple([f + i for i in v]) for v in [
                     (0, 4, 9, 5), (4, 3, 8, 9), (3, 2, 7, 8), (2, 1, 6, 7), (1, 0, 5, 6),
                     (9, 8, 7, 6, 5)
                     ]])
-                matids.extend([mat_counter for i in range(5)])
-
+                matids.extend([mat_counter for i in range(6)])
+        
+        # add corner verts and faces (all but first one)
+        elif cab_type in {3, 7}:
+            # Corner 45
+            x0 = cab.x + cab_depth - cab.px
+            x2 = cab.x - over
+            x1 = x2 + self.counter_chanfer
+            y1 = - cab.x - cab_depth
+            verts.extend([tM * Vector(v) for v in [
+                (x0, 0, z0), (x0, 0, z2),
+                (x0, y1, z0), (x2, y1, z0), (x2, y1, z1), (x1, y1, z2), (x0, y1, z2)
+                ]])
+            if countertop_hole:
+                matids.extend([mat_counter for i in range(29)])
+                faces.extend([tuple([f + i for i in v]) for v in [
+                    (17, 33, 32, 16), (10, 26, 25, 9),
+                    (18, 34, 33, 17), (11, 27, 26, 10), (19, 35, 34, 18),
+                    (12, 28, 27, 11), (20, 36, 35, 19), (13, 29, 28, 12),
+                    (6, 22, 21, 5), (5, 21, 36, 20), (14, 30, 29, 13),
+                    (7, 23, 22, 6), (15, 31, 30, 14), (8, 24, 23, 7),
+                    (16, 32, 31, 15), (9, 25, 24, 8), (12, 11, 10, 9, 8, 7, 6, 5, 1, 0),
+                    (4, 3, 21, 22, 23, 24, 25, 26, 27, 28), (0, 4, 38, 37),
+                    (37, 38, 43, 39), (2, 1, 40, 41), (3, 2, 41, 42),
+                    (36, 21, 3, 42), (20, 40, 1, 5), (32, 33, 34, 35, 36, 42, 43, 29, 30, 31),
+                    (29, 43, 38, 4, 28), (13, 12, 0, 37, 39), (17, 16, 15, 14, 13, 39, 40, 20, 19, 18),
+                    (43, 42, 41, 40, 39)
+                    ]])
+                uvs.extend([
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.5, 1.0), (0.794, 0.905), (0.976, 0.655), (0.976, 0.345), (0.794, 0.095), 
+                    (0.5, 0.0), (0.206, 0.095), (0.024, 0.345), (0.024, 0.655), (0.206, 0.905)],
+                    [(0.5, 1.0), (0.794, 0.905), (0.976, 0.655), (0.976, 0.345), (0.794, 0.095), 
+                    (0.5, 0.0), (0.206, 0.095), (0.024, 0.345), (0.024, 0.655), (0.206, 0.905)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.5, 1.0), (0.794, 0.905), (0.976, 0.655), (0.976, 0.345), (0.794, 0.095), 
+                    (0.5, 0.0), (0.206, 0.095), (0.024, 0.345), (0.024, 0.655), (0.206, 0.905)],
+                    [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)],
+                    [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)],
+                    [(0.5, 1.0), (0.794, 0.905), (0.976, 0.655), (0.976, 0.345), (0.794, 0.095), 
+                    (0.5, 0.0), (0.206, 0.095), (0.024, 0.345), (0.024, 0.655), (0.206, 0.905)],
+                    [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)],
+                    ])
+            else:
+                faces.extend([tuple([f + i for i in v]) for v in [
+                    (1, 0, 5, 7, 8), (3, 10, 11, 6, 4),
+                    (0, 4, 6, 5), (5, 6, 11, 7), (2, 1, 8, 9),
+                    (3, 2, 9, 10), (11, 10, 9, 8, 7)
+                    ]])
+                matids.extend([mat_counter for i in range(7)])   
+                uvs.extend([    
+                    [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)],
+                    [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+                    [(0.5, 1.0), (0.976, 0.655), (0.794, 0.095), (0.206, 0.095), (0.024, 0.655)]
+                    ])
+            # add section when board left > 0
+            if cab.board_right > 0:
+                    faces.pop(-1)
+                    y1 -= cab.board_right
+                    f = len(verts) - 5
+                    verts.extend([tM * Vector(v) for v in [
+                        (x0, y1, z0), (x2, y1, z0), (x2, y1, z1), (x1, y1, z2), (x0, y1, z2)
+                        ]])
+                    faces.extend([tuple([f + i for i in v]) for v in [
+                        # bottom,      back,        up,           chanfer,      front
+                        (0, 4, 9, 5), (4, 3, 8, 9), (3, 2, 7, 8), (2, 1, 6, 7), (1, 0, 5, 6),
+                        (9, 8, 7, 6, 5)
+                        ]])
+                        
+                    matids.extend([mat_counter for i in range(5)])    
+                           
         else:
-            # move end verts
+            # add last section verts
             verts.extend([tM * Vector(v) for v in [
                 (tx, y0, z0), (tx, y2, z0), (tx, y2, z1), (tx, y1, z2), (tx, y0, z2)
                 ]])
-
+        
     def update_counter(self, verts, faces, matids, uvs):
         loc = Vector((0, 0, 0))
         a = 0
@@ -2639,31 +3014,34 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         z = self.height_default
         door_y = self.door_y
         start_new = True
-
+        remove_last = False
+        
         last_dy = 0
         last_dz = 0
+        last_px = 0
         last_py = 0
         last_pz = 0
 
         if self.baseboard:
             z += self.base_height
-
+        
         for cab in self.cabinets:
 
+            cab_depth = self.cabinet_depth(cab)
             # side boards size
             board_left = cab.board_left
             board_right = cab.board_right
-
+            
             if cab.reset_location:
                 loc = Vector((0, 0, 0))
                 a = 0
 
-            horizontal_type = cab.horizontal_type
-            vertical_type = cab.vertical_type
+            cab_type = cab.cab_type
+            cab_location = cab.location
 
             # rotate R cab
-            if horizontal_type == 2:
-                dx = self.y + door_y
+            if cab_type == 2:
+                dx = cab_depth + door_y
                 a += pi / 2
                 loc += Vector((dx * ca, dx * -sa, 0))
             else:
@@ -2699,22 +3077,27 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
 
             if (last_py != cab.py or
                     last_pz != cab.pz or
+                    (last_px != cab.px and not cab.counter_fill) or
                     last_dy != cab.dy or
                     last_dz != cab.dz or
-                    vertical_type != 1 or
+                    cab_location != 1 or
                     cab.counter == "0" or
                     cab.reset_location or
                     cab.rotate != "0"):
+                remove_last = False    
                 start_new = True
 
+            last_px = cab.px
             last_py = cab.py
             last_pz = cab.pz
             last_dy = cab.dy
             last_dz = cab.dz
 
-            if vertical_type == 1 and cab.counter != "0":
-                self.create_counter(cab, tM, verts, faces, matids, uvs, start_new)
+            if cab_location == 1 and cab.counter != "0":
+                self.create_counter(cab, tM, verts, faces, matids, uvs, start_new, remove_last)
                 start_new = False
+                # remove last section of L Corner
+                remove_last = cab_type == 1    
 
             if cab.lock_p:
                 dx = cab.x
@@ -2725,14 +3108,20 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 dz = -z
                 dy = -cab.py
 
-            if horizontal_type == 1:
+            if cab_type == 1:
                 a += pi / 2
                 # add translation for current cab to border
-                dx += self.y + max(door_y, cab.panel_right_width)
-                loc = tM * Vector((dx, dy - self.y - door_y, dz))
-            elif horizontal_type == 2:
-                dx += self.y + board_right + max(door_y, cab.panel_left_width)
+                dx += cab_depth + max(door_y, cab.panel_right_width)
+                loc = tM * Vector((dx, dy - cab_depth - door_y, dz))
+            elif cab_type == 2:
+                dx += cab_depth + board_right + max(door_y, cab.panel_left_width)
                 loc = tM * Vector((dx, 0, dz))
+            elif cab_type in {3, 7}:
+                # Corner 45
+                a += pi / 2
+                dx += cab_depth
+                dy -= cab.x + cab_depth + board_right
+                loc = tM * Vector((dx, dy, dz))
             else:
                 # add translation for current cab to border
                 loc = tM * Vector((dx + board_right, dy, dz))
@@ -2776,7 +3165,11 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 zd = min(zd, zmax - z0)
                 if zd == 0:
                     continue
-
+                    
+                # range hood, no door   
+                if module.type == '55':
+                    n_panels = 0
+                
                 # No door, accumulate spacing
                 w_childs += n_panels
                 z0 += zd
@@ -2795,6 +3188,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         n_childs = len(childs)
 
         loc = Vector((0, 0, 0))
+        tM = Matrix()
         a = 0
         panel = 0
         ca = 1
@@ -2802,37 +3196,44 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         door_y = self.door_y
 
         for cab in self.cabinets:
-
+            
+            cab_depth = self.cabinet_depth(cab)
+        
             # side boards size
             board_left = cab.board_left
             board_right = cab.board_right
-            horizontal_type = cab.horizontal_type
-            vertical_type = cab.vertical_type
+            cab_type = cab.cab_type
+            cab_location = cab.location
 
             z = cab.pz
 
             if self.baseboard:
                 z += self.base_height
-
-            sy = self.y + cab.dy + door_y
-
+            
+            sx = cab.x
+            sy = cab_depth + cab.dy + door_y
+            dx = 0
+            
             # Wall
-            if vertical_type == 2:
-                sy = self.yw + cab.dy + door_y
-                z += self.altitude_wall
-
+            if cab_location == 2:
+                z += self.altitude_wall - cab.dz
+                # adjust corner size to fit bottom ones
+                if cab_type == 1:
+                    sx += self.y - cab_depth
+                elif cab_type == 2:
+                    sx += self.y - cab_depth
+                    
             if cab.reset_location:
                 loc = Vector((0, 0, 0))
                 a = 0
 
-            dx = 0
-
-            # rotate R cab
-            if horizontal_type == 2:
+            if cab_type == 2:
+                # rotate R cab
                 board_left = max(door_y, cab.panel_left_width) - door_y
-                dx = self.y + door_y
+                dx = cab_depth + door_y
                 a += pi / 2
                 loc += Vector((dx * ca, dx * -sa, 0))
+             
             else:
 
                 rot_type = int(cab.rotate)
@@ -2855,7 +3256,6 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 (board_left + cab.px) * ca + cab.py * sa,
                 (board_left + cab.px) * -sa + cab.py * ca,
                 0))
-
             # matrix at cabinet axis with z at bottom
             tM = Matrix([
                 [ca, sa, 0, loc.x],
@@ -2863,6 +3263,28 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 [0, 0, 1, loc.z],
                 [0, 0, 0, 1]
                 ])
+           
+                    
+            # corner 45 relocate doors
+            if cab_type in {3, 7}: 
+                tM2 = tM.copy()
+                a += pi / 4
+                ca = cos(a)
+                sa = sin(a)
+                x = 0.5 * (cab_depth + cab.dy + door_y) * (2 ** 0.5)
+                y = cab_depth + cab.dy + door_y - x
+                
+                loc += Vector((
+                    x * ca + y * sa, 
+                    x * -sa + y * ca, 
+                    0))
+                sx = (cab.x - door_y) * (2 ** 0.5)   
+                tM = Matrix([
+                    [ca, sa, 0, loc.x],
+                    [-sa, ca, 0, loc.y],
+                    [0, 0, 1, loc.z],
+                    [0, 0, 0, 1]
+                    ])
 
             z0 = 0
             zmax = self.cabinet_height(cab)
@@ -2890,8 +3312,14 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 if n_panels == 0:
                     z0 += zd
                     continue
-
-                size = Vector((cab.x / n_panels, zd, door_y))
+                
+                # range hood
+                # No door, accumulate spacing
+                if module.type == '55':
+                    z0 += zd
+                    continue
+                
+                size = Vector((sx / n_panels, zd, door_y))
 
                 # handle on top or bottom of door panel
                 # choose location nearest half height
@@ -2920,7 +3348,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                         m = child.archipack_material.add()
                         m.category = "kitchen"
                         m.material = o.archipack_material[0].material
-                        child.lock_location = (True, False, True)
+                        child.lock_location = (False, False, True)
                         child.lock_rotation = (False, True, False)
                         child.lock_scale = (True, True, True)
                         child.show_transparent = True
@@ -2940,7 +3368,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
 
                     # location y + frame width.
                     child.location = tM * Vector((
-                        dx + 0.5 * (1 - pivot) * cab.x,
+                        dx + 0.5 * (1 - pivot) * sx,
                         -sy,
                         z + z0))
 
@@ -2958,14 +3386,20 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 dz = 0
                 dy = -cab.py
 
-            if horizontal_type == 1:
+            if cab_type == 1:
                 a += pi / 2
                 # add translation for current cab to border
                 dx += self.y + max(door_y, cab.panel_right_width)
-                loc = tM * Vector((dx, dy - self.y - door_y, dz))
-            elif horizontal_type == 2:
+                loc = tM * Vector((dx, dy - cab_depth - door_y, dz))
+            elif cab_type == 2:
                 dx += self.y + board_right + door_y
                 loc = tM * Vector((dx, 0, dz))
+            elif cab_type in {3, 7}:
+                # Corner 45
+                a += pi / 4
+                dx += cab_depth
+                dy -= cab.x + cab_depth + board_right
+                loc = tM2 * Vector((dx, dy, dz))
             else:
                 # add translation for current cab to border
                 loc = tM * Vector((dx + board_right, dy, dz))
@@ -3050,7 +3484,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             self.update_baseboard(verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids)
-
+        # 
         self.update_modules(context, o)
 
         if manipulable_refresh:
@@ -3094,8 +3528,8 @@ class ARCHIPACK_PT_kitchen(Panel):
         row.operator('archipack.kitchen', text="Refresh", icon='FILE_REFRESH').mode = 'REFRESH'
         if o.data.users > 1:
             row.operator('archipack.kitchen', text="Make unique", icon='UNLINKED').mode = 'UNIQUE'
-        row.operator('archipack.kitchen', text="Delete", icon='ERROR').mode = 'DELETE'
         """
+        layout.operator('archipack.kitchen', text="Delete", icon='ERROR').mode = 'DELETE'
         box = layout.box()
         row = box.row(align=True)
         row.operator("archipack.kitchen_preset_menu", text=bpy.types.ARCHIPACK_OT_kitchen_preset_menu.bl_label)
@@ -3211,12 +3645,31 @@ class ARCHIPACK_OT_kitchen(ArchipackCreateTool, Operator):
             name='Height', min=0.001, default=0.70, precision=3,
             description='Default cabinet height',
             )
+    mode = EnumProperty(
+            items=(
+            ('CREATE', 'Create', '', 0),
+            ('DELETE', 'Delete', '', 1),
+            ('REFRESH', 'Refresh', '', 2),
+            ('UNIQUE', 'Make unique', '', 3),
+            ),
+            default='CREATE'
+            )
 
     def draw(self, context):
         layout = self.layout
         row = layout.row()
         row.label("Use Properties panel (N) to define parms", icon='INFO')
 
+    def delete(self, context):
+        o = context.active_object
+        if archipack_kitchen.filter(o):
+            bpy.ops.archipack.disable_manipulate()
+            for child in o.children:
+                context.scene.objects.unlink(child)
+                bpy.data.objects.remove(child, do_unlink=True)
+            context.scene.objects.unlink(o)
+            bpy.data.objects.remove(o, do_unlink=True)
+    
     def create(self, context):
         m = bpy.data.meshes.new("Kitchen")
         o = bpy.data.objects.new("Kitchen", m)
@@ -3240,11 +3693,14 @@ class ARCHIPACK_OT_kitchen(ArchipackCreateTool, Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
-            o = self.create(context)
-            o.location = bpy.context.scene.cursor_location
-            o.select = True
-            context.scene.objects.active = o
-            self.manipulate()
+            if self.mode == 'CREATE':
+                o = self.create(context)
+                o.location = bpy.context.scene.cursor_location
+                o.select = True
+                context.scene.objects.active = o
+                self.manipulate()
+            else:
+                self.delete(context)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
