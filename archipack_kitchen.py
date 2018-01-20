@@ -149,6 +149,7 @@ def make_box(tM, x0, x1, y0, y1, z0, z1, r, idmat, chanfer, verts, faces, matids
             (x1, y0, z0), (x1, y1, z0), (x2, y1, z0), (x0, y2, z0), (x0, y0, z0),
             (x1, y0, z1), (x1, y1, z1), (x2, y1, z1), (x0, y2, z1), (x0, y0, z1)
             ]])
+        uvs.extend([[(0, 0), (1, 0), (1, 0.9), (0.9, 1),(0, 1)] for i in range(2)])
     elif chanfer and r != 0:
         s = 6
         dx, dy = x1 - x0, y1 - y0
@@ -166,24 +167,24 @@ def make_box(tM, x0, x1, y0, y1, z0, z1, r, idmat, chanfer, verts, faces, matids
             (x1, y0, z0), (x1, y2, z0), (x3, y1, z0), (x2, y1, z0), (x0, y2, z0), (x0, y0, z0),
             (x1, y0, z1), (x1, y2, z1), (x3, y1, z1), (x2, y1, z1), (x0, y2, z1), (x0, y0, z1)
             ]])
-        
+        uvs.extend([[(0, 0), (1, 0), (1, 0.9), (0.9, 1), (0.1, 1), (0.1, 0.9)] for i in range(2)])
     else:
         s = 4
         verts.extend([tM * Vector((v)) for v in [
             (x0, y1, z0), (x0, y0, z0), (x1, y0, z0), (x1, y1, z0),
             (x0, y1, z1), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1)
             ]])
-
-    # bottom
-    faces.append(tuple([f + i for i in range(s)]))
+        uvs.extend([[(0, 0), (1, 0), (1, 1), (0, 1)] for i in range(2)])
     # sides
     faces.extend([(f + i + 1, f + i, f + s + i, f + s + i + 1) for i in range(s - 1)])
     # back
     faces.append((f, f + s - 1, f + 2 * s - 1, f + s))
+    # bottom
+    faces.append(tuple([f + i for i in range(s)]))
     # top
     faces.append(tuple([f + 2 * s - 1 - i for i in range(s)]))
     matids.extend([idmat for i in range(s + 2)])
-    # uvs.extend([[(0, 0), (1, 0), (1, 1), (0, 1)] for i in range(s)])
+    uvs.extend([[(0, 0), (1, 0), (1, 1), (0, 1)] for i in range(s)])
 
 
 def dishwasher_door(size, verts, faces, matids, uvs):
@@ -2234,14 +2235,14 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         make_box(tM, x0, x3, 0, -th, z2, z1, 0, 
             cab_location, False, verts, faces, matids, uvs)
         
-        matids[-2] = mat_inside
+        matids[-3] = mat_inside
         
         # L side
         if cab_type not in {4, 6, 7}:
             make_box(tM, x0, x0 + th, -th, -sy, z0 + th, zi, 0, 
                 cab_location, False, verts, faces, matids, uvs)
                 
-            matids[-3] = mat_inside
+            matids[-4] = mat_inside
         else:
             # extend shelves
             x1 -= th
@@ -2251,7 +2252,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             make_box(tM, x3 - th, x3, -th, y1, z0 + th, zi, 0, 
                 cab_location, False, verts, faces, matids, uvs)
                 
-            matids[-5] = mat_inside
+            matids[-6] = mat_inside
         else:
             # extend shelves
             x2 += th
@@ -2260,16 +2261,13 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         if not countertop_hole:
             make_box(tM, x0, x3, -th, y1, z1 - th, z1, dy, 
                 cab_location, chanfer, verts, faces, matids, uvs)
-            if cab_type in {3, 7}:
-                matids[-7] = mat_inside
-            else:
-                matids[-6] = mat_inside
-        
+            matids[-2] = mat_inside
+            
         # corner 45 "Right" side of in front 
         if cab_type == 3:
             make_box(tM, x0 + dy, x3 - th, y1 + th, y1, z0 + th, z1 - th, 0, 
                 cab_location, False, verts, faces, matids, uvs)
-            matids[-4] = mat_inside
+            matids[-5] = mat_inside
             # offset shelves
             y1 += th
             dy -= th
