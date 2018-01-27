@@ -120,38 +120,37 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
         self.segs.append(s)
         self.last_type = part.type
 
-    def set_offset(self):
+    def set_offset(self, offset):
         last = None
         for i, seg in enumerate(self.segs):
-            seg.set_offset(self.parts[i].offset, last)
+            seg.set_offset(offset + self.parts[i].offset, last)
             last = seg.line
 
-    def close(self, closed):
+    def close(self, offset):
         # Make last segment implicit closing one
-        if closed:
-            part = self.parts[-1]
-            w = self.segs[-1]
-            dp = self.segs[0].p0 - self.segs[-1].p0
-            if "C_" in part.type:
-                dw = (w.p1 - w.p0)
-                w.r = part.radius / dw.length * dp.length
-                # angle pt - p0        - angle p0 p1
-                da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-                a0 = w.a0 + da
-                if a0 > pi:
-                    a0 -= 2 * pi
-                if a0 < -pi:
-                    a0 += 2 * pi
-                w.a0 = a0
-            else:
-                w.v = dp
+        part = self.parts[-1]
+        w = self.segs[-1]
+        dp = self.segs[0].p0 - self.segs[-1].p0
+        if "C_" in part.type:
+            dw = (w.p1 - w.p0)
+            w.r = part.radius / dw.length * dp.length
+            # angle pt - p0        - angle p0 p1
+            da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
+            a0 = w.a0 + da
+            if a0 > pi:
+                a0 -= 2 * pi
+            if a0 < -pi:
+                a0 += 2 * pi
+            w.a0 = a0
+        else:
+            w.v = dp
 
-            if len(self.segs) > 1:
-                w.line = w.make_offset(self.parts[-1].offset, self.segs[-2].line)
+        if len(self.segs) > 1:
+            w.line = w.make_offset(offset + part.offset, self.segs[-2].line)
 
-            p1 = self.segs[0].line.p1
-            self.segs[0].line = self.segs[0].make_offset(self.parts[0].offset, w.line)
-            self.segs[0].line.p1 = p1
+        p1 = self.segs[0].line.p1
+        self.segs[0].line = self.segs[0].make_offset(offset + self.parts[0].offset, w.line)
+        self.segs[0].line.p1 = p1
 
     def locate_manipulators(self):
         """
@@ -188,7 +187,8 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
             manipulators[3].set_pts([p0, p1, (1, 0, 0)])
 
     def get_verts(self, verts):
-        for s in self.segs:
+
+        for i, s in enumerate(self.segs):
             if "Curved" in type(s).__name__:
                 for i in range(16):
                     # x, y = slab.line.lerp(i / 16)
@@ -196,11 +196,6 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
             else:
                 # x, y = s.line.p0
                 verts.append(s.p0.to_3d())
-            """
-            for i in range(33):
-                x, y = slab.line.lerp(i / 32)
-                verts.append((x, y, 0))
-            """
 
     def rotate(self, idx_from, a):
         """
@@ -246,10 +241,10 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
         """
             either external or holes cuts
         """
+        # use offset segs as base
+        self.segs = [s.line for s in self.segs]
         self.limits()
-
         self.as_lines(step_angle=0.0502)
-        # self.segs = [s.line for s in self.segs]
 
         for b in o.children:
             d = archipack_slab_cutter.datablock(b)
@@ -263,6 +258,10 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
         verts = []
         self.get_verts(verts)
         if len(verts) > 2:
+
+            # ensure verts are CCW
+            if d.is_cw(verts):
+                verts = list(reversed(verts))
 
             bm = bmesh.new()
 
@@ -563,7 +562,6 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
     x_offset = FloatProperty(
             name="Offset",
-            min=-1000, max=1000,
             default=0.0, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -580,16 +578,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             default=True,
             update=update_manipulators
             )
-    # @TODO:
-    # Global slab offset
-    # will only affect slab parts sharing a wall
 
     childs = CollectionProperty(type=archipack_slab_child)
     # Flag to prevent mesh update while making bulk changes over variables
-    # use :
-    # .auto_update = False
-    # bulk changes
-    # .auto_update = True
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
@@ -602,10 +593,11 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             # type, radius, da, length
             g.add_part(part)
 
-        g.set_offset()
-
-        g.close(self.closed)
+        g.set_offset(self.x_offset)
+        g.close(self.x_offset)
         g.locate_manipulators()
+        # here segs are without offset
+        # seg.line contains offset
         return g
 
     def insert_part(self, context, where):
@@ -963,7 +955,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         self.auto_update = True
 
     def update_parts(self, o, update_childs=False):
-        # print("update_parts")
+        print("update_parts")
         # remove rows
         # NOTE:
         # n_parts+1
@@ -1150,8 +1142,8 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         o.select = True
         context.scene.objects.active = o
 
+        # cut transfer .line with offset into g.segs
         g.cut(context, o)
-
         g.slab(context, o, self)
 
         modif = o.modifiers.get('Slab')
@@ -1294,7 +1286,7 @@ class archipack_slab_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prope
             o.parent.select = True
             context.scene.objects.active = o.parent
             d.update(context)
-        o.parent.select = False
+            o.parent.select = False
         context.scene.objects.active = o
 
 
@@ -1322,6 +1314,7 @@ class ARCHIPACK_PT_slab(Panel):
         box.operator('archipack.slab_cutter').parent = o.name
         box = layout.box()
         box.prop(prop, 'z')
+        box.prop(prop, 'x_offset')
         box = layout.box()
         box.prop(prop, 'auto_synch')
         box = layout.box()

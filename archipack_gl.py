@@ -551,7 +551,7 @@ class GlArc(GlCircle):
 class GlPolygon(Gl):
 
     def __init__(self,
-            colour=(0.0, 0.0, 0.0, 1.0),
+            colour=(0.3, 0.3, 0.3, 1.0),
             d=3):
 
         self.pts_3d = []

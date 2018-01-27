@@ -33,7 +33,7 @@ from bpy.props import (
     IntProperty,
     EnumProperty
     )
-from math import sin, cos, tan, ceil, floor, pi, asin, acos, radians, atan2, sqrt
+from math import sin, cos, tan, ceil, floor, pi, asin, acos, radians, atan2
 from mathutils import Vector, Matrix
 from .bmesh_utils import BmeshEdit as bmed
 from .archipack_manipulator import Manipulable
@@ -42,46 +42,46 @@ from .archipack_object import ArchipackCreateTool, ArchipackObject
 import logging
 logger = logging.getLogger("archipack")
 
+
 def update(self, context):
     self.update(context)
 
 
-    
-    
-
 class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
-    width = FloatProperty(
+    x = FloatProperty(
             name='Width',
             min=0.10, default=1, precision=3,
-            description='Total width', update=update,
+            unit='LENGTH', subtype='DISTANCE',
+            description='Total width',
+            update=update,
             )
-    frame_height = FloatProperty(
+    y = FloatProperty(
+            name='Depth', min=0.02, default=0.04,
+            precision=3,
+            unit='LENGTH', subtype='DISTANCE',
+            description='Slat depth/width',
+            update=update,
+            )
+    z = FloatProperty(
             name='Height',
-            min=0.01, default=0.2, precision=3,
-            description='Frame height',
+            min=0.20, max=10, default=1.7, precision=3,
+            unit='LENGTH', subtype='DISTANCE',
+            description='Total height',
             update=update,
             )
     altitude = FloatProperty(
             name='Altitude',
-            min=0, default=1.0, precision=3,
+            default=1.0, precision=3,
+            unit='LENGTH', subtype='DISTANCE',
             description='Altitude',
             update=update,
             )
-    frame_depth = FloatProperty(
-            name='Frame depth', min=0.02, default=0.04,
+    offset_y = FloatProperty(
+            name='Offset', default=0.0,
             precision=3,
-            description='Frame depth', update=update,
-            )
-    height = FloatProperty(
-            name='Height',
-            min=0.20, max=10, default=1.7, precision=3,
-            description='Total height',
+            unit='LENGTH', subtype='DISTANCE',
+            description='Offset from wall',
             update=update,
-            )
-    depth = FloatProperty(
-            name='Depth', min=0.02, default=0.04,
-            precision=3,
-            description='Slat depth/width', update=update,
             )
     panels = IntProperty(
             name="Panels",
@@ -101,29 +101,50 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
     blind_angle = FloatProperty(
             name='Angle',
             min=0,
-            max=0.5*pi,
-            default=0.5*pi,
+            max=0.5 * pi,
+            default=0.5 * pi,
             precision=1,
             subtype='ANGLE', unit='ROTATION',
             description='Angle of the slats', update=update,
             )
     ratio = FloatProperty(
             name='Extend', min=0, max=100, default=100,
-            description='% of extension (100 full extend)', update=update,
+            subtype='PERCENTAGE',
+            description='% of extension (100 full extend)',
+            update=update,
             )
+
+    frame_enable = BoolProperty(
+            name='Frame',
+            default=True,
+            description='Enable frame',
+            update=update,
+            )
+    frame_height = FloatProperty(
+            name='Height',
+            min=0.01, default=0.2, precision=3,
+            description='Frame height',
+            update=update,
+            )
+    frame_depth = FloatProperty(
+            name='Frame depth', min=0.02, default=0.04,
+            precision=3,
+            description='Frame depth', update=update,
+            )
+
     style = EnumProperty(
-        items=(
-            ('VENITIAN', 'Venitian', 'Venitian', 0),  # /  /  ///
-            ('SLAT', 'Slat', 'Slat', 1), # / / /
-            ('ROLLER', 'Roller', 'Roller', 2),  # __________
-            ('BLADES', 'Blades', 'Blades', 3), # _ _ ___
-            ('PLATED', 'Plated', 'Plated', 4),  # Vertical \/\/        -> regular
-            # ('CELLULAR', 'Cellular blind', 'Cellular blind', 5),    # OOOO         -> venitian like variant
-            ('JAPANESE', 'Japanese', 'Japanese', 6), # _-  -> horizontal
-            ('VERTICAL_SLOTTED', 'Vertical slotted', 'Vertical slotted', 7)  # / / -> horizontal
-        ),
-        default='VENITIAN', update=update
-    )
+            items=(
+                ('VENITIAN', 'Venitian', 'Venitian', 0),
+                ('SLAT', 'Slat', 'Slat', 1),
+                ('ROLLER', 'Roller', 'Roller', 2),
+                ('BLADES', 'Blades', 'Blades', 3),
+                ('PLATED', 'Plated', 'Plated', 4),
+                # ('CELLULAR', 'Cellular blind', 'Cellular blind', 5),      -> venitian like variant
+                ('JAPANESE', 'Japanese', 'Japanese', 6),
+                ('VERTICAL_SLOTTED', 'Vertical slotted', 'Vertical slotted', 7)
+            ),
+            default='VENITIAN', update=update
+            )
     auto_update = BoolProperty(
             # Wont save auto_update state in any case
             options={'SKIP_SAVE'},
@@ -133,18 +154,19 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
 
     def frame(self, verts, faces, matids):
         nv = len(verts)
-        x = 0.5 * self.width
+        x = 0.5 * self.x
         y = 0.5 * self.frame_depth
-        z0 = self.altitude + self.height + self.frame_height
-        z1 = self.altitude + self.height
-        verts.extend([(-x, -y, z0),
-                (-x, y, z0),
-                (x, y, z0),
-                (x, -y, z0),
-                (-x, -y, z1),
-                (-x, y, z1),
-                (x, y, z1),
-                (x, -y, z1)])
+        y0 = -self.offset_y
+        z0 = self.altitude + self.z + self.frame_height
+        z1 = self.altitude + self.z
+        verts.extend([(-x, y0 - y, z0),
+                (-x, y0 + y, z0),
+                (x, y0 + y, z0),
+                (x, y0 - y, z0),
+                (-x, y0 - y, z1),
+                (-x, y0 + y, z1),
+                (x, y0 + y, z1),
+                (x, y0 - y, z1)])
         faces.extend([tuple([idx + nv for idx in f]) for f in [
             (0, 3, 2, 1),
             (0, 1, 5, 4),
@@ -153,7 +175,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
             (5, 6, 7, 4),
             (0, 4, 7, 3)]])
         matids.extend([
-            0,0,0,0,0,0
+            0, 0, 0, 0, 0, 0
             ])
 
     def cylinder(self, radius, size, x, y, z, axis, verts, faces, matids):
@@ -163,7 +185,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
 
         if axis == 'X':
             tM = Matrix([
-                [0, 0, size,  x],
+                [0, 0, size, x],
                 [0, radius, 0, y],
                 [radius, 0, 0, z],
                 [0, 0, 0, 1]
@@ -198,18 +220,19 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         # ------------------------------------
         c = cos(angle)
         s = sin(angle)
-        x = 0.5 * self.width
-        y = 0.5 * self.depth
+        x = 0.5 * self.x
+        y = 0.5 * self.y
+        y0 = -self.offset_y
 
         tM0 = Matrix([
             [1, 0, 0, 0],
-            [0, c, -s, c * posz],
+            [0, c, -s, y0 + c * posz],
             [0, s, c, s * posz + offset_z],
             [0, 0, 0, 1]
         ])
         tM1 = Matrix([
             [-1, 0, 0, 0],
-            [0, c, -s, c * posz],
+            [0, c, -s, y0 + c * posz],
             [0, s, c, s * posz + offset_z],
             [0, 0, 0, 1]
         ])
@@ -232,7 +255,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         x1 = x - 0.0045
         x2 = x - 0.0017
 
-        shape =[(x2, -y1, z1),
+        shape = [(x2, -y1, z1),
                 (x2, y1, z1),
                 (x1, -y, z2),
                 (x1, y, z2),
@@ -248,7 +271,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         # Faces
         faces.extend([tuple([i + nv for i in f]) for f in [
             (6, 4, 1, 3), (7, 5, 4, 6), (2, 0, 5, 7),
-            (14, 6,  3, 11), (15, 7, 6, 14), (10, 2, 7, 15),
+            (14, 6, 3, 11), (15, 7, 6, 14), (10, 2, 7, 15),
             (12, 14, 11, 9), (13, 15, 14, 12), (8, 10, 15, 13)]])
 
         matids.extend([1 for i in range(9)])
@@ -257,15 +280,15 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
     def roller_blades(self, verts, faces, matids):
         gap = 0.01
         # total available space
-        height = self.height
+        height = self.z
         bottom = self.altitude
         # numslats
-        numslats = ceil(height / self.depth)
-        separation = gap + self.depth
+        numslats = ceil(height / self.y)
+        separation = gap + self.y
 
         # upper blade may overflow inside frame
         # top when all blades are collapsed
-        absolute_top = bottom + numslats * self.depth
+        absolute_top = bottom + numslats * self.y
 
         # when up, there are gaps between blades
         unfold_height = numslats * separation
@@ -279,45 +302,45 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         # available space, to compute collapsed one
         available_space = min(unfold_height, upper_altitude - bottom)
         # space left for gaps
-        available_gaps = available_space - numslats * self.depth
+        available_gaps = available_space - numslats * self.y
         # regular including gaps
         regular_slats = floor(available_gaps / gap)
         regular_space = separation * regular_slats
         collapsed_slats = numslats - regular_slats
-        collapsed_space = self.depth * collapsed_slats
-        
-        top = upper_altitude - (0.5 * self.depth + gap) - (self.altitude + self.height)
-        
+        collapsed_space = self.y * collapsed_slats
+
+        top = upper_altitude - (0.5 * self.y + gap) - (self.altitude + self.z)
+
         for i in range(regular_slats):
-            if top <= 0.5 * self.depth:
-                self.make_blade(verts, faces, matids, top, self.altitude + self.height, self.blind_angle)
+            if top <= 0.5 * self.y:
+                self.make_blade(verts, faces, matids, top, self.altitude + self.z, self.blind_angle)
             top -= separation
 
         if collapsed_slats > 0:
             top -= available_space - (collapsed_space + regular_space) - gap
 
         for i in range(collapsed_slats):
-            self.make_blade (verts, faces, matids, top, self.altitude + self.height, self.blind_angle)
-            top -= self.depth
-    
+            self.make_blade(verts, faces, matids, top, self.altitude + self.z, self.blind_angle)
+            top -= self.y
+
     def make_slat(self, verts, faces, matids, posz, angle):
         # ------------------------------------
         # Mesh data
         # ------------------------------------
-        x = 0.5 * self.width
-        y = 0.5 * self.depth
+        x = 0.5 * self.x
+        y = 0.5 * self.y
         c = cos(angle)
         s = sin(angle)
 
         tM0 = Matrix([
             [1, 0, 0, 0],
-            [0, c, s, 0],
+            [0, c, s, -self.offset_y],
             [0, -s, c, posz],
             [0, 0, 0, 1]
         ])
         tM1 = Matrix([
             [-1, 0, 0, 0],
-            [0, c, s, 0],
+            [0, c, s, -self.offset_y],
             [0, -s, c, posz],
             [0, 0, 0, 1]
         ])
@@ -326,7 +349,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         gap = 0.0025
 
         # gap distance from border
-        if self.width < 0.60:
+        if self.x < 0.60:
             sep = 0.06
         else:
             sep = 0.15
@@ -354,7 +377,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         # center gap
         x5 = gap
 
-        shape =[(x2, -y1, z1),
+        shape = [(x2, -y1, z1),
                 (x2, y1, z1),
                 (x1, -y, z2),
                 (x1, y, z2),
@@ -389,22 +412,22 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
             (27, 23, 21, 25), (27, 25, 24, 26), (24, 20, 22, 26),
             (39, 37, 23, 27), (39, 27, 26, 38), (38, 26, 22, 36),
             (30, 34, 32, 28), (34, 30, 31, 35), (35, 31, 29, 33),
-            (11, 9, 29, 31),    (8, 10, 30, 28)]])
+            (11, 9, 29, 31), (8, 10, 30, 28)]])
 
         matids.extend([1 for i in range(24)])
 
     def roller_slats(self, verts, faces, matids):
         # total available space
-        height = self.height
+        height = self.z
         # numslats (slats +1)
-        numslats = ceil(height / (self.depth * 0.85))
+        numslats = ceil(height / (self.y * 0.85))
         # separation
         separation = height / numslats
         half_separation = 0.5 * separation
         available = height * self.ratio / 100
         regular_slats = available / separation
-        top = self.altitude + self.height - (regular_slats % 1 - 2) * separation
-        absolute_top = self.altitude + self.height + 0.5 * self.depth
+        top = self.altitude + self.z - (regular_slats % 1 - 2) * separation
+        absolute_top = self.altitude + self.z + 0.5 * self.y
 
         angle = min(0.47222 * pi, max(-0.47222 * pi, self.angle))
 
@@ -416,9 +439,9 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
 
         radius = 0.00025
         bottom = top + half_separation
-        z = self.altitude + self.height
-        y = 0
-        if self.width < 0.60:
+        z = self.altitude + self.z
+        y = -self.offset_y
+        if self.x < 0.60:
             sep = 0.06
         else:
             sep = 0.15
@@ -426,17 +449,17 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         s = bottom - z
 
         self.cylinder(radius, s, 0, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s, 0.5 * self.width - sep, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s, sep - 0.5 * self.width, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s, 0.5 * self.x - sep, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s, sep - 0.5 * self.x, y, z, 'Z', verts, faces, matids)
 
     def venitian_slats(self, verts, faces, matids):
         gap = 0.0015
         # total available space
-        height = self.height
-        top = self.altitude + self.height
+        height = self.z
+        top = self.altitude + self.z
         angle = min(0.47222 * pi, max(-0.47222 * pi, self.angle))
         # numslats
-        numslats = ceil(height / (self.depth * 0.85))
+        numslats = ceil(height / (self.y * 0.85))
         # separation
         separation = height / numslats
         half_separation = 0.5 * separation
@@ -448,7 +471,6 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         regular_slats = floor(numslats - collapsed_parts)
         regular_space = regular_slats * separation
         rotated_space = available + numslats * gap - (regular_space + collapsed_space)
-        rotated_height = abs(sin(angle) * 0.5 * self.depth)
         """
         logger.debug("n_c:%s, n_r:%s, n_s:%s, c:%s, r:%s, rot:%s, a:%s",
             collapsed_slats,
@@ -478,16 +500,15 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
             if before < half_separation:
                 rotated_angle = 0
             else:
-                rotated_angle = asin(2 * (rotated_space - half_separation) / self.depth)
+                rotated_angle = asin(2 * (rotated_space - half_separation) / self.y)
                 if self.angle < 0:
                     rotated_angle = max(self.angle, -rotated_angle)
                 else:
                     rotated_angle = min(self.angle, rotated_angle)
-                    
+
             top -= before
             self.make_slat(verts, faces, matids, top, rotated_angle)
             top -= 0.5 * gap + max(0, rotated_space - before)
-
 
         for i in range(collapsed_slats):
             top -= 0.5 * gap
@@ -501,99 +522,100 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
             bottom += 0.5 * gap
         else:
             bottom = max(
-                top + 0.5 * gap, 
-                self.altitude + self.height - separation * (numslats - 0.5)
+                top + 0.5 * gap,
+                self.altitude + self.z - separation * (numslats - 0.5)
                 )
 
-        z = self.altitude + self.height
-
-        y = 0
-        if self.width < 0.60:
+        z = self.altitude + self.z
+        y0 = -self.offset_y
+        y = y0
+        if self.x < 0.60:
             sep = 0.06
         else:
             sep = 0.15
 
         s = bottom - z
         self.cylinder(radius, s, 0, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s, 0.5 * self.width - sep, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s, sep - 0.5 * self.width, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s, 0.5 * self.x - sep, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s, sep - 0.5 * self.x, y, z, 'Z', verts, faces, matids)
 
         # curvature of slats (z)
         ca = cos(angle)
         sa = sin(angle)
-        slat_depth = tan(radians(3)) * 0.5 * self.depth
+        slat_depth = tan(radians(3)) * 0.5 * self.y
         curvature = slat_depth * sa
 
         rot = 0
 
         if self.ratio == 100:
-            rot = sa * 0.5 * self.depth
+            rot = sa * 0.5 * self.y
             s -= slat_depth
 
-        y = 0.5 * self.depth * ca - curvature + radius
+        y = y0 + 0.5 * self.y * ca - curvature + radius
 
         self.cylinder(radius, s - rot, 0, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s - rot, 0.5 * self.width - sep, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s - rot, sep - 0.5 * self.width, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s - rot, 0.5 * self.x - sep, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s - rot, sep - 0.5 * self.x, y, z, 'Z', verts, faces, matids)
 
-        y = -0.5 * self.depth * ca - curvature - radius
+        y = y0 - 0.5 * self.y * ca - curvature - radius
 
         self.cylinder(radius, s + rot, 0, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s + rot, 0.5 * self.width - sep, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s + rot, sep - 0.5 * self.width, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s + rot, 0.5 * self.x - sep, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s + rot, sep - 0.5 * self.x, y, z, 'Z', verts, faces, matids)
 
     def roller_curtain(self, verts, faces, matids):
-        x = 0.5 * self.width
-        y = 0.5 * self.depth
+        x = 0.5 * self.x
         c = cos(self.blind_angle)
         s = sin(self.blind_angle)
-        z0 = self.altitude + self.height
-        ext = -self.height * self.ratio / 100
+        z0 = self.altitude + self.z
+        ext = -self.z * self.ratio / 100
         z1 = z0 + s * ext
-        y = c * ext
+        y0 = -self.offset_y
+        y1 = y0 + c * ext
         nv = len(verts)
         verts.extend([Vector(v) for v in [
-            [x, 0, z0],
-            [-x, 0, z0],
-            [-x, y, z1],
-            [x, y, z1]
+            [x, y0, z0],
+            [-x, y0, z0],
+            [-x, y1, z1],
+            [x, y1, z1]
             ]])
         faces.append(tuple([nv + f for f in range(4)]))
         matids.append(1)
 
     def plated_blind(self, verts, faces, matids):
-        x = 0.5 * self.width
-        a = atan2(0.002, 0.5 * self.depth)
-        zmax = self.depth * cos(a)
-        num = ceil(self.height / zmax)
-        z = self.height / num * self.ratio / 100
-        a = asin(z / self.depth)
-        y = 0.5 * cos(a) * self.depth
-        z0 = self.altitude + self.height
+        x = 0.5 * self.x
+        a = atan2(0.002, 0.5 * self.y)
+        zmax = self.y * cos(a)
+        num = ceil(self.z / zmax)
+        z = self.z / num * self.ratio / 100
+        a = asin(z / self.y)
+        y = 0.5 * cos(a) * self.y
+        y0 = -self.offset_y
+        z0 = self.altitude + self.z
 
         nv = len(verts)
-        for yi, zi in [[(2 * (i % 2) - 1) * y, z0 - z * i] for i in range(num + 1)]:
+        for yi, zi in [[y0 + (2 * (i % 2) - 1) * y, z0 - z * i] for i in range(num + 1)]:
             verts.extend([Vector((x, yi, zi)), Vector((-x, yi, zi))])
         if num % 2 == 1:
             y = -y
 
-        verts.extend([Vector((x, y, z0 - num * z)), Vector((-x, y, z0 - num * z))])
+        verts.extend([Vector((x, y0 + y, z0 - num * z)), Vector((-x, y0 + y, z0 - num * z))])
         faces.extend([tuple([nv + f, nv + 1 + f, nv + 3 + f, nv + 2 + f]) for f in range(0, 2 * (num + 1), 2)])
         matids.extend([1 for i in range(num + 1)])
 
         radius = 0.0003
 
         s = -num * z
-        z = self.altitude + self.height
-        y = 0
-        if self.width < 0.60:
+        z = self.altitude + self.z
+        y = y0
+        if self.x < 0.60:
             sep = 0.06
         else:
             sep = 0.15
 
-        self.cylinder(radius, s, 0.5 * self.width - sep, y, z, 'Z', verts, faces, matids)
-        self.cylinder(radius, s, sep - 0.5 * self.width, y, z, 'Z', verts, faces, matids)
-    
+        self.cylinder(radius, s, 0.5 * self.x - sep, y, z, 'Z', verts, faces, matids)
+        self.cylinder(radius, s, sep - 0.5 * self.x, y, z, 'Z', verts, faces, matids)
+
     def cathenary(self, num, x, y, z, r, h, w, verts, faces, matids):
         # pts = [round(v.co.z, 4) for v in C.object.data.splines[0].points]
         zs = [-0.0, -0.3056, -0.5556, -0.75, -0.8889, -0.9722]
@@ -614,19 +636,19 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
                 ])
                 ay += da
                 verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 0)) for a in range(seg)])
-            
+
             # lower vert (center)
             tM = Matrix([
                     [r * sin(ay), 0, r * cos(ay), x + 0.5 * w],
                     [0, r, 0, y],
                     [-r * cos(ay), 0, r * sin(ay), z - h],
                     [0, 0, 0, 1]
-                ])
+                    ])
             ay += da
-            verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 0)) for a in range(seg)])    
-            
+            verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 0)) for a in range(seg)])
+
             for i, zi in enumerate(reversed(zs)):
-                xi = 0.5 + 1 / 12 * (i + 1)    
+                xi = 0.5 + 1 / 12 * (i + 1)
                 tM = Matrix([
                     [r * sin(ay), 0, r * cos(ay), x + xi * w],
                     [0, r, 0, y],
@@ -635,32 +657,33 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
                 ])
                 ay += da
                 verts.extend([tM * Vector((sin(deg * a), cos(deg * a), 0)) for a in range(seg)])
-            
+
             x += w
-            
+
             for s in range(12):
                 faces.extend([tuple([nv + i + f for f in (0, 1, seg + 1, seg)]) for i in range(seg - 1)])
                 faces.append((nv + seg - 1, nv, nv + seg, nv + 2 * seg - 1))
                 nv += seg
                 matids.extend([2 for i in range(seg)])
             nv += seg
-            
+
     def vertical_slotted(self, verts, faces, matids):
         c = cos(self.angle)
         s = sin(self.angle)
-        x = 0.5 * self.depth
+        x = 0.5 * self.y
         z = self.altitude
-        h = self.height
+        h = self.z
         nv = len(verts)
-        num = ceil(self.width / (0.85 * self.depth))
-        spacing = max(0.002, (self.width / num) * self.ratio / 100)
-        x0 = 0.5 * spacing - 0.5 * self.width
+        num = ceil(self.x / (0.85 * self.y))
+        spacing = max(0.002, (self.x / num) * self.ratio / 100)
+        x0 = 0.5 * spacing - 0.5 * self.x
+        y0 = -self.offset_y
         dx = c * x
         dy = s * x
         for i in range(num):
             tM = Matrix([
                 [dx, -dy, 0, x0 + i * spacing],
-                [dy, dx, 0, 0],
+                [dy, dx, 0, y0],
                 [0, 0, h, z],
                 [0, 0, 0, 1]
             ])
@@ -672,26 +695,26 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
             ]])
             faces.append(tuple([nv + 4 * i + j for j in range(4)]))
             matids.append(1)
-        
+
         # cathenary scaling estimation
-        h = (self.width / num) * sin(acos(self.ratio / 101.003) * 1.01003)
-        w = self.ratio / 100
+        h = (self.x / num) * sin(acos(self.ratio / 101.003) * 1.01003)
         # pts = [round(v.co.z, 4) for v in C.object.data.splines[0].points]
-        
+
         r = 0.00025
-        self.cathenary(num - 1, x0 + dx, dy, z, r, h, spacing, verts, faces, matids)
-        self.cathenary(num - 1, x0 - dx, -dy, z, r, h, spacing, verts, faces, matids)
-                 
+        self.cathenary(num - 1, x0 + dx, y0 + dy, z, r, h, spacing, verts, faces, matids)
+        self.cathenary(num - 1, x0 - dx, y0 - dy, z, r, h, spacing, verts, faces, matids)
+
     def japanese(self, verts, faces, matids):
         z = self.altitude
         nv = len(verts)
         num = self.panels
-        w  = self.width / num
-        h = self.height
+        w = self.x / num
+        y0 = -self.offset_y
+        h = self.z
         dx = self.ratio / 100 * w
         for i in range(num):
-            x = -0.5 * self.width + i * dx
-            y = 0.01 * (2 * (i % 2) - 1)
+            x = -0.5 * self.x + i * dx
+            y = y0 + 0.01 * (2 * (i % 2) - 1)
             verts.extend([Vector(v) for v in [
                 [x + w, y, h + z],
                 [x, y, h + z],
@@ -700,7 +723,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
             ]])
             faces.append(tuple([nv + 4 * i + j for j in range(4)]))
             matids.append(1)
-    
+
     def setup_manipulators(self):
         if len(self.manipulators) < 1:
             # add manipulator for x property
@@ -735,7 +758,9 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         verts = []
         faces = []
         matids = []
-        self.frame(verts, faces, matids)
+
+        if self.frame_enable:
+            self.frame(verts, faces, matids)
 
         if self.style == 'VENITIAN':
             self.venitian_slats(verts, faces, matids)
@@ -751,7 +776,7 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
             self.vertical_slotted(verts, faces, matids)
         elif self.style == 'JAPANESE':
             self.japanese(verts, faces, matids)
-            
+
         # update your mesh from parameters
         bmed.buildmesh(context,
                        o,
@@ -759,16 +784,17 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
                        faces,
                        matids=matids,
                        weld=False)
-        
+
         # update manipulators location (3d location in object coordsystem)
-        x, y = 0.5 * self.width, 0
-        self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (1, 0, 0)])
-        self.manipulators[1].set_pts([(x, -y, self.altitude), (x, -y, self.altitude + self.height), (-1, 0, 0)])
-        self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.altitude), (-1, 0, 0)])
+        x, y = 0.5 * self.x, 0
+        y0 = -self.offset_y
+        self.manipulators[0].set_pts([(-x, y0 - y, 0), (x, y0 - y, 0), (1, 0, 0)])
+        self.manipulators[1].set_pts([(x, y0 - y, self.altitude), (x, y0 - y, self.altitude + self.z), (-1, 0, 0)])
+        self.manipulators[2].set_pts([(x, y0 - y, 0), (x, y0 - y, self.altitude), (-1, 0, 0)])
 
         # always restore context
         self.restore_context(context)
-        
+
 
 class ARCHIPACK_PT_blind(Panel):
     bl_idname = "ARCHIPACK_PT_blind"
@@ -809,31 +835,33 @@ class ARCHIPACK_PT_blind(Panel):
 
         box = layout.box()
         box.prop(props, 'style')
-        box.prop(props, 'width')
-        box.prop(props, 'height')
+        box.prop(props, 'x')
+        box.prop(props, 'z')
+        box.prop(props, 'offset_y')
         box.prop(props, 'altitude')
         box.prop(props, 'ratio')
-        
+
         box = layout.box()
         box.label(text="Slat")
-        
+
         if props.style == 'JAPANESE':
             box.prop(props, 'panels')
-            
+
         else:
             if props.style != 'ROLLER':
-                box.prop(props, 'depth')
-            
+                box.prop(props, 'y')
+
             if props.style in {'ROLLER', 'BLADES'}:
                 box.prop(props, 'blind_angle')
-            
+
             elif props.style != 'PLATED':
                 box.prop(props, 'angle')
-            
+
         box = layout.box()
-        box.label(text="Frame")
-        box.prop(props, 'frame_height')
-        box.prop(props, 'frame_depth')
+        box.prop(props, 'frame_enable')
+        if props.frame_enable:
+            box.prop(props, 'frame_height')
+            box.prop(props, 'frame_depth')
 
 
 class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
@@ -842,36 +870,57 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
     bl_description = "Create Blind"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
-    width = FloatProperty(
+
+    x = FloatProperty(
             name='Width',
             min=0.10, default=1, precision=3,
             description='Total width'
-            ) 
-    height = FloatProperty(
+            )
+    offset_y = FloatProperty(
+            name='Offset',
+            default=0, precision=3,
+            description='Offset from wall'
+            )
+    z = FloatProperty(
             name='Height',
             min=0.1, default=1.2, precision=3,
             description='Height'
-            ) 
+            )
     altitude = FloatProperty(
             name='Altitude',
-            min=0, default=0, precision=3,
+            default=0, precision=3,
             description='Altitude'
             )
+    frame_enable = BoolProperty(
+            name='Frame',
+            default=True,
+            description='Enable frame'
+            )
+    frame_height = FloatProperty(
+            name='Height',
+            min=0.01, default=0.2, precision=3,
+            description='Frame height'
+            )
+    frame_depth = FloatProperty(
+            name='Frame depth',
+            min=0.02, default=0.04, precision=3,
+            description='Frame depth'
+            )
+
     style = EnumProperty(
         items=(
-            ('VENITIAN', 'Venitian', 'Venitian', 0),  # /  /  ///
-            ('SLAT', 'Slat', 'Slat', 1), # / / /
-            ('ROLLER', 'Roller', 'Roller', 2),  # __________
-            ('BLADES', 'Blades', 'Blades', 3), # _ _ ___
-            ('PLATED', 'Plated', 'Plated', 4),  # Vertical \/\/        -> regular
-            # ('CELLULAR', 'Cellular blind', 'Cellular blind', 5),    # OOOO         -> venitian like variant
-            ('JAPANESE', 'Japanese', 'Japanese', 6), # _-  -> horizontal
-            ('VERTICAL_SLOTTED', 'Vertical slotted', 'Vertical slotted', 7)  # / / -> horizontal
+            ('VENITIAN', 'Venitian', 'Venitian', 0),
+            ('SLAT', 'Slat', 'Slat', 1),
+            ('ROLLER', 'Roller', 'Roller', 2),
+            ('BLADES', 'Blades', 'Blades', 3),
+            ('PLATED', 'Plated', 'Plated', 4),
+            # ('CELLULAR', 'Cellular blind', 'Cellular blind', 5),
+            ('JAPANESE', 'Japanese', 'Japanese', 6),
+            ('VERTICAL_SLOTTED', 'Vertical slotted', 'Vertical slotted', 7)
         ),
         default='SLAT'
         )
-    
+
     def create(self, context):
 
         # Create an empty mesh datablock
@@ -882,12 +931,16 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
 
         # Add your properties on mesh datablock
         d = m.archipack_blind.add()
-        
-        d.width = self.width
-        d.height = self.height
+
+        d.x = self.x
+        d.z = self.z
+        d.offset_y = self.offset_y
         d.altitude = self.altitude
+        d.frame_enable = self.frame_enable
+        d.frame_height = self.frame_height
+        d.frame_depth = self.frame_depth
         d.style = self.style
-        
+
         # Link object into scene
         context.scene.objects.link(o)
 

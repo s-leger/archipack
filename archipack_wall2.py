@@ -514,8 +514,8 @@ def update_t_part(self, context):
 
                 # NOTE:
                 # rotation here is wrong when w has not parent while o has parent
-
-                if res and t > 0 and t < 1 and abs(dist) < dmax:
+                t_bound = wall.length / self.width
+                if res and t > -t_bound and t < 1 + t_bound and abs(dist) < dmax:
                     x = wrM * wall.straight(1, t).v
                     y = wrM * wall.normal(t).v.normalized()
                     self.parts[0].a0 = dir.angle_signed(x)
@@ -1332,7 +1332,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                     'archipack_window' in cd or
                     'archipack_door' in cd or (
                         wd is not None and
-                        o.name in wd.t_part
+                        o.name == wd.t_part
                         )
                     )):
 
@@ -1356,11 +1356,14 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 for wall_idx, wall in enumerate(g.segs):
                     # may be optimized with a bound check
                     res, dist, t = wall.point_sur_segment(pt)
+                    # this test is too restrictive and must 
+                    # take account of wall depth
+                    t_bound = wall.length / self.width
                     # outside is on the right side of the wall
                     #  p1
                     #  |-- x
                     #  p0
-                    if res and t > 0 and t < 1 and abs(dist) < dmax:
+                    if res and t > -t_bound and t < 1 + t_bound and abs(dist) < dmax:
                         # dir in world coordsys
                         dir = wrM * wall.sized_normal(t, 1).v
                         wall_with_childs[wall_idx] = 1

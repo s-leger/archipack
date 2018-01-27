@@ -80,13 +80,13 @@ def generateThumb(context, cls, preset):
 
     # oposite / tan (0.5 * fov)  where fov is 49.134 deg
     dist = max(size) / 0.32
-    loc = center + dist * Vector((0.5, -1, 0.5)).normalized()
+    loc = center + dist * Vector((-0.5, -1, 0.5)).normalized()
 
     log("Prepare camera")
     bpy.ops.object.camera_add(view_align=True,
         enter_editmode=False,
         location=loc,
-        rotation=(1.150952, 0.0, 0.462509))
+        rotation=(1.150952, 0.0, -0.462509))
     cam = context.active_object
     cam.data.lens = 50
     cam.select = True

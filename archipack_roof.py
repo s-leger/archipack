@@ -796,24 +796,44 @@ class RoofPolygon(CutAblePolygon):
 
 
 """
+import bpy
 import bmesh
+
+def print_list(name, lst, cols):
+	size = len(lst)
+	rows = 1 + int(size / cols)	
+	print("%s" % "{} = [\n    {}\n    ]\n".format(name, 
+		",\n    ".join(
+			[", ".join([str(lst[r * cols + i]) for i in range(cols) if r * cols + i < size]) 
+			for r in range(rows)
+			])
+		))
+		
+def dump_mesh(m, cols, rounding):
+	verts = [(round(v.co.x, rounding), round(v.co.y, rounding), round(v.co.z, rounding)) for v in m.vertices]
+	faces = [tuple(p.vertices) for p in m.polygons]
+	bpy.ops.object.mode_set(mode='EDIT')
+	bm = bmesh.from_edit_mesh(m)
+	edges = [tuple(i.index for i in edge.verts) for edge in bm.edges]
+	uvs = []
+	layer = bm.loops.layers.uv.verify()
+	for i, face in enumerate(bm.faces):
+		uv = []
+		for j, loop in enumerate(face.loops):
+			co = loop[layer].uv
+			uv.append((round(co.x, rounding), round(co.y, rounding)))
+		uvs.append(uv)
+	matids = [p.material_index for p in m.polygons]
+	print_list("verts", verts, cols)
+	print_list("faces", faces, cols)	
+	print_list("matids", matids, cols)
+	print_list("uvs", uvs, cols)
+	
+	
+cols = 3
+rounding = 3
 m = C.object.data
-[(round(v.co.x, 3), round(v.co.y, 3), round(v.co.z, 3)) for v in m.vertices]
-[tuple(p.vertices) for p in m.polygons]
-
-uvs = []
-bpy.ops.object.mode_set(mode='EDIT')
-bm = bmesh.from_edit_mesh(m)
-[tuple(i.index for i in edge.verts) for edge in bm.edges]
-
-layer = bm.loops.layers.uv.verify()
-for i, face in enumerate(bm.faces):
-    uv = []
-    for j, loop in enumerate(face.loops):
-        co = loop[layer].uv
-        uv.append((round(co.x, 2), round(co.y, 2)))
-    uvs.append(uv)
-uvs
+dump_mesh(m, cols, rounding)
 """
 
 

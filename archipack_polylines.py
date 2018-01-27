@@ -35,7 +35,6 @@ from mathutils.geometry import intersect_line_plane, interpolate_bezier
 from bpy_extras import view3d_utils
 from bpy.types import Operator, PropertyGroup
 from bpy.props import (
-    StringProperty,
     FloatProperty,
     PointerProperty,
     EnumProperty,
@@ -1408,8 +1407,8 @@ class Io():
             io._curve_as_geom(gf, curve, resolution, geoms)
         logger.debug("Io.curves_to_geoms() :%.2f seconds", time.time() - t)
         return coordsys
-    
-    def _poly_to_surface(self, vm, poly, name:str="Surface"):
+
+    def _poly_to_surface(self, vm, poly, name: str="Surface"):
         # create Exterior line
         curve = bpy.data.curves.new(name, type='CURVE')
         curve.dimensions = "3D"
@@ -1422,15 +1421,19 @@ class Io():
         location = Vector()
         poly.envelope.centre(location)
         radius = max(poly.envelope.width, poly.envelope.height)
-        bpy.ops.mesh.primitive_plane_add(radius=radius, enter_editmode=True, location=self.coordsys.world * location)
+        bpy.ops.mesh.primitive_plane_add(
+            radius=radius,
+            enter_editmode=True,
+            location=self.coordsys.world * location
+            )
         bpy.ops.mesh.select_mode(type="FACE")
         surf = self.scene.objects.active
         surf.name = name
         exterior.select = True
-        
+
         # ensure view point is safe for knife_project
         vm.safe_knife_project(radius, self.coordsys.world * location)
-        
+
         # cut plane
         bpy.ops.mesh.knife_project()
         exterior.select = False
@@ -1496,11 +1499,11 @@ class Io():
         bpy.ops.mesh.select_all(action='SELECT')
 
         bpy.ops.mesh.extrude_region_move(
-            MESH_OT_extrude_region={"mirror":False},
+            MESH_OT_extrude_region={"mirror": False},
             TRANSFORM_OT_translate={
-                "value":(0, 0, height),
-                "constraint_axis":(False, False, True),
-                "constraint_orientation":'GLOBAL'
+                "value": (0, 0, height),
+                "constraint_axis": (False, False, True),
+                "constraint_orientation": 'GLOBAL'
                 })
 
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -1626,7 +1629,7 @@ class Io():
             cap faces are tri, sides faces are quads
         """
         t = time.time()
-        
+
         vm = ViewManager(context)
         vm.save()
         io = Io(scene=context.scene, coordsys=coordsys)
@@ -1653,7 +1656,7 @@ class Io():
                 surfaces.append(obj)
             else:
                 logger.debug("Io.to_surface() :skip %s", type(poly).__name__)
-        
+
         vm.restore()
 
         logger.debug("Io.to_surface(%s) :%.2f seconds", len(surfaces), time.time() - t)
@@ -1704,9 +1707,9 @@ class Io():
                 walls.append(obj)
             else:
                 logger.debug("Io.to_wall() :skip %s", type(poly).__name__)
-        
+
         vm.restore()
-        
+
         logger.debug("Io.to_wall(%s) :%.2f seconds", len(walls), time.time() - t)
 
         return walls
@@ -2644,11 +2647,8 @@ class ARCHIPACK_OP_PolyLib_Polygonize(Operator):
         return self.execute(context)
 
     def execute(self, context):
-        t = time.time()
         settings_write(self)
-
         global vars_dict
-
         objs = [obj for obj in context.selected_objects if obj.type == 'CURVE']
 
         if len(objs) < 1:
@@ -2827,6 +2827,7 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
             subtype='DISTANCE',
             unit='LENGTH', min=0
             )
+
     @classmethod
     def poll(self, context):
         o = context.active_object
@@ -2838,11 +2839,11 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
 
     def execute(self, context):
         t = time.time()
-        
+
         if self.distance == 0:
             self.report({'WARNING'}, "Distance 0 invalid for buffer")
             return {'CANCELLED'}
-            
+
         settings_write(self)
 
         objs = list(obj for obj in context.selected_objects if obj.type == 'CURVE')
@@ -2889,11 +2890,11 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
 
 
 opCodes = {
-    'INTERSECTION':1,
-    'UNION':2,
-    'DIFFERENCE':3,
-    'SYMDIFFERENCE':4,
-    'REVDIFFERENCE':13
+    'INTERSECTION': 1,
+    'UNION': 2,
+    'DIFFERENCE': 3,
+    'SYMDIFFERENCE': 4,
+    'REVDIFFERENCE': 13
 }
 
 
@@ -2959,7 +2960,6 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
 
         geom_a = Io.curves_to_geomcollection([a], self.bezier_resolution, coordsys=coordsys, homogeneous=homogeneous_a)
         geom_b = Io.curves_to_geomcollection(b, self.bezier_resolution, coordsys=coordsys, homogeneous=homogeneous_b)
-
 
         if opCode == 2 and (
                 geom_a.geom_type == 'GeometryCollection' or

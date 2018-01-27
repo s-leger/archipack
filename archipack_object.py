@@ -173,6 +173,8 @@ class ArchipackCreateTool():
         # skip if preset allready add material
         if "archipack_material" in o:
             return
+        # enable viewport transparency
+        o.show_transparent = True
         try:
             if category is None:
                 category = self.archipack_category
