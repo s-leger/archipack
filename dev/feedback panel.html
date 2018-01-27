@@ -96,6 +96,7 @@
               <p class="caption"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../setup.html">Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../whats new.html">What’s new ?</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user guide.html">User guide</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../extending archipack.html">Extending archipack</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="developper guide.html">Developper guide</a></li>
@@ -213,36 +214,69 @@
 </div>
 <div class="section" id="implementation-sample">
 <h3>Implementation sample<a class="headerlink" href="#implementation-sample" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">.archipack_gl</span> <span class="kn">import</span> <span class="n">FeedbackPanel</span>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">bpy</span>
+<span class="kn">from</span> <span class="nn">bpy.types</span> <span class="kn">import</span> <span class="n">Operator</span>
+<span class="kn">from</span> <span class="nn">.archipack_gl</span> <span class="kn">import</span> <span class="n">FeedbackPanel</span>
 
-<span class="c1"># modal Operator invoke sample</span>
-   <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span> <span class="o">=</span> <span class="n">FeedbackPanel</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Archipack&quot;</span><span class="p">)</span>
-   <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">instructions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s2">&quot;Draw a wall&quot;</span><span class="p">,</span> <span class="s2">&quot;Click &amp; Drag to start&quot;</span><span class="p">,</span> <span class="p">[</span>
-                                <span class="p">(</span><span class="s1">&#39;CTRL&#39;</span><span class="p">,</span> <span class="s1">&#39;Snap&#39;</span><span class="p">),</span>
-                                <span class="p">(</span><span class="s1">&#39;MMBTN&#39;</span><span class="p">,</span> <span class="s1">&#39;Constraint to axis&#39;</span><span class="p">),</span>
-                                <span class="p">(</span><span class="s1">&#39;X Y&#39;</span><span class="p">,</span> <span class="s1">&#39;Constraint to axis&#39;</span><span class="p">),</span>
-                                <span class="p">(</span><span class="s1">&#39;RIGHTCLICK or ESC&#39;</span><span class="p">,</span> <span class="s1">&#39;exit without change&#39;</span><span class="p">)</span>
-                                <span class="p">])</span>
-   <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
-   <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
-   <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">SpaceView3D</span><span class="o">.</span><span class="n">draw_handler_add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">draw_callback</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="s1">&#39;WINDOW&#39;</span><span class="p">,</span> <span class="s1">&#39;POST_PIXEL&#39;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">DEMO_OP_Feedback</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+            <span class="n">bl_idname</span> <span class="o">=</span> <span class="s2">&quot;demo.feedback&quot;</span>
+            <span class="n">bl_label</span> <span class="o">=</span> <span class="s2">&quot;Feedback&quot;</span>
+            <span class="n">bl_description</span> <span class="o">=</span> <span class="s2">&quot;Feedback panel in modal&quot;</span>
+            <span class="n">bl_options</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;REGISTER&#39;</span><span class="p">,</span> <span class="s1">&#39;UNDO&#39;</span><span class="p">}</span>
 
-<span class="c1"># !!! panel must be enabled</span>
-<span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
-<span class="c1"># and may be disabled</span>
-<span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">disable</span><span class="p">()</span>
+            <span class="n">feedback</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="n">_handle</span> <span class="o">=</span> <span class="bp">None</span>
 
+            <span class="c1"># draw callback</span>
+            <span class="k">def</span> <span class="nf">draw_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
-<span class="c1"># you may setup instructions right on invoke or</span>
-<span class="c1"># in Operator modal you are able to change instructions on the fly</span>
-<span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">instructions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">&#39;Title&#39;</span><span class="p">,</span> <span class="s1">&#39;Hints about usage&#39;</span><span class="p">,</span> <span class="p">[</span>
-<span class="p">(</span><span class="s1">&#39;SHORTCUT&#39;</span><span class="p">,</span> <span class="s1">&#39;Hints about shortcut&#39;</span><span class="p">),</span>
-<span class="o">...</span>
-<span class="p">])</span>
+            <span class="k">def</span> <span class="nf">invoke</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+                    <span class="c1"># Create a panel instance</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span> <span class="o">=</span> <span class="n">FeedbackPanel</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Main Title&quot;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">instructions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s2">&quot;Sub title&quot;</span><span class="p">,</span> <span class="s2">&quot;hint&quot;</span><span class="p">,</span> <span class="p">[</span>
+                            <span class="p">(</span><span class="s1">&#39;SHIFT&#39;</span><span class="p">,</span> <span class="s1">&#39;deselect&#39;</span><span class="p">),</span>
+                            <span class="p">(</span><span class="s1">&#39;CTRL&#39;</span><span class="p">,</span> <span class="s1">&#39;contains&#39;</span><span class="p">),</span>
+                            <span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;All&#39;</span><span class="p">),</span>
+                            <span class="p">(</span><span class="s1">&#39;I&#39;</span><span class="p">,</span> <span class="s1">&#39;Inverse&#39;</span><span class="p">),</span>
+                            <span class="p">(</span><span class="s1">&#39;ESC or RIGHTMOUSE&#39;</span><span class="p">,</span> <span class="s1">&#39;exit when done&#39;</span><span class="p">)</span>
+                    <span class="p">])</span>
+                    <span class="c1"># Enable panel</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
 
-<span class="c1"># draw_callback handler sample (defined as Operator method)</span>
-<span class="k">def</span> <span class="nf">draw_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_self</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+                    <span class="c1"># panel draw handler</span>
+                    <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_handle</span> <span class="o">=</span> <span class="n">bpy</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">SpaceView3D</span><span class="o">.</span><span class="n">draw_handler_add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">draw_callback</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="s1">&#39;WINDOW&#39;</span><span class="p">,</span> <span class="s1">&#39;POST_PIXEL&#39;</span><span class="p">)</span>
+
+                    <span class="c1"># add modal handler</span>
+                    <span class="n">context</span><span class="o">.</span><span class="n">window_manager</span><span class="o">.</span><span class="n">modal_handler_add</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;RUNNING_MODAL&#39;</span><span class="p">}</span>
+
+            <span class="k">def</span> <span class="nf">modal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+
+                    <span class="c1"># tag area for gl redraw</span>
+                    <span class="n">context</span><span class="o">.</span><span class="n">area</span><span class="o">.</span><span class="n">tag_redraw</span><span class="p">()</span>
+
+                    <span class="c1"># exit condition</span>
+                    <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;ESC&#39;</span><span class="p">,</span> <span class="s1">&#39;RIGHTMOUSE&#39;</span><span class="p">}:</span>
+                            <span class="n">bpy</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">SpaceView3D</span><span class="o">.</span><span class="n">draw_handler_remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_handle</span><span class="p">,</span> <span class="s1">&#39;WINDOW&#39;</span><span class="p">)</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">disable</span><span class="p">()</span>
+                            <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;FINISHED&#39;</span><span class="p">}</span>
+
+                    <span class="c1"># do whatever you need</span>
+
+                    <span class="k">if</span> <span class="n">user_do_something</span><span class="p">:</span>
+                            <span class="c1"># here you are able to change feedback on the fly, calling instructions again</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">instructions</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="s1">&#39;Title&#39;</span><span class="p">,</span> <span class="s1">&#39;Hints about usage&#39;</span><span class="p">,</span> <span class="p">[</span>
+                                    <span class="p">(</span><span class="s1">&#39;SHORTCUT&#39;</span><span class="p">,</span> <span class="s1">&#39;Hints about shortcut&#39;</span><span class="p">),</span>
+                                    <span class="o">...</span>
+                            <span class="p">])</span>
+
+                    <span class="k">if</span> <span class="n">no_feeddback_need_for_this_action</span><span class="p">:</span>
+                            <span class="c1"># disable / enable feedback drawing at any time too</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="o">.</span><span class="n">disable</span><span class="p">()</span>
+
+                    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;RUNNING_MODAL&#39;</span><span class="p">}</span>
 </pre></div>
 </div>
 </div>

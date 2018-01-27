@@ -253,6 +253,21 @@ Add
 
 Create a blind at cursor location
 
+ 
+Kitchen
+-------
+
+.. figure:: ../img/add_kitchen.png
+   :scale: 100 %
+   :alt: Add Kitchen
+   	
+   Add Kitchen
+   
+Add
+"""
+
+Add a kitchen at cursor location
+
 
 Custom objects
 --------------

@@ -873,6 +873,148 @@ Main properties
 
    Truss
 
+   
+   
+.. _kitchen:
+
+Kitchen
+-------
+.. versionadded:: 1.3.7   
+
+Kitchen is a powerfull cabinets generator aimed at but not limited to kitchens.
+
+
+Main properties
+"""""""""""""""
+
+.. figure:: ../img/ui_kitchen_main.png
+   :scale: 100 %
+   :alt: Kitchen properties
+
+   Kitchen properties
+
+.. tip::
+	Manipluate mode does show cabinet number on top of each cabinet
+	
+Height mode
+ * Height multiplier: use height basis as module height size, and a multiplier to set number of height modules of elements
+ * Absolute height: use absolute heights
+
+.. note::
+	Height multiplier allow fast vertical resizing, and common kitchen cabinets rely on "modular" heights
+	
+	Overriding default height of doors is always possible by setting multiplier to 0
+	
+	
+Default: ground cabinets
+ * Height: cabinet height (either absolute or multiplier)
+ * Depth: cabinet depth
+ 
+Wall: wall cabinets 
+ * Height: cabinet height (either absolute or multiplier)
+ * Depth: cabinet depth
+
+Full: full height cabinets
+ * Height: cabinet height (either absolute or multiplier)
+
+Thickness of boards
+
+Doors style
+ * Board
+ * Board with bevel
+ * Board with frame
+ * Board with frame and bevel
+
+Doors size
+ * Thickness: thickness of door
+ * Border: frame size
+ * Chanfer: bevel size
+
+Handles
+ * Style
+ * Offset from border / top 
+ * Offset from top / bottom, apply on doors only 
+ * Width, Depth, Height / Diameter: size of handle
+ * Scale to fit: fit bar like handles to door size, min width defined by width
+ * Space: space left on borders with scale to fit active
+ 
+Countertop
+ * Enable: generate countertop
+ * Depth
+ * Extent
+ * Chanfer: bevel size
+
+Baseboard
+ * Height: base height
+ * Sink: from front
+ 
+Cabinets: number of cabinets 
+ 
+ 
+Cabinet
+"""""""
+
+.. figure:: ../img/ui_kitchen_cabinet.png
+   :scale: 100 %
+   :alt: Cabinet properties
+
+   Cabinet properties
+
+Types
+ * Floor
+ * Wall
+ * Full
+
+Cabinet size
+ * Width
+ * Depth: difference from default
+ * Height: difference from default
+ 
+Move cabinet
+ * x, y, z: location from current cabinet (unless reset is checked)
+ * Lock: when locked translations apply to next ones 
+ * Lock: when unlocked, translation only apply to current one
+ * Reset: reset location / rotation to start
+ * Rotation
+ 
+.. tip::
+	Reset location in order to "stack" a group of wall cabinets over a ground of ground cabinets 
+ 
+Countertop
+ * Style
+ 
+   * Regular
+   * Sink 
+   * Cookertop
+   * With hole only
+   * None
+  
+ * Fill: fill space between cabinet
+
+Baseboard
+ * Enable
+ * Offset from cabinet front / sides
+ * Left side: generate baseboard on left side of cabinet
+ * Right side: generate baseboard on right side of cabinet
+ 
+Doors
+ * Number of doors (vertical)
+ * Door style
+ 
+   * Drawer
+   * Left, right, top, double doors with and without glass
+   * Oven
+   * Rangehood
+   * Dishwasher
+   * Simple board
+   * None
+   
+ * Height: either absolute or multiplier (setting multiplier to 0 allow absolute sizig too)
+ * Number of shelves: when apply
+ 
+   
+   
+   
 Reference point
 ---------------
 
@@ -891,6 +1033,12 @@ Main properties
 
    Reference point (2d space)
 
+
+
+
+
+
+   
 
 .. _custom objects:
    

@@ -1,6 +1,23 @@
 What's new ?
 ============
 
+Release 1.3.7
+-------------
+
+* Kitchen cabinets see :ref:`kitchen` 
+* Window Shutters see :ref:`window components`
+  
+  * Add parameter for panels depth and borders
+  * Add parameter for hinge size
+  * Bugfix: wrong location of hinge when shape is not rectangle
+  
+* Add parameters for window panels profile size
+* Improvement of frame shape for rail windows
+* Add global offset parameter for slabs
+* Bugfix: wall T parent not always synch child
+* Bugfix: blind not properly created by windows
+* Bugfix: wrong slab geometry with cw wall
+
 
 Release 1.3.6
 -------------
@@ -8,3 +25,19 @@ Release 1.3.6
 * Window shutters see :ref:`window components`
 * Blind object see :ref:`blind`
 * Update documentation link
+
+
+Relaease 1.3.5
+--------------
+
+* 2d to 3d
+
+  * Use pygeos instead of shapely
+  * Improvement of Detect tools workflow (1 single button and then keyboard)
+  * Add 2d boolean
+  * Add buffer
+  * Add offset
+  * Add simplify
+   
+* 2d to 3d tutorial video
+* documentation

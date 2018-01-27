@@ -1,7 +1,9 @@
 2d to 3d
 ========
-
+ 
 .. note::
+	2d to 3d tools support bezier and polygons **curves** as input.
+	
 	2d to 3d panel is only available when one or more curves are selected / active
 
 	2d to 3d tools only work with linear segments, and compute approximation of bezier curves segments at input time.

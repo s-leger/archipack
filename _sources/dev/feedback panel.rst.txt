@@ -36,35 +36,68 @@ Implementation sample
 """""""""""""""""""""
 
 .. code-block:: python
+	
+    import bpy
+    from bpy.types import Operator
+    from .archipack_gl import FeedbackPanel
 
-	from .archipack_gl import FeedbackPanel
-
-	# modal Operator invoke sample
-	   self.feedback = FeedbackPanel(title="Archipack")
-	   self.feedback.instructions(context, "Draw a wall", "Click & Drag to start", [
-					('CTRL', 'Snap'),
-					('MMBTN', 'Constraint to axis'),
-					('X Y', 'Constraint to axis'),
-					('RIGHTCLICK or ESC', 'exit without change')
-					])
-	   self.feedback.enable()
-	   args = (self, context)
-	   self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
-
-	# !!! panel must be enabled
-	self.feedback.enable()
-	# and may be disabled
-	self.feedback.disable()
-
-
-	# you may setup instructions right on invoke or
-	# in Operator modal you are able to change instructions on the fly
-	self.feedback.instructions(context, 'Title', 'Hints about usage', [
-	('SHORTCUT', 'Hints about shortcut'),
-	...
-	])
-
-	# draw_callback handler sample (defined as Operator method)
-	def draw_callback(self, _self, context):
-		self.feedback.draw(context)
+    class DEMO_OP_Feedback(Operator):
+		bl_idname = "demo.feedback"
+		bl_label = "Feedback"
+		bl_description = "Feedback panel in modal"
+		bl_options = {'REGISTER', 'UNDO'}
+		
+		feedback = None
+		_handle = None
+		
+		# draw callback
+		def draw_callback(self, _self, context):
+			self.feedback.draw(context)
+		
+		def invoke(self, context, event):
+			# Create a panel instance
+			self.feedback = FeedbackPanel(title="Main Title")
+			self.feedback.instructions(context, "Sub title", "hint", [
+				('SHIFT', 'deselect'),
+				('CTRL', 'contains'),
+				('A', 'All'),
+				('I', 'Inverse'),
+				('ESC or RIGHTMOUSE', 'exit when done')
+			])
+			# Enable panel
+			self.feedback.enable()
+			
+			# panel draw handler
+			args = (self, context)
+			self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')
+			
+			# add modal handler
+			context.window_manager.modal_handler_add(self)
+			return {'RUNNING_MODAL'}
+		   
+		def modal(self, context, event):
+			
+			# tag area for gl redraw
+			context.area.tag_redraw()
+			
+			# exit condition
+			if event.type in {'ESC', 'RIGHTMOUSE'}:
+				bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+				self.feedback.disable()
+				return {'FINISHED'}
+					
+			# do whatever you need
+			
+			if user_do_something:
+				# here you are able to change feedback on the fly, calling instructions again
+				self.feedback.instructions(context, 'Title', 'Hints about usage', [
+					('SHORTCUT', 'Hints about shortcut'),
+					...
+				])
+				
+			if no_feeddback_need_for_this_action:
+				# disable / enable feedback drawing at any time too
+				self.feedback.disable()
+			
+			return {'RUNNING_MODAL'}
 
