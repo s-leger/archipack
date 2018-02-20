@@ -643,22 +643,22 @@ class Arc(Circle):
 
     def as_lines(self, steps):
         """
-            convert Arc to lines
+            convert Arc to lines segments
         """
         res = []
-        p0 = self.lerp(0)
+        
+        if self.line is None:
+            line = self
+        else:
+            line = self.line
+        
+        p0 = line.lerp(0)
         for step in range(steps):
-            p1 = self.lerp((step + 1) / steps)
+            p1 = line.lerp((step + 1) / steps)
             s = Line(p0=p0, p1=p1)
             res.append(s)
             p0 = p1
 
-        if self.line is not None:
-            p0 = self.line.lerp(0)
-            for step in range(steps):
-                p1 = self.line.lerp((step + 1) / steps)
-                res[step].line = Line(p0=p0, p1=p1)
-                p0 = p1
         return res
 
     def offset(self, offset):

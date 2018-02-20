@@ -1490,7 +1490,11 @@ class Coordinate():
         if self.y > other.y:
             return 1
         return 0
-
+    
+    @property
+    def length(self):
+        return sqrt(self.x ** 2 + self.y ** 2)
+        
     def distance(self, other):
         """ 2d distance """
         dx = self.x - other.x

@@ -766,3 +766,65 @@ class Panel():
             idmat.append(self.idmat[0])
             idmat.append(self.idmat[0])
         return idmat
+
+        
+    ############################
+    # Profile as curve
+    ############################
+    def as_2d(self, steps, offset, center, origin, size, radius,
+            angle_y, pivot, shape_z=None, path_type='ROUND', axis='XZ'):
+        # index: array associate each y with a coord circle and a x
+        # x = array of x of unique points in the profil relative to origin (0, 0) is bottom left
+        # y = array of y of all points in the profil relative to origin (0, 0) is bottom left
+        coords = []
+        y = offset.y
+        x0 = offset.x + size.x / 2 * (pivot - 1)
+        x1 = offset.x + size.x / 2 * (pivot + 1)
+        # single closed profile
+        if abs(self.side_cap_front - self.side_cap_back) == len(self.index) - 1:
+            coords.append([
+                    (x0 + self.x[idx], y + self.y[idy], 0)
+                    for idy, idx in enumerate(self.index)
+                ] + list(reversed([
+                    (x1 - self.x[idx], y + self.y[idy], 0)
+                    for idy, idx in enumerate(self.index)
+                ]))
+                )           
+        else:
+            # 2 profils on both sides
+            coords.append([
+                (x0 + self.x[idx], y + self.y[idy], 0)
+                for idy, idx in enumerate(self.index)
+                ])
+            coords.append(list(reversed([
+                (x1 - self.x[idx], y + self.y[idy], 0)
+                for idy, idx in enumerate(self.index)
+                ])))
+            
+            # draw front and back caps if any as closed shape
+            if self.side_cap_front > -1 and self.side_cap_back > -1:
+                idf = self.side_cap_front
+                idb = self.side_cap_front
+                xf = self.x[self.index[idf]]
+                yf = y + self.y[idf]
+                xb = self.x[self.index[idb]]
+                yb = y + self.y[idb]
+                coords.append([
+                    (x0 + xf, yf, 0), (x1 - xf, yf, 0), 
+                    (x1 - xb, yb, 0), (x0 + xb, yb, 0)])
+            
+            # connect profiles (projection of outermost top / bottom parts)
+            y_max = max(self.y)
+            y_min = min(self.y)
+            x = -1e32
+            for idy, idx in enumerate(self.index):
+                if self.y[idy] == y_max and self.x[idx] > x:
+                    x = self.x[idx]
+            coords.append([(x0 + x, y + y_max, 0), (x1 - x, y + y_max, 0)])
+            x = -1e32
+            for idy, idx in enumerate(self.index):
+                if self.y[idy] == y_min and self.x[idx] > x:
+                    x = self.x[idx]
+            coords.append([(x0 + x, y + y_min, 0), (x1 - x, y + y_min, 0)])
+      
+        return coords

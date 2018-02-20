@@ -3303,7 +3303,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             z += self.base_height
 
         n_cabs = self.cabinet_num
-
+        next_type = -1
         for i, cab in enumerate(self.cabinets):
 
             cab_depth = self.cabinet_depth(cab)

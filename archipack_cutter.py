@@ -186,12 +186,15 @@ class CutterGenerator():
     def last_seg(self, index):
         return self.segs[index - 1]
 
+    def get_coords(self, verts):
+        for s in self.segs:
+            verts.append(s.line.p0.to_3d())
+
     def get_verts(self, verts, edges):
 
         n_segs = len(self.segs) - 1
 
-        for s in self.segs:
-            verts.append(s.line.p0.to_3d())
+        self.get_coords(verts)
 
         for i in range(n_segs):
             edges.append([i, i + 1])
@@ -209,6 +212,7 @@ class CutAblePolygon():
     def as_lines(self, step_angle=0.104):
         """
             Convert curved segments to straight lines
+            Use offset ones when set
         """
         segs = []
         for s in self.segs:
@@ -216,7 +220,10 @@ class CutAblePolygon():
                 dt, steps = s.steps_by_angle(step_angle)
                 segs.extend(s.as_lines(steps))
             else:
-                segs.append(s)
+                if s.line is None:
+                    segs.append(s)
+                else: 
+                    segs.append(s.line)
         self.segs = segs
 
     def inside(self, pt, segs=None):
@@ -884,7 +891,17 @@ class ArchipackCutter():
         bm.edges.ensure_lookup_table()
         bm.to_mesh(o.data)
         bm.free()
-
+    
+    def get_coords(self):
+        """
+         return coordinates in object coordsys
+        """
+        self.update_parts()
+        verts = []
+        g = self.get_generator()
+        g.get_coords(verts)
+        return verts 
+        
     def update(self, context, manipulable_refresh=False, update_parent=False):
 
         o = self.find_in_selection(context, self.auto_update)

@@ -36,11 +36,10 @@ class ArchipackBoolManager():
         Handle hybrid methods for booleans
         merge holes with boolean and use result on wall
     """
-    def __init__(self, solver_mode='CARVE'):
+    def __init__(self):
         """
             mode in 'ROBUST', 'INTERACTIVE', 'HYBRID'
         """
-        self.solver_mode = solver_mode
         # internal variables
         self.itM = None
         self.min_x = 0
@@ -62,9 +61,9 @@ class ArchipackBoolManager():
             self.maxx, self.maxy, self.maxz = self._world_bounding_box(wall)
 
         self.center = Vector((
-            self.minx + 0.5 * (self.maxx - self.minx),
-            self.miny + 0.5 * (self.maxy - self.miny),
-            self.minz + 0.5 * (self.maxz - self.minz)))
+            0.5 * (self.maxx + self.minx),
+            0.5 * (self.maxy + self.miny),
+            0.5 * (self.maxz + self.minz)))
 
     def _contains(self, o):
         # check for bounding boxes intersections
@@ -149,19 +148,14 @@ class ArchipackBoolManager():
 
         return [o[0] for o in holes]
 
-    def difference(self, basis, hole, solver=None):
+    def difference(self, basis, hole):
         m = basis.modifiers.new('AutoBoolean', 'BOOLEAN')
         m.operation = 'DIFFERENCE'
-        if solver is None:
-            m.solver = self.solver_mode
-        else:
-            m.solver = solver
         m.object = hole
 
     def union(self, basis, hole):
         m = basis.modifiers.new('AutoMerge', 'BOOLEAN')
         m.operation = 'UNION'
-        m.solver = self.solver_mode
         m.object = hole
 
     def remove_modif_and_object(self, context, o, to_delete):
@@ -210,7 +204,6 @@ class ArchipackBoolManager():
         m = wall.modifiers.get("AutoMixedBoolean")
         if m is None:
             m = wall.modifiers.new('AutoMixedBoolean', 'BOOLEAN')
-            m.solver = self.solver_mode
             m.operation = 'DIFFERENCE'
 
         if m.object is None:
@@ -247,14 +240,18 @@ class ArchipackBoolManager():
             Entry point for multi-boolean operations like
             in T panel autoBoolean
         """
+        io = None
+        wall2d = None
         if wall.data is not None and "archipack_wall2" in wall.data:
             # ensure wall modifier is there before any boolean
             # to support "revival" of applied modifiers
             m = wall.modifiers.get("Wall")
+            wd = wall.data.archipack_wall2[0]
+            io, wall2d = wd.as_geom(context, wall, 'BOTH', [], [])
             if m is None:
                 wall.select = True
                 context.scene.objects.active = wall
-                wall.data.archipack_wall2[0].update(context)
+                wd.update(context)
 
         bpy.ops.object.select_all(action='DESELECT')
         context.scene.objects.active = None
@@ -267,10 +264,23 @@ class ArchipackBoolManager():
         for o in context.scene.objects:
             # filter holes found in wall bounding box
             if o.type == 'MESH' and self._contains(o):
-                h = self._generate_hole(context, o)
-                if h is not None:
-                    holes.append(h)
-                    childs.append(o)
+                
+                d = self.datablock(o)
+                intersect = True
+                
+                # deep check to ensure neighboors walls 
+                # dosent interfer with this one
+                # using a pygeos based 2d check
+                if d is not None and wall2d is not None:
+                    coords = d.hole_2d('BOUND')
+                    hole2d = io.coords_to_polygon(o.matrix_world, coords)
+                    intersect = wall2d.intersects(hole2d)
+                    
+                if intersect:
+                    h = self._generate_hole(context, o)
+                    if h is not None:
+                        holes.append(h)
+                        childs.append(o)
 
         # sort from center to border
         self.sort_holes(wall, holes)
@@ -344,8 +354,7 @@ class ArchipackBoolManager():
         if m is None:
             m = wall.modifiers.new('AutoMixedBoolean', 'BOOLEAN')
             m.operation = 'DIFFERENCE'
-            m.solver = self.solver_mode
-
+            
         if m.object is None:
             hole_obj = self.create_merge_basis(context, wall)
             m.object = hole_obj
@@ -382,8 +391,12 @@ class ArchipackBoolManager():
             d = wall.data.archipack_wall2[0]
             g = d.get_generator()
             d.setup_childs(wall, g)
-            d.relocate_childs(context, wall, g)
-
+            if d.dimensions:
+                # update manipulators
+                d.update(context, manipulable_refresh=True)
+            else:
+                d.relocate_childs(context, wall, g)
+            
         if hole_obj is not None:
             self.prepare_hole(hole_obj)
 
@@ -395,14 +408,6 @@ class ARCHIPACK_OT_single_boolean(Operator):
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
-    solver_mode = EnumProperty(
-        name="Solver",
-        items=(
-            ('CARVE', 'CARVE', 'Slow but robust (use with care, could crash blender, slow with many holes)', 0),
-            ('BMESH', 'BMESH', 'Fast but more prone to errors', 1)
-            ),
-        default='BMESH'
-        )
     """
         Wall must be active object
         window or door must be selected
@@ -423,7 +428,7 @@ class ARCHIPACK_OT_single_boolean(Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             wall = context.active_object
-            manager = ArchipackBoolManager(solver_mode=self.solver_mode)
+            manager = ArchipackBoolManager()
             for o in context.selected_objects:
                 if o != wall:
                     manager.singleboolean(context, wall, o)
@@ -443,23 +448,10 @@ class ARCHIPACK_OT_auto_boolean(Operator):
     bl_description = "Automatic boolean for doors and windows. Select your wall(s) then push"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    solver_mode = EnumProperty(
-        name="Solver",
-        items=(
-            ('CARVE', 'CARVE', 'Slow but robust (use with care, could crash blender, slow with many holes)', 0),
-            ('BMESH', 'BMESH', 'Fast but more prone to errors', 1)
-            ),
-        default='BMESH'
-        )
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.prop(self, 'solver_mode')
-
+    
     def execute(self, context):
         if context.mode == "OBJECT":
-            manager = ArchipackBoolManager(solver_mode=self.solver_mode)
+            manager = ArchipackBoolManager()
             active = context.scene.objects.active
             walls = [wall for wall in context.selected_objects if manager.filter_wall(wall)]
             bpy.ops.object.select_all(action='DESELECT')

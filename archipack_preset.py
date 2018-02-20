@@ -414,7 +414,11 @@ class PresetMenuOperator():
                 if self.preset_operator == 'script.execute_preset':
                     # call from preset menu
                     # ensure right active_object class
-                    d = getattr(bpy.types, self.preset_subdir).datablock(context.active_object)
+                    o = context.active_object
+                    if o.data and self.preset_subdir in o.data:
+                        d = getattr(o.data, self.preset_subdir)[0]
+                    elif self.preset_subdir in o:
+                        d = getattr(o, self.preset_subdir)[0]
                     if d is not None:
                         d.auto_update = False
                         # print("Archipack execute_preset loading auto_update:%s" % d.auto_update)
@@ -471,7 +475,8 @@ class PresetMenuOperator():
 
 
 class ArchipackPreset(AddPresetBase):
-
+    """Extend base preset class"""
+        
     @classmethod
     def poll(cls, context):
         o = context.active_object
@@ -490,20 +495,70 @@ class ArchipackPreset(AddPresetBase):
             may override on addon basis
         """
         return []
+    
+    def add(self, context, filepath):
+        """
+          Override add method
+          deep filter property 
+        """
+        print("Writing Preset: %r" % filepath)
+        blacklist = [key for key in bpy.types.Mesh.bl_rna.properties.keys() if "archipack" not in key]
+        blacklist.extend(self.blacklist)
+        
+        # sligthly modified to filter sub properties too
+        def rna_recursive_attr_expand(prop, rna_path_step, level):
+            if isinstance(prop, bpy.types.PropertyGroup):
+                for sub_attr, rna_prop in prop.bl_rna.properties.items():
+                    if sub_attr == "rna_type" or sub_attr in blacklist:
+                        continue
+                    # print(rna_path_step, ".", sub_attr)
+                    if rna_prop.is_hidden or rna_prop.is_skip_save:
+                        print("Property %s hidden or skip_save" % (sub_attr))
+                        continue
+                    sub_prop = getattr(prop, sub_attr)
+                    rna_recursive_attr_expand(sub_prop, "%s.%s" % (rna_path_step, sub_attr), level)
+            elif type(prop).__name__ == "bpy_prop_collection_idprop":  # could use nicer method
+                file_preset.write("%s.clear()\n" % rna_path_step)
+                for sub_prop in prop:
+                    if sub_prop.bl_rna.name in blacklist:
+                        print("Property %s blacklisted" % (sub_prop.bl_rna.name))
+                        continue
+                    file_preset.write("item_sub_%d = %s.add()\n" % (level, rna_path_step))
+                    rna_recursive_attr_expand(sub_prop, "item_sub_%d" % level, level + 1)
+            else:
+                # convert thin wrapped sequences
+                # to simple lists to repr()
+                try:
+                    prop = prop[:]
+                except:
+                    pass
+                file_preset.write("%s = %r\n" % (rna_path_step, prop))
+            
+        file_preset = open(filepath, 'w', encoding="utf-8")
+        file_preset.write("import bpy\n")
 
-    @property
-    def preset_values(self):
-        blacklist = self.blacklist
-        blacklist.extend(bpy.types.Mesh.bl_rna.properties.keys())
-        d = getattr(bpy.context.active_object.data, self.preset_subdir)[0]
+        # preset defines
+        for rna_path in self.preset_defines:
+            exec(rna_path)
+            file_preset.write("%s\n" % rna_path)
+        file_preset.write("\n")
+        
+        # retrieve root props of archipack objects
+        d = getattr(context.active_object.data, self.preset_subdir)[0]
         props = d.rna_type.bl_rna.properties.items()
-        ret = []
-        for prop_id, prop in props:
-            if prop_id not in blacklist:
-                if not (prop.is_hidden or prop.is_skip_save):
-                    ret.append("d.%s" % prop_id)
-        ret.sort()
-        return ret
+        preset_values = ["d.%s" % attr 
+            for attr, rna_prop in props 
+            if attr not in blacklist and
+            not (rna_prop.is_hidden or rna_prop.is_skip_save)]
+        
+        # alpha sort 
+        preset_values.sort()
+            
+        for rna_path in preset_values:
+            value = eval(rna_path)
+            rna_recursive_attr_expand(value, rna_path, 1)
+
+        file_preset.close()
 
     @property
     def preset_defines(self):

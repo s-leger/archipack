@@ -105,7 +105,7 @@ class ArchipackObject():
                 return o
 
         return None
-
+    
     def restore_context(self, context):
         # restore context
         bpy.ops.object.select_all(action="DESELECT")
@@ -146,6 +146,30 @@ class ArchipackCreateTool():
         """
         return self.bl_idname[13:]
 
+    def _delete_object(self, context, o):
+        d = o.data
+        type = o.type
+        context.scene.objects.unlink(o)
+        bpy.data.objects.remove(o)
+        if d.users < 1:
+            if type == 'MESH':
+                bpy.data.meshes.remove(d)
+            elif type == 'CURVE':
+                bpy.data.curves.remove(d)
+            elif type == 'LAMP':
+                bpy.data.lamps.remove(d)
+            
+    def _delete_childs(self, context, o):
+        for child in o.children:
+            self._delete_childs(context, child)
+        self._delete_object(context, o)
+        
+    def delete_object(self, context, o):
+        """
+          Recursively delete object and childs
+        """
+        self._delete_childs(context, o)
+            
     def load_preset(self, d):
         """
             Load python preset
@@ -272,7 +296,7 @@ class ArchpackDrawTool():
                     [x.y, y.y, z.y, pt.y],
                     [x.z, y.z, z.z, o.matrix_world.translation.z],
                     [0, 0, 0, 1]
-                    ]), o, d.width, y
+                    ]), o, d.width, y, d.z_offset
 
             elif 'archipack_wall' in o.data:
                 # one point on the oposite to raycast side (1 unit inside)
@@ -296,5 +320,5 @@ class ArchpackDrawTool():
                         [x.y, y.y, z.y, p1.y],
                         [x.z, y.z, z.z, o.matrix_world.translation.z],
                         [0, 0, 0, 1]
-                        ]), o, width, y
-        return False, Matrix(), None, 0, Vector()
+                        ]), o, width, y, 0
+        return False, Matrix(), None, 0, Vector(), 0

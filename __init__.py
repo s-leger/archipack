@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': '',
-    'version': (1, 3, 7),
+    'version': (1, 3, 8),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -63,11 +63,15 @@ if "bpy" in locals():
     imp.reload(archipack_truss)
     # imp.reload(archipack_toolkit)
     imp.reload(archipack_floor)
+    imp.reload(archipack_floor_heating)
     imp.reload(archipack_blind)
     imp.reload(archipack_kitchen)
+    imp.reload(archipack_dimension)
     imp.reload(archipack_rendering)
     # imp.reload(archipack_envi)
     imp.reload(archipack_io)
+    imp.reload(archipack_2d_layout)
+    imp.reload(archipack_io_export_svg)
     imp.reload(archipack_polylines)
     imp.reload(addon_updater_ops)
     # imp.reload(archipack_i18n)
@@ -91,11 +95,15 @@ else:
     from . import archipack_truss
     # from . import archipack_toolkit
     from . import archipack_floor
+    from . import archipack_floor_heating
     from . import archipack_blind
     from . import archipack_kitchen
+    from . import archipack_dimension
     from . import archipack_rendering
     # from . import archipack_envi
     from . import archipack_io
+    from . import archipack_2d_layout
+    from . import archipack_io_export_svg
     from . import archipack_polylines
     from . import addon_updater_ops
     # from . import archipack_i18n
@@ -141,7 +149,6 @@ def update_panel(self, context):
 
 class Archipack_Pref(AddonPreferences):
     bl_idname = __name__
-
     tools_category = StringProperty(
         name="Tools",
         description="Choose a name for the category of the Tools panel",
@@ -245,7 +252,11 @@ class Archipack_Pref(AddonPreferences):
             size=4,
             min=0, max=1
             )
-
+    experimental_features = BoolProperty(
+        name="Experimental features",
+        description="Enable experimental features (may be unstable)",
+        default=False
+        )
     # addon updater preferences
     auto_check_update = BoolProperty(
         name="Auto-check for Update",
@@ -304,6 +315,7 @@ class Archipack_Pref(AddonPreferences):
         box = layout.box()
         box.label("Features")
         box.prop(self, "max_style_draw_tool")
+        box.prop(self, "experimental_features")
         box = layout.box()
         row = box.row()
         split = row.split(percentage=0.5)
@@ -513,7 +525,7 @@ class TOOLS_PT_Archipack_Create(Panel):
 
     def draw(self, context):
         global icons_collection
-
+        prefs = context.user_preferences.addons[__name__].preferences
         addon_updater_ops.check_for_update_background(context)
 
         icons = icons_collection["main"]
@@ -610,6 +622,14 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Kitchen",
                     icon_value=icons["kitchen"].icon_id
                     ).preset_operator = "archipack.kitchen"
+        
+        if prefs.experimental_features:
+            box = layout.box()
+            box.label(text="Experimental features")
+            box.operator("archipack.floor_heating")                    
+            box.operator("archipack.dimension")
+            box.operator("archipack.layout") 
+            
         box = layout.box()
         box.label(text="Custom objects")
         box.operator("archipack.wall", text="Custom wall")
@@ -672,8 +692,10 @@ def draw_menu(self, context):
                     text="Kitchen",
                     icon_value=icons["kitchen"].icon_id
                     ).preset_operator = "archipack.kitchen"
-                    
-                    
+    layout.operator("archipack.dimension")              
+    layout.operator("archipack.layout") 
+    
+    
 class ARCHIPACK_create_menu(Menu):
     bl_label = 'Archipack'
     bl_idname = 'ARCHIPACK_create_menu'
@@ -741,10 +763,14 @@ def register():
     archipack_truss.register()
     archipack_blind.register()
     archipack_kitchen.register()
+    archipack_dimension.register()
     # archipack_toolkit.register()
     archipack_floor.register()
+    archipack_floor_heating.register()
     archipack_rendering.register()
     archipack_io.register()
+    archipack_2d_layout.register()
+    archipack_io_export_svg.register()
     archipack_polylines.register()
 
     bpy.utils.register_class(archipack_data)
@@ -784,10 +810,14 @@ def unregister():
     archipack_truss.unregister()
     archipack_blind.unregister()
     archipack_kitchen.unregister()
+    archipack_dimension.unregister()
     # archipack_toolkit.unregister()
     archipack_floor.unregister()
+    archipack_floor_heating.unregister()
     archipack_rendering.unregister()
     archipack_io.unregister()
+    archipack_2d_layout.unregister()
+    archipack_io_export_svg.unregister()
     archipack_polylines.unregister()
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack

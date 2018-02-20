@@ -800,36 +800,36 @@ import bpy
 import bmesh
 
 def print_list(name, lst, cols):
-	size = len(lst)
-	rows = 1 + int(size / cols)	
-	print("%s" % "{} = [\n    {}\n    ]\n".format(name, 
-		",\n    ".join(
-			[", ".join([str(lst[r * cols + i]) for i in range(cols) if r * cols + i < size]) 
-			for r in range(rows)
-			])
-		))
-		
+    size = len(lst)
+    rows = 1 + int(size / cols)
+    print("%s" % "{} = [\n    {}\n    ]\n".format(name,
+        ",\n    ".join(
+            [", ".join([str(lst[r * cols + i]) for i in range(cols) if r * cols + i < size])
+            for r in range(rows)
+            ])
+        ))
+
 def dump_mesh(m, cols, rounding):
-	verts = [(round(v.co.x, rounding), round(v.co.y, rounding), round(v.co.z, rounding)) for v in m.vertices]
-	faces = [tuple(p.vertices) for p in m.polygons]
-	bpy.ops.object.mode_set(mode='EDIT')
-	bm = bmesh.from_edit_mesh(m)
-	edges = [tuple(i.index for i in edge.verts) for edge in bm.edges]
-	uvs = []
-	layer = bm.loops.layers.uv.verify()
-	for i, face in enumerate(bm.faces):
-		uv = []
-		for j, loop in enumerate(face.loops):
-			co = loop[layer].uv
-			uv.append((round(co.x, rounding), round(co.y, rounding)))
-		uvs.append(uv)
-	matids = [p.material_index for p in m.polygons]
-	print_list("verts", verts, cols)
-	print_list("faces", faces, cols)	
-	print_list("matids", matids, cols)
-	print_list("uvs", uvs, cols)
-	
-	
+    verts = [(round(v.co.x, rounding), round(v.co.y, rounding), round(v.co.z, rounding)) for v in m.vertices]
+    faces = [tuple(p.vertices) for p in m.polygons]
+    bpy.ops.object.mode_set(mode='EDIT')
+    bm = bmesh.from_edit_mesh(m)
+    edges = [tuple(i.index for i in edge.verts) for edge in bm.edges]
+    uvs = []
+    layer = bm.loops.layers.uv.verify()
+    for i, face in enumerate(bm.faces):
+        uv = []
+        for j, loop in enumerate(face.loops):
+            co = loop[layer].uv
+            uv.append((round(co.x, rounding), round(co.y, rounding)))
+        uvs.append(uv)
+    matids = [p.material_index for p in m.polygons]
+    print_list("verts", verts, cols)
+    print_list("faces", faces, cols)
+    print_list("matids", matids, cols)
+    print_list("uvs", uvs, cols)
+
+
 cols = 3
 rounding = 3
 m = C.object.data
@@ -4729,7 +4729,6 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
         if self.parts_expand:
             row.prop(self, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
             box.prop(self, 'n_parts')
-            # box.prop(self, 'closed')
             for i, part in enumerate(self.parts):
                 part.draw(layout, context, i)
         else:
@@ -4754,8 +4753,6 @@ class archipack_roof_cutter_segment(ArchipackCutterPart, PropertyGroup):
             ('BOTTOM', 'Bottom', 'Bottom with gutter', 1),
             ('LINK', 'Side link', 'Side witout decoration', 2),
             ('AXIS', 'Top', 'Top part with hip and beam', 3)
-            # ('LINK_VALLEY', 'Side valley', 'Side with valley', 3),
-            # ('LINK_HIP', 'Side hip', 'Side with hip', 4)
             ),
         default='SIDE',
         update=update_hole
@@ -4792,10 +4789,8 @@ class archipack_roof_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prope
         self.auto_update = True
         if update_parent:
             self.update_parent(context, o)
-        # print("update_points")
 
     def update_parent(self, context, o):
-
         d = archipack_roof.datablock(o.parent)
         if d is not None:
             o.parent.select = True
@@ -4803,7 +4798,6 @@ class archipack_roof_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prope
             d.update(context, update_childs=False, update_hole=False)
         o.parent.select = False
         context.scene.objects.active = o
-        # print("update_parent")
 
 
 class ARCHIPACK_PT_roof_cutter(Panel):
@@ -4863,6 +4857,7 @@ class ARCHIPACK_PT_roof(Panel):
         layout = self.layout
         row = layout.row(align=True)
         row.operator('archipack.roof_manipulate', icon='HAND')
+        row.operator('archipack.roof', text="Delete", icon='ERROR').mode = 'DELETE'
 
         box = layout.box()
         row = box.row(align=True)
@@ -5042,6 +5037,19 @@ class ARCHIPACK_OT_roof(ArchipackCreateTool, Operator):
     bl_description = "Roof"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
+    mode = EnumProperty(
+            items=(
+            ('CREATE', 'Create', '', 0),
+            ('DELETE', 'Delete', '', 1)
+            ),
+            default='CREATE'
+            )
+
+    def delete(self, context):
+        o = context.active_object
+        if archipack_roof.filter(o):
+            bpy.ops.archipack.disable_manipulate()
+            self.delete_object(context, o)
 
     def create(self, context):
         m = bpy.data.meshes.new("Roof")
@@ -5067,12 +5075,15 @@ class ARCHIPACK_OT_roof(ArchipackCreateTool, Operator):
     # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
-            bpy.ops.object.select_all(action="DESELECT")
-            o = self.create(context)
-            o.location = context.scene.cursor_location
-            o.select = True
-            context.scene.objects.active = o
-            self.manipulate()
+            if self.mode == 'CREATE':
+                bpy.ops.object.select_all(action="DESELECT")
+                o = self.create(context)
+                o.location = context.scene.cursor_location
+                o.select = True
+                context.scene.objects.active = o
+                self.manipulate()
+            else:
+                self.delete(context)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -5207,10 +5218,12 @@ class ARCHIPACK_OT_roof_from_curve(Operator):
     # -----------------------------------------------------
     def execute(self, context):
         if context.mode == "OBJECT":
+
             bpy.ops.object.select_all(action="DESELECT")
             self.create(context)
             if self.auto_manipulate:
                 bpy.ops.archipack.roof_manipulate('INVOKE_DEFAULT')
+
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")

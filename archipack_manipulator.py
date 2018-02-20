@@ -2085,6 +2085,38 @@ class archipack_manipulator(PropertyGroup):
         self.pts_mode = m.pts_mode
         return m
 
+    def as_dimension(self, context, o, dim):
+
+        if dim is None:
+            bpy.ops.archipack.dimension(auto_manipulate=False)
+            dim = context.active_object
+            dim.parent = o
+            dim.matrix_world = o.matrix_world.copy()
+
+        dim.select = True
+        context.scene.objects.active = dim
+
+        v = Vector(self.p1) - Vector(self.p0)
+        d = dim.data.archipack_dimension[0]
+        d.auto_update = False
+        d.size = (v).length
+        x, y, z = self.p2.normalized()
+        side = 1
+        if x != 0:
+            side = x
+        elif y != 0:
+            side = y
+        elif z != 0:
+            side = z
+        d.distance = -side * self.p2.length
+        d.auto_update = True
+        dim.location = self.p0
+        dim.rotation_euler.z = atan2(v.y, v.x)
+        dim.select = False
+        context.scene.objects.active = o
+
+        return dim
+
 
 # ------------------------------------------------------------------
 # Define Manipulable to make a PropertyGroup manipulable

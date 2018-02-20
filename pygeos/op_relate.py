@@ -158,25 +158,24 @@ class EdgeEndBundleStar(EdgeEndStar):
          * added to the bundle.  Otherwise, a new EdgeEndBundle is created
          * to contain the EdgeEnd.
         """
-
         edgeIndex = self.find(edgeEnd)
         if edgeIndex is None:
             edgeBundle = EdgeEndBundle(edgeEnd)
             self.insertEdgeEnd(edgeBundle)
         else:
-            self[edgeIndex].insert(edgeEnd)
+            self.edges[edgeIndex].insert(edgeEnd)
 
         logger.debug("[%s] %s.insertEdgeEnd(%s)\n%s",
             id(self),
             type(self).__name__,
-            len(self),
-            "\n".join([str(de) for de in self]))
+            len(self.edges),
+            "\n".join([str(de) for de in self.edges]))
 
     def updateIM(self, im):
         """
          * Update the IM with the contribution for the EdgeStubs around the node.
         """
-        for esb in self:
+        for esb in self.edges:
             esb.updateIM(im)
 
 
@@ -578,7 +577,7 @@ class RelateComputer():
 
     def insertEdgeEnds(self, edgeEnds) -> None:
         for de in edgeEnds:
-            self._nodes.add(de)
+            self._nodes.addEdge(de)
 
     def computeProperIntersectionIM(self, intersector, im) -> None:
         # If a proper intersection is found, we can set a lower bound on the IM.
@@ -711,7 +710,7 @@ class RelateComputer():
          * update the IM with the sum of the IMs for each component
         """
         for edge in self.isolatedEdges:
-            edge.updateIM(im)
+            edge.computeIM(im)
 
         nodes = self.nodes
         for node in nodes:

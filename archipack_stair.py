@@ -40,6 +40,7 @@ from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_polylines import Io
 
 
 class Stair():
@@ -96,85 +97,97 @@ class Stair():
 
     def p3d_left(self, verts, p2d, i, t, landing=False):
         x, y = p2d
-        nose_z = min(self.step_height, self.nose_z)
-        zl = self.z0 + t * self.height
-        zs = self.z0 + i * self.step_height
-        if self.z_mode == 'LINEAR':
-            z0 = max(0, zl)
-            z1 = z0 - self.bottom_z
-            verts.extend([(x, y, z0), (x, y, z1)])
-        else:
-            if "FULL" in self.steps_type:
-                z0 = 0
+        if self.z_mode == '2D':
+            verts.append((x, y, 0))
+        else:    
+            nose_z = min(self.step_height, self.nose_z)
+            zl = self.z0 + t * self.height
+            zs = self.z0 + i * self.step_height
+            if self.z_mode == 'LINEAR':
+                z0 = max(0, zl)
+                z1 = z0 - self.bottom_z
+                verts.extend([(x, y, z0), (x, y, z1)])
             else:
-                z0 = max(0, zl - nose_z - self.bottom_z)
-            z3 = zs + max(0, self.step_height - nose_z)
-            z4 = zs + self.step_height
-            if landing:
                 if "FULL" in self.steps_type:
-                    z2 = 0
-                    z1 = 0
+                    z0 = 0
                 else:
-                    z2 = max(0, min(z3, z3 - self.bottom_z))
-                    z1 = z2
-            else:
-                z1 = min(z3, max(z0, zl - nose_z))
-                z2 = min(z3, max(z1, zl))
-            verts.extend([(x, y, z0),
-                        (x, y, z1),
-                        (x, y, z2),
-                        (x, y, z3),
-                        (x, y, z4)])
+                    z0 = max(0, zl - nose_z - self.bottom_z)
+                z3 = zs + max(0, self.step_height - nose_z)
+                z4 = zs + self.step_height
+                if landing:
+                    if "FULL" in self.steps_type:
+                        z2 = 0
+                        z1 = 0
+                    else:
+                        z2 = max(0, min(z3, z3 - self.bottom_z))
+                        z1 = z2
+                else:
+                    z1 = min(z3, max(z0, zl - nose_z))
+                    z2 = min(z3, max(z1, zl))
+                verts.extend([(x, y, z0),
+                            (x, y, z1),
+                            (x, y, z2),
+                            (x, y, z3),
+                            (x, y, z4)])
 
     def p3d_right(self, verts, p2d, i, t, landing=False):
         x, y = p2d
-        nose_z = min(self.step_height, self.nose_z)
-        zl = self.z0 + t * self.height
-        zs = self.z0 + i * self.step_height
-        if self.z_mode == 'LINEAR':
-            z0 = max(0, zl)
-            z1 = z0 - self.bottom_z
-            verts.extend([(x, y, z1), (x, y, z0)])
-        else:
-            if "FULL" in self.steps_type:
-                z0 = 0
+        if self.z_mode == '2D':
+            verts.append((x, y, 0))
+        else: 
+            nose_z = min(self.step_height, self.nose_z)
+            zl = self.z0 + t * self.height
+            zs = self.z0 + i * self.step_height
+            if self.z_mode == 'LINEAR':
+                z0 = max(0, zl)
+                z1 = z0 - self.bottom_z
+                verts.extend([(x, y, z1), (x, y, z0)])
             else:
-                z0 = max(0, zl - nose_z - self.bottom_z)
-            z3 = zs + max(0, self.step_height - nose_z)
-            z4 = zs + self.step_height
-            if landing:
                 if "FULL" in self.steps_type:
-                    z2 = 0
-                    z1 = 0
+                    z0 = 0
                 else:
-                    z2 = max(0, min(z3, z3 - self.bottom_z))
-                    z1 = z2
-            else:
-                z1 = min(z3, max(z0, zl - nose_z))
-                z2 = min(z3, max(z1, zl))
-            verts.extend([(x, y, z4),
-                          (x, y, z3),
-                          (x, y, z2),
-                          (x, y, z1),
-                          (x, y, z0)])
+                    z0 = max(0, zl - nose_z - self.bottom_z)
+                z3 = zs + max(0, self.step_height - nose_z)
+                z4 = zs + self.step_height
+                if landing:
+                    if "FULL" in self.steps_type:
+                        z2 = 0
+                        z1 = 0
+                    else:
+                        z2 = max(0, min(z3, z3 - self.bottom_z))
+                        z1 = z2
+                else:
+                    z1 = min(z3, max(z0, zl - nose_z))
+                    z2 = min(z3, max(z1, zl))
+                verts.extend([(x, y, z4),
+                              (x, y, z3),
+                              (x, y, z2),
+                              (x, y, z1),
+                              (x, y, z0)])
 
     def p3d_cstep_left(self, verts, p2d, i, t):
         x, y = p2d
-        nose_z = min(self.step_height, self.nose_z)
-        zs = self.z0 + i * self.step_height
-        z3 = zs + max(0, self.step_height - nose_z)
-        z1 = min(z3, zs - nose_z)
-        verts.append((x, y, z1))
-        verts.append((x, y, z3))
+        if self.z_mode == '2D':
+            verts.append((x, y, 0))
+        else: 
+            nose_z = min(self.step_height, self.nose_z)
+            zs = self.z0 + i * self.step_height
+            z3 = zs + max(0, self.step_height - nose_z)
+            z1 = min(z3, zs - nose_z)
+            verts.append((x, y, z1))
+            verts.append((x, y, z3))
 
     def p3d_cstep_right(self, verts, p2d, i, t):
-        x, y = p2d
-        nose_z = min(self.step_height, self.nose_z)
-        zs = self.z0 + i * self.step_height
-        z3 = zs + max(0, self.step_height - nose_z)
-        z1 = min(z3, zs - nose_z)
-        verts.append((x, y, z3))
-        verts.append((x, y, z1))
+        if self.z_mode == '2D':
+            verts.append((x, y, 0))
+        else: 
+            x, y = p2d
+            nose_z = min(self.step_height, self.nose_z)
+            zs = self.z0 + i * self.step_height
+            z3 = zs + max(0, self.step_height - nose_z)
+            z1 = min(z3, zs - nose_z)
+            verts.append((x, y, z3))
+            verts.append((x, y, z1))
 
     def straight_stair(self, length):
         self.next_type = 'STAIR'
@@ -259,7 +272,12 @@ class Stair():
         ]).inverted()
 
     def _make_nose(self, i, s, verts, faces, matids, uvs, nose_y):
+        f = len(verts)
 
+        if self.z_mode == '2D':
+            faces.append(f)
+            return
+            
         t = self.t_step * i
 
         # a matrix to project verts
@@ -270,8 +288,7 @@ class Stair():
         if self.z_mode == 'LINEAR':
             return rM
 
-        f = len(verts)
-
+        
         tl = t - nose_y / self.get_length("LEFT")
         tr = t - nose_y / self.get_length("RIGHT")
 
@@ -343,8 +360,10 @@ class Stair():
         return rM
 
     def make_faces(self, f, rM, verts, faces, matids, uvs):
-
-        if self.z_mode == 'LINEAR':
+        
+        if self.z_mode == '2D':
+            return
+        elif self.z_mode == 'LINEAR':
             start = 0
             end = 3
             offset = 4
@@ -396,8 +415,8 @@ class Stair():
 
         faces += [(f + j, f + j + 1, f + j + offset + 1, f + j + offset) for j in range(start, end)]
         faces.append((f + end, f + start, f + offset + start, f + offset + end))
-
-
+    
+        
 class StraightStair(Stair, Line):
     def __init__(self, p, v, left_offset, right_offset, steps_type, nose_type, z_mode, nose_z, bottom_z):
         Stair.__init__(self, left_offset, right_offset, steps_type, nose_type, z_mode, nose_z, bottom_z)
@@ -417,20 +436,21 @@ class StraightStair(Stair, Line):
         self.p3d_left(verts, p, i, t0)
         p = self.r_line.lerp(t0)
         self.p3d_right(verts, p, i, t0)
+        
+        if self.z_mode != '2D':
+            t1 = t0 + self.t_step
 
-        t1 = t0 + self.t_step
+            p = self.l_line.lerp(t1)
+            self.p3d_left(verts, p, i, t1)
+            p = self.r_line.lerp(t1)
+            self.p3d_right(verts, p, i, t1)
 
-        p = self.l_line.lerp(t1)
-        self.p3d_left(verts, p, i, t1)
-        p = self.r_line.lerp(t1)
-        self.p3d_right(verts, p, i, t1)
+            self.make_faces(f, rM, verts, faces, matids, uvs)
 
-        self.make_faces(f, rM, verts, faces, matids, uvs)
-
-        if "OPEN" in self.steps_type:
-            faces.append((f + 13, f + 14, f + 15, f + 16))
-            matids.append(self.idmat_step_front)
-            uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
+            if "OPEN" in self.steps_type:
+                faces.append((f + 13, f + 14, f + 15, f + 16))
+                matids.append(self.idmat_step_front)
+                uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
 
     def get_length(self, side):
         return self.length
@@ -454,6 +474,8 @@ class StraightStair(Stair, Line):
     def get_part(self, t, side):
         if side == 'LEFT':
             part = self.l_line
+        elif side == '2D':
+            part = self
         else:
             part = self.r_line
         return t, part, self.height, 'LINE'
@@ -579,6 +601,8 @@ class CurvedStair(Stair, Arc):
         if self.l_shape == 'CIRCLE' or self.r_shape == 'CIRCLE':
             # every 6 degree
             n_subs = max(1, int(abs(self.da) / pi * 30 / self.n_step))
+            if self.z_mode == '2D':
+                n_subs = max(1, int(abs(self.da) / pi * 60 / self.n_step))
             t_step = self.t_step / n_subs
             for j in range(n_subs):
                 f0 = f
@@ -589,25 +613,32 @@ class CurvedStair(Stair, Arc):
         else:
             f = self._make_step(self.t_step, i, i, verts)
             f = self._make_edge(self.t_step, i, i, f, rM, verts, faces, matids, uvs)
+        
+        if self.z_mode != '2D':
+        
+            self._make_step(self.t_step, i + 1, i, verts)
+            self.make_faces(f, rM, verts, faces, matids, uvs)
 
-        self._make_step(self.t_step, i + 1, i, verts)
-        self.make_faces(f, rM, verts, faces, matids, uvs)
-
-        if "OPEN" in self.steps_type and self.z_mode != 'LINEAR':
-            # back face top
-            faces.append((f + 13, f + 14, f + 15, f + 16))
-            matids.append(self.idmat_step_front)
-            uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
-
+            if self.z_mode  != 'LINEAR' and "OPEN" in self.steps_type:
+                # back face top
+                faces.append((f + 13, f + 14, f + 15, f + 16))
+                matids.append(self.idmat_step_front)
+                uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
+       
     def get_part(self, t, side):
         if side == 'RIGHT':
             arc = self.r_arc
             shape = self.r_shape
             t0, t1, tc = self.r_t0, self.r_t1, self.r_tc
+        elif side == '2D':
+            arc = self
+            shape = 'CIRCLE'
+            t0, t1, tc = self.l_t0, self.l_t1, self.l_tc
         else:
             arc = self.l_arc
             shape = self.l_shape
             t0, t1, tc = self.l_t0, self.l_t1, self.l_tc
+            
         if shape == 'CIRCLE':
             return t, arc, self.height, shape
         else:
@@ -980,7 +1011,7 @@ class StairGenerator():
                     u = verts[f + 1][2] - verts[f][2]
                     v = (Vector(verts[f]) - Vector(verts[f + 9])).length
                     uvs.append([(0, 0), (0, u), (v, u), (v, 0)])
-
+            
         if self.steps_type != 'OPEN' and len(self.stairs) > 0:
             f = len(verts) - 10
             faces.append((f, f + 1, f + 2, f + 3, f + 4, f + 5, f + 6, f + 7, f + 8, f + 9))
@@ -1358,7 +1389,9 @@ class StairGenerator():
 
     def make_profile(self, profile, idmat, side, slice, height, step_depth,
             x_offset, z_offset, extend, verts, faces, matids, uvs):
-
+        
+        mode_2d = side == '2D'
+        
         for stair in self.stairs:
             if 'Curved' in type(stair).__name__:
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(-x_offset, stair.l_shape)
@@ -1399,7 +1432,11 @@ class StairGenerator():
                     part = stair.l_line
                 else:
                     part = stair.r_line
-
+            
+            if mode_2d:
+                part = stair
+                is_circle = 'Curved' in type(stair).__name__
+            
             if is_circle:
                 n_step = 3 * stair.n_step
 
@@ -1472,29 +1509,30 @@ class StairGenerator():
                         user_path_uv_v.append((p1 - p0).length)
                     p0 = p1
                     v0 = v1
-
-                # build faces using Panel
-                lofter = Lofter(
-                    # closed_shape, index, x, y, idmat
-                    True,
-                    [i for i in range(len(profile))],
-                    [p.x for p in profile],
-                    [p.y for p in profile],
-                    [idmat for i in range(len(profile))],
-                    closed_path=False,
-                    user_path_uv_v=user_path_uv_v,
-                    user_path_verts=user_path_verts
-                    )
-                faces += lofter.faces(16, offset=f, path_type='USER_DEFINED')
-                matids += lofter.mat(16, idmat, idmat, path_type='USER_DEFINED')
-                v = Vector((0, 0))
-                uvs += lofter.uv(16, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
+                    
+                if not mode_2d:
+                    # build faces using Panel
+                    lofter = Lofter(
+                        # closed_shape, index, x, y, idmat
+                        True,
+                        [i for i in range(len(profile))],
+                        [p.x for p in profile],
+                        [p.y for p in profile],
+                        [idmat for i in range(len(profile))],
+                        closed_path=False,
+                        user_path_uv_v=user_path_uv_v,
+                        user_path_verts=user_path_verts
+                        )
+                    faces += lofter.faces(16, offset=f, path_type='USER_DEFINED')
+                    matids += lofter.mat(16, idmat, idmat, path_type='USER_DEFINED')
+                    v = Vector((0, 0))
+                    uvs += lofter.uv(16, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
 
     def set_matids(self, id_materials):
         for stair in self.stairs:
             stair.set_matids(id_materials)
-
-
+    
+    
 def update(self, context):
     self.update(context)
 
@@ -1788,7 +1826,8 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
             items=(
                 ('STANDARD', 'Standard', '', 0),
                 ('LINEAR', 'Bottom Linear', '', 1),
-                ('LINEAR_TOP', 'All Linear', '', 2)
+                ('LINEAR_TOP', 'All Linear', '', 2),
+                ('2D', '2d', '', 3)
                 ),
             default='STANDARD',
             update=update
@@ -2311,6 +2350,13 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         if manipulable_refresh:
             self.manipulable_disable(context)
 
+        if self.z_mode == '2D':
+            self.as_2d(context, o)
+            if manipulable_refresh:
+                self.manipulable_refresh = True
+            self.restore_context(context)
+            return
+            
         self.update_parts()
 
         center = Vector((0, 0))
@@ -2380,7 +2426,9 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         # Stair basis
         g.set_matids(id_materials)
         g.make_stair(self.height, self.step_depth, verts, faces, matids, uvs, nose_y=self.nose_y)
-
+        
+        
+           
         # Ladder
         offset_x = 0.5 * self.width - self.post_offset_x
         post_spacing = self.post_spacing
@@ -2502,7 +2550,158 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
             self.manipulable_refresh = True
 
         self.restore_context(context)
+    
+    def as_geom(self, context, o, mode='SAMBOL', min_space=0, io=None):
+        """
+         Return 2d symbol as pygeos geometry for further processing
+         use given io coordsys when apply
+        """
+        self.update_parts()
 
+        center = Vector((0, 0))
+        verts = []
+        faces = []
+        
+        # depth at bottom
+        bottom_z = 0
+        width_left = 0.5 * self.width - self.x_offset
+        width_right = 0.5 * self.width + self.x_offset
+        steps_type = 'OPEN'
+        g = StairGenerator(self.parts)
+        if self.presets == 'STAIR_USER':
+            for part in self.parts:
+                g.add_part(part.type, steps_type, self.nose_type, '2D', self.nose_z,
+                        bottom_z, center, max(width_left + 0.01, width_right + 0.01, part.radius), part.da,
+                        width_left, width_right, part.length, part.left_shape, part.right_shape)
+
+        elif self.presets == 'STAIR_O':
+            n_parts = max(1, int(round(abs(self.total_angle) / pi, 0)))
+            if self.total_angle > 0:
+                dir = 1
+            else:
+                dir = -1
+            last_da = self.total_angle - dir * (n_parts - 1) * pi
+            if dir * last_da > pi:
+                n_parts += 1
+                last_da -= dir * pi
+            abs_last = dir * last_da
+
+            for part in range(n_parts - 1):
+                g.add_part('D_STAIR', steps_type, self.nose_type, '2D', self.nose_z,
+                            bottom_z, center, max(width_left + 0.01, width_right + 0.01, self.radius), dir * pi,
+                            width_left, width_right, 1.0, self.left_shape, self.right_shape)
+            if round(abs_last, 2) > 0:
+                if abs_last > pi / 2:
+                    g.add_part('C_STAIR', steps_type, self.nose_type, '2D', self.nose_z,
+                            bottom_z, center, max(width_left + 0.01, width_right + 0.01, self.radius),
+                            dir * pi / 2,
+                            width_left, width_right, 1.0, self.left_shape, self.right_shape)
+                    g.add_part('C_STAIR', steps_type, self.nose_type, '2D', self.nose_z,
+                            bottom_z, center, max(width_left + 0.01, width_right + 0.01, self.radius),
+                            last_da - dir * pi / 2,
+                            width_left, width_right, 1.0, self.left_shape, self.right_shape)
+                else:
+                    g.add_part('C_STAIR', steps_type, self.nose_type, '2D', self.nose_z,
+                            bottom_z, center, max(width_left + 0.01, width_right + 0.01, self.radius), last_da,
+                            width_left, width_right, 1.0, self.left_shape, self.right_shape)
+        else:
+            # STAIR_L STAIR_I STAIR_U
+            for part in self.parts:
+                g.add_part(part.type, steps_type, self.nose_type, '2D', self.nose_z,
+                            bottom_z, center, max(width_left + 0.01, width_right + 0.01, self.radius), self.da,
+                            width_left, width_right, part.length, self.left_shape, self.right_shape)
+
+        # Stair basis
+        id_materials = [int(self.idmat_top), int(self.idmat_step_front), int(self.idmat_raise),
+                        int(self.idmat_side), int(self.idmat_bottom), int(self.idmat_step_side)]
+        g.set_matids(id_materials)
+        g.make_stair(self.height, self.step_depth, verts, faces, [], [], nose_y=self.nose_y)
+        stair = g.stairs[-1]
+        stair.make_step(stair.n_step, verts, faces, [], [], nose_y=self.nose_y)
+        n_verts = len(verts)
+        
+        # Create hole from boundary
+        start = 0
+        if mode in {'HOLE', 'FENCE'} and min_space > 0:
+            # hole start may depend on min desired space 
+            skip_space = max(0, self.height - min_space)
+            start = 0
+            for stair in g.stairs:
+                # skip all steps for this part
+                segs = 2
+                if ('Curved' in type(stair).__name__ and 
+                        (stair.l_shape == 'CIRCLE' or stair.r_shape == 'CIRCLE')):                    
+                    segs = 2 * max(1, int(abs(stair.da) / pi * 60 / stair.n_step))
+                if skip_space > stair.height:
+                    start += segs * stair.n_step
+                elif skip_space > 0:
+                    start += segs * int(skip_space / stair.step_height)
+                    # skip only a part of this stair
+                skip_space -= stair.height
+        # Boundary
+        
+        boundary = []
+        boundary.append(verts[-2])
+        boundary.extend(list(reversed(
+            [verts[i] for i in range(start, n_verts, 2)]
+            )))
+        boundary.extend(
+            [verts[i] for i in range(start + 1, n_verts, 2)]
+            )
+        boundary.append(verts[-1])
+        
+        # build lines
+        lines = []
+        
+        if io is None:
+            coordsys = Io.getCoordsys([o])
+            io = Io(scene=context.scene, coordsys=coordsys)
+            
+        if mode == 'FENCE':     
+            geom = io.coords_to_linestring(o.matrix_world, [boundary])
+            geom = geom.simplify(tolerance=0.001, preserve_topology=False)
+        else:
+            geom = io.coords_to_polygon(o.matrix_world, boundary)
+            geom.exterior = geom.exterior.simplify(tolerance=0.001, preserve_topology=False)
+        
+        if mode in {'HOLE', 'FENCE'}:
+            # return only hole boundary as geometry
+            return io, geom
+        
+        lines.append(geom)
+        
+        # Steps
+        coords = [[verts[f], verts[f + 1]] for i, f in enumerate(faces) if i > 0]
+        coords.pop()
+        steps = io.coords_to_linestring(o.matrix_world, coords)
+        lines.append(steps)
+        
+        # Axis arrow
+        arrow = coords[-1]
+        coords = []
+        g.make_profile([Vector((0, 0, 0))], 0, "2D", False,
+                    0, self.step_depth, 0,
+                    0, 0, coords, faces, [], [])
+        end = coords.pop()
+        p0, p1 = Vector(end), Vector(coords[-2])
+        c = p0 + (p1 - p0).normalized() * self.step_depth
+        p0, p1 = Vector(arrow[0]), Vector(arrow[1])
+        v = (p1 - p0).normalized() * 0.25 * self.step_depth
+        arrow = [c - v, end, c + v]
+        
+        # Axis start symbol
+        p0, p1, p2 = Vector(verts[0]),  Vector(verts[1]), Vector(verts[2])
+        c = Vector(coords[0])
+        vx = 0.5 * (p2 - p0) 
+        vy = (p1 - p0).normalized() * 0.1 * self.step_depth
+        symbol0 = [c + vx + vy, c - vx + vy]
+        symbol1 = [c + vx - vy, c - vx - vy]
+        
+        res = io.coords_to_linestring(o.matrix_world, [coords, arrow, symbol0, symbol1])
+        lines.append(res)
+        geom = lines[0]._factory.buildGeometry(lines)
+        return io, geom
+        
     def manipulable_setup(self, context):
         """
             TODO: Implement the setup part as per parent object basis
@@ -2556,9 +2755,7 @@ class ARCHIPACK_PT_stair(Panel):
         row = layout.row(align=True)
         row.prop(prop, 'presets', text="")
         box = layout.box()
-        # box.label(text="Styles")
         row = box.row(align=True)
-        # row.menu("ARCHIPACK_MT_stair_preset", text=bpy.types.ARCHIPACK_MT_stair_preset.bl_label)
         row.operator("archipack.stair_preset_menu", text=bpy.types.ARCHIPACK_OT_stair_preset_menu.bl_label)
         row.operator("archipack.stair_preset", text="", icon='ZOOMIN')
         row.operator("archipack.stair_preset", text="", icon='ZOOMOUT').remove_active = True
@@ -2567,30 +2764,38 @@ class ARCHIPACK_PT_stair(Panel):
         box.prop(prop, 'height')
         box.prop(prop, 'bottom_z')
         box.prop(prop, 'x_offset')
+        box = layout.box()
+        box.label(text="Create curves")
+        row = box.row(align=True)
+        row.operator("archipack.stair_to_curve", text="Symbol").mode = 'SYMBOL'
+        op = row.operator("archipack.stair_to_curve", text="Fence")
+        op.mode = 'FENCE'
+        op.min_space = prop.height
+        op = row.operator("archipack.stair_to_curve", text="Hole")
+        op.mode = 'HOLE'
+        op.min_space = prop.height
         # box.prop(prop, 'z_mode')
         box = layout.box()
-        row = box.row()
         if prop.parts_expand:
-            row.prop(prop, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
+            box.prop(prop, 'parts_expand', icon="TRIA_DOWN", text="Parts", icon_only=True, emboss=False)
+        else:
+            box.prop(prop, 'parts_expand', icon="TRIA_RIGHT", text="Parts", icon_only=True, emboss=False)
+        if prop.parts_expand:
             if prop.presets == 'STAIR_USER':
                 box.prop(prop, 'n_parts')
             if prop.presets != 'STAIR_USER':
                 row = box.row(align=True)
                 row.prop(prop, "left_shape", text="")
                 row.prop(prop, "right_shape", text="")
-                row = box.row()
-                row.prop(prop, "radius")
-                row = box.row()
+                box.prop(prop, "radius")
                 if prop.presets == 'STAIR_O':
-                    row.prop(prop, 'total_angle')
+                    box.prop(prop, 'total_angle')
                 else:
-                    row.prop(prop, 'da')
+                    box.prop(prop, 'da')
             if prop.presets != 'STAIR_O':
                 for i, part in enumerate(prop.parts):
                     part.draw(layout, context, i, prop.presets == 'STAIR_USER')
-        else:
-            row.prop(prop, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
-
+        
         box = layout.box()
         row = box.row()
         if prop.steps_expand:
@@ -2777,6 +2982,54 @@ class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+                   
+class ARCHIPACK_OT_stair_to_curve(Operator):
+    bl_idname = "archipack.stair_to_curve"
+    bl_label = "To curve"
+    bl_description = "Create curve from stair"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    mode = EnumProperty(
+        items=(
+            ('HOLE', 'Hole', 'Hole'),
+            ('FENCE', 'Fence', 'Fence'),
+            ('SYMBOL', 'Symbol', 'Symbol')
+        ),
+        default='HOLE'
+        )
+    min_space = FloatProperty(
+        name="Min space",
+        description="Minimum available space from steps",
+        precision=2, step=1, default=270,
+        unit='LENGTH', subtype='DISTANCE'
+        )
+        
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, 'mode')
+        if self.mode in {'FENCE', 'HOLE'}:
+            layout.prop(self, 'min_space')
+            
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            o = context.active_object
+            d = archipack_stair.datablock(o)
+            if d is None:
+                return {'CANCELLED'}
+            io, geom = d.as_geom(context, o, mode=self.mode, min_space=self.min_space)
+            bpy.ops.object.select_all(action="DESELECT")
+            res = io._to_curve(geom, "{}-{}".format(o.name, self.mode.lower()), '3D')
+            if self.mode in {'FENCE', 'HOLE'}:
+                res.location.z = d.height
+            res.select = True
+            context.scene.objects.active = res
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+            
+  
+            
 # ------------------------------------------------------------------
 # Define operator class to manipulate object
 # ------------------------------------------------------------------
@@ -2828,6 +3081,7 @@ def register():
     Mesh.archipack_stair = CollectionProperty(type=archipack_stair)
     bpy.utils.register_class(ARCHIPACK_PT_stair)
     bpy.utils.register_class(ARCHIPACK_OT_stair)
+    bpy.utils.register_class(ARCHIPACK_OT_stair_to_curve)
     bpy.utils.register_class(ARCHIPACK_OT_stair_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_stair_preset)
     bpy.utils.register_class(ARCHIPACK_OT_stair_manipulate)
@@ -2840,6 +3094,7 @@ def unregister():
     del Mesh.archipack_stair
     bpy.utils.unregister_class(ARCHIPACK_PT_stair)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair)
+    bpy.utils.unregister_class(ARCHIPACK_OT_stair_to_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_manipulate)

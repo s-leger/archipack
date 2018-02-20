@@ -77,13 +77,13 @@ class Gl():
         """ coord given in local input coordsys
         """
         if self.d == 2:
-            return coord
+            return Vector(coord)
         if render:
             return self.get_render_location(context, coord)
         region = context.region
         rv3d = context.region_data
         loc = view3d_utils.location_3d_to_region_2d(region, rv3d, coord, self.pos_2d)
-        return loc
+        return Vector(loc)
 
     def get_render_location(self, context, coord):
         scene = context.scene
@@ -92,7 +92,7 @@ class Gl():
         render_scale = scene.render.resolution_percentage / 100
         render_size = (int(scene.render.resolution_x * render_scale),
                        int(scene.render.resolution_y * render_scale))
-        return [round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1])]
+        return Vector(round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1]))
 
     def _end(self):
 
@@ -243,7 +243,7 @@ class GlText(Gl):
 
         # print("draw_text %s %s" % (self.text, type(self).__name__))
         self.render = render
-        x, y = self.position_2d_from_coord(context, self.pts[0], render)
+        p = self.position_2d_from_coord(context, self.pts[0], render)
         # dirty fast assignment
         dpi, font_id = context.user_preferences.system.dpi, 0
         bgl.glColor4f(*self.colour)
@@ -251,7 +251,7 @@ class GlText(Gl):
             blf.enable(font_id, blf.ROTATION)
             blf.rotation(font_id, self.angle)
         blf.size(font_id, self.font_size, dpi)
-        blf.position(font_id, x, y, 0)
+        blf.position(font_id, p.x, p.y, 0)
         blf.draw(font_id, self.text)
         if self.angle != 0:
             blf.disable(font_id, blf.ROTATION)
@@ -294,8 +294,8 @@ class GlBaseLine(Gl):
             bgl.glBegin(bgl.GL_LINE_STRIP)
 
         for pt in self.pts:
-            x, y = self.position_2d_from_coord(context, pt, render)
-            bgl.glVertex2f(x, y)
+            p = self.position_2d_from_coord(context, pt, render)
+            bgl.glVertex2f(p.x, p.y)
         self._end()
 
 
@@ -580,8 +580,8 @@ class GlPolygon(Gl):
         bgl.glBegin(bgl.GL_POLYGON)
 
         for pt in self.pts:
-            x, y = self.position_2d_from_coord(context, pt, render)
-            bgl.glVertex2f(x, y)
+            p = self.position_2d_from_coord(context, pt, render)
+            bgl.glVertex2f(p.x, p.y)
         self._end()
 
 
@@ -783,10 +783,10 @@ class EditableText(GlText, GlHandle):
         self.pos_3d = pos_3d
         self.value = value
         self._text = self.add_units(context)
-        x, y = self.text_size(context)
+        ts = self.text_size(context)
         self.pos_2d = self.position_2d_from_coord(context, pos_3d)
-        self.pos_2d.x += 0.5 * x
-        self.sensor_width, self.sensor_height = 0.5 * x, y
+        self.pos_2d.x += 0.5 * ts.x
+        self.sensor_width, self.sensor_height = 0.5 * ts.x, ts.y
 
     @property
     def sensor_center(self):
@@ -1061,7 +1061,7 @@ class GlCursorFence():
     def set_location(self, context, location):
         w = context.region.width
         h = context.region.height
-        x, y = location
+        x, y = location.x, location.y
         self.line_x.p = Vector((0, y))
         self.line_x.v = Vector((w, 0))
         self.line_y.p = Vector((x, 0))
@@ -1100,8 +1100,8 @@ class GlCursorArea():
             self.min.y <= pt.y and self.max.y >= pt.y)
 
     def set_location(self, context, p0, p1):
-        x0, y0 = p0
-        x1, y1 = p1
+        x0, y0 = p0.x, p0.y
+        x1, y1 = p1.x, p1.y
         if x0 > x1:
             x1, x0 = x0, x1
         if y0 > y1:

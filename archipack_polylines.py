@@ -1073,7 +1073,7 @@ class Point(GeosPoint):
         GeosPoint.__init__(self, coord, factory)
         self.users = 0
         self.index = 0
-
+    
     def distance(self, point):
         """ euclidian distance between points """
         return self.coord.distance(point.coord)
@@ -1407,7 +1407,69 @@ class Io():
             io._curve_as_geom(gf, curve, resolution, geoms)
         logger.debug("Io.curves_to_geoms() :%.2f seconds", time.time() - t)
         return coordsys
-
+         
+    def coords_to_linestring(self, tM, lines_coords):
+        """
+         * Create linestrings from arrays of coords
+         * shell: array of tuple xyz
+         * holes: array of array of tuple xyz
+         * Coords are ment to be local to object 
+         * tM is object matrix_world
+         * must init coordsys with objects before
+        """
+        t = time.time()
+        gf = GeometryFactory()
+        itM = self.coordsys.invert * tM  
+        coords = [[itM * Vector(co) for co in coords] for coords in lines_coords]
+        out = []
+        for i, co in enumerate(coords):
+            co = CoordinateSequence._removeRepeatedPoints(co)
+            # if co[0] != co[-1]:
+            #    co.append(co[0])
+            cs = gf.coordinateSequenceFactory.create([
+                gf.createCoordinate(pt) for pt in co
+                ])
+            out.append(gf.createLineString(cs))
+        return gf.buildGeometry(out)
+                
+    def coords_to_polygon(self, tM, shell, holes=None):
+        """
+         * Create polygon from shell and holes
+         * shell: array of tuple xyz
+         * holes: array of array of tuple xyz
+         * Coords are ment to be local to object 
+         * tM is object matrix_world
+         * must init coordsys with objects before
+        """
+        t = time.time()
+        gf = GeometryFactory()
+        exterior = None
+        interiors = []
+        itM = self.coordsys.invert * tM  
+        shell = [itM * Vector(co) for co in shell]
+        coords = [shell]
+        if holes is not None:
+            coords.extend([[itM * Vector(co) for co in hole] for hole in holes])
+            
+        for i, co in enumerate(coords):
+            co = CoordinateSequence._removeRepeatedPoints(co)
+            if co[0] != co[-1]:
+                co.append(co[0])
+            cs = gf.coordinateSequenceFactory.create([
+                gf.createCoordinate(pt) for pt in co
+                ])
+            ring = gf.createLinearRing(cs)
+            if i == 0:
+                if not ring.is_ccw:
+                    ring = gf.createLinearRing(list(reversed(cs)))
+                exterior = ring
+            else:
+                if ring.is_ccw:
+                    ring = gf.createLinearRing(list(reversed(cs)))
+                interiors.append(ring)
+                
+        return gf.createPolygon(exterior, interiors)   
+                
     def _poly_to_surface(self, vm, poly, name: str="Surface"):
         # create Exterior line
         curve = bpy.data.curves.new(name, type='CURVE')
@@ -1569,9 +1631,9 @@ class Io():
     def _to_curve(self, geoms, name: str, dimensions: str='3D'):
         geoms = Io.ensure_iterable(geoms)
         curve = bpy.data.curves.new(name, type='CURVE')
-        curve.dimensions = dimensions
         for geom in geoms:
             self._as_spline(curve, geom)
+        curve.dimensions = dimensions
         curve_obj = bpy.data.objects.new(name, curve)
         curve_obj.matrix_world = self.coordsys.world
         self.scene.objects.link(curve_obj)
@@ -1752,7 +1814,7 @@ class Io():
         target.location = self.coordsys.world * Vector((coord.x, coord.y, 0))
         self.scene.objects.link(target)
 
-
+               
 class ShapelyOps():
 
     @staticmethod
@@ -1851,7 +1913,7 @@ class Qtree(_QuadTree):
         # store input coordsys
         self.coordsys = coordsys
 
-        super(Qtree, self).__init__(0, 0, coordsys.width, coordsys.height, max_items, max_depth)
+        _QuadTree.__init__(self, 0, 0, coordsys.width, coordsys.height, max_items, max_depth)
 
         self._factory = GeometryFactory()
 

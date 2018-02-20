@@ -1124,6 +1124,13 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             update=update,
             description='flip outside and outside material of hole'
             )
+    
+    dimensions = BoolProperty(
+            default=True,
+            name="Dimensions",
+            description="Buid static dimensions",
+            update=update
+            )
     # layout related
     display_detail = BoolProperty(
             options={'SKIP_SAVE'},
@@ -1137,7 +1144,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             options={'SKIP_SAVE'},
             default=True
             )
-
+    
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
@@ -1254,6 +1261,37 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 side_cap_back=0
                 )
 
+    @property
+    def inside_hole(self):
+        # inside part of hole to setup line for floor
+        # profil percement                          ____
+        #   _____  y_inside          vertical ___|      x1
+        #  |
+        #  |__     y0                outside   ___
+        #     |___ y_outside                       |____ x1-shape_z     inside
+        # -x1 x0
+        y0 = 0.5 * self.y - self.offset
+        x1 = self.frame_x     # sur-largeur percement interieur
+        y_inside = 0.5 * self.y + self.hole_margin     # outside wall
+        if self.window_type == 'FLAT':
+            y1 = y0 + self.frame_y
+        else:
+            y1 = y0 + max(self.frame_y, 2.05 * self.panel_y)
+        outside_mat = self.hole_outside_mat
+        inside_mat = self.hole_inside_mat
+        # if self.flip:
+        #    outside_mat, inside_mat = inside_mat, outside_mat
+
+        return WindowPanel(
+            False,     # closed
+            [0, 0],     # x index
+            [-x1],
+            [y1, y_inside],
+            [inside_mat, inside_mat],     # material index
+            side_cap_front=1,     # cap index
+            side_cap_back=0
+            )
+                           
     @property
     def frame(self):
         # profil cadre
@@ -1690,12 +1728,12 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 return handle
         return None
 
-    def _synch_portal(self, context, o, linked, childs):
+    def _synch_portal(self, context, linked):
         # update portal
         dl = archipack_window.datablock(linked)
         dl.update_portal(context, linked)
 
-    def _synch_blind(self, context, o, linked, childs):
+    def _synch_blind(self, context, linked):
         dl = archipack_window.datablock(linked)
         dl.update_blind(context, linked, True)
         dl.update_blind(context, linked, False)
@@ -1823,14 +1861,48 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             l_hole = bpy.data.objects.new("hole", hole.data)
             l_hole['archipack_hole'] = True
             context.scene.objects.link(l_hole)
-            for mat in hole.data.materials:
-                l_hole.data.materials.append(mat)
             l_hole.parent = linked
             l_hole.matrix_world = linked.matrix_world.copy()
             l_hole.location = hole.location.copy()
         else:
             l_hole.data = hole.data
-
+    
+    def find_dimension(self, o):
+        for c in o.children:
+            if c.data and "archipack_dimension" in c.data:
+                if len(c.children) > 0:
+                    return c, c.children[0]
+        return None, None
+        
+    def _synch_dimension(self, context, linked, dim, text):
+        
+        l_dim, l_text = self.find_dimension(linked)
+        
+        if dim is None:
+            self.remove_dimension(context, l_dim, l_text)
+            return
+            
+        elif l_dim is None:
+            l_dim = bpy.data.objects.new(dim.name, dim.data)
+            context.scene.objects.link(l_dim)
+            l_dim.parent = linked
+            l_dim.matrix_world = linked.matrix_world.copy()
+            l_dim.location = dim.location.copy()  
+        else:
+            l_dim.data = dim.data
+            l_dim.location = dim.location.copy()  
+            
+        if text is not None:
+            if l_text is None:
+                l_text = bpy.data.objects.new(text.name, text.data)
+                context.scene.objects.link(l_text)
+                l_text.parent = l_dim
+                l_text.matrix_world = linked.matrix_world.copy()
+                l_text.location = text.location.copy()
+            else:
+                l_text.data = text.data
+                l_text.location = text.location.copy()
+            
     def synch_locks(self, p):
         p.lock_location[0] = self.window_type != 'RAIL'
         p.lock_rotation[0] = self.window_type == 'RAIL'
@@ -1844,13 +1916,14 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         o.select = True
         context.scene.objects.active = o
         childs = self.get_childs_panels(context, o)
-
+        dim, text = self.find_dimension(o)
         hole = self.find_hole(o)
         bpy.ops.object.select_linked(type='OBDATA')
         for linked in context.selected_objects:
             if linked != o:
-                self._synch_portal(context, o, linked, childs)
-                self._synch_blind(context, o, linked, childs)
+                self._synch_dimension(context, linked, dim, text)
+                self._synch_portal(context, linked)
+                self._synch_blind(context, linked)
                 self._synch_childs(context, o, linked, childs)
                 self._synch_shutters(context, o, linked, True)
                 self._synch_shutters(context, o, linked, False)
@@ -2182,7 +2255,22 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         else:
             return Vector((0, 0, 0)), Vector((0, 0, 0)), \
                 Vector((_x, _z, 0)), Vector((0, 0, 0))
-
+    
+    def remove_dimension(self, context, dim, text):
+        if text is not None:
+            context.scene.objects.unlink(text)
+            bpy.data.objects.remove(text, do_unlink=True)
+        if dim is not None:
+            context.scene.objects.unlink(dim)
+            bpy.data.objects.remove(dim, do_unlink=True)
+        
+    def update_dimension(self, context, o):
+        dim, text = self.find_dimension(o)
+        if self.dimensions:
+            self.manipulators[0].as_dimension(context, o, dim)
+        else:
+            self.remove_dimension(context, dim, text)
+            
     def update(self, context, childs_only=False):
         # support for "copy to selected"
         o = self.find_in_selection(context, self.auto_update)
@@ -2208,16 +2296,25 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         if childs_only is False and self.find_hole(o) is not None:
             self.interactive_hole(context, o)
 
-        # support for instances childs, update at object level
-        self.synch_childs(context, o)
-
         # store 3d points for gl manipulators
+            
         x, y = 0.5 * self.x, 0.5 * self.y
-        self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (1, 0, 0)])
+        self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (0.5, 0, 0)])
         self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])
         self.manipulators[2].set_pts([(x, -y, self.altitude), (x, -y, self.altitude + self.z), (-1, 0, 0)])
         self.manipulators[3].set_pts([(x, -y, 0), (x, -y, self.altitude), (-1, 0, 0)])
 
+        self.update_dimension(context, o)
+        
+        # support for instances childs, update at object level
+        self.synch_childs(context, o)
+
+        # synch wall dimensions when apply
+        if o.parent:
+            for c in o.parent.children:
+                if c.data and "archipack_wall2" in c.data:
+                    c.data.archipack_wall2[0].synch_dimension(context, c)
+        
         # restore context
         self.restore_context(context)
 
@@ -2237,14 +2334,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             hole_obj['archipack_hole'] = True
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-
-        """
-        hole_obj.data.materials.clear()
-
-        for mat in o.data.materials:
-            hole_obj.data.materials.append(mat)
-            # MaterialUtils.add_wall2_materials(hole_obj)
-        """
 
         hole = self.hole
         center, origin, size, radius = self.get_radius(self._x, self._z)
@@ -2275,7 +2364,98 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
         return hole_obj
 
+    def _add_spline(self, curve, coords):
+        spline = curve.splines.new('POLY')
+        spline.use_endpoint_u = False
+        spline.use_cyclic_u = len(coords) > 2
+        if coords[-1] == coords[0]:
+            coords.pop()
+        spline.points.add(len(coords) - 1)
+        for i, coord in enumerate(coords):
+            x, y, z = coord
+            spline.points[i].co = (x, y, z, 1)
 
+    def _to_curve(self, context, coords, name: str, dimensions: str='3D'):
+        curve = bpy.data.curves.new(name, type='CURVE')
+        curve.dimensions = dimensions
+        for co in coords:
+            self._add_spline(curve, co)
+        curve_obj = bpy.data.objects.new(name, curve)
+        context.scene.objects.link(curve_obj)
+        curve_obj.select = True
+        return curve_obj    
+        
+    def as_2d(self, context, o):
+        
+        # frame    
+        center, origin, size, radius = self.get_radius(self._x, self._z)
+        offset = Vector((0, 0, 0))
+        coords = self.window.as_2d(self.curve_steps, offset, center, origin,
+            size, radius, 0, 0, shape_z=None, path_type=self.shape)
+        
+        # panels 
+        childs = self.get_childs_panels(context, o)
+        n_childs = len(childs)
+        child_n = 0
+        row_n = 0
+        location_y = 0.5 * self.y - self.offset + 0.5 * self.frame_y
+
+        row = self.rows[0]
+        row_n += 1
+        
+        shape = self.shape
+        size, origin, pivot = row.get_row(self._x, 0)
+        materials = [0 for i in range(row.cols)]
+            
+        if self.window_type == 'RAIL':
+            self.adjust_size_and_origin(size, origin, pivot, materials)
+            
+        for panel in range(row.cols):
+            
+            child = childs[child_n]
+            child_n += 1
+            # location y + frame width. frame depends on choosen profile (fixed or not)
+            # update linked childs location too
+            d = child.data.archipack_window_panel[0]
+            location = Vector((
+                origin[panel].x, 
+                origin[panel].y + location_y + self.panel_y,
+                0))
+                
+            coords.extend(
+                child.data.archipack_window_panel[0].window.as_2d(
+                    self.curve_steps, location, d.center, d.origin,
+                    d.size, d.radius, 0, d.pivot, shape_z=None, path_type=d.shape)
+                )
+        
+        curve = self._to_curve(context, coords, name="{}-2d".format(o.name), dimensions='2D')
+        curve.matrix_world = o.matrix_world.copy()
+        
+        return curve
+    
+    def hole_2d(self, mode='SYMBOL'):
+        """
+          return coords of full / inside hole in 2d top ortho view
+        """
+        if mode == 'BOUND':
+            x, y = 0.5 * self._x + self.frame_x, 0.5 * self.y + self.hole_margin
+            return [(-x, -y, 0), (-x, y, 0), (x, y, 0), (x, -y, 0), (-x, -y, 0)]
+         
+        center, origin, size, radius = self.get_radius(self._x, self._z)
+        if mode == 'FLOORS':
+            coords = self.inside_hole.as_2d(self.curve_steps,
+                Vector((0, 0, 0)),
+                center, origin, size, radius,
+                0, 0, shape_z=None, path_type=self.shape)
+        else:
+            coords = self.hole.as_2d(self.curve_steps,
+                Vector((0, 0, 0)),
+                center, origin, size, radius,
+                0, 0, shape_z=None, path_type=self.shape)
+        # Use only first curve
+        return coords[0]
+            
+        
 class ARCHIPACK_PT_window(Panel):
     bl_idname = "ARCHIPACK_PT_window"
     bl_label = "Window"
@@ -2539,31 +2719,19 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
         o.select = True
         context.scene.objects.active = o
         return o
-
+        
     def delete(self, context):
         o = context.active_object
         if archipack_window.filter(o):
             bpy.ops.archipack.disable_manipulate()
-            for child in o.children:
-                d = child.data
-                if child.type == 'LAMP':
-                    context.scene.objects.unlink(child)
-                    bpy.data.objects.remove(child)
-                    bpy.data.lamps.remove(d)
-                elif 'archipack_hole' in child:
-                    context.scene.objects.unlink(child)
-                    bpy.data.objects.remove(child, do_unlink=True)
-                elif d is not None:
-                    if 'archipack_window_panel' in d:
-                        for handle in child.children:
-                            if 'archipack_handle' in handle:
-                                context.scene.objects.unlink(handle)
-                                bpy.data.objects.remove(handle, do_unlink=True)
-                    context.scene.objects.unlink(child)
-                    bpy.data.objects.remove(child, do_unlink=True)
-            context.scene.objects.unlink(o)
-            bpy.data.objects.remove(o, do_unlink=True)
-
+            parent = o.parent
+            self.delete_object(context, o)
+            # synch wall dimensions when apply
+            if parent:
+                for c in parent.children:
+                    if c.data and "archipack_wall2" in c.data:
+                        c.data.archipack_wall2[0].synch_dimension(context, c)
+            
     def update(self, context):
         o = context.active_object
         d = archipack_window.datablock(o)
@@ -2590,10 +2758,14 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
                     if 'archipack_hole' in child or (
                             d is not None and (
                             'archipack_window_panel' in d or
-                            'archipack_window_shutter' in d
+                            'archipack_window_shutter' in d or
+                            'archipack_dimension' in d
                             )):
                         child.hide_select = False
                         child.select = True
+                        # select text and handles too
+                        for c in child.children:
+                            c.select = True
         if len(context.selected_objects) > 0:
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True,
                 obdata=True, material=False, texture=False, animation=False)
@@ -2719,13 +2891,13 @@ class ARCHIPACK_OT_window_draw(ArchpackDrawTool, Operator):
         for obj in to_hide:
             obj.hide = True
 
-        res, tM, wall, width, y = self.mouse_hover_wall(context, event)
+        res, tM, wall, width, y, z_offset = self.mouse_hover_wall(context, event)
 
         for obj in to_hide:
             obj.hide = False
 
         if res and d is not None:
-            o.matrix_world = tM
+            o.matrix_world = tM.copy()
             if d.y != width:
                 d.y = width
 
@@ -2740,10 +2912,14 @@ class ARCHIPACK_OT_window_draw(ArchpackDrawTool, Operator):
 
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
+                    
+                    print(wall.name)
+                    
                     context.scene.objects.active = wall
                     wall.select = True
                     if bpy.ops.archipack.single_boolean.poll():
                         bpy.ops.archipack.single_boolean()
+                        
                     wall.select = False
                     # o must be a window here
                     if d is not None:
