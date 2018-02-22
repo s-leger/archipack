@@ -90,6 +90,13 @@ handle_size = 10
 # between many objects being in manipulate mode
 # use object names as loose keys
 # NOTE : use app.drivers to reset before file load
+
+# @TODO:
+# store data path
+# and use this stack to manipulate
+# manipulable objects must update this stack
+# through archipack_manipulator class
+
 manips = {}
 
 
@@ -236,9 +243,12 @@ class Manipulator():
         # unit for keyboard input value
         self.value_type = 'LENGTH'
         self.pts_mode = 'SIZE'
+        
+        # must hold those data here
         self.o = o
         self.datablock = datablock
         self.manipulator = manipulator
+        
         self.snap_callback = snap_callback
         self.origin = self.o.matrix_world.translation.copy()
         self.mouse_pos = Vector((0, 0))
@@ -2029,6 +2039,11 @@ class archipack_manipulator(PropertyGroup):
             set 3d location of gl points (in object space)
             pts: array of 3 vectors 3d
             normal: optionnal vector 3d default to Z axis
+            
+            @TODO:
+            set those pts right in the stack holding a safer reference
+            how to find the right manipulator in the stack ??
+            -> manip idx
         """
         pts = [Vector(p) for p in pts]
         self.p0, self.p1, self.p2 = pts
@@ -2042,7 +2057,7 @@ class archipack_manipulator(PropertyGroup):
             tM : object's world matrix
         """
         rM = tM.to_3x3()
-        if self.pts_mode in ['SIZE', 'POLYGON']:
+        if self.pts_mode in {'SIZE', 'POLYGON'}:
             return tM * self.p0, tM * self.p1, self.p2, rM * self.normal
         else:
             return tM * self.p0, rM * self.p1, rM * self.p2, rM * self.normal
@@ -2155,7 +2170,10 @@ class ARCHIPACK_OT_manipulate(Operator):
             context.area.tag_redraw()
 
         key = self.object_name
-
+        
+        # exit when another object is active ??
+        # might not work when manipulating eg a window through a wall
+        
         if check_stack(key):
             self.exit_selectmode(context, key)
             remove_manipulable(key)

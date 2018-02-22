@@ -444,7 +444,7 @@ class PresetMenuOperator():
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
-
+            
             # with alt pressed on invoke, will bypass menu operator and
             # call preset_operator
             # allow start drawing linked copy of active object

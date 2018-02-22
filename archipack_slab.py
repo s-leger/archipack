@@ -1041,8 +1041,8 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
                 pts.append(pts[0])
             else:
                 pts.append(wM * points[-1].co)
-
-        self.from_points(pts, spline.use_cyclic_u)
+        
+        return self.from_points(pts, spline.use_cyclic_u)
 
     def from_points(self, pts, closed):
 
@@ -1054,7 +1054,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         self.n_parts = len(pts) - 1
 
         self.update_parts(None)
-
+        tM = Matrix.Translation(pts[0].copy())
         p0 = pts.pop(0)
         a0 = 0
         for i, p1 in enumerate(pts):
@@ -1075,7 +1075,8 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
 
         self.closed = closed
         self.auto_update = True
-
+        return tM
+        
     def make_surface(self, o, verts):
         bm = bmesh.new()
         for v in verts:
@@ -1495,20 +1496,8 @@ class ARCHIPACK_OT_slab_from_curve(Operator):
         o = context.scene.objects.active
         d = archipack_slab.datablock(o)
         spline = curve.data.splines[0]
-        d.from_spline(curve.matrix_world, 12, spline)
-        if spline.type == 'POLY':
-            pt = spline.points[0].co
-        elif spline.type == 'BEZIER':
-            pt = spline.bezier_points[0].co
-        else:
-            pt = Vector((0, 0, 0))
-        # pretranslate
-        o.matrix_world = curve.matrix_world * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
+        o.matrix_world = d.from_spline(curve.matrix_world, 12, spline)
+        
         return o
 
     # -----------------------------------------------------

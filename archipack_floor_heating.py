@@ -46,7 +46,7 @@ from .archipack_cutter import (
     ArchipackCutterPart
     )
 from .archipack_gl import GlText
-from archipack.archipack_polylines import Io, GeometryFactory, Qtree, Point, Envelope
+from .archipack_polylines import Io, GeometryFactory, Qtree, Point, Envelope
 import logging
 logger = logging.getLogger("archipack")
 
@@ -1400,6 +1400,10 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             default=True,
             update=update_manipulators
             )
+    closed = BoolProperty(
+            options={'SKIP_SAVE'},
+            default=True
+            )
     z = FloatProperty(
             name="dumb z",
             description="Dumb z for manipulator placeholder",
@@ -1851,7 +1855,7 @@ class ARCHIPACK_PT_floor_heating(Panel):
 
 class ARCHIPACK_PT_floor_heating_cutter(Panel):
     bl_idname = "ARCHIPACK_PT_floor_heating_cutter"
-    bl_label = "Floor Cutter"
+    bl_label = "Floor heating obstacle"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
@@ -2045,8 +2049,8 @@ class ARCHIPACK_OT_floor_heating_from_wall(ArchipackCreateTool, Operator):
 
 class ARCHIPACK_OT_floor_heating_cutter(ArchipackCreateTool, Operator):
     bl_idname = "archipack.floor_heating_cutter"
-    bl_label = "Floor Cutter"
-    bl_description = "Floor Cutter"
+    bl_label = "Floor Heating Cutter"
+    bl_description = "Floor Heating Cutter"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2123,16 +2127,16 @@ class ARCHIPACK_OT_floor_heating_cutter(ArchipackCreateTool, Operator):
 
 
 class ARCHIPACK_OT_floor_heating_preset_menu(PresetMenuOperator, Operator):
-    bl_description = "Show Floor presets"
+    bl_description = "Show Floor heating presets"
     bl_idname = "archipack.floor_heating_preset_menu"
-    bl_label = "Floor preset"
+    bl_label = "Presets"
     preset_subdir = "archipack_floor_heating"
 
 
 class ARCHIPACK_OT_floor_heating_preset(ArchipackPreset, Operator):
-    """Add a Floor Preset"""
+    """Add a Floor Heating Preset"""
     bl_idname = "archipack.floor_heating_preset"
-    bl_label = "Add Floor preset"
+    bl_label = "Add Floor heating preset"
     preset_menu = "ARCHIPACK_OT_floor_heating_preset_menu"
 
     @property

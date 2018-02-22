@@ -896,25 +896,42 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             )
 
     def insert_part(self, context, o, where):
+        
+        # disable manipulate as we are changing structure
         self.manipulable_disable(context)
         self.auto_update = False
+        
+        g = self.get_generator()
+        
+        # detect childs location
+        self.setup_childs(o, g)
+            
         # the part we do split
         part_0 = self.parts[where]
+        half_len = g.segs[where].length / 2
         part_0.length /= 2
         part_0.da /= 2
-        self.parts.add()
-        part_1 = self.parts[len(self.parts) - 1]
+        part_1 = self.parts.add()
         part_1.type = part_0.type
         part_1.length = part_0.length
         part_1.da = part_0.da
         part_1.a0 = 0
+        
         # move after current one
         self.parts.move(len(self.parts) - 1, where + 1)
         self.n_parts += 1
-        # re-eval childs location
-        g = self.get_generator()
-        self.setup_childs(o, g)
-
+        
+        # get child location on split seg and 
+        # update so they are in where + 1 when needed
+        for child in self.childs:
+            # relocate childs on new segment
+            if child.wall_idx == where and child.pos.x > half_len:
+                child.pos.x -= half_len 
+                child.wall_idx += 1
+            # update child part index
+            elif child.wall_idx > where: 
+                child.wall_idx += 1
+        
         self.setup_manipulators()
         self.auto_update = True
 
@@ -930,19 +947,34 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         return self.parts[self.n_parts - 1]
 
     def remove_part(self, context, o, where):
+        
+        if self.n_parts < 2:
+            return
+          
+        # disable manipulate as we are changing structure
         self.manipulable_disable(context)
         self.auto_update = False
+        
+          
+        g = self.get_generator()        
+        # detect childs location
+        self.setup_childs(o, g)
+        
         # preserve shape
         # using generator
         if where > 0:
-            g = self.get_generator()
+            
             w = g.segs[where - 1]
+            part = self.parts[where - 1]
+            
+            # length of merged segment
+            # to be added to childs of [where]
+            add_len = w.length
+            
             w.p1 = g.segs[where].p1
-
+            
             if where + 1 < self.n_parts:
                 self.parts[where + 1].a0 = g.segs[where + 1].delta_angle(w)
-
-            part = self.parts[where - 1]
 
             if "C_" in part.type:
                 part.radius = w.r
@@ -953,13 +985,21 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 part.a0 = w.delta_angle(g.segs[where - 2])
             else:
                 part.a0 = w.straight(1, 0).angle
-
+                
+        # get child location on removed seg and 
+        # update so they are in where - 1
+        for child in self.childs:
+            # relocate childs of removed segment
+            # on removed segment - 1 
+            if child.wall_idx == where:
+                child.pos.x += add_len 
+            
+            # update child part index
+            if child.wall_idx >= where: 
+                child.wall_idx -= 1
+             
         self.parts.remove(where)
         self.n_parts -= 1
-
-        # re-eval child location
-        g = self.get_generator()
-        self.setup_childs(o, g)
 
         # fix snap manipulators index
         self.setup_manipulators()
@@ -1084,14 +1124,14 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 pts.append(pts[0])
             else:
                 pts.append(wM * points[-1].co)
-
         if self.is_cw(pts):
             pts = list(reversed(pts))
-
+        # translation of target object
+        tM = Matrix.Translation(pts[0].copy())
         self.auto_update = False
         self.from_points(pts, spline.use_cyclic_u)
         self.auto_update = True
-        return min([p.z for p in pts]) - wM[2][3]
+        return tM
 
     def from_points(self, pts, closed):
 
@@ -1783,6 +1823,10 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
         t_childs = []
         if mode in {'SYMBOL', 'FLOORS', 'T_CHILD'}:
+            
+            # MUST disable manipulators as setup_childs update 
+            # data structure and lead in READ_ACCESS crash
+            bpy.ops.archipack.disable_manipulate()
             # setup all childs so we are able to see them
             # as this only occurs when manipulated
             self.setup_childs(o, g)
@@ -1811,10 +1855,11 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         side = 1
         if self.flip:
             side = -1
-
+        
+        z = 0
+            
         # coords of wall boundarys
         if mode in {'SYMBOL', 'OUTSIDE', 'BOTH', 'FLOORS', 'T_CHILD'}:
-            z = 0
             offset = side * 0.5 * (1 + self.x_offset) * self.width
             outside = []
             g.get_coords(offset, z, self, outside)
@@ -2127,20 +2172,8 @@ class ARCHIPACK_OT_wall2_from_curve(Operator):
             bpy.ops.archipack.wall2(auto_manipulate=self.auto_manipulate)
             o = context.scene.objects.active
             d = archipack_wall2.datablock(o)
-            z = d.from_spline(curve.matrix_world, 12, spline)
-            if spline.type == 'POLY':
-                pt = spline.points[0].co
-            elif spline.type == 'BEZIER':
-                pt = spline.bezier_points[0].co
-            else:
-                pt = Vector((0, 0, 0))
-            # pretranslate
-            o.matrix_world = curve.matrix_world * Matrix([
-                [1, 0, 0, pt.x],
-                [0, 1, 0, pt.y],
-                [0, 0, 1, z],
-                [0, 0, 0, 1]
-                ])
+            o.matrix_world = d.from_spline(curve.matrix_world, 12, spline)
+            
         return o
 
     # -----------------------------------------------------
@@ -2257,6 +2290,7 @@ class ARCHIPACK_OT_wall2_fit_roof(Operator):
         g = d.get_generator()
         r, rd = d.find_roof(context, o, g)
         if rd is not None:
+            # Why setup childs here ?
             d.setup_childs(o, g)
             rd.make_wall_fit(context, r, o, self.inside)
         return {'FINISHED'}
@@ -2715,9 +2749,7 @@ class ARCHIPACK_OT_wall2_manipulate(Operator):
 
     def invoke(self, context, event):
         d = archipack_wall2.datablock(context.active_object)
-        res = d.manipulable_invoke(context)
-        if not res:
-            self.report({'WARNING'}, "Dependency loop detected in T childs")
+        d.manipulable_invoke(context)
         return {'FINISHED'}
 
     def execute(self, context):

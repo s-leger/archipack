@@ -807,16 +807,9 @@ class ArchipackCutter():
         if self.is_cw(pts) == (self.operation == 'INTERSECTION'):
             pts = list(reversed(pts))
 
-        pt = wM.inverted() * pts[0]
-
         # pretranslate
         o = self.find_in_selection(context, self.auto_update)
-        o.matrix_world = wM * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
+        o.matrix_world = Matrix.Translation(pts[0].copy())
         self.auto_update = False
         self.from_points(pts)
         self.auto_update = True

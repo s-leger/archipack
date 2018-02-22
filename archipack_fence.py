@@ -1358,10 +1358,6 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
         if o is None:
             return
 
-        tM = wM.copy()
-        tM.row[0].normalize()
-        tM.row[1].normalize()
-        tM.row[2].normalize()
         pts = []
         if spline.type == 'POLY':
             if self.user_path_reverse:
@@ -1399,7 +1395,9 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             
         if self.user_path_reverse:
             pts = list(reversed(pts))
-            
+        
+        o.matrix_world = Matrix.Translation(pts[0].copy())
+        
         p0 = pts.pop(0)
         a0 = 0
         for i, p1 in enumerate(pts):
@@ -1417,14 +1415,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             p0 = p1
 
         self.auto_update = auto_update
-
-        o.matrix_world = tM * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
-
+        
     def update_path(self, context):
         path = context.scene.objects.get(self.user_defined_path)
         if path is not None and path.type == 'CURVE':

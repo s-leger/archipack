@@ -1375,28 +1375,19 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
             else:
                 pts.append(wM * points[-1].co)
 
-        pt = wM.inverted() * pts[0]
-
         # pretranslate
-        # o = self.find_in_selection(context, self.auto_update)
         o = self.find_in_selection(context)
-        o.matrix_world = wM * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
+        o.matrix_world = Matrix.Translation(pts[0].copy())
         self.from_points(pts)
 
     def from_points(self, pts):
 
         if self.is_cw(pts):
             pts = list(reversed(pts))
-
+            
         last_state = self.auto_update
         self.auto_update = False
         self.n_parts = len(pts) - 1
-
         self.update_parts(None)
 
         p0 = pts.pop(0)
@@ -1419,7 +1410,7 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
 
         self.closed = True
         self.auto_update = last_state
-
+        
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
