@@ -2141,8 +2141,35 @@ class archipack_manipulator(PropertyGroup):
 class ARCHIPACK_OT_manipulate(Operator):
     bl_idname = "archipack.manipulate"
     bl_label = "Manipulate"
-    bl_description = "Manipulate"
+    bl_description = "Manipulate archipack objects"
     bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(self, context):
+        o = context.active_object
+        if o.data:
+            for key in o.data.keys():
+                if "archipack_" in key:
+                    return True
+        return False
+
+    def invoke(self, context, event):
+        o = context.active_object
+        res = {'CANCELLED'}
+        if o.data:
+            for key in o.data.keys():
+                if "archipack_" in key:
+                    d = getattr(o.data, key)[0]
+                    d.manipulable_invoke(context)
+                    res = {'FINISHED'}
+        return res
+ 
+
+class ARCHIPACK_OT_manipulate_modal(Operator):
+    bl_idname = "archipack.manipulate_modal"
+    bl_label = "Manipulate"
+    bl_description = "Manipulate"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     object_name = StringProperty(default="")
 
@@ -2320,7 +2347,7 @@ class Manipulable():
                                 ctx['region'] = region
                         break
         if ctx is not None:
-            bpy.ops.archipack.manipulate(ctx, 'INVOKE_DEFAULT', object_name=object_name)
+            bpy.ops.archipack.manipulate_modal(ctx, 'INVOKE_DEFAULT', object_name=object_name)
 
     def manipulable_invoke(self, context):
         """
@@ -2512,6 +2539,8 @@ class Manipulable():
         return
 
 
+       
+
 @persistent
 def cleanup(dummy=None):
     empty_stack()
@@ -2538,6 +2567,7 @@ def register():
     # register_manipulator('SNAP_POINT', SnapPointManipulator)
     # wall's line based object snap
     register_manipulator('WALL_SNAP', WallSnapManipulator)
+    bpy.utils.register_class(ARCHIPACK_OT_manipulate_modal)
     bpy.utils.register_class(ARCHIPACK_OT_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.register_class(archipack_manipulator)
@@ -2551,6 +2581,7 @@ def unregister():
     del manips
     manipulators_class_lookup.clear()
     del manipulators_class_lookup
+    bpy.utils.unregister_class(ARCHIPACK_OT_manipulate_modal)
     bpy.utils.unregister_class(ARCHIPACK_OT_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_disable_manipulate)
     bpy.utils.unregister_class(archipack_manipulator)

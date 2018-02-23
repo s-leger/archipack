@@ -32,10 +32,7 @@ from bpy.props import (
     )
 from mathutils import Vector, Matrix
 from mathutils.geometry import interpolate_bezier
-from random import uniform
-from math import radians, cos, sin, pi, tan, atan2, sqrt, degrees
-import bmesh
-from .bmesh_utils import BmeshEdit as bmed
+from math import cos, sin, pi, tan, atan2
 from .archipack_2d import Line, Arc
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
@@ -46,7 +43,7 @@ from .archipack_cutter import (
     ArchipackCutterPart
     )
 from .archipack_gl import GlText
-from .archipack_polylines import Io, GeometryFactory, Qtree, Point, Envelope
+from .archipack_polylines import Io, Qtree, Envelope
 import logging
 logger = logging.getLogger("archipack")
 
@@ -58,14 +55,16 @@ class SeekPoint():
     def __init__(self, p):
         self.p = p
         self.envelope = Envelope(p, p)
+
     def move(self, p):
         self.p = p
         self.envelope.initByPoints(p, p)
 
-        
+
 class SeekBox():
     def __init__(self):
         self.envelope = Envelope()
+
     def init_right(self, turtle):
         p0, v0 = turtle.front.p, turtle.right.v
         p1 = p0 + v0
@@ -74,6 +73,7 @@ class SeekBox():
         self.envelope.initByPoints(p0, p1)
         self.envelope.expandToInclude(p2)
         self.envelope.expandToInclude(p3)
+
     def init_left(self, turtle, length):
         p0, v0 = turtle.front.p, turtle.left.v
         p1 = p0 + v0
@@ -82,6 +82,7 @@ class SeekBox():
         self.envelope.initByPoints(p0, p1)
         self.envelope.expandToInclude(p2)
         self.envelope.expandToInclude(p3)
+
     def does_intersect(self, Q_segs, seg, skip):
         nb, found = Q_segs.intersects_ext(self, 0.001)
         u_min = 2
@@ -91,26 +92,29 @@ class SeekBox():
         for idx in found:
             it, pt, u, v = seg.intersect_ext(Q_segs._geoms[idx])
             # u is limited by tree
-            if it and 1.25 >= u >= -0.25 and 1.0001 >= v >= -0.0001 :
+            if it and 1.25 >= u >= -0.25 and 1.0001 >= v >= -0.0001:
                 intersect = True
                 if u < u_min:
                     u_min = u
                     v_min = v
                     i_idx = idx
         return intersect, u_min, v_min, i_idx
-  
-        
-class Seg(): 
+
+
+class Seg():
     def __init__(self, p, v):
         # c0 c1 are Points
         self.p = p
         self.v = v
         self.envelope = Envelope(p, p + v)
         self.idx = -1
+
     def copy(self):
         return Seg(self.p.copy(), self.v.copy())
+
     def update_envelope(self):
         self.envelope.initByPoints(self.p, self.p + self.v)
+
     def t(self, other):
         """
             return param t of intersection on this seg
@@ -123,6 +127,7 @@ class Seg():
         dp = other.p - self.p
         t = (c * dp) / d
         return t
+
     def intersect_ext(self, other):
         """
             intersect, return param t on both lines
@@ -136,6 +141,7 @@ class Seg():
         u = (c * dp) / d
         v = (c2 * dp) / d
         return True, self.p + self.v * u, u, v
+
     def point_on_seg(self, pt):
         dp = pt - self.p
         dl = self.v.length
@@ -143,12 +149,13 @@ class Seg():
             return 0
         t = (self.v * dp) / (dl ** 2)
         return t
+
     def farest_point(self, other):
         """
          find param t on current seg
          and point on other seg
          of worst point of other seg
-         return point on this segment 
+         return point on this segment
          and farest point on other one
         """
         p0 = other.p.copy()
@@ -159,6 +166,7 @@ class Seg():
             p0 = p1
             t0 = t1
         return t0, p0
+
     def nearest_point(self, other):
         """
          find param t on current seg
@@ -172,16 +180,19 @@ class Seg():
             p0 = p1
             t0 = t1
         return t0, p0
+
     def init(self, p, v):
         self.p = p
         self.v = v
         self.update_envelope()
+
     def output(self, context, gf, coordsys, name="Line"):
         p0 = self.p
         p1 = p0 + self.v
         if self.v.length > 0:
             line = gf.createLineString((p0, p1))
             Io.to_curve(context.scene, coordsys, line, name=name)
+
     def distance_pt(self, pt):
         dp = pt - self.p
         dl = self.v.length
@@ -190,14 +201,15 @@ class Seg():
         d = (self.v.x * dp.y - self.v.y * dp.x) / dl
         t = (self.v * dp) / (dl ** 2)
         return d, t
+
     def minimal_dist(self, other):
         d0, t = self.distance_pt(other.p)
         d1, t = self.distance_pt(other.p + other.v)
         if d1 < d0:
             d0 = d1
         return d0
- 
- 
+
+
 class Turtle():
     def __init__(self, p, v, cw=True):
         self.init_side(cw)
@@ -209,13 +221,15 @@ class Turtle():
         self.left = Seg(p, -side)
         self.left2 = Seg(p, 2 * -side)
         self.right = Seg(p, side)
+
     def init_side(self, cw):
         self.cw = cw
         if cw:
             self.up = 1
         else:
             self.up = -1
-        self.zAxis = Vector((0, 0, self.up))        
+        self.zAxis = Vector((0, 0, self.up))
+
     def update_envelopes(self):
         self.front.update_envelope()
         self.front2.update_envelope()
@@ -223,49 +237,58 @@ class Turtle():
         self.left.update_envelope()
         self.left2.update_envelope()
         self.right.update_envelope()
+
     def rotate(self, v):
         """
           set absolute rotation
         """
         side = v.cross(self.zAxis)
-        self.front.v = v 
+        self.front.v = v
         self.front2.v = 2 * v
         self.front3.v = 3 * v
         self.left.v = -side
         self.left2.v = 2 * -side
         self.right.v = side
         self.update_envelopes()
+
     def move(self, v):
         self.p += v
         self.update_envelopes()
+
     def turn_right(self):
         self.rotate(self.right.v)
+
     def turn_left(self):
         self.rotate(self.left.v)
+
     def step_forward(self):
         self.move(self.front.v)
+
     def step_backward(self):
         self.move(-self.front.v)
+
     def reverse(self):
         self.init_side(not self.cw)
         self.rotate(self.front.v)
+
     def scale(self, factor):
         self.rotate(factor * self.front.v)
+
     def relocate(self, p, v):
         self.p += p - self.p
         self.rotate(v)
-  
-  
+
+
 class Tree(Qtree):
     def __init__(self, coordsys):
-        Qtree.__init__(self, coordsys)    
+        Qtree.__init__(self, coordsys)
+
     def newSegment(self, c0, c1):
         p0 = Vector((c0.coord.x, c0.coord.y, 0))
         p1 = Vector((c1.coord.x, c1.coord.y, 0))
         new_seg = Seg(p0, p1 - p0)
         self.insert(self.ngeoms, new_seg)
         return new_seg
- 
 
 
 # ------------------------------------------------------------------
@@ -295,12 +318,14 @@ class PathFinder():
         self.is_forward = True
         self.iter = 0
         self.max_iter = (tree.width * tree.height) / (spacing ** 2)
+
     def insert(self, p0, p1):
         seg = Seg(p0, p1 - p0)
         idx = self.tree.ngeoms
         seg.idx = idx
         self.tree.insert(idx, seg)
         return idx
+
     def intersect(self, seg):
         nb, found = self.tree.intersects_ext(seg, 0.005 * self.spacing)
         t = 1e32
@@ -311,12 +336,13 @@ class PathFinder():
             if i != skip:
                 it, pt, u, v = seg.intersect_ext(self.segs[i])
                 # u is limited by tree
-                if it and 1.0001 >= u > 0 and 1.0001 >= v >= -0.0001 :
+                if it and 1.0001 >= u > 0 and 1.0001 >= v >= -0.0001:
                     intersect = True
                     if u < t:
                         t = u
                         idx = i
         return intersect, t, idx
+
     def normal(self, seg):
         """
          return
@@ -324,20 +350,22 @@ class PathFinder():
          d : length of normal + turtle front normalized
         """
         n = seg.v.normalized().cross(self.turtle.zAxis)
-        # direction must match turtle one    
+        # direction must match turtle one
         # when both are in same direction length > 1
         v = self.turtle.front.v.normalized()
         d = (n + v).length
-        if d < 1: 
+        if d < 1:
             n = -n
             d = (n + v).length
         return self.spacing * n, d
+
     def seg_at_pos(self, seg, p):
         """
          segment either start or end at location
         """
         v0 = seg.p - p
         return v0.length < 0.0001 or (v0 + seg.v).length < 0.0001
+
     def obstacle_seg(self, p):
         """
          find segment with largest normal at location
@@ -356,6 +384,7 @@ class PathFinder():
                     idx = i
                     n = ni
         return idx, n
+
     def wall_seg(self, p):
         """
          find segment != skip at location
@@ -368,10 +397,11 @@ class PathFinder():
                 if self.seg_at_pos(seg, p):
                     return i
         return -1
+
     def obstacle(self):
         """
          find obstacles for self.left
-         return 
+         return
          t param on turtle front
          n normal of hit segment
         """
@@ -389,7 +419,7 @@ class PathFinder():
             # next_seg.output(context, gf, coordsys, name="next_seg_{}".format(self.iter))
             if next < self.n_boundarys:
                 p -= 0.5 * n
-            else:    
+            else:
                 p -= n
             self.seg.init(p, next_seg.v)
             # self.seg.output(context, gf, coordsys, name="seek_seg_{}".format(self.iter))
@@ -397,9 +427,11 @@ class PathFinder():
             t = self.turtle.front.t(self.seg)
             return True, t, n, idx
         return False, 0, self.turtle.front.v, -1
+
     def start(self, p, v):
         self.turtle.relocate(p, v)
         self.coords.append(p.copy())
+
     def next(self):
         if self.is_forward:
             res = self.forward()
@@ -415,6 +447,7 @@ class PathFinder():
             logger.debug("%s exit max iter", self.iter)
             return False
         return self.run
+
     def forward(self):
         self.iter += 1
         if self.iter > self.max_iter:
@@ -425,12 +458,12 @@ class PathFinder():
         if self.last < 0:
             it, t, idx = self.intersect(self.turtle.right)
             logger.debug("%s hit right %s", self.iter, idx)
-            self.last = idx 
+            self.last = idx
         #################
         # regular segment
         #################
         # estimate front t_max on wall segment
-        # this is the size of seek area for 
+        # this is the size of seek area for
         # front and left intersections
         seg = self.segs[self.last]
         t, p0 = self.turtle.front.farest_point(seg)
@@ -441,7 +474,7 @@ class PathFinder():
         # multiply by turtle.up for reverse cases
         self.seg.init(p0, self.turtle.front.v)
         p1 = seg.p
-        if (p0 - p1).length < 0.0001: 
+        if (p0 - p1).length < 0.0001:
             p1 = seg.p + seg.v
         d, t1 = self.seg.distance_pt(p1)
         dir = 'RIGHT'
@@ -463,11 +496,11 @@ class PathFinder():
         self.seg.init(p, seg.v)
         # t param for wall segment (if nothing else is hit)
         t = self.turtle.front.t(self.seg)
-           
+
         if t == 0:
             print(p0)
             return False
-        
+
         hit = False
         #################
         # obstacle on segment
@@ -494,9 +527,9 @@ class PathFinder():
                 next = idx
                 logger.debug("%s hit left o %s t:%s", self.iter, idx, t)
                 hit = True
-                
+
         # check for pipe
-        # dosent always work with such (1.5) space as it does hit |_| 
+        # dosent always work with such (1.5) space as it does hit |_|
         if not hit:
             p1 = self.turtle.p + 1.5 * self.turtle.left.v
             self.left.init(p1, v)
@@ -519,17 +552,17 @@ class PathFinder():
 
         if next < self.n_boundarys:
             p = p0 - 0.5 * n
-        else:    
+        else:
             p = p0 - n
-        
+
         ###########################
-        # forward past segment 
-        # as we might not go further 
+        # forward past segment
+        # as we might not go further
         # when we do left an obstacle
-        ############################                
+        ############################
         if not hit:
             # find intersection with wall seg line
-            # resize seek segment to max + 2 to ensure there 
+            # resize seek segment to max + 2 to ensure there
             # is enougth space to come back
             self.seg.init(self.turtle.p, (t + 2.5) * v)
             # front hit seg
@@ -547,10 +580,10 @@ class PathFinder():
                     p = seg.p + side * n
                 self.seg.init(p, seg.v)
                 dir = 'LEFT'
-                t = self.turtle.front.t(self.seg)          
+                t = self.turtle.front.t(self.seg)
                 logger.debug("%s hit front %s t:%s", self.iter, idx, t)
                 hit = True
-                
+
         ###########################
         # obstacle past segment
         # (is there enougth space to realy go right?)
@@ -596,9 +629,9 @@ class PathFinder():
                     t = self.turtle.front.t(self.seg)
                     logger.debug("%s right obstacle %s t:%s", self.iter, idx, t)
                     hit = True
-                    
+
         if not hit and dir == 'RIGHT':
-            # check for pipe at 1 * right 
+            # check for pipe at 1 * right
             # to know if there is enougth space left
             self.seg.init(seg.p + 0.5 * n, seg.v)
             self.right.init(self.turtle.p + self.turtle.right.v, v)
@@ -620,9 +653,8 @@ class PathFinder():
                     t = self.turtle.front.t(self.seg)
                     logger.debug("%s right pipe %s t:%s", self.iter, idx, t)
                     hit = True
-         
-        
-        self.last = next        
+
+        self.last = next
         logger.debug("%s t:%s", dir, t)
         if t < 0.5:
             # self.turtle.front.output(context, gf, coordsys, name="Turtle_{}".format(self.iter))
@@ -636,7 +668,7 @@ class PathFinder():
             self.turtle.turn_right()
             it, t, idx = self.intersect(self.turtle.left)
             logger.debug("%s hit: last=%s", self.iter, idx)
-            self.last = idx 
+            self.last = idx
             return False
         else:
             self.turtle.move(t * v)
@@ -651,7 +683,8 @@ class PathFinder():
             elif dir == 'RIGHT':
                 self.turtle.turn_right()
         # self.turtle.front.output(context, gf, coordsys, name="Turtle_{}".format(self.iter))
-        return True   
+        return True
+
     def backward(self):
         self.iter += 1
         backward = True
@@ -662,25 +695,25 @@ class PathFinder():
         # or hit front
         #################
         # estimate front t_max on wall segment
-        # this is the size of seek area for 
+        # this is the size of seek area for
         # front and left intersections
         seg = self.segs[self.last]
         t, p0 = self.turtle.front.farest_point(seg)
         # store this one as last if nothing else hit
         next = self.wall_seg(p0)
         dir = 'RIGHT'
-            
+
         if next == -1:
             # end condition: found first segment
             self.run = False
             n, d = self.normal(seg)
-        else: 
+        else:
             seg = self.segs[next]
             # identify the side: when d > 0 we are left side
             # multiply by turtle.up for reverse cases
             self.seg.init(p0, v)
             p1 = seg.p.copy()
-            if (p0 - p1).length < 0.0001: 
+            if (p0 - p1).length < 0.0001:
                 p1 += seg.v
             d, t1 = self.seg.distance_pt(p1)
             side = -1
@@ -702,13 +735,12 @@ class PathFinder():
             t = self.turtle.front.t(self.seg)
             logger.debug("%s side:%s, t:%s next:%s", self.iter, side, t, next)
             # found first segment
-            
 
             # find any intersection along that segment
             # this occurs when angle < 90
             self.seg.init(self.turtle.p, v * t)
             it, o_t, idx = self.intersect(self.seg)
-            if it:  
+            if it:
                 next = idx
                 seg = self.segs[next]
                 n, d = self.normal(seg)
@@ -722,7 +754,7 @@ class PathFinder():
                 dir = 'RIGHT'
             else:
                 #################
-                # available 
+                # available
                 # directions
                 #################
                 # front must hit unless we do have space
@@ -731,8 +763,8 @@ class PathFinder():
                 it, o_t, idx = self.intersect(self.seg)
                 if it or True:
                     logger.debug("%s hit front", self.iter)
-                    # other dir must hit 
-                    # check in next wall direction 
+                    # other dir must hit
+                    # check in next wall direction
                     # if there is space
                     # if hit something, use closest point on that segment - spacing as t
                     if dir == 'LEFT':
@@ -760,7 +792,7 @@ class PathFinder():
                             side = -side
                         if next < self.n_boundarys:
                             p -= side * 0.25 * n
-                        else:    
+                        else:
                             p -= side * 0.5 * n
                         self.seg.init(p, next_seg.v)
                         n = -n
@@ -768,12 +800,12 @@ class PathFinder():
                         # print(next, p, next_seg.v)
                         t = self.turtle.front.t(self.seg)
                         logger.debug("%s hit side t:%s", self.iter, t)
-                        
+
                     if abs(t) < 0.5:
                         # self.turtle.front.output(context, gf, coordsys, name="Turtle_{}".format(self.iter))
                         self.run = False
                         return False
-                    
+
                 else:
                     # space in front, could we run forward ?
                     backward = False
@@ -790,9 +822,9 @@ class PathFinder():
         elif dir == 'RIGHT':
             self.turtle.turn_right()
         # self.turtle.front.output(context, gf, coordsys, name="Turtle_{}".format(self.iter))
-        return backward        
-      
- 
+        return backward
+
+
 class Floor():
 
     def __init__(self):
@@ -845,7 +877,7 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         self.iter = 0
         self.pipe_len = 0
         self.area = 0
-        
+
     def add_part(self, part):
 
         if len(self.segs) < 1:
@@ -901,7 +933,7 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         p1 = self.segs[0].line.p1
         self.segs[0].line = self.segs[0].make_offset(offset + self.parts[0].offset, w.line)
         self.segs[0].line.p1 = p1
-        
+
     def locate_manipulators(self):
         """
             setup manipulators
@@ -1017,7 +1049,7 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
                 g = d.ensure_direction()
                 g.change_coordsys(b.matrix_world, o.matrix_world)
                 self.slice(g)
-                
+
     def _add_spline(self, curve, closed, coords):
         spline = curve.splines.new('POLY')
         spline.use_endpoint_u = False
@@ -1026,7 +1058,7 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         for i, coord in enumerate(coords):
             x, y, z = coord
             spline.points[i].co = (x, y, z, 1)
-    
+
     def bevel(self, coords, radius, a):
         n_coords = len(coords) - 1
         verts = [coords[0]]
@@ -1035,14 +1067,14 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
                 self.roundedCorner(co, coords[i - 1], coords[i + 1], radius, a, verts)
         verts.append(coords[-1])
         return verts
-        
+
     def roundedCorner(self, p, p1, p2, radius, a, verts):
         # Vector 1
-        u = p1 - p 
-        
+        u = p1 - p
+
         # Vector 2
         v = p2 - p
-        
+
         # Angle between vector 1 and vector 2 divided by 2
         angle = atan2(u.x * v.y - u.y * v.x, u.x * v.x + u.y * v.y) / 2
         # The length of segment between angular point and the
@@ -1058,16 +1090,16 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         if segment > length:
             segment = length
             radius = length * tang
-        
-        # Points of intersection are calculated by the proportion between 
+
+        # Points of intersection are calculated by the proportion between
         # the coordinates of the vector, length of vector and the length of the segment.
         uc = (segment / length1) * u
         vc = (segment / length2) * v
-        # Calculation of the coordinates of the circle 
+        # Calculation of the coordinates of the circle
         # center by the addition of angular vectors.
         d = (segment ** 2 + radius ** 2) ** 0.5
         c = (uc + vc).normalized() * d
-        n1 = uc - c  
+        n1 = uc - c
         n2 = vc - c
         center = p + c
         # StartAngle and EndAngle of arc
@@ -1078,18 +1110,18 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         sweepAngle = endAngle - startAngle
         if sweepAngle > pi:
             sweepAngle -= 2 * pi
-        
+
         if sweepAngle < -pi:
             sweepAngle += 2 * pi
-        
+
         steps = int(abs(sweepAngle) / a)
-           
+
         a0 = startAngle
         if steps == 0:
             da = 0
-        else:    
+        else:
             da = sweepAngle / steps
-        
+
         verts.extend([center + radius * Vector((cos(a0 + da * i), sin(a0 + da * i), 0)) for i in range(steps + 1)])
 
     def floor_heating(self, context, o, d):
@@ -1102,15 +1134,15 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
             verts = [s.p0.to_3d() for s in hole.segs if s.length > 0]
             if len(verts) > 0:
                 self._add_spline(curve, True, verts)
-        
+
         context.scene.update()
-        
+
         child = None
         for c in o.children:
             if c.type == 'CURVE':
                 child = c
                 pipes = child.data
-                
+
         if child is None:
             pipes = bpy.data.curves.new("Pipes", type='CURVE')
             pipes.dimensions = '3D'
@@ -1118,11 +1150,11 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
             context.scene.objects.link(child)
             child.parent = o
             child.matrix_world = o.matrix_world.copy()
-         
-        pipes.splines.clear()        
+
+        pipes.splines.clear()
         curves = [o]
         resolution = 1
-        gf = GeometryFactory()
+        # gf = GeometryFactory()
         # init boundarys
         coordsys = Io.getCoordsys(curves)
         tree = Tree(coordsys)
@@ -1136,15 +1168,15 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
             v = Vector((d.spacing, 0, 0))
         else:
             v = Vector((0, d.spacing, 0))
-        
-        pf = PathFinder(tree, d.spacing, d.backward, cw)        
+
+        pf = PathFinder(tree, d.spacing, d.backward, cw)
         pf.start(p, v)
         pf.max_iter = d.max_iter
         run = True
         while run:
             run = pf.next()
         if d.enable_radius:
-            a = 12 / 180 * pi 
+            a = 12 / 180 * pi
             coords = self.bevel(pf.coords, d.radius, a)
         else:
             coords = pf.coords
@@ -1153,13 +1185,12 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         self.iter = pf.iter
         self.pipe_len = sum([(coords[i - 1] - co).length for i, co in enumerate(coords) if i > 0])
         self.area = 0
-        
+
     def add_manipulator(self, name, pt1, pt2, pt3):
         m = self.manipulators.add()
         m.prop1_name = name
         m.set_pts([pt1, pt2, pt3])
 
-        
 
 def update(self, context):
     self.update(context)
@@ -1343,7 +1374,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             max=128,
             default=12, update=update_path
             )
-    
+
     # UI layout related
     parts_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -1391,7 +1422,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             default=True,
             update=update
             )
-    
+
     pipe_len = StringProperty()
     iter = StringProperty()
     area = StringProperty()
@@ -1417,7 +1448,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             precision=2,
             update=update
             )
-    
+
     def get_generator(self):
         g = FloorGenerator(self.parts)
         for part in self.parts:
@@ -1430,7 +1461,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
         g.locate_manipulators()
         for i, seg in enumerate(g.segs):
             g.segs[i] = seg.line
-        
+
         return g
 
     def update_parts(self, o):
@@ -1560,33 +1591,6 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
         self.add_manipulator("length", (0, 0, 0), (0, self.length, 0), (-0.4, 0, 0))
         self.add_manipulator("width", (0, 0, 0), (self.width, 0, 0), (0.4, 0, 0))
 
-        z = self.thickness
-
-        if self.pattern == "boards":
-            self.add_manipulator("board_length", (0, 0, z), (0, self.board_length, z), (0.1, 0, z))
-            self.add_manipulator("board_width", (0, 0, z), (self.board_width, 0, z), (-0.2, 0, z))
-        elif self.pattern == "square_parquet":
-            self.add_manipulator("short_board_length", (0, 0, z), (0, self.short_board_length, z), (-0.2, 0, z))
-        elif self.pattern in ("herringbone", "herringbone_parquet"):
-            dia = self.short_board_length * cos(radians(45))
-            dia2 = self.board_width * cos(radians(45))
-            self.add_manipulator("short_board_length", (0, 0, z), (dia, dia, z), (0, 0, z))
-            self.add_manipulator("board_width", (dia, 0, z), (dia - dia2, dia2, z), (0, 0, z))
-        else:
-            tl = self.tile_length
-            tw = self.tile_width
-
-            if self.pattern in ("regular_tile", "hopscotch", "stepping_stone"):
-                self.add_manipulator("tile_width", (0, tl, z), (tw, tl, z), (0, 0, z))
-                self.add_manipulator("tile_length", (0, 0, z), (0, tl, z), (0, 0, z))
-            elif self.pattern == "hexagon":
-                self.add_manipulator("tile_width", (tw / 2 + self.spacing, 0, z), (tw * 1.5 + self.spacing, 0, z),
-                                     (0, 0, 0))
-            elif self.pattern == "windmill":
-                self.add_manipulator("tile_width", (0, 0, z), (tw, 0, 0), (0, 0, z))
-                self.add_manipulator("tile_length", (0, tl / 2 + self.spacing, z), (0, tl * 1.5 + self.spacing, z),
-                                     (0, 0, z))
-
     def setup_manipulators(self):
 
         if len(self.manipulators) < 1:
@@ -1620,16 +1624,16 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             p.manipulators[3].prop1_name = str(i + 1)
 
         self.parts[-1].manipulators[0].type_key = 'DUMB_ANGLE'
-    
+
     def text(self, context, value, type, precision=2):
-    
+
         dimension = 1
-        
+
         if type == 'AREA':
             dimension = 2
         unit_type = 'SIZE'
-        unit_mode='AUTO'
-            
+        unit_mode = 'AUTO'
+
         label = GlText(
             label="",
             value=value,
@@ -1637,9 +1641,9 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             unit_mode=unit_mode,
             unit_type=unit_type,
             dimension=dimension
-            ) 
+            )
         return label.add_units(context)
-    
+
     def update(self, context, manipulable_refresh=False):
 
         o = self.find_in_selection(context, self.auto_update)
@@ -1659,14 +1663,14 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
-        
+
         self.iter = "Iter {}".format(g.iter)
         self.pipe_len = "Len {}".format(self.text(context, g.pipe_len, 'SIZE', 2))
-        self.area =  "Area {}".format(self.text(context, g.area, 'AREA', 2))
-        
+        self.area = "Area {}".format(self.text(context, g.area, 'AREA', 2))
+
         # restore context
         self.restore_context(context)
-        
+
     def manipulable_setup(self, context):
         """
             NOTE:
@@ -1803,7 +1807,7 @@ class ARCHIPACK_PT_floor_heating(Panel):
         # retrieve datablock of your object
         props = archipack_floor_heating.datablock(o)
         # manipulate
-        layout.operator("archipack.floor_heating_manipulate", icon="HAND")
+        layout.operator("archipack.manipulate", icon="HAND")
         layout.separator()
         box = layout.box()
         row = box.row(align=True)
@@ -1827,7 +1831,7 @@ class ARCHIPACK_PT_floor_heating(Panel):
         if props.user_defined_path != "":
             box.prop(props, 'user_defined_resolution')
         box.prop(props, 'x_offset')
-            
+
         box = layout.box()
         row = box.row()
         if props.parts_expand:
@@ -1851,7 +1855,7 @@ class ARCHIPACK_PT_floor_heating(Panel):
         box.label(text=props.pipe_len)
         box.label(text=props.area)
         # thickness
-        
+
 
 class ARCHIPACK_PT_floor_heating_cutter(Panel):
     bl_idname = "ARCHIPACK_PT_floor_heating_cutter"
@@ -1871,7 +1875,7 @@ class ARCHIPACK_PT_floor_heating_cutter(Panel):
         layout = self.layout
         scene = context.scene
         box = layout.box()
-        box.operator('archipack.floor_heating_cutter_manipulate', icon='HAND')
+        box.operator('archipack.manipulate', icon='HAND')
         box.prop(prop, 'operation', text="")
         box = layout.box()
         box.label(text="From curve")
@@ -2019,12 +2023,12 @@ class ARCHIPACK_OT_floor_heating_from_wall(ArchipackCreateTool, Operator):
             p.radius = part.radius
             p.da = part.da
             p.a0 = part.a0
-            
+
         side = 1
         if wd.flip:
             side = -1
         d.x_offset = -side * 0.5 * (1 - wd.x_offset) * wd.width
-        
+
         d.auto_update = True
         # pretranslate
         o.matrix_world = wall.matrix_world.copy()
@@ -2056,14 +2060,14 @@ class ARCHIPACK_OT_floor_heating_cutter(ArchipackCreateTool, Operator):
 
     parent = StringProperty("")
     curve = StringProperty("")
-    
+
     def create(self, context):
         m = bpy.data.meshes.new("Floor Cutter")
         o = bpy.data.objects.new("Floor Cutter", m)
         d = m.archipack_floor_heating_cutter.add()
         parent = context.scene.objects.get(self.parent)
         curve = context.scene.objects.get(self.curve)
-        
+
         if parent is not None:
             o.parent = parent
             bbox = parent.bound_box
@@ -2144,45 +2148,12 @@ class ARCHIPACK_OT_floor_heating_preset(ArchipackPreset, Operator):
         return ['manipulators', 'parts', 'n_parts', 'user_defined_path', 'user_defined_resolution']
 
 
-class ARCHIPACK_OT_floor_heating_manipulate(Operator):
-    bl_idname = "archipack.floor_heating_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_floor_heating.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_floor_heating.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
-class ARCHIPACK_OT_floor_heating_cutter_manipulate(Operator):
-    bl_idname = "archipack.floor_heating_cutter_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_floor_heating_cutter.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_floor_heating_cutter.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
 def register():
     bpy.utils.register_class(archipack_floor_heating_cutter_segment)
     bpy.utils.register_class(archipack_floor_heating_cutter)
     Mesh.archipack_floor_heating_cutter = CollectionProperty(type=archipack_floor_heating_cutter)
     bpy.utils.register_class(ARCHIPACK_OT_floor_heating_cutter)
     bpy.utils.register_class(ARCHIPACK_PT_floor_heating_cutter)
-    bpy.utils.register_class(ARCHIPACK_OT_floor_heating_cutter_manipulate)
     bpy.utils.register_class(archipack_floor_heating_part)
     bpy.utils.register_class(archipack_floor_heating)
     Curve.archipack_floor_heating = CollectionProperty(type=archipack_floor_heating)
@@ -2190,7 +2161,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_floor_heating)
     bpy.utils.register_class(ARCHIPACK_OT_floor_heating_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_floor_heating_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_floor_heating_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_floor_heating_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_floor_heating_from_wall)
 
@@ -2201,7 +2171,6 @@ def unregister():
     del Mesh.archipack_floor_heating_cutter
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating_cutter)
     bpy.utils.unregister_class(ARCHIPACK_PT_floor_heating_cutter)
-    bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating_cutter_manipulate)
     bpy.utils.unregister_class(archipack_floor_heating_part)
     bpy.utils.unregister_class(archipack_floor_heating)
     del Curve.archipack_floor_heating
@@ -2209,6 +2178,5 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_heating_from_wall)

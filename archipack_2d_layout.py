@@ -27,7 +27,7 @@
 import bpy
 from bpy.types import Operator, PropertyGroup, Curve, Panel
 from bpy.props import (
-    FloatProperty, EnumProperty, BoolProperty, 
+    FloatProperty, EnumProperty, BoolProperty,
     CollectionProperty, IntProperty, StringProperty
     )
 from mathutils import Vector
@@ -39,8 +39,8 @@ from .archipack_object import ArchipackCreateTool, ArchipackObject
 def update(self, context):
     self.update(context)
 
-    
-# Paper formats (mm) 
+
+# Paper formats (mm)
 # Note: must contain a 'USER_DEFINED' key
 paper_formats = {
     'A0': [1189, 841],
@@ -81,20 +81,20 @@ paper_formats = {
     'Arch E': [1219.2, 914.4],
     'Arch E1': [1066.8, 762],
     'USER_DEFINED': [297, 210]
-    }    
+    }
 
-    
+
 # Enumerator for paper chooser
 paper_keys = list(paper_formats.keys())
 paper_keys.sort()
 paper_enum = tuple([(
-        k, 
-        "{} ({}/{} mm)".format(k, paper_formats[k][0], paper_formats[k][1]), 
+        k,
+        "{} ({}/{} mm)".format(k, paper_formats[k][0], paper_formats[k][1]),
         "{} ({}/{} mm)".format(k, paper_formats[k][0], paper_formats[k][1])
         ) for k in paper_keys])
 
-        
-# Note: must contain a 'USER_DEFINED' key  
+
+# Note: must contain a 'USER_DEFINED' key
 model_scale = {
     '1000': 1000,
     '500': 500,
@@ -107,10 +107,10 @@ model_scale = {
     '2': 2,
     '1': 1,
     'USER_DEFINED': 100
-    }   
+    }
 scale_enum = tuple([(
-        k, 
-        "1/{}".format(k), 
+        k,
+        "1/{}".format(k),
         "1/{}".format(k)
         ) for k in model_scale])
 
@@ -141,7 +141,7 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         default=297,
         precision=4,
         update=update
-        )  
+        )
     paper_h = FloatProperty(
         name="Height (mm)",
         default=210,
@@ -161,7 +161,7 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         name="resolution (dpi)",
         default=90
         )
-    
+
     scale_prefix = StringProperty(
             name="Scale prefix",
             default="Scale",
@@ -173,14 +173,14 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-    
+
     auto_update = BoolProperty(
             # Wont save auto_update state in any case
             options={'SKIP_SAVE'},
             default=True,
             update=update
             )
-    
+
     def canvas_size(self, context):
         """
           Canvas size in world coordinates (m)
@@ -190,13 +190,13 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         s = model_scale[scale_name]
         if scale_name == 'USER_DEFINED':
             s = self.detail_user
-        # Unit scale: 1 Blender unit = 1 m * this factor   
+        # Unit scale: 1 Blender unit = 1 m * this factor
         scale = context.scene.unit_settings.scale_length * s
         return w / 1000 * scale, h / 1000 * scale
-    
+
     def canvas_scale(self, context):
         """
-         * scale factor from world to paper unit (mm) 
+         * scale factor from world to paper unit (mm)
         """
         scale_name = self.detail_scale
         s = model_scale[scale_name]
@@ -204,12 +204,12 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
             s = self.detail_user
         # Unit scale: 1 Blender unit = 1 m * this factor
         return context.scene.unit_settings.scale_length * s / 1000
-    
+
     @property
     def pixel_size(self):
         # pixels / mm
         return self.resolution / 25.4
-        
+
     @property
     def paper_size(self):
         """
@@ -222,14 +222,14 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         elif self.paper_orientation == 'PORTRAIT':
             w, h = h, w
         return w, h
-                 
+
     def setup_manipulators(self):
         if len(self.manipulators) < 1:
             # add manipulator for x property
             s = self.manipulators.add()
             s.prop1_name = "paper_w"
             s.type_key = 'SIZE'
-    
+
     def _add_spline(self, curve, closed, coords):
         spline = curve.splines.new('POLY')
         spline.use_endpoint_u = False
@@ -238,9 +238,9 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         for i, coord in enumerate(coords):
             x, y, z = coord
             spline.points[i].co = (x, y, z, 1)
-    
+
     def update_child(self, context, o, location):
-        
+
         t_o = None
         text = None
         # find text if any
@@ -249,7 +249,7 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
                 t_o = child
                 text = t_o.data
                 break
-        
+
         if t_o is None:
             name = "Scale"
             if self.scale_prefix != "":
@@ -259,18 +259,17 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
             t_o = bpy.data.objects.new(name, text)
             context.scene.objects.link(t_o)
             t_o.parent = o
-            
+
         t_o.location = location
         if self.detail_scale == 'USER_DEFINED':
             text.body = "{}: 1/{}".format(self.scale_prefix, self.user_scale)
         else:
             text.body = "{}: {}".format(self.scale_prefix, self.detail_scale)
-        
+
         text.size = self.text_size
         text.align_x = 'CENTER'
         return t_o
-    
-    
+
     def update(self, context):
 
         # provide support for "copy to selected"
@@ -281,7 +280,7 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
 
         # dynamically create manipulators when needed
         self.setup_manipulators()
-        
+
         w, h = self.canvas_size(context)
         p0 = Vector((0, 0, 0))
         p1 = Vector((w, 0, 0))
@@ -291,12 +290,12 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         curve = o.data
         curve.splines.clear()
         self._add_spline(curve, True, [p0, p1, p2, p3])
-        
+
         # update manipulators location (3d location in object coordsystem)
         self.manipulators[0].set_pts([p0, p1, (-1, 0, 0)])
-        
+
         self.update_child(context, o, Vector((0.5 * w, 0.5 * self.text_size, 0)))
-        
+
         # always restore context
         self.restore_context(context)
 
@@ -323,7 +322,7 @@ class ARCHIPACK_PT_layout(Panel):
         props = archipack_layout.datablock(o)
 
         # Manipulate mode operator
-        layout.operator('archipack.layout_manipulate', icon='HAND')
+        layout.operator('archipack.manipulate', icon='HAND')
 
         box = layout.box()
         row = box.row(align=True)
@@ -351,15 +350,15 @@ class ARCHIPACK_PT_layout(Panel):
         box.prop(props, 'scale_prefix')
         box.prop(props, 'text_size')
         layout.operator("archipack.export_svg", text="Export .svg")
-        
-        
+
+
 class ARCHIPACK_OT_layout(ArchipackCreateTool, Operator):
     bl_idname = "archipack.layout"
     bl_label = "Layout"
     bl_description = "Create Layout"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     def create(self, context):
 
         # Create an empty curve datablock
@@ -382,12 +381,12 @@ class ARCHIPACK_OT_layout(ArchipackCreateTool, Operator):
 
         # add a material
         self.add_material(o)
-           
+
         return o
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
-            
+
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
             x, y, z = bpy.context.scene.cursor_location
@@ -420,22 +419,6 @@ class ARCHIPACK_OT_layout_preset(ArchipackPreset, Operator):
         return ['manipulators']
 
 
-class ARCHIPACK_OT_layout_manipulate(Operator):
-    bl_idname = "archipack.layout_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_layout.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_layout.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
 def register():
     bpy.utils.register_class(archipack_layout)
     Curve.archipack_layout = CollectionProperty(type=archipack_layout)
@@ -443,7 +426,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_layout)
     bpy.utils.register_class(ARCHIPACK_OT_layout_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_layout_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_layout_manipulate)
 
 
 def unregister():
@@ -453,4 +435,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_layout)
     bpy.utils.unregister_class(ARCHIPACK_OT_layout_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_layout_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_layout_manipulate)

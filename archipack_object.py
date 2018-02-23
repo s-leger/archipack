@@ -211,9 +211,8 @@ class ArchipackCreateTool():
     def manipulate(self):
         if self.auto_manipulate:
             try:
-                op = getattr(bpy.ops.archipack, self.archipack_category + "_manipulate")
-                if op.poll():
-                    op('INVOKE_DEFAULT')
+                if bpy.ops.archipack.manipulate.poll():
+                    bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
             except:
                 print("Archipack bpy.ops.archipack.%s_manipulate not found" % (self.archipack_category))
                 pass

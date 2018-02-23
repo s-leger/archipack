@@ -879,7 +879,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             description="Relocate childs in realtime"
             )
     dimensions = BoolProperty(
-            default=True,
+            default=False,
             name="Dimensions",
             description="Buid static dimensions",
             update=update
@@ -2054,7 +2054,7 @@ class ARCHIPACK_PT_wall2(Panel):
             return
         layout = self.layout
         row = layout.row(align=True)
-        row.operator("archipack.wall2_manipulate", icon='HAND')
+        row.operator("archipack.manipulate", icon='HAND')
         row.operator("archipack.wall2", text="Delete", icon='ERROR').mode = 'DELETE'
         # row = layout.row(align=True)
         # row.prop(prop, 'realtime')
@@ -2623,8 +2623,8 @@ class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
                 if self.parent is not None:
                     d.t_part = self.parent
 
-                if bpy.ops.archipack.wall2_manipulate.poll():
-                    bpy.ops.archipack.wall2_manipulate('INVOKE_DEFAULT')
+                if bpy.ops.archipack.manipulate.poll():
+                    bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
 
             return {'FINISHED'}
 
@@ -2775,11 +2775,11 @@ def register():
     Mesh.archipack_wall2 = CollectionProperty(type=archipack_wall2)
     bpy.utils.register_class(ARCHIPACK_PT_wall2)
     bpy.utils.register_class(ARCHIPACK_OT_wall2)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_draw)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_insert)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_remove)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_reverse)
-    bpy.utils.register_class(ARCHIPACK_OT_wall2_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_from_slab)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_throttle_update)
@@ -2794,11 +2794,11 @@ def unregister():
     del Mesh.archipack_wall2
     bpy.utils.unregister_class(ARCHIPACK_PT_wall2)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_draw)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_insert)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_remove)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_reverse)
-    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_from_slab)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_throttle_update)

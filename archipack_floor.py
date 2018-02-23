@@ -1384,7 +1384,7 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
 
         if self.is_cw(pts):
             pts = list(reversed(pts))
-            
+
         last_state = self.auto_update
         self.auto_update = False
         self.n_parts = len(pts) - 1
@@ -1410,7 +1410,7 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
 
         self.closed = True
         self.auto_update = last_state
-        
+
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
@@ -1651,7 +1651,7 @@ class ARCHIPACK_PT_floor(Panel):
         props = archipack_floor.datablock(o)
         # manipulate
         row = layout.row(align=True)
-        row.operator("archipack.floor_manipulate", icon="HAND")
+        row.operator("archipack.manipulate", icon="HAND")
         row.operator("archipack.floor", text="Delete", icon='ERROR').mode = 'DELETE'
         box = layout.box()
         row = box.row(align=True)
@@ -1777,7 +1777,7 @@ class ARCHIPACK_PT_floor_cutter(Panel):
         layout = self.layout
         scene = context.scene
         box = layout.box()
-        box.operator('archipack.floor_cutter_manipulate', icon='HAND')
+        box.operator('archipack.manipulate', icon='HAND')
         box.prop(prop, 'operation', text="")
         box = layout.box()
         box.label(text="From curve")
@@ -2020,7 +2020,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             o.select = True
             context.scene.objects.active = o
             # if self.auto_manipulate:
-            #    bpy.ops.archipack.floor_manipulate('INVOKE_DEFAULT')
+            #    bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -2124,45 +2124,12 @@ class ARCHIPACK_OT_floor_preset(ArchipackPreset, Operator):
         return ['manipulators', 'parts', 'n_parts', 'user_defined_path', 'user_defined_resolution']
 
 
-class ARCHIPACK_OT_floor_manipulate(Operator):
-    bl_idname = "archipack.floor_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_floor.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_floor.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
-class ARCHIPACK_OT_floor_cutter_manipulate(Operator):
-    bl_idname = "archipack.floor_cutter_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_floor_cutter.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_floor_cutter.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
 def register():
     bpy.utils.register_class(archipack_floor_cutter_segment)
     bpy.utils.register_class(archipack_floor_cutter)
     Mesh.archipack_floor_cutter = CollectionProperty(type=archipack_floor_cutter)
     bpy.utils.register_class(ARCHIPACK_OT_floor_cutter)
     bpy.utils.register_class(ARCHIPACK_PT_floor_cutter)
-    bpy.utils.register_class(ARCHIPACK_OT_floor_cutter_manipulate)
 
     bpy.utils.register_class(archipack_floor_part)
     bpy.utils.register_class(archipack_floor)
@@ -2171,7 +2138,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_floor)
     bpy.utils.register_class(ARCHIPACK_OT_floor_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_floor_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_floor_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_floor_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_floor_from_wall)
 
@@ -2182,7 +2148,6 @@ def unregister():
     del Mesh.archipack_floor_cutter
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_cutter)
     bpy.utils.unregister_class(ARCHIPACK_PT_floor_cutter)
-    bpy.utils.unregister_class(ARCHIPACK_OT_floor_cutter_manipulate)
 
     bpy.utils.unregister_class(archipack_floor_part)
     bpy.utils.unregister_class(archipack_floor)
@@ -2191,6 +2156,5 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_floor)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_floor_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_from_wall)

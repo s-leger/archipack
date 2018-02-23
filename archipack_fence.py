@@ -1360,18 +1360,10 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
         pts = []
         if spline.type == 'POLY':
-            if self.user_path_reverse:
-                pt = spline.points[-1].co
-            else:
-                pt = spline.points[0].co
             pts = [wM * p.co.to_3d() for p in spline.points]
             if spline.use_cyclic_u:
                 pts.append(pts[0])
         elif spline.type == 'BEZIER':
-            if self.user_path_reverse:
-                pt = spline.bezier_points[-1].co
-            else:
-                pt = spline.bezier_points[0].co
             points = spline.bezier_points
             for i in range(1, len(points)):
                 p0 = points[i - 1]
@@ -1384,20 +1376,21 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 pts.append(pts[0])
             else:
                 pts.append(wM * points[-1].co)
+
         auto_update = self.auto_update
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
         self.update_parts()
-        
+
         if len(pts) < 1:
             return
-            
+
         if self.user_path_reverse:
             pts = list(reversed(pts))
-        
+
         o.matrix_world = Matrix.Translation(pts[0].copy())
-        
+
         p0 = pts.pop(0)
         a0 = 0
         for i, p1 in enumerate(pts):
@@ -1415,7 +1408,7 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             p0 = p1
 
         self.auto_update = auto_update
-        
+
     def update_path(self, context):
         path = context.scene.objects.get(self.user_defined_path)
         if path is not None and path.type == 'CURVE':
@@ -1497,15 +1490,15 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
             for i in range(self.rail_n):
                 x = 0.5 * self.rails[i].x
                 y = self.rails[i].z
-                closed=True
-                    
+                closed = True
+
                 if self.rails[i].profil == 'SQUARE':
                     rail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
                 elif self.rails[i].profil == 'ROUND':
                     rail = [Vector((x * sin(0.1 * -a * pi), x * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
 
                 elif self.rails[i].profil == 'SAFETY':
-                    closed=False
+                    closed = False
                     rail = [Vector((i * x, j * y)) for i, j in [(0, -0.5),
                         (1, -0.35714),
                         (1, -0.21429),
@@ -1517,9 +1510,9 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
 
                 g.make_profile(rail, int(self.rails[i].mat), self.x_offset - self.rails[i].offset,
                         self.rails[i].alt, self.rails[i].extend, closed, verts, faces, matids, uvs)
-        
+
         if self.handrail:
-        
+
             if self.handrail_profil == 'COMPLEX':
                 sx = self.handrail_x
                 sy = self.handrail_y
@@ -1535,11 +1528,11 @@ class archipack_fence(ArchipackObject, Manipulable, PropertyGroup):
                 x = 0.5 * self.handrail_x
                 y = self.handrail_y
                 handrail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
-            
+
             elif self.handrail_profil == 'CIRCLE':
                 r = self.handrail_radius
                 handrail = [Vector((r * sin(0.1 * -a * pi), r * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
-     
+
             g.make_profile(handrail, int(self.idmat_handrail), self.x_offset - self.handrail_offset,
                 self.handrail_alt, self.handrail_extend, True, verts, faces, matids, uvs)
 
@@ -1601,7 +1594,7 @@ class ARCHIPACK_PT_fence(Panel):
         scene = context.scene
         layout = self.layout
         row = layout.row(align=True)
-        row.operator('archipack.fence_manipulate', icon='HAND')
+        row.operator('archipack.manipulate', icon='HAND')
         box = layout.box()
         # box.label(text="Styles")
         row = box.row(align=True)
@@ -1612,12 +1605,12 @@ class ARCHIPACK_PT_fence(Panel):
         row = box.row(align=True)
         row.operator("archipack.fence_curve_update", text="", icon='FILE_REFRESH')
         row.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        
+
         if prop.user_defined_path is not "":
             box.prop(prop, 'user_defined_spline')
             box.prop(prop, 'user_defined_resolution')
             box.prop(prop, 'user_path_reverse')
-            
+
         box.prop(prop, 'angle_limit')
         box.prop(prop, 'x_offset')
         box = layout.box()
@@ -1848,27 +1841,6 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
 
 
 # ------------------------------------------------------------------
-# Define operator class to manipulate object
-# ------------------------------------------------------------------
-
-
-class ARCHIPACK_OT_fence_manipulate(Operator):
-    bl_idname = "archipack.fence_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_fence.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_fence.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
-# ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
 
@@ -1938,7 +1910,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_fence)
     bpy.utils.register_class(ARCHIPACK_OT_fence)
     bpy.utils.register_class(ARCHIPACK_OT_fence_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_fence_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_fence_curve_update)
     bpy.utils.register_class(ARCHIPACK_OT_fence_subpart_dimensions)
@@ -1954,7 +1925,6 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_fence)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_fence_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_curve_update)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_subpart_dimensions)

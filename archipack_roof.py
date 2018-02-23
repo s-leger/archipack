@@ -4822,7 +4822,7 @@ class ARCHIPACK_PT_roof_cutter(Panel):
             box.label(text="Auto Cutter:")
             box.label(text=prop.boundary)
         else:
-            box.operator('archipack.roof_cutter_manipulate', icon='HAND')
+            box.operator('archipack.manipulate', icon='HAND')
             box.prop(prop, 'operation', text="")
             box = layout.box()
             box.label(text="From curve")
@@ -4856,7 +4856,7 @@ class ARCHIPACK_PT_roof(Panel):
         scene = context.scene
         layout = self.layout
         row = layout.row(align=True)
-        row.operator('archipack.roof_manipulate', icon='HAND')
+        row.operator('archipack.manipulate', icon='HAND')
         row.operator('archipack.roof', text="Delete", icon='ERROR').mode = 'DELETE'
 
         box = layout.box()
@@ -5222,49 +5222,12 @@ class ARCHIPACK_OT_roof_from_curve(Operator):
             bpy.ops.object.select_all(action="DESELECT")
             self.create(context)
             if self.auto_manipulate:
-                bpy.ops.archipack.roof_manipulate('INVOKE_DEFAULT')
+                bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
 
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-
-
-# ------------------------------------------------------------------
-# Define operator class to manipulate object
-# ------------------------------------------------------------------
-
-
-class ARCHIPACK_OT_roof_manipulate(Operator):
-    bl_idname = "archipack.roof_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_roof.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_roof.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
-class ARCHIPACK_OT_roof_cutter_manipulate(Operator):
-    bl_idname = "archipack.roof_cutter_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_roof_cutter.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_roof_cutter.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
 
 
 # Update throttle
@@ -5409,7 +5372,6 @@ def register():
     bpy.utils.register_class(archipack_roof_cutter)
     bpy.utils.register_class(ARCHIPACK_PT_roof_cutter)
     bpy.utils.register_class(ARCHIPACK_OT_roof_cutter)
-    bpy.utils.register_class(ARCHIPACK_OT_roof_cutter_manipulate)
     Mesh.archipack_roof_cutter = CollectionProperty(type=archipack_roof_cutter)
     bpy.utils.register_class(archipack_roof_segment)
     bpy.utils.register_class(archipack_roof)
@@ -5418,7 +5380,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_roof)
     bpy.utils.register_class(ARCHIPACK_OT_roof)
     bpy.utils.register_class(ARCHIPACK_OT_roof_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_roof_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_roof_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_roof_throttle_update)
 
@@ -5429,7 +5390,6 @@ def unregister():
     bpy.utils.unregister_class(archipack_roof_cutter)
     bpy.utils.unregister_class(ARCHIPACK_PT_roof_cutter)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_cutter)
-    bpy.utils.unregister_class(ARCHIPACK_OT_roof_cutter_manipulate)
     del Mesh.archipack_roof_cutter
     bpy.utils.unregister_class(archipack_roof_segment)
     bpy.utils.unregister_class(archipack_roof)
@@ -5438,6 +5398,5 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_roof)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_roof_manipulate)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_throttle_update)

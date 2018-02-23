@@ -3889,7 +3889,7 @@ class ARCHIPACK_PT_kitchen(Panel):
             return
 
         layout = self.layout
-        layout.operator('archipack.kitchen_manipulate', icon='HAND')
+        layout.operator('archipack.manipulate', icon='HAND')
         """
         row = layout.row(align=True)
         row.operator('archipack.kitchen', text="Refresh", icon='FILE_REFRESH').mode = 'REFRESH'
@@ -4151,27 +4151,6 @@ class ARCHIPACK_OT_kitchen_remove(Operator):
 
 
 # ------------------------------------------------------------------
-# Define operator class to manipulate object
-# ------------------------------------------------------------------
-
-
-class ARCHIPACK_OT_kitchen_manipulate(Operator):
-    bl_idname = "archipack.kitchen_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_kitchen.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_kitchen.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
-# ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
 
@@ -4207,7 +4186,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_kitchen_remove)
     bpy.utils.register_class(ARCHIPACK_OT_kitchen_insert)
     bpy.utils.register_class(ARCHIPACK_OT_kitchen_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_kitchen_manipulate)
 
 
 def unregister():
@@ -4223,4 +4201,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_remove)
     bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_insert)
     bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_manipulate)

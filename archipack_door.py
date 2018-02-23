@@ -928,7 +928,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
             description='flip outside and outside material of hole'
             )
     dimensions = BoolProperty(
-            default=True,
+            default=False,
             name="Dimensions",
             description="Buid static dimensions",
             update=update
@@ -1001,7 +1001,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
             side_cap_front=2,
             side_cap_back=0     # cap index
             )
-            
+
     @property
     def inside_hole(self):
         #
@@ -1031,7 +1031,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
             side_cap_front=0,
             side_cap_back=1     # cap index
             )
-    
+
     @property
     def outside_hole(self):
         #
@@ -1059,8 +1059,8 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
             closed_path=True,
             side_cap_front=0,
             side_cap_back=1     # cap index
-            )    
-            
+            )
+
     @property
     def verts(self):
         # door inner space
@@ -1364,17 +1364,17 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
 
         if childs_only is False and self.find_hole(o) is not None:
             self.interactive_hole(context, o)
-        
+
         # setup 3d points for gl manipulators
         x, y = 0.5 * self.x, 0.5 * self.y
         self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (0.5, 0, 0)])
         self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])
         self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.z), (-1, 0, 0)])
-        
+
         # support for instances childs, update at object level
         self.update_dimension(context, o)
         self.synch_childs(context, o)
-        
+
         # restore context
         self.restore_context(context)
 
@@ -1408,32 +1408,32 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         uvs = hole.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
         bmed.buildmesh(context, hole_obj, verts, faces, matids=matids, uvs=uvs, auto_smooth=False)
         return hole_obj
-    
+
     def find_dimension(self, o):
         for c in o.children:
             if c.data and "archipack_dimension" in c.data:
                 if len(c.children) > 0:
                     return c, c.children[0]
         return None, None
-        
+
     def _synch_dimension(self, context, linked, dim, text):
-        
+
         l_dim, l_text = self.find_dimension(linked)
-        
+
         if dim is None:
             self.remove_dimension(context, l_dim, l_text)
             return
-            
+
         elif l_dim is None:
             l_dim = bpy.data.objects.new(dim.name, dim.data)
             context.scene.objects.link(l_dim)
             l_dim.parent = linked
             l_dim.matrix_world = linked.matrix_world.copy()
-            l_dim.location = dim.location.copy()  
+            l_dim.location = dim.location.copy()
         else:
             l_dim.data = dim.data
-            l_dim.location = dim.location.copy()  
-            
+            l_dim.location = dim.location.copy()
+
         if text is not None:
             if l_text is None:
                 l_text = bpy.data.objects.new(text.name, text.data)
@@ -1444,7 +1444,7 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
             else:
                 l_text.data = text.data
                 l_text.location = text.location.copy()
-            
+
     def remove_dimension(self, context, dim, text):
         if text is not None:
             context.scene.objects.unlink(text)
@@ -1452,14 +1452,14 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         if dim is not None:
             context.scene.objects.unlink(dim)
             bpy.data.objects.remove(dim, do_unlink=True)
-        
+
     def update_dimension(self, context, o):
         dim, text = self.find_dimension(o)
         if self.dimensions:
             self.manipulators[0].as_dimension(context, o, dim)
         else:
             self.remove_dimension(context, dim, text)
-         
+
     def _add_spline(self, curve, coords):
         spline = curve.splines.new('POLY')
         spline.use_endpoint_u = False
@@ -1479,18 +1479,18 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         curve_obj = bpy.data.objects.new(name, curve)
         context.scene.objects.link(curve_obj)
         curve_obj.select = True
-        return curve_obj    
-    
+        return curve_obj
+
     def as_2d(self, context, o):
-        
-        # frame    
+
+        # frame
         v = Vector((0, 0, 0))
         size = Vector((self.x + 2 * self.frame_x, self.z + self.frame_x + 0.001, self.y))
-        
+
         coords = self.frame.as_2d(16, v, v, v,
             size, v, 0, 0, shape_z=None, path_type='RECTANGLE')
         """
-            # panels 
+            # panels
             childs = self.get_childs_panels(context, o)
             n_childs = len(childs)
             child_n = 0
@@ -1499,37 +1499,37 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
 
             row = self.rows[0]
             row_n += 1
-            
+
             shape = self.shape
             size, origin, pivot = row.get_row(self._x, 0)
             materials = [0 for i in range(row.cols)]
-                
+
             if self.window_type == 'RAIL':
                 self.adjust_size_and_origin(size, origin, pivot, materials)
-                
+
             for panel in range(row.cols):
-                
+
                 child = childs[child_n]
                 child_n += 1
                 # location y + frame width. frame depends on choosen profile (fixed or not)
                 # update linked childs location too
                 d = child.data.archipack_window_panel[0]
                 location = Vector((
-                    origin[panel].x, 
+                    origin[panel].x,
                     origin[panel].y + location_y + self.panel_y,
                     0))
-                    
+
                 coords.extend(
                     child.data.archipack_window_panel[0].window.as_2d(
                         self.curve_steps, location, d.center, d.origin,
                         d.size, d.radius, 0, d.pivot, shape_z=None, path_type=d.shape)
                     )
-        """ 
+        """
         curve = self._to_curve(context, coords, name="{}-2d".format(o.name), dimensions='2D')
         curve.matrix_world = o.matrix_world.copy()
-        
+
         return curve
-    
+
     def hole_2d(self, mode='SYMBOL'):
         """
           return coords of full / inside hole in 2d top ortho view
@@ -1537,10 +1537,10 @@ class archipack_door(ArchipackObject, Manipulable, PropertyGroup):
         if mode == 'BOUND':
             x, y = 0.5 * self.x + self.frame_x, 0.5 * self.y + self.hole_margin
             return [(-x, -y, 0), (-x, y, 0), (x, y, 0), (x, -y, 0), (-x, -y, 0)]
-            
+
         v = Vector((0, 0, 0))
         size = Vector((self.x + 2 * self.frame_x, self.z + self.frame_x + 0.001, self.y))
-        
+
         if mode == 'INSIDE':
             coords = self.inside_hole.as_2d(16,
                 v,
@@ -1576,7 +1576,7 @@ class ARCHIPACK_PT_door(Panel):
         if not archipack_door.filter(o):
             return
         layout = self.layout
-        layout.operator('archipack.door_manipulate', icon='HAND')
+        layout.operator('archipack.manipulate', icon='HAND')
         props = archipack_door.datablock(o)
         row = layout.row(align=True)
         row.operator('archipack.door', text="Refresh", icon='FILE_REFRESH').mode = 'REFRESH'
@@ -1782,7 +1782,7 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                 for c in parent.children:
                     if c.data and "archipack_wall2" in c.data:
                         c.data.archipack_wall2[0].synch_dimension(context, c)
-            
+
     def update(self, context):
         o = context.active_object
         d = archipack_door.datablock(o)
@@ -1925,15 +1925,15 @@ class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
         to_hide.extend([child for child in o.children if archipack_door_panel.filter(child)])
         if hole is not None:
             to_hide.append(hole)
-                    
+
         for obj in to_hide:
             obj.hide = True
-            
+
         res, tM, wall, width, y, z_offset = self.mouse_hover_wall(context, event)
 
         for obj in to_hide:
             obj.hide = False
-                    
+
         if res and d is not None:
             o.matrix_world = tM
             if d.z_offset != z_offset:
@@ -2028,27 +2028,6 @@ class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
 
 
 # ------------------------------------------------------------------
-# Define operator class to manipulate object
-# ------------------------------------------------------------------
-
-
-class ARCHIPACK_OT_door_manipulate(Operator):
-    bl_idname = "archipack.door_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_door.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_door.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
-# ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
 
@@ -2084,7 +2063,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_door)
     bpy.utils.register_class(ARCHIPACK_OT_door_preset)
     bpy.utils.register_class(ARCHIPACK_OT_door_draw)
-    bpy.utils.register_class(ARCHIPACK_OT_door_manipulate)
 
 
 def unregister():
@@ -2100,4 +2078,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_door)
     bpy.utils.unregister_class(ARCHIPACK_OT_door_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_door_draw)
-    bpy.utils.unregister_class(ARCHIPACK_OT_door_manipulate)

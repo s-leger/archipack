@@ -728,13 +728,13 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         if len(self.manipulators) < 1:
             # add manipulator for x property
             s = self.manipulators.add()
-            s.prop1_name = "width"
+            s.prop1_name = "x"
             s.prop2_name = "x"
             s.type_key = 'SNAP_SIZE_LOC'
 
             # add manipulator for y property
             s = self.manipulators.add()
-            s.prop1_name = "height"
+            s.prop1_name = "z"
             s.type_key = 'SIZE'
             s.normal = Vector((0, 1, 0))
 
@@ -818,7 +818,7 @@ class ARCHIPACK_PT_blind(Panel):
         props = archipack_blind.datablock(o)
 
         # Manipulate mode operator
-        layout.operator('archipack.blind_manipulate', icon='HAND')
+        layout.operator('archipack.manipulate', icon='HAND')
 
         box = layout.box()
         row = box.row(align=True)
@@ -988,22 +988,6 @@ class ARCHIPACK_OT_blind_preset(ArchipackPreset, Operator):
         return ['manipulators']
 
 
-class ARCHIPACK_OT_blind_manipulate(Operator):
-    bl_idname = "archipack.blind_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_blind.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_blind.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
 def register():
     bpy.utils.register_class(archipack_blind)
     Mesh.archipack_blind = CollectionProperty(type=archipack_blind)
@@ -1011,7 +995,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_blind)
     bpy.utils.register_class(ARCHIPACK_OT_blind_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_blind_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_blind_manipulate)
 
 
 def unregister():
@@ -1021,4 +1004,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_blind)
     bpy.utils.unregister_class(ARCHIPACK_OT_blind_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_blind_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_blind_manipulate)
