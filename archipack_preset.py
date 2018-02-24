@@ -448,7 +448,11 @@ class PresetMenuOperator():
             # with alt pressed on invoke, will bypass menu operator and
             # call preset_operator
             # allow start drawing linked copy of active object
-            if event.alt or event.ctrl:
+            o = context.active_object
+            
+            if (o.data and 
+                    ("archipack_door" in o.data or "archipack_window" in o.data) and
+                    (event.alt or event.ctrl)):
                 po = self.preset_operator.split(".")
                 op = getattr(getattr(bpy.ops, po[0]), po[1])
                 d = context.active_object.data

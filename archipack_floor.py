@@ -1926,7 +1926,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
          Use slab cutters, windows and doors, T childs walls
         """
         # wall is either a single or collection of polygons
-        io, wall = wd.as_geom(context, w, 'FLOORS', [], [])
+        io, wall = wd.as_geom(context, w, 'FLOORS', [], [], [])
         ref = None
         # find slab holes if any
         cutters = []

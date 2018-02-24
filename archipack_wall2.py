@@ -757,7 +757,8 @@ class archipack_wall2_part(PropertyGroup):
         if self.expand:
             row = layout.row(align=True)
             row.operator("archipack.wall2_insert", text="Split").index = index
-            row.operator("archipack.wall2_remove", text="Remove").index = index
+            if index > 0:
+                row.operator("archipack.wall2_remove", text="Remove").index = index
             if self.type == 'C_WALL':
                 row = layout.row()
                 row.prop(self, "radius")
@@ -902,19 +903,22 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         self.auto_update = False
         
         g = self.get_generator()
+        half_len = g.segs[where].length / 2
         
         # detect childs location
         self.setup_childs(o, g)
-            
+        
         # the part we do split
         part_0 = self.parts[where]
-        half_len = g.segs[where].length / 2
-        part_0.length /= 2
-        part_0.da /= 2
+        typ = part_0.type
+        length = part_0.length / 2
+        da = part_0.da / 2
+        part_0.length = length
+        part_0.da = da
         part_1 = self.parts.add()
-        part_1.type = part_0.type
-        part_1.length = part_0.length
-        part_1.da = part_0.da
+        part_1.type = typ
+        part_1.length = length
+        part_1.da = da
         part_1.a0 = 0
         
         # move after current one
@@ -1811,7 +1815,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                     objs.append(c)
                     self.get_childs_geoms(context, td, objs, t_childs, True)
 
-    def as_geom(self, context, o, mode, inter, doors, io=None):
+    def as_geom(self, context, o, mode, inter, doors, windows, io=None):
         """
          Build 2d symbol of walls as pygeos entity for further processing
          cut windows and doors
@@ -1822,7 +1826,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         g = self.update_parts(o)
 
         t_childs = []
-        if mode in {'SYMBOL', 'FLOORS', 'T_CHILD'}:
+        if mode in {'SYMBOL', 'FLOORS', 'FLOOR_CHILD', 'FLOOR_MOLDINGS', 'FLOOR_MOLDINGS_CHILD'}:
             
             # MUST disable manipulators as setup_childs update 
             # data structure and lead in READ_ACCESS crash
@@ -1845,13 +1849,16 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             if mode == 'SYMBOL':
                 # accumulate walls and intersections
                 for c, td in t_childs:
-                    io, wall = td.as_geom(context, c, mode, inter, doors, io)
+                    io, wall = td.as_geom(context, c, mode, inter, doors, windows, io)
                     t_walls.append(wall)
             elif mode == 'FLOORS':
                 for c, td in t_childs:
-                    io, wall = td.as_geom(context, c, 'T_CHILD', inter, doors, io)
+                    io, wall = td.as_geom(context, c, 'FLOOR_CHILD', inter, doors, windows, io)
                     t_walls.append(wall)
-
+            elif mode == 'FLOOR_MOLDINGS':
+                for c, td in t_childs:
+                    io, wall = td.as_geom(context, c, 'FLOOR_MOLDINGS_CHILD', inter, doors, windows, io)
+                    t_walls.append(wall)
         side = 1
         if self.flip:
             side = -1
@@ -1859,50 +1866,65 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         z = 0
             
         # coords of wall boundarys
-        if mode in {'SYMBOL', 'OUTSIDE', 'BOTH', 'FLOORS', 'T_CHILD'}:
+        if mode in {'SYMBOL', 'OUTSIDE', 'BOTH', 'FLOORS', 'FLOOR_CHILD', 'FLOOR_MOLDINGS', 'FLOOR_MOLDINGS_CHILD'}:
             offset = side * 0.5 * (1 + self.x_offset) * self.width
             outside = []
             g.get_coords(offset, z, self, outside)
 
-        if mode in {'SYMBOL', 'INSIDE', 'BOTH', 'FLOORS', 'T_CHILD'}:
+        if mode in {'SYMBOL', 'INSIDE', 'BOTH', 'FLOORS', 'FLOOR_CHILD', 'FLOOR_MOLDINGS', 'FLOOR_MOLDINGS_CHILD'}:
             offset = -side * 0.5 * (1 - self.x_offset) * self.width
             inside = []
             g.get_coords(offset, z, self, inside)
 
         # create boundary line
         if self.closed:
-            if mode in {'SYMBOL', 'BOTH', 'T_CHILD'}:
+            if mode in {'SYMBOL', 'BOTH', 'FLOOR_CHILD', 'FLOOR_MOLDINGS_CHILD'}:
                 wall = io.coords_to_polygon(o.matrix_world, outside, [inside])
-            elif mode in {'INSIDE', 'FLOORS'}:
+            elif mode in {'INSIDE', 'FLOORS', 'FLOOR_MOLDINGS'}:
                 wall = io.coords_to_polygon(o.matrix_world, inside)
             else:
                 wall = io.coords_to_polygon(o.matrix_world, outside)
         else:
-            if mode in {'SYMBOL', 'BOTH', 'FLOORS', 'T_CHILD'}:
+            if mode in {'SYMBOL', 'BOTH', 'FLOORS', 'FLOOR_MOLDINGS', 'FLOOR_CHILD', 'FLOOR_MOLDINGS_CHILD'}:
                 outside.extend(list(reversed(inside)))
                 wall = io.coords_to_polygon(o.matrix_world, outside)
             elif mode == 'INSIDE':
                 wall = io.coords_to_linestring(o.matrix_world, [inside])
             else:
                 wall = io.coords_to_linestring(o.matrix_world, [outside])
-
+                
         # merge t childs walls
         if mode == 'SYMBOL':
             # SYMBOL -> union t child walls
             for tw in t_walls:
                 wall = wall.union(tw)
-        elif mode == 'FLOORS':
+        elif mode in {'FLOORS', 'FLOOR_MOLDINGS'}:
             # FLOORS -> difference t child walls
             for tw in t_walls:
                 wall = wall.difference(tw)
-        windows = []
-        if mode in {'SYMBOL', 'FLOORS', 'T_CHILD'}:
+        
+        if mode == 'FLOOR_MOLDINGS':
+            # convert wall polygons to linestrings
+            # so boolean apply on lines instead of areas
+            coords = []
+            # type id 6: multipolygon
+            if wall.type_id == 6:
+                polys = wall.geoms
+            else:
+                polys = [wall]
+            for poly in polys:    
+                coords.extend([p.coords for p in poly.interiors])
+                coords.append(poly.exterior.coords)
+            lines = [wall._factory.createLineString(coord) for coord in coords]
+            wall = wall._factory.buildGeometry(lines)
+            
+        if mode in {'SYMBOL', 'FLOORS', 'FLOOR_MOLDINGS', 'FLOOR_CHILD', 'FLOOR_MOLDINGS_CHILD'}:
             # collect child holes as polygons
             for child in self.childs:
                 c, d = child.get_child(context)
                 if d is not None:
                     # ignore windows when altitude > 0
-                    if mode in {'FLOORS', 'T_CHILD'}:
+                    if mode in {'FLOORS', 'FLOOR_CHILD'}:
                         if "archipack_window" in c.data:
                             if d.altitude > 0:
                                 continue
@@ -1921,8 +1943,18 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                             hole = io.coords_to_polygon(c.matrix_world, h)
                             pt = hole._factory.createPoint(hole.coords[0])
                             doors.append((pt, hole))
+                    elif mode in {'FLOOR_MOLDINGS', 'FLOOR_MOLDINGS_CHILD'}:
+                        # symbols and floor moldings require holes
+                        if "archipack_window" in c.data and d.altitude > 0:
+                            continue
+                        h = d.hole_2d(mode)
+                        hole = io.coords_to_polygon(c.matrix_world, h)
+                        if "archipack_door" in c.data:
+                            doors.append(hole)
+                        else:
+                            windows.append(hole)
                     else:
-                        # symbols require holes
+                        # symbols and floor moldings require holes
                         h = d.hole_2d(mode)
                         hole = io.coords_to_polygon(c.matrix_world, h)
                         if "archipack_door" in c.data:
@@ -1938,10 +1970,13 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 if mode == 'SYMBOL':
                     inter.append(wall.intersection(basis))
                     wall = wall.difference(basis)
-                elif mode == 'FLOORS':
+                elif mode in 'FLOORS':
                     wall = wall.union(basis)
-                elif mode == 'T_CHILD':
+                elif mode == 'FLOOR_CHILD':
                     wall = wall.difference(basis)
+                elif mode == 'FLOOR_MOLDINGS':
+                    wall = wall.difference(basis)
+                    
             # process doors only in inside openings mode
             if len(doors) > 0:
                 # io._to_curve(basis, "Holes", '2D')
@@ -1977,9 +2012,16 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                     if len(polys) == 1:
                         # single polygon, so wall is that one
                         wall = polys[0]
-
+                elif mode == 'FLOOR_MOLDINGS':
+                    basis = doors[0]._factory.buildGeometry(doors)
+                    wall = wall.difference(basis)
+                    
         # output only geometry from there
         # gor further processing of t_childs
+        if mode == 'FLOOR_MOLDINGS':
+            merged = wall.line_merge()
+            wall = wall._factory.buildGeometry(merged)
+            
         return io, wall
 
 
@@ -2075,10 +2117,12 @@ class ARCHIPACK_PT_wall2(Panel):
         box.label(text="Create curves")
         row = box.row(align=True)
         row.operator("archipack.wall2_to_curve", text="Symbol").mode = 'SYMBOL'
+        row.operator("archipack.wall2_to_curve", text="Floor").mode = 'FLOORS'
+        row.operator("archipack.wall2_to_curve", text="Molding").mode = 'FLOOR_MOLDINGS'
+        row = box.row(align=True)
         row.operator("archipack.wall2_to_curve", text="Sides").mode = 'BOTH'
         row.operator("archipack.wall2_to_curve", text="In").mode = 'INSIDE'
         row.operator("archipack.wall2_to_curve", text="Out").mode = 'OUTSIDE'
-        row.operator("archipack.wall2_to_curve", text="Floor").mode = 'FLOORS'
         # row.operator("archipack.wall2_fit_roof", text="Inside").inside = True
         box = layout.box()
         row = box.row()
@@ -2308,7 +2352,8 @@ class ARCHIPACK_OT_wall2_to_curve(Operator):
             ('INSIDE', 'Inside', 'Inside'),
             ('FLOORS', 'Floors', 'Floors'),
             ('OUTSIDE', 'Outside', 'Outside'),
-            ('SYMBOL', 'Symbol', 'Symbol')
+            ('SYMBOL', 'Symbol', 'Symbol'),
+            ('FLOOR_MOLDINGS', 'Floor moldings', 'Floor moldings')
         ),
         default='SYMBOL'
         )
@@ -2323,7 +2368,8 @@ class ARCHIPACK_OT_wall2_to_curve(Operator):
             inter = []
             # doors holes
             doors = []
-            io, wall = d.as_geom(context, o, self.mode, inter, doors)
+            windows = []
+            io, wall = d.as_geom(context, o, self.mode, inter, doors, windows)
             # windows openings for symbols
             if len(inter) > 0:
                 inter = inter[0]._factory.buildGeometry(inter)

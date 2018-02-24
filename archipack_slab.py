@@ -514,7 +514,8 @@ class archipack_slab_part(ArchipackSegment, PropertyGroup):
         row = layout.row(align=True)
         row.operator("archipack.slab_insert", text="Split").index = index
         row.operator("archipack.slab_balcony", text="Balcony").index = index
-        row.operator("archipack.slab_remove", text="Remove").index = index
+        if index > 0:
+            row.operator("archipack.slab_remove", text="Remove").index = index
 
     def find_in_selection(self, context):
         """

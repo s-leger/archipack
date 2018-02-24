@@ -66,6 +66,7 @@ if "bpy" in locals():
     imp.reload(archipack_floor_heating)
     imp.reload(archipack_blind)
     imp.reload(archipack_kitchen)
+    imp.reload(archipack_molding)
     imp.reload(archipack_dimension)
     imp.reload(archipack_rendering)
     # imp.reload(archipack_envi)
@@ -98,6 +99,7 @@ else:
     from . import archipack_floor_heating
     from . import archipack_blind
     from . import archipack_kitchen
+    from . import archipack_molding
     from . import archipack_dimension
     from . import archipack_rendering
     # from . import archipack_envi
@@ -534,6 +536,12 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = row.box()
         box.label("Objects")
         row = box.row(align=True)
+        row.operator("archipack.wall2",
+                    icon_value=icons["wall"].icon_id
+                    )
+        row.operator("archipack.wall2_draw", text="Draw", icon='GREASEPENCIL')
+        row.operator("archipack.wall2_from_curve", text="", icon='CURVE_DATA')
+        row = box.row(align=True)
         # col = row.column()
         # subrow = col.row(align=True)
         row.operator("archipack.window_preset_menu",
@@ -559,14 +567,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.stair_preset_menu",
                     text="Stair",
                     icon_value=icons["stair"].icon_id
-                    ).preset_operator = "archipack.stair"
-        row = box.row(align=True)
-        row.operator("archipack.wall2",
-                    icon_value=icons["wall"].icon_id
-                    )
-        row.operator("archipack.wall2_draw", text="Draw", icon='GREASEPENCIL')
-        row.operator("archipack.wall2_from_curve", text="", icon='CURVE_DATA')
-
+                    ).preset_operator = "archipack.stair" 
         row = box.row(align=True)
         row.operator("archipack.fence_preset_menu",
                     text="Fence",
@@ -574,24 +575,48 @@ class TOOLS_PT_Archipack_Create(Panel):
                     ).preset_operator = "archipack.fence"
         row.operator("archipack.fence_from_curve", text="", icon='CURVE_DATA')
         row = box.row(align=True)
-        row.operator("archipack.truss",
-                    icon_value=icons["truss"].icon_id
-                    )
-        row = box.row(align=True)
-        row.operator("archipack.slab_from_curve",
-                    icon_value=icons["slab"].icon_id
-                    )
-
-        row = box.row(align=True)
         row.operator("archipack.wall2_from_slab",
-                    icon_value=icons["wall"].icon_id)
+                    icon_value=icons["wall_from_slab"].icon_id)
+        
+        row = box.row(align=True)
         row.operator("archipack.slab_from_wall",
-                    icon_value=icons["slab"].icon_id
+                    icon_value=icons["slab_from_wall"].icon_id
                     ).ceiling = False
         row.operator("archipack.slab_from_wall",
                     text="->Ceiling",
-                    icon_value=icons["slab"].icon_id
-                    ).ceiling = True
+                    icon_value=icons["ceiling_from_wall"].icon_id
+                    ).ceiling = True        
+        row.operator("archipack.slab_from_curve",
+                    text="", icon='CURVE_DATA'
+                    )
+        
+        row = box.row(align=True)
+        row.operator("archipack.floor_preset_menu",
+                    text="Floor",
+                    icon_value=icons["floor"].icon_id
+                    ).preset_operator = "archipack.floor"
+        row.operator("archipack.floor_preset_menu",
+                    text="->Floor",
+                    icon_value=icons["floor_from_wall"].icon_id
+                    ).preset_operator = "archipack.floor_from_wall"
+        row.operator("archipack.floor_preset_menu",
+                    text="",
+                    icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
+        row = box.row(align=True)
+        row.operator("archipack.molding_preset_menu",
+                    text="Molding",
+                    # icon_value=icons["floor"].icon_id
+                    )
+        row.operator("archipack.molding_preset_menu", 
+                    text="->Molding",
+                    icon_value=icons["molding_from_wall"].icon_id
+                    ).preset_operator = "archipack.molding_from_wall"
+        row.operator("archipack.molding_preset_menu",
+                    text="",
+                    icon='CURVE_DATA'
+                    ).preset_operator = "archipack.molding_from_curve"
+
+
         row = box.row(align=True)
         row.operator("archipack.roof_preset_menu",
                     text="Roof",
@@ -601,34 +626,27 @@ class TOOLS_PT_Archipack_Create(Panel):
         # row = box.row(align=True)
         # row.operator("archipack.myobject")
         row = box.row(align=True)
-        row.operator("archipack.floor_preset_menu",
-                    text="Floor",
-                    icon_value=icons["floor"].icon_id
-                    ).preset_operator = "archipack.floor"
-        row.operator("archipack.floor_preset_menu",
-                    text="->Wall",
-                    icon_value=icons["floor"].icon_id
-                    ).preset_operator = "archipack.floor_from_wall"
-        row.operator("archipack.floor_preset_menu",
-                    text="",
-                    icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
+        row.operator("archipack.kitchen_preset_menu",
+                    text="Kitchen",
+                    icon_value=icons["kitchen"].icon_id
+                    ).preset_operator = "archipack.kitchen"
+        
         row = box.row(align=True)
         row.operator("archipack.blind_preset_menu",
                     text="Blind",
                     icon_value=icons["blind"].icon_id
                     ).preset_operator = "archipack.blind"
         row = box.row(align=True)
-        row.operator("archipack.kitchen_preset_menu",
-                    text="Kitchen",
-                    icon_value=icons["kitchen"].icon_id
-                    ).preset_operator = "archipack.kitchen"
-        
+        row.operator("archipack.truss",
+                    icon_value=icons["truss"].icon_id
+                    )
         if prefs.experimental_features:
             box = layout.box()
             box.label(text="Experimental features")
             box.operator("archipack.floor_heating")                    
             box.operator("archipack.dimension")
             box.operator("archipack.layout") 
+            
             
         box = layout.box()
         box.label(text="Custom objects")
@@ -763,6 +781,7 @@ def register():
     archipack_truss.register()
     archipack_blind.register()
     archipack_kitchen.register()
+    archipack_molding.register()
     archipack_dimension.register()
     # archipack_toolkit.register()
     archipack_floor.register()
@@ -810,6 +829,7 @@ def unregister():
     archipack_truss.unregister()
     archipack_blind.unregister()
     archipack_kitchen.unregister()
+    archipack_molding.unregister()
     archipack_dimension.unregister()
     # archipack_toolkit.unregister()
     archipack_floor.unregister()
