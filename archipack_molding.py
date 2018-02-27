@@ -678,6 +678,7 @@ class ARCHIPACK_PT_molding(Panel):
 
 # ------------------------------------------------------------------
 # Define operator class to create object
+# TODO: turn into internal operator, allow molding from wall, from curve and regular
 # ------------------------------------------------------------------
 
 
@@ -765,6 +766,7 @@ class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
     def create(self, context):
         o = None
         curve = context.active_object
+        sel = []
         for i, spline in enumerate(curve.data.splines):
             bpy.ops.archipack.molding('INVOKE_DEFAULT', auto_manipulate=False)
             o = context.active_object
@@ -773,6 +775,11 @@ class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
             d.user_defined_spline = i
             d.user_defined_path = curve.name
             d.auto_update = True
+            sel.append(o)
+            
+        for obj in sel:
+            obj.select = True
+        
         return o
 
     def execute(self, context):
@@ -811,11 +818,13 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
         ref = w.parent
         # find slab holes if any
         o = None
+        sel = []
         # MultiLineString
         if wall.type_id == 5:
             lines = wall.geoms
         else:
             lines = [wall]
+        
         for i, line in enumerate(lines):
             boundary = io._to_curve(line, "{}-boundary".format(w.name), '2D')
             bpy.ops.archipack.molding(auto_manipulate=False, filepath=self.filepath)
@@ -830,8 +839,10 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             d.auto_update = True
             self.delete_object(context, boundary)
             d.user_defined_path = ""
-            o.select = True
-            context.scene.objects.active = o
+            sel.append(o)
+            
+        for obj in sel:
+            obj.select = True
         return o
 
     def create(self, context):
@@ -847,10 +858,9 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            if o is None:
-                return {'FINISHED'}
-            o.select = True
-            context.scene.objects.active = o
+            if o is not None:
+                o.select = True
+                context.scene.objects.active = o
             # if self.auto_manipulate:
             #    bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
@@ -863,8 +873,40 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
 # ------------------------------------------------------------------
 
 
+class ARCHIPACK_OT_molding_preset_from_wall(PresetMenuOperator, Operator):
+    bl_description = "Molding from wall"
+    bl_idname = "archipack.molding_preset_from_wall"
+    bl_label = "-> Molding"
+    preset_subdir = "archipack_molding"
+    preset_operator = StringProperty(
+        options={'SKIP_SAVE'},
+        default="archipack.molding_from_wall"
+    )
+    
+    @classmethod
+    def poll(self, context):
+        o = context.active_object
+        return o and o.data and "archipack_wall2" in o.data
+
+        
+class ARCHIPACK_OT_molding_preset_from_curve(PresetMenuOperator, Operator):
+    bl_description = "Molding from curve"
+    bl_idname = "archipack.molding_preset_from_curve"
+    bl_label = "-> Molding"
+    preset_subdir = "archipack_molding"
+    preset_operator = StringProperty(
+        options={'SKIP_SAVE'},
+        default="archipack.molding_from_curve"
+    )
+    
+    @classmethod
+    def poll(self, context):
+        o = context.active_object
+        return o and o.type == 'CURVE'
+        
+
 class ARCHIPACK_OT_molding_preset_menu(PresetMenuOperator, Operator):
-    bl_description = "Show Molding Presets"
+    bl_description = "Create Molding from presets"
     bl_idname = "archipack.molding_preset_menu"
     bl_label = "Molding Styles"
     preset_subdir = "archipack_molding"
@@ -886,6 +928,8 @@ def register():
     bpy.utils.register_class(archipack_molding)
     Mesh.archipack_molding = CollectionProperty(type=archipack_molding)
     bpy.utils.register_class(ARCHIPACK_OT_molding_preset_menu)
+    bpy.utils.register_class(ARCHIPACK_OT_molding_preset_from_curve)
+    bpy.utils.register_class(ARCHIPACK_OT_molding_preset_from_wall)
     bpy.utils.register_class(ARCHIPACK_PT_molding)
     bpy.utils.register_class(ARCHIPACK_OT_molding)
     bpy.utils.register_class(ARCHIPACK_OT_molding_preset)
@@ -899,6 +943,8 @@ def unregister():
     bpy.utils.unregister_class(archipack_molding)
     del Mesh.archipack_molding
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset_menu)
+    bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset_from_curve)
+    bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset_from_wall)
     bpy.utils.unregister_class(ARCHIPACK_PT_molding)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset)

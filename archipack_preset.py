@@ -226,7 +226,11 @@ class PresetMenu():
 
         self.border.closed = True
         self.set_pos(context)
-
+        
+    @property
+    def is_empty(self):
+        return len(self.menuItems) == 0
+        
     def load_default_image(self):
         img_idx = bpy.data.images.find("missing.png")
         if img_idx > -1:
@@ -241,29 +245,35 @@ class PresetMenu():
             self.imageList.append(self.default_image.filepath_raw)
         if self.default_image is None:
             raise EnvironmentError("archipack/presets/missing.png not found")
-
-    def scan_files(self, category):
-        file_list = []
-        """
-        # load default presets
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        sub_path = "presets" + os.path.sep + category
-        presets_path = os.path.join(dir_path, sub_path)
+    
+    def make_file_list(self, category, presets_path, file_list, skip_dict):
         if os.path.exists(presets_path):
-            file_list += [presets_path + os.path.sep + f[:-3]
-                for f in os.listdir(presets_path)
-                if f.endswith('.py') and
-                not f.startswith('.')]
+            for file_name in os.listdir(presets_path):
+                if (file_name not in skip_dict and 
+                        file_name.endswith('.py') and
+                        not file_name.startswith('.')):
+                    file_path = presets_path + os.path.sep + file_name[:-3]
+                    file_list.append(file_path)
+                    skip_dict[file_name] = file_path 
+    
+    def scan_files(self, category):
         """
+         Scan files from user dir
+         user files overrides factory ones
+        """
+        file_list = []
+        skip_dict = {}
         # load user def presets
         for path in preset_paths:
             presets_path = os.path.join(path, category)
-            if os.path.exists(presets_path):
-                file_list += [presets_path + os.path.sep + f[:-3]
-                    for f in os.listdir(presets_path)
-                    if f.endswith('.py') and
-                    not f.startswith('.')]
-
+            self.make_file_list(category, presets_path, file_list, skip_dict)
+                    
+        # load factory presets (unless user def ooverride)
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        sub_path = "presets" + os.path.sep + category
+        presets_path = os.path.join(dir_path, sub_path)
+        self.make_file_list(category, presets_path, file_list, skip_dict)
+        
         file_list.sort()
         return file_list
 
@@ -415,16 +425,18 @@ class PresetMenuOperator():
                     # call from preset menu
                     # ensure right active_object class
                     o = context.active_object
-                    if o.data and self.preset_subdir in o.data:
-                        d = getattr(o.data, self.preset_subdir)[0]
-                    elif self.preset_subdir in o:
-                        d = getattr(o, self.preset_subdir)[0]
-                    if d is not None:
-                        d.auto_update = False
-                        # print("Archipack execute_preset loading auto_update:%s" % d.auto_update)
-                        op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
-                        # print("Archipack execute_preset loaded  auto_update: %s" % d.auto_update)
-                        d.auto_update = True
+                    if o is not None:
+                        d = None
+                        if o.data and self.preset_subdir in o.data:
+                            d = getattr(o.data, self.preset_subdir)[0]
+                        elif self.preset_subdir in o:
+                            d = getattr(o, self.preset_subdir)[0]
+                        if d is not None:
+                            d.auto_update = False
+                            # print("Archipack execute_preset loading auto_update:%s" % d.auto_update)
+                            op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
+                            # print("Archipack execute_preset loaded  auto_update: %s" % d.auto_update)
+                            d.auto_update = True
                 else:
                     # call draw operator
                     if op.poll():
@@ -450,7 +462,7 @@ class PresetMenuOperator():
             # allow start drawing linked copy of active object
             o = context.active_object
             
-            if (o.data and 
+            if (o and o.data and 
                     ("archipack_door" in o.data or "archipack_window" in o.data) and
                     (event.alt or event.ctrl)):
                 po = self.preset_operator.split(".")
@@ -465,7 +477,20 @@ class PresetMenuOperator():
                 return {'FINISHED'}
 
             self.menu = PresetMenu(context, self.preset_subdir)
-
+            
+            if self.menu.is_empty:
+                # Fallback for empty presets
+                # call preset operator 
+                try:
+                    po = self.preset_operator.split(".")
+                    op = getattr(getattr(bpy.ops, po[0]), po[1])
+                    if op.poll():
+                        op('INVOKE_DEFAULT')
+                except:
+                    pass
+                self.report({'WARNING'}, "No preset found")
+                return {'FINISHED'}
+                
             # the arguments we pass the the callback
             args = (self, context)
             # Add the region OpenGL drawing callback
@@ -474,7 +499,7 @@ class PresetMenuOperator():
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
         else:
-            self.report({'WARNING'}, "View3D not found, cannot show preset flinger")
+            self.report({'WARNING'}, "View3D not found, cannot show preset")
             return {'CANCELLED'}
 
 

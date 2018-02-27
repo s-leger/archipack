@@ -595,26 +595,30 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Floor",
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
-        row.operator("archipack.floor_preset_menu",
+        row.operator("archipack.floor_preset_from_wall",
                     text="->Floor",
                     icon_value=icons["floor_from_wall"].icon_id
-                    ).preset_operator = "archipack.floor_from_wall"
-        row.operator("archipack.floor_preset_menu",
+                    )
+                    # .preset_operator = "archipack.floor_from_wall"
+        row.operator("archipack.floor_preset_from_curve",
                     text="",
-                    icon='CURVE_DATA').preset_operator = "archipack.floor_from_curve"
+                    icon='CURVE_DATA')
+                    # .preset_operator = "archipack.floor_from_curve"
         row = box.row(align=True)
         row.operator("archipack.molding_preset_menu",
                     text="Molding",
-                    # icon_value=icons["floor"].icon_id
-                    )
-        row.operator("archipack.molding_preset_menu", 
+                    icon_value=icons["molding"].icon_id
+                    ).preset_operator = "archipack.molding"
+        row.operator("archipack.molding_preset_from_wall", 
                     text="->Molding",
                     icon_value=icons["molding_from_wall"].icon_id
-                    ).preset_operator = "archipack.molding_from_wall"
-        row.operator("archipack.molding_preset_menu",
+                    )
+                    # .preset_operator = "archipack.molding_from_wall"
+        row.operator("archipack.molding_preset_from_curve",
                     text="",
                     icon='CURVE_DATA'
-                    ).preset_operator = "archipack.molding_from_curve"
+                    )
+                    # .preset_operator = "archipack.molding_from_curve"
 
 
         row = box.row(align=True)
@@ -690,26 +694,30 @@ def draw_menu(self, context):
                     text="Fence",
                     icon_value=icons["fence"].icon_id
                     ).preset_operator = "archipack.fence"
-    layout.operator("archipack.truss",
-                    text="Truss",
-                    icon_value=icons["truss"].icon_id
-                    )
     layout.operator("archipack.floor_preset_menu",
                     text="Floor",
                     icon_value=icons["floor"].icon_id
                     ).preset_operator = "archipack.floor"
+    layout.operator("archipack.molding_preset_menu",
+                    text="Molding",
+                    icon_value=icons["molding"].icon_id
+                    ).preset_operator = "archipack.molding"
     layout.operator("archipack.roof_preset_menu",
                     text="Roof",
                     icon_value=icons["roof"].icon_id
                     ).preset_operator = "archipack.roof"
-    layout.operator("archipack.blind_preset_menu",
-                    text="Blind",
-                    icon_value=icons["blind"].icon_id
-                    ).preset_operator = "archipack.blind"
     layout.operator("archipack.kitchen_preset_menu",
                     text="Kitchen",
                     icon_value=icons["kitchen"].icon_id
                     ).preset_operator = "archipack.kitchen"
+    layout.operator("archipack.blind_preset_menu",
+                    text="Blind",
+                    icon_value=icons["blind"].icon_id
+                    ).preset_operator = "archipack.blind"
+    layout.operator("archipack.truss",
+                    text="Truss",
+                    icon_value=icons["truss"].icon_id
+                    )
     layout.operator("archipack.dimension")              
     layout.operator("archipack.layout") 
     

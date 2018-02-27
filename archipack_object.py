@@ -187,7 +187,9 @@ class ArchipackCreateTool():
             if fallback:
                 # fallback to load preset on background process
                 try:
-                    exec(compile(open(self.filepath).read(), self.filepath, 'exec'))
+                    f = open(self.filepath)
+                    exec(compile(f.read(), self.filepath, 'exec'))
+                    f.close()
                 except:
                     print("Archipack unable to load preset file : %s" % (self.filepath))
                     pass

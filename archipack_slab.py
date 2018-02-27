@@ -1262,14 +1262,14 @@ class archipack_slab_cutter(ArchipackCutter, ArchipackObject, Manipulable, Prope
             self.update_parent(context, o)
 
     def update_parent(self, context, o):
-
-        d = archipack_slab.datablock(o.parent)
-        if d is not None:
-            o.parent.select = True
-            context.scene.objects.active = o.parent
-            d.update(context)
-            o.parent.select = False
-        context.scene.objects.active = o
+        if o is not None:
+            d = archipack_slab.datablock(o.parent)
+            if d is not None:
+                o.parent.select = True
+                context.scene.objects.active = o.parent
+                d.update(context)
+                o.parent.select = False
+            context.scene.objects.active = o
 
 
 class ARCHIPACK_PT_slab(Panel):
@@ -1635,6 +1635,7 @@ class ARCHIPACK_OT_slab_cutter(ArchipackCreateTool, Operator):
                 [0, 0, 1, 0],
                 [0, 0, 0, 1]
                 ])
+            d.auto_update = False
             p = d.parts.add()
             p.a0 = - angle_90
             p.length = y
@@ -1645,9 +1646,9 @@ class ARCHIPACK_OT_slab_cutter(ArchipackCreateTool, Operator):
             p.a0 = angle_90
             p.length = y
             d.n_parts = 3
-            # d.close = True
-            pd = archipack_slab.datablock(parent)
-            pd.boundary = o.name
+            d.close = True
+            d.auto_update = True
+            
         else:
             o.location = context.scene.cursor_location
         # make manipulators selectable
@@ -1655,9 +1656,9 @@ class ARCHIPACK_OT_slab_cutter(ArchipackCreateTool, Operator):
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
-        # self.add_material(o)
         self.load_preset(d)
         update_operation(d, context)
+        
         return o
 
     # -----------------------------------------------------

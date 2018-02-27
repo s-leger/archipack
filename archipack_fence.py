@@ -1816,6 +1816,7 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
     def create(self, context):
         o = None
         curve = context.active_object
+        sel = []
         for i, spline in enumerate(curve.data.splines):
             bpy.ops.archipack.fence('INVOKE_DEFAULT', auto_manipulate=False)
             o = context.active_object
@@ -1824,6 +1825,8 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
             d.user_defined_spline = i
             d.user_defined_path = curve.name
             d.auto_update = True
+        for obj in sel:
+            obj.select = True
         return o
 
     def execute(self, context):

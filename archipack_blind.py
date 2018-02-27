@@ -931,7 +931,7 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
 
         # Add your properties on mesh datablock
         d = m.archipack_blind.add()
-
+        d.auto_update = False
         d.x = self.x
         d.z = self.z
         d.offset_y = self.offset_y
@@ -972,6 +972,7 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
 
 
 class ARCHIPACK_OT_blind_preset_menu(PresetMenuOperator, Operator):
+    """Create Blind from preset"""
     bl_idname = "archipack.blind_preset_menu"
     bl_label = "Blind preset"
     preset_subdir = "archipack_blind"

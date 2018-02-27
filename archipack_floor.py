@@ -2058,6 +2058,7 @@ class ARCHIPACK_OT_floor_cutter(ArchipackCreateTool, Operator):
                 [0, 0, 1, 0],
                 [0, 0, 0, 1]
                 ])
+            d.auto_update = False
             p = d.parts.add()
             p.a0 = - angle_90
             p.length = y
@@ -2068,9 +2069,8 @@ class ARCHIPACK_OT_floor_cutter(ArchipackCreateTool, Operator):
             p.a0 = angle_90
             p.length = y
             d.n_parts = 3
-            # d.close = True
-            # pd = archipack_floor.datablock(parent)
-            # pd.boundary = o.name
+            d.auto_update = True
+            
         else:
             o.location = context.scene.cursor_location
         # make manipulators selectable
@@ -2078,9 +2078,9 @@ class ARCHIPACK_OT_floor_cutter(ArchipackCreateTool, Operator):
         context.scene.objects.link(o)
         o.select = True
         context.scene.objects.active = o
-        # self.add_material(o)
         self.load_preset(d)
         update_operation(d, context)
+        
         if curve is not None:
             d.user_defined_path = curve.name
         return o
@@ -2102,17 +2102,49 @@ class ARCHIPACK_OT_floor_cutter(ArchipackCreateTool, Operator):
 
 
 # ------------------------------------------------------------------
-# Define operator class to manipulate object
+# Define operator class to load presets (with polls)
 # ------------------------------------------------------------------
 
 
 class ARCHIPACK_OT_floor_preset_menu(PresetMenuOperator, Operator):
-    bl_description = "Show Floor presets"
+    bl_description = "Create Floor from presets"
     bl_idname = "archipack.floor_preset_menu"
     bl_label = "Floor preset"
     preset_subdir = "archipack_floor"
 
-
+    
+class ARCHIPACK_OT_floor_preset_from_wall(PresetMenuOperator, Operator):
+    bl_description = "Floor from wall"
+    bl_idname = "archipack.floor_preset_from_wall"
+    bl_label = "-> Floor"
+    preset_subdir = "archipack_floor"
+    preset_operator = StringProperty(
+        options={'SKIP_SAVE'},
+        default="archipack.floor_from_wall"
+    )
+    
+    @classmethod
+    def poll(self, context):
+        o = context.active_object
+        return o and o.data and "archipack_wall2" in o.data   
+    
+    
+class ARCHIPACK_OT_floor_preset_from_curve(PresetMenuOperator, Operator):
+    bl_description = "Floor from curve"
+    bl_idname = "archipack.floor_preset_from_curve"
+    bl_label = "-> Floor"
+    preset_subdir = "archipack_floor"
+    preset_operator = StringProperty(
+        options={'SKIP_SAVE'},
+        default="archipack.floor_from_curve"
+    )
+    
+    @classmethod
+    def poll(self, context):
+        o = context.active_object
+        return o and o.type == 'CURVE'
+    
+    
 class ARCHIPACK_OT_floor_preset(ArchipackPreset, Operator):
     """Add a Floor Preset"""
     bl_idname = "archipack.floor_preset"
@@ -2136,6 +2168,8 @@ def register():
     Mesh.archipack_floor = CollectionProperty(type=archipack_floor)
     bpy.utils.register_class(ARCHIPACK_PT_floor)
     bpy.utils.register_class(ARCHIPACK_OT_floor)
+    bpy.utils.register_class(ARCHIPACK_OT_floor_preset_from_wall)
+    bpy.utils.register_class(ARCHIPACK_OT_floor_preset_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_floor_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_floor_preset)
     bpy.utils.register_class(ARCHIPACK_OT_floor_from_curve)
@@ -2154,6 +2188,8 @@ def unregister():
     del Mesh.archipack_floor
     bpy.utils.unregister_class(ARCHIPACK_PT_floor)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor)
+    bpy.utils.unregister_class(ARCHIPACK_OT_floor_preset_from_wall)
+    bpy.utils.unregister_class(ARCHIPACK_OT_floor_preset_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_floor_from_curve)

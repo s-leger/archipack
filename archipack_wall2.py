@@ -1906,6 +1906,8 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         if mode == 'FLOOR_MOLDINGS':
             # convert wall polygons to linestrings
             # so boolean apply on lines instead of areas
+            # Keep track of wall polys so we are able to 
+            # know wich side is inside and revert lines according
             coords = []
             # type id 6: multipolygon
             if wall.type_id == 6:
@@ -2015,13 +2017,30 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                 elif mode == 'FLOOR_MOLDINGS':
                     basis = doors[0]._factory.buildGeometry(doors)
                     wall = wall.difference(basis)
-                    
-        # output only geometry from there
-        # gor further processing of t_childs
+        
+        # Boolean result might not always preserve wall direction
+        # so ensure lines are in the right direction
         if mode == 'FLOOR_MOLDINGS':
             merged = wall.line_merge()
+            # merged is an array of geoms
+            # switch direction of line so molden are always outside of wall
+            for line in merged:
+                co = line.coords
+                # a point in the middle of first segment at 0.5 * width on right side of line
+                n =  0.5 * self.width * Vector((co[1].y - co[0].y, co[0].x - co[1].x, 0)).normalized()
+                pos = Vector((0.5 * (co[0].x + co[1].x), 0.5 * (co[0].y + co[1].y), 0)) + n
+                pt = wall._factory.createPoint(wall._factory.createCoordinate(pos))
+                swap = True
+                for poly in polys:
+                    if poly.exterior.contains(pt):
+                        swap = False
+                        break
+                if swap:
+                    line.coords = wall._factory.coordinateSequenceFactory.create(line.coords[::-1])
             wall = wall._factory.buildGeometry(merged)
             
+        # output only geometry from there
+        # for further processing of t_childs
         return io, wall
 
 
