@@ -41,6 +41,7 @@ from .archipack_gl import (
     GlLine, GlArc, GlText,
     GlPolyline, GlPolygon,
     TriHandle, SquareHandle, EditableText,
+    CruxHandle, PlusHandle,
     FeedbackPanel, GlCursorArea
 )
 
@@ -243,12 +244,12 @@ class Manipulator():
         # unit for keyboard input value
         self.value_type = 'LENGTH'
         self.pts_mode = 'SIZE'
-        
+
         # must hold those data here
         self.o = o
         self.datablock = datablock
         self.manipulator = manipulator
-        
+
         self.snap_callback = snap_callback
         self.origin = self.o.matrix_world.translation.copy()
         self.mouse_pos = Vector((0, 0))
@@ -1993,6 +1994,196 @@ class ArcAngleRadiusManipulator(ArcAngleManipulator):
             self.set_value(context, self.datablock, self.manipulator.prop2_name, self.original_radius)
 
 
+class SnapVectorManipulator(Manipulator):
+    """
+        Move a child window or door in wall segment
+        not limited to this by the way
+    """
+    def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
+        self.handle = SquareHandle(handle_size, 1.2 * arrow_size, draggable=True, selectable=True)
+        Manipulator.__init__(self, context, o, datablock, manipulator, snap_callback)
+        self.feedback.instructions(context, "Move", "Drag to move", [
+            ('CTRL', 'Snap'),
+            ('SHIFT', 'Round value'),
+            ('RIGHTCLICK or ESC', 'cancel')
+            ])
+        self.selectable = True
+
+    def select(self, cursor_area):
+        self.selected = self.selected or cursor_area.in_area(self.handle.pos_2d)
+        self.handle.selected = self.selected
+
+    def deselect(self, cursor_area):
+        self.selected = not cursor_area.in_area(self.handle.pos_2d)
+        self.handle.selected = self.selected
+
+    def check_hover(self):
+        self.handle.check_hover(self.mouse_pos)
+
+    def mouse_press(self, context, event):
+        global gl_pts3d
+        global manips
+        if self.handle.hover:
+            self.active = True
+            self.handle.active = True
+            self.original_location = self.get_value(self.datablock, self.manipulator.prop1_name).copy()
+            self.feedback.enable()
+
+            left, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
+            dp = (right - left)
+            dx = dp.normalized()
+            dy = dz.cross(dx)
+            p0 = left
+            takemat = Matrix([
+                [dx.x, dy.x, dz.x, p0.x],
+                [dx.y, dy.y, dz.y, p0.y],
+                [dx.z, dy.z, dz.z, p0.z],
+                [0, 0, 0, 1]
+            ])
+            gl_pts3d = [p0]
+            snap_point(takemat=takemat,
+                draw=self.sp_draw,
+                callback=self.sp_callback,
+                constraint_axis=(
+                    self.manipulator.prop1_name == 'x',
+                    self.manipulator.prop1_name == 'y',
+                    self.manipulator.prop1_name == 'z'))
+            return True
+        return False
+
+    def mouse_release(self, context, event):
+        self.check_hover()
+        self.feedback.disable()
+        self.active = False
+        self.handle.active = False
+        return False
+
+    def mouse_move(self, context, event):
+        self.mouse_position(event)
+        if self.handle.active:
+            # False here to pass_through
+            # print("i'm able to pick up mouse move event while transform running")
+            return False
+        else:
+            self.check_hover()
+        return False
+
+    def sp_draw(self, sp, context):
+        logger.debug("DeltaLocationManipulator.sp_draw")
+
+        global gl_pts3d
+        if self.o is None:
+            return
+        p0 = gl_pts3d[0].copy()
+        p1 = p0 + sp.delta
+        itM = self.o.matrix_world.inverted()
+        self.set_value(context, self.datablock, self.manipulator.prop1_name, itM * p1)
+        return
+
+    def sp_callback(self, context, event, state, sp):
+        logger.debug("DeltaLocationManipulator.sp_callback")
+
+        if state == 'SUCCESS':
+            self.sp_draw(sp, context)
+            self.mouse_release(context, event)
+
+        if state == 'CANCEL':
+            self.cancel(context, event)
+        logger.debug("DeltaLocationManipulator.sp_callback done")
+
+    def cancel(self, context, event):
+        if self.active:
+            self.mouse_release(context, event)
+            # must move back to original location
+            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_location)
+
+    def draw_callback(self, _self, context, render=False):
+        left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
+        self.handle.set_pos(context, left, (left - right).normalized(), normal=normal)
+        self.handle.draw(context, render)
+        self.feedback.draw(context, render)
+
+
+class CallOperatorManipulator(Manipulator):
+    """
+        increase or decrease an integer step by step
+        right on click to prevent misuse
+    """
+    def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
+        self.handle = SquareHandle(handle_size, arrow_size, draggable=True)
+        Manipulator.__init__(self, context, o, datablock, manipulator, snap_callback)
+        
+    def check_hover(self):
+        self.handle.check_hover(self.mouse_pos)
+        
+    def mouse_press(self, context, event):
+        if self.handle.hover:
+            po = self.manipulator.prop1_name.split(".")
+            # couple arg=value,
+            args = self.manipulator.prop2_name.split(",")
+            params = {}
+            for arg in args:
+                res = arg.split("=")
+                if len(res) == 2:
+                    name, val = res
+                    try:
+                        val = int(val)
+                        params[name] = val
+                    except ValueError:
+                        try:
+                            val = float(val)
+                            params[name] = val
+                        except ValueError:
+                            params[name] = val
+                            pass
+                        pass
+            op = getattr(getattr(bpy.ops, po[0]), po[1])
+            if op.poll():
+                op(**params)
+            self.handle.active = True
+            return True
+        return False
+
+    def mouse_release(self, context, event):
+        self.check_hover()
+        self.handle.active = False
+        return False
+
+    def mouse_move(self, context, event):
+        self.mouse_position(event)
+        if self.handle.active:
+            return True
+        else:
+            self.check_hover()
+        return False
+
+    def draw_callback(self, _self, context, render=False):
+        """
+            draw on screen feedback using gl.
+        """
+        logger.debug("CallOperatorManipulator.draw_callback")
+
+        # won't render counter
+        if render:
+            return
+        left, right, side, normal = self.manipulator.get_pts(self.o.matrix_world)
+        self.handle.set_pos(context, left, (left - right).normalized(), normal=normal)
+        self.handle.draw(context, render)
+        logger.debug("CallOperatorManipulator.draw_callback done")
+
+        
+class CallAddOperatorManipulator(CallOperatorManipulator):
+    def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
+        CallOperatorManipulator.__init__(self, context, o, datablock, manipulator, snap_callback)
+        self.handle = PlusHandle(handle_size, arrow_size, draggable=True)
+
+        
+class CallRemoveOperatorManipulator(CallOperatorManipulator):
+    def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
+        CallOperatorManipulator.__init__(self, context, o, datablock, manipulator, snap_callback)
+        self.handle = CruxHandle(handle_size, arrow_size, draggable=True)
+        
+        
 # ------------------------------------------------------------------
 # Define a single Manipulator Properties to store on object
 # ------------------------------------------------------------------
@@ -2039,7 +2230,7 @@ class archipack_manipulator(PropertyGroup):
             set 3d location of gl points (in object space)
             pts: array of 3 vectors 3d
             normal: optionnal vector 3d default to Z axis
-            
+
             @TODO:
             set those pts right in the stack holding a safer reference
             how to find the right manipulator in the stack ??
@@ -2163,7 +2354,7 @@ class ARCHIPACK_OT_manipulate(Operator):
                     d.manipulable_invoke(context)
                     res = {'FINISHED'}
         return res
- 
+
 
 class ARCHIPACK_OT_manipulate_modal(Operator):
     bl_idname = "archipack.manipulate_modal"
@@ -2197,10 +2388,10 @@ class ARCHIPACK_OT_manipulate_modal(Operator):
             context.area.tag_redraw()
 
         key = self.object_name
-        
+
         # exit when another object is active ??
         # might not work when manipulating eg a window through a wall
-        
+
         if check_stack(key):
             self.exit_selectmode(context, key)
             remove_manipulable(key)
@@ -2539,8 +2730,6 @@ class Manipulable():
         return
 
 
-       
-
 @persistent
 def cleanup(dummy=None):
     empty_stack()
@@ -2567,6 +2756,12 @@ def register():
     # register_manipulator('SNAP_POINT', SnapPointManipulator)
     # wall's line based object snap
     register_manipulator('WALL_SNAP', WallSnapManipulator)
+    # Dimension manipulator (vector in object space)
+    register_manipulator('SNAP_VEC', SnapVectorManipulator)
+    # Add / remove operator
+    register_manipulator('OP_ADD', CallAddOperatorManipulator)
+    register_manipulator('OP_REM', CallRemoveOperatorManipulator)
+    
     bpy.utils.register_class(ARCHIPACK_OT_manipulate_modal)
     bpy.utils.register_class(ARCHIPACK_OT_manipulate)
     bpy.utils.register_class(ARCHIPACK_OT_disable_manipulate)

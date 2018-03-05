@@ -50,6 +50,7 @@ if "bpy" in locals():
     imp.reload(archipack_material)
     imp.reload(archipack_snap)
     imp.reload(archipack_manipulator)
+    imp.reload(archipack_dimension)
     imp.reload(archipack_reference_point)
     imp.reload(archipack_autoboolean)
     imp.reload(archipack_door)
@@ -57,8 +58,8 @@ if "bpy" in locals():
     imp.reload(archipack_stair)
     imp.reload(archipack_wall)
     imp.reload(archipack_wall2)
-    imp.reload(archipack_roof)
     imp.reload(archipack_slab)
+    imp.reload(archipack_roof)
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
     # imp.reload(archipack_toolkit)
@@ -67,7 +68,6 @@ if "bpy" in locals():
     imp.reload(archipack_blind)
     imp.reload(archipack_kitchen)
     imp.reload(archipack_molding)
-    imp.reload(archipack_dimension)
     imp.reload(archipack_rendering)
     # imp.reload(archipack_envi)
     imp.reload(archipack_io)
@@ -83,6 +83,7 @@ else:
     from . import archipack_material
     from . import archipack_snap
     from . import archipack_manipulator
+    from . import archipack_dimension
     from . import archipack_reference_point
     from . import archipack_autoboolean
     from . import archipack_door
@@ -90,8 +91,8 @@ else:
     from . import archipack_stair
     from . import archipack_wall
     from . import archipack_wall2
-    from . import archipack_roof
     from . import archipack_slab
+    from . import archipack_roof
     from . import archipack_fence
     from . import archipack_truss
     # from . import archipack_toolkit
@@ -100,7 +101,6 @@ else:
     from . import archipack_blind
     from . import archipack_kitchen
     from . import archipack_molding
-    from . import archipack_dimension
     from . import archipack_rendering
     # from . import archipack_envi
     from . import archipack_io
@@ -649,6 +649,7 @@ class TOOLS_PT_Archipack_Create(Panel):
             box.label(text="Experimental features")
             box.operator("archipack.floor_heating")                    
             box.operator("archipack.dimension")
+            box.operator("archipack.dimension_auto")
             box.operator("archipack.layout") 
             
             
@@ -762,7 +763,7 @@ class archipack_data(PropertyGroup):
         description="Render method"
         )
 
-
+    
 def register():
     global icons_collection
     icons = previews.new()
@@ -776,6 +777,7 @@ def register():
     archipack_material.register()
     archipack_snap.register()
     archipack_manipulator.register()
+    archipack_dimension.register()
     archipack_reference_point.register()
     archipack_autoboolean.register()
     archipack_door.register()
@@ -790,7 +792,6 @@ def register():
     archipack_blind.register()
     archipack_kitchen.register()
     archipack_molding.register()
-    archipack_dimension.register()
     # archipack_toolkit.register()
     archipack_floor.register()
     archipack_floor_heating.register()
@@ -808,8 +809,8 @@ def register():
     bpy.types.INFO_MT_mesh_add.append(menu_func)
 
     addon_updater_ops.register(bl_info)
-
-
+    
+    
 def unregister():
     global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
@@ -823,9 +824,8 @@ def unregister():
     archipack_progressbar.unregister()
     archipack_material.unregister()
     archipack_snap.unregister()
-    archipack_manipulator.unregister()
-    archipack_reference_point.unregister()
     archipack_autoboolean.unregister()
+    archipack_reference_point.unregister()
     archipack_door.unregister()
     archipack_window.unregister()
     archipack_stair.unregister()
@@ -838,7 +838,6 @@ def unregister():
     archipack_blind.unregister()
     archipack_kitchen.unregister()
     archipack_molding.unregister()
-    archipack_dimension.unregister()
     # archipack_toolkit.unregister()
     archipack_floor.unregister()
     archipack_floor_heating.unregister()
@@ -847,6 +846,8 @@ def unregister():
     archipack_2d_layout.unregister()
     archipack_io_export_svg.unregister()
     archipack_polylines.unregister()
+    archipack_manipulator.unregister()
+    archipack_dimension.unregister()
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack
 

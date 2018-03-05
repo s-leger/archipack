@@ -27,7 +27,7 @@
 import bpy
 import numpy as np
 from bpy.types import Operator
-from bpy.props import EnumProperty, BoolProperty
+from bpy.props import BoolProperty
 from mathutils import Vector
 
 
@@ -247,7 +247,7 @@ class ArchipackBoolManager():
             # to support "revival" of applied modifiers
             m = wall.modifiers.get("Wall")
             wd = wall.data.archipack_wall2[0]
-            io, wall2d = wd.as_geom(context, wall, 'BOTH', [], [])
+            io, wall2d = wd.as_geom(context, wall, 'BOTH', [], [], [])
             if m is None:
                 wall.select = True
                 context.scene.objects.active = wall
@@ -264,18 +264,18 @@ class ArchipackBoolManager():
         for o in context.scene.objects:
             # filter holes found in wall bounding box
             if o.type == 'MESH' and self._contains(o):
-                
+
                 d = self.datablock(o)
                 intersect = True
-                
-                # deep check to ensure neighboors walls 
+
+                # deep check to ensure neighboors walls
                 # dosent interfer with this one
                 # using a pygeos based 2d check
                 if d is not None and wall2d is not None:
                     coords = d.hole_2d('BOUND')
                     hole2d = io.coords_to_polygon(o.matrix_world, coords)
                     intersect = wall2d.intersects(hole2d)
-                    
+
                 if intersect:
                     h = self._generate_hole(context, o)
                     if h is not None:
@@ -354,7 +354,7 @@ class ArchipackBoolManager():
         if m is None:
             m = wall.modifiers.new('AutoMixedBoolean', 'BOOLEAN')
             m.operation = 'DIFFERENCE'
-            
+
         if m.object is None:
             hole_obj = self.create_merge_basis(context, wall)
             m.object = hole_obj
@@ -396,7 +396,7 @@ class ArchipackBoolManager():
                 d.update(context, manipulable_refresh=True)
             else:
                 d.relocate_childs(context, wall, g)
-            
+
         if hole_obj is not None:
             self.prepare_hole(hole_obj)
 
@@ -448,7 +448,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
     bl_description = "Automatic boolean for doors and windows. Select your wall(s) then push"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
             manager = ArchipackBoolManager()
@@ -510,14 +510,14 @@ class ARCHIPACK_OT_custom_hole(Operator):
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
     remove = BoolProperty(name="Clear hole parameter", default=False)
-    
+
     @classmethod
     def poll(self, context):
         o = context.active_object
-        return (o is not None and 
-            o.type == 'MESH' and 
+        return (o is not None and
+            o.type == 'MESH' and
             not ArchipackBoolManager.filter_wall(None, o))
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
@@ -535,7 +535,7 @@ class ARCHIPACK_OT_custom_hole(Operator):
                 o["archipack_custom_hole"] = 1
                 manager = ArchipackBoolManager()
                 manager._init_bounding_box(o)
-                walls = [wall for wall in context.scene.objects 
+                walls = [wall for wall in context.scene.objects
                     if manager.filter_wall(wall) and manager._contains(wall)]
                 for wall in walls:
                     wall.select = True
@@ -544,7 +544,7 @@ class ARCHIPACK_OT_custom_hole(Operator):
                     wall.select = False
                 o.select = True
                 context.scene.objects.active = o
-                
+
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")

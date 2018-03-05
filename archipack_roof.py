@@ -48,6 +48,7 @@ from .archipack_cutter import (
     ArchipackCutter,
     ArchipackCutterPart
     )
+from .archipack_dimension import DimensionProvider
 
 
 class Roof():
@@ -829,17 +830,26 @@ def dump_mesh(m, cols, rounding):
     print_list("matids", matids, cols)
     print_list("uvs", uvs, cols)
 
+def dump_curve(m, cols, rounding):
+    verts = [(round(v.co.x, rounding), round(v.co.y, rounding), round(v.co.z, rounding)) for v in m.points]
+    print_list("verts", verts, cols)
+    
 
 cols = 3
 rounding = 3
 m = C.object.data
 dump_mesh(m, cols, rounding)
+
+for c in m.splines:
+    dump_curve(c, cols, rounding)
+
 """
 
 
 class RoofGenerator(CutAbleGenerator):
 
     def __init__(self, d, origin=Vector((0, 0, 0))):
+        self.d = d
         self.parts = d.parts
         self.segs = []
         self.nodes = []
@@ -3685,7 +3695,9 @@ class archipack_roof_segment(ArchipackSegment, PropertyGroup):
             default='AUTO',
             update=update
             )
-
+    # DimensionProvider        
+    uid = IntProperty(default=0)
+    
     def find_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -3739,7 +3751,7 @@ class archipack_roof_segment(ArchipackSegment, PropertyGroup):
                 update_childs=True)
 
 
-class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup):
+class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     parts = CollectionProperty(type=archipack_roof_segment)
     z = FloatProperty(
             name="Altitude",
@@ -4330,7 +4342,11 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, PropertyGroup
             bound_idx = len(self.parts)
             self.parts.add()
             self.parts[-1].bound_idx = bound_idx
-
+        
+        for p in self.parts:
+            if p.uid == 0:
+                self.create_uid(p)
+        
         self.setup_manipulators()
 
     def setup_manipulators(self):
@@ -4757,7 +4773,7 @@ class archipack_roof_cutter_segment(ArchipackCutterPart, PropertyGroup):
         default='SIDE',
         update=update_hole
         )
-
+    
     def find_in_selection(self, context):
         selected = [o for o in context.selected_objects]
         for o in selected:
@@ -4769,7 +4785,7 @@ class archipack_roof_cutter_segment(ArchipackCutterPart, PropertyGroup):
         return None
 
 
-class archipack_roof_cutter(ArchipackCutter, ArchipackObject, Manipulable, PropertyGroup):
+class archipack_roof_cutter(ArchipackCutter, ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     # boundary
     parts = CollectionProperty(type=archipack_roof_cutter_segment)
     boundary = StringProperty(

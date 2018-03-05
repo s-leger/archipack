@@ -45,6 +45,7 @@ from .archipack_cutter import (
     ArchipackCutter,
     ArchipackCutterPart
     )
+from .archipack_dimension import DimensionProvider
 
 
 # ------------------------------------------------------------------
@@ -94,8 +95,9 @@ class CurvedFloor(Floor, Arc):
 
 class FloorGenerator(CutAblePolygon, CutAbleGenerator):
 
-    def __init__(self, parts):
-        self.parts = parts
+    def __init__(self, d):
+        self.d = d
+        self.parts = d.parts
         self.segs = []
         self.holes = []
         self.convex = True
@@ -163,8 +165,8 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
             setup manipulators
         """
         for i, f in enumerate(self.segs):
-
-            manipulators = self.parts[i].manipulators
+            part = self.parts[i]
+            manipulators = part.manipulators
             p0 = f.p0.to_3d()
             p1 = f.p1.to_3d()
             # angle from last to current segment
@@ -191,7 +193,9 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
             # dumb segment id
             manipulators[3].set_pts([p0, p1, (1, 0, 0)])
-
+            
+            self.d.add_dimension_point(part.uid, p0)
+            
     def get_verts(self, verts):
         verts.extend([s.p0.to_3d() for s in self.segs])
 
@@ -934,7 +938,7 @@ class archipack_floor_part(PropertyGroup):
             )
     length = FloatProperty(
             name="Length",
-            min=0.01,
+            min=0.001,
             default=2.0,
             update=update
             )
@@ -967,6 +971,8 @@ class archipack_floor_part(PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+    # DimensionProvider
+    uid = IntProperty(default=0)
     manipulators = CollectionProperty(type=archipack_manipulator)
 
     def find_in_selection(self, context):
@@ -1000,7 +1006,7 @@ class archipack_floor_part(PropertyGroup):
         box.prop(self, "a0")
 
 
-class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
+class archipack_floor(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     n_parts = IntProperty(
             name="Parts",
             min=1,
@@ -1283,7 +1289,8 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
             )
 
     def get_generator(self):
-        g = FloorGenerator(self.parts)
+        g = FloorGenerator(self)
+        
         for part in self.parts:
             # type, radius, da, length
             g.add_part(part)
@@ -1305,7 +1312,11 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
         # add rows
         for i in range(len(self.parts), self.n_parts):
             self.parts.add()
-
+        
+        for p in self.parts:
+            if p.uid == 0:
+                self.create_uid(p)
+        
         self.setup_manipulators()
 
         g = self.get_generator()
@@ -1506,7 +1517,10 @@ class archipack_floor(ArchipackObject, Manipulable, PropertyGroup):
 
         g.cut(context, o, self)
         g.floor(context, o, self)
-
+        
+        if o.parent:
+            self.update_dimensions(context, o)
+        
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
@@ -1600,7 +1614,7 @@ class archipack_floor_cutter_segment(ArchipackCutterPart, PropertyGroup):
         box.prop(self, "a0")
 
 
-class archipack_floor_cutter(ArchipackCutter, ArchipackObject, Manipulable, PropertyGroup):
+class archipack_floor_cutter(ArchipackCutter, ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     parts = CollectionProperty(type=archipack_floor_cutter_segment)
 
     def update_points(self, context, o, pts, update_parent=False):

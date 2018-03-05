@@ -106,6 +106,31 @@ class ArchipackObject():
 
         return None
     
+    def _delete_object(self, context, o):
+        d = o.data
+        type = o.type
+        context.scene.objects.unlink(o)
+        bpy.data.objects.remove(o)
+        if d and d.users < 1:
+            if type == 'MESH':
+                bpy.data.meshes.remove(d)
+            elif type == 'CURVE':
+                bpy.data.curves.remove(d)
+            elif type == 'LAMP':
+                bpy.data.lamps.remove(d)
+            
+    def _delete_childs(self, context, o):
+        for child in o.children:
+            self._delete_childs(context, child)
+        self._delete_object(context, o)
+        
+    def delete_object(self, context, o):
+        """
+          Recursively delete object and childs
+        """
+        if o is not None:
+            self._delete_childs(context, o)
+    
     def restore_context(self, context):
         # restore context
         bpy.ops.object.select_all(action="DESELECT")
@@ -151,7 +176,7 @@ class ArchipackCreateTool():
         type = o.type
         context.scene.objects.unlink(o)
         bpy.data.objects.remove(o)
-        if d.users < 1:
+        if d and d.users < 1:
             if type == 'MESH':
                 bpy.data.meshes.remove(d)
             elif type == 'CURVE':
@@ -168,7 +193,8 @@ class ArchipackCreateTool():
         """
           Recursively delete object and childs
         """
-        self._delete_childs(context, o)
+        if o is not None:
+            self._delete_childs(context, o)
             
     def load_preset(self, d):
         """
@@ -189,10 +215,11 @@ class ArchipackCreateTool():
                 try:
                     f = open(self.filepath)
                     exec(compile(f.read(), self.filepath, 'exec'))
-                    f.close()
                 except:
                     print("Archipack unable to load preset file : %s" % (self.filepath))
                     pass
+                finally:
+                    f.close()
         d.auto_update = True
 
     def add_material(self, o, material='DEFAULT', category=None):

@@ -115,9 +115,10 @@ class SeekBox(GlText, GlHandle):
     def pts(self):
         return [self.pos_3d]
 
-    def set_pos(self, context, pos_2d):
+    def set_pos(self, context, pos_2d, width):
         x, ty = self.text_size(context)
-        w = self.sensor_width
+        # w = self.sensor_width
+        w = min(self.sensor_width, width)
         y = 12
         pos_2d.y += y
         pos_2d.x -= 0.5 * w
@@ -306,6 +307,7 @@ class PresetMenu():
 
         x_min, x_max, y_min, y_max = self.screen.size(context)
         p0, p1, p2, p3 = Vector((x_min, y_min)), Vector((x_min, y_max)), Vector((x_max, y_max)), Vector((x_max, y_min))
+        self.keywords.set_pos(context, p1 + 0.5 * (p2 - p1), x_max - x_min)
         self.bg.set_pos([p0, p2])
         self.border.set_pos([p0, p1, p2, p3])
         x_min += 0.5 * self.thumbsize.x + 0.5 * self.margin
@@ -316,7 +318,6 @@ class PresetMenu():
         y = y_max + self.y_scroll
         n_rows = 0
 
-        self.keywords.set_pos(context, p1 + 0.5 * (p2 - p1))
         keywords = self.keywords.label.split(" ")
 
         for item in self.menuItems:
@@ -424,8 +425,10 @@ class PresetMenuOperator():
                 if self.preset_operator == 'script.execute_preset':
                     # call from preset menu
                     # ensure right active_object class
-                    o = context.active_object
-                    if o is not None:
+                    act = context.active_object
+                    sel = context.selected_objects
+                    for o in sel:
+                        context.scene.objects.active = o
                         d = None
                         if o.data and self.preset_subdir in o.data:
                             d = getattr(o.data, self.preset_subdir)[0]
@@ -437,6 +440,7 @@ class PresetMenuOperator():
                             op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
                             # print("Archipack execute_preset loaded  auto_update: %s" % d.auto_update)
                             d.auto_update = True
+                    context.scene.objects.active = act
                 else:
                     # call draw operator
                     if op.poll():

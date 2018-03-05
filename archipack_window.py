@@ -43,6 +43,7 @@ from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_gl import FeedbackPanel
 from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchpackDrawTool
 from .archipack_keymaps import Keymaps
+from .archipack_dimension import DimensionProvider
 
 
 def update(self, context):
@@ -334,7 +335,7 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
         else:
             # profil avec chanfrein et joint et support pour verre
             # p ____         y1    inside
-            # / |_       y3
+            # /     |_       y3
             # |       |___
             # x       |___   y2  verre
             # |      _|      y4
@@ -407,8 +408,7 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
     def remove_handle(self, context, o):
         handle = self.find_handle(o)
         if handle is not None:
-            context.scene.objects.unlink(handle)
-            bpy.data.objects.remove(handle, do_unlink=True)
+            self.delete_object(context, handle)
 
     def update(self, context):
 
@@ -798,7 +798,7 @@ class archipack_window_shutter(ArchipackObject, PropertyGroup):
         self.restore_context(context)
 
 
-class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
+class archipack_window(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     x = FloatProperty(
             name='Width',
             min=0.1,
@@ -1125,12 +1125,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             description='flip outside and outside material of hole'
             )
 
-    dimensions = BoolProperty(
-            default=False,
-            name="Dimensions",
-            description="Buid static dimensions",
-            update=update
-            )
     # layout related
     display_detail = BoolProperty(
             options={'SKIP_SAVE'},
@@ -1538,6 +1532,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                     frame_depth=2 * y,
                     frame_height=0.04,
                     style=style,
+                    randomize=True,
                     auto_manipulate=False
                     )
                 blind = context.active_object
@@ -1575,17 +1570,10 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 ])
             blind.matrix_world = o.matrix_world * tM
 
-        elif blind is not None:
-            self.remove_blind(context, blind)
+        else:
+            self.delete_object(context, blind)
 
         context.scene.objects.active = o
-
-    def remove_blind(self, context, blind):
-        if blind.type == "MESH" and "archipack_blind" in blind.data:
-            d = blind.data
-            context.scene.objects.unlink(blind)
-            bpy.data.objects.remove(blind)
-            bpy.data.meshes.remove(d)
 
     def find_portal(self, o):
         for child in o.children:
@@ -1617,11 +1605,8 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             ])
             lamp.matrix_world = o.matrix_world * tM
 
-        elif lamp is not None:
-            d = lamp.data
-            context.scene.objects.unlink(lamp)
-            bpy.data.objects.remove(lamp)
-            bpy.data.lamps.remove(d)
+        else:
+            self.delete_object(context, lamp)
 
         context.scene.objects.active = o
 
@@ -1649,23 +1634,14 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 return
             if archipack_window_panel.filter(child):
                 to_remove -= 1
-                self.remove_handle(context, child)
-                context.scene.objects.unlink(child)
-                bpy.data.objects.remove(child, do_unlink=True)
+                self.delete_object(context, child)
 
     def remove_shutters(self, context, childs, to_remove):
         for child in childs:
             if to_remove < 1:
                 return
             to_remove -= 1
-            context.scene.objects.unlink(child)
-            bpy.data.objects.remove(child, do_unlink=True)
-
-    def remove_handle(self, context, o):
-        handle = self.find_handle(o)
-        if handle is not None:
-            context.scene.objects.unlink(handle)
-            bpy.data.objects.remove(handle, do_unlink=True)
+            self.delete_object(context, child)
 
     def update_rows(self, context, o):
         # remove rows
@@ -1726,16 +1702,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                 return handle
         return None
 
-    def _synch_portal(self, context, linked):
-        # update portal
-        dl = archipack_window.datablock(linked)
-        dl.update_portal(context, linked)
-
-    def _synch_blind(self, context, linked):
-        dl = archipack_window.datablock(linked)
-        dl.update_blind(context, linked, True)
-        dl.update_blind(context, linked, False)
-
     def _synch_childs(self, context, o, linked, childs):
         """
             sub synch childs nodes of linked object
@@ -1748,9 +1714,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             try:
                 id = c_names.index(c.data.name)
             except:
-                self.remove_handle(context, c)
-                context.scene.objects.unlink(c)
-                bpy.data.objects.remove(c, do_unlink=True)
+                self.delete_object(context, c)
 
         # children ordering may not be the same, so get the right l_childs order
         l_childs = self.get_childs_panels(context, linked)
@@ -1766,8 +1730,9 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         # add missing childs and update other ones
         for i, child in enumerate(childs):
             if order[i] < 0:
-                p = bpy.data.objects.new("Panel", child.data)
+                p = bpy.data.objects.new("Window Panel", child.data)
                 context.scene.objects.link(p)
+                p.show_transparent = True
                 p.lock_location[1] = True
                 p.lock_location[2] = True
                 p.lock_rotation[1] = True
@@ -1792,8 +1757,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
                     h = create_handle(context, p, handle.data)
                 h.location = handle.location.copy()
             elif h is not None:
-                context.scene.objects.unlink(h)
-                bpy.data.objects.remove(h, do_unlink=True)
+                self.delete_object(context, h)
 
             p.location = child.location.copy()
 
@@ -1812,8 +1776,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             try:
                 id = c_names.index(c.data.name)
             except:
-                context.scene.objects.unlink(c)
-                bpy.data.objects.remove(c, do_unlink=True)
+                self.delete_object(context, c)
 
         # children ordering may not be the same, so get the right l_childs order
         l_childs = self.get_childs_shutters(context, linked, left_side)
@@ -1865,42 +1828,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         else:
             l_hole.data = hole.data
 
-    def find_dimension(self, o):
-        for c in o.children:
-            if c.data and "archipack_dimension" in c.data:
-                if len(c.children) > 0:
-                    return c, c.children[0]
-        return None, None
-
-    def _synch_dimension(self, context, linked, dim, text):
-
-        l_dim, l_text = self.find_dimension(linked)
-
-        if dim is None:
-            self.remove_dimension(context, l_dim, l_text)
-            return
-
-        elif l_dim is None:
-            l_dim = bpy.data.objects.new(dim.name, dim.data)
-            context.scene.objects.link(l_dim)
-            l_dim.parent = linked
-            l_dim.matrix_world = linked.matrix_world.copy()
-            l_dim.location = dim.location.copy()
-        else:
-            l_dim.data = dim.data
-            l_dim.location = dim.location.copy()
-
-        if text is not None:
-            if l_text is None:
-                l_text = bpy.data.objects.new(text.name, text.data)
-                context.scene.objects.link(l_text)
-                l_text.parent = l_dim
-                l_text.matrix_world = linked.matrix_world.copy()
-                l_text.location = text.location.copy()
-            else:
-                l_text.data = text.data
-                l_text.location = text.location.copy()
-
     def synch_locks(self, p):
         p.lock_location[0] = self.window_type != 'RAIL'
         p.lock_rotation[0] = self.window_type == 'RAIL'
@@ -1914,14 +1841,14 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         o.select = True
         context.scene.objects.active = o
         childs = self.get_childs_panels(context, o)
-        dim, text = self.find_dimension(o)
         hole = self.find_hole(o)
         bpy.ops.object.select_linked(type='OBDATA')
         for linked in context.selected_objects:
             if linked != o:
-                self._synch_dimension(context, linked, dim, text)
-                self._synch_portal(context, linked)
-                self._synch_blind(context, linked)
+                ld = archipack_window.datablock(linked)
+                ld.update_portal(context, linked)
+                ld.update_blind(context, linked, True)
+                ld.update_blind(context, linked, False)
                 self._synch_childs(context, o, linked, childs)
                 self._synch_shutters(context, o, linked, True)
                 self._synch_shutters(context, o, linked, False)
@@ -2254,21 +2181,6 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             return Vector((0, 0, 0)), Vector((0, 0, 0)), \
                 Vector((_x, _z, 0)), Vector((0, 0, 0))
 
-    def remove_dimension(self, context, dim, text):
-        if text is not None:
-            context.scene.objects.unlink(text)
-            bpy.data.objects.remove(text, do_unlink=True)
-        if dim is not None:
-            context.scene.objects.unlink(dim)
-            bpy.data.objects.remove(dim, do_unlink=True)
-
-    def update_dimension(self, context, o):
-        dim, text = self.find_dimension(o)
-        if self.dimensions:
-            self.manipulators[0].as_dimension(context, o, dim)
-        else:
-            self.remove_dimension(context, dim, text)
-
     def update(self, context, childs_only=False):
         # support for "copy to selected"
         o = self.find_in_selection(context, self.auto_update)
@@ -2295,24 +2207,26 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             self.interactive_hole(context, o)
 
         # store 3d points for gl manipulators
-
         x, y = 0.5 * self.x, 0.5 * self.y
         self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (0.5, 0, 0)])
         self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])
         self.manipulators[2].set_pts([(x, -y, self.altitude), (x, -y, self.altitude + self.z), (-1, 0, 0)])
         self.manipulators[3].set_pts([(x, -y, 0), (x, -y, self.altitude), (-1, 0, 0)])
 
-        self.update_dimension(context, o)
-
+        # self.update_dimension(context, o)
+        self.add_dimension_point(0, Vector((-x, -y, 0)))
+        self.add_dimension_point(1, Vector((x, -y, 0)))
+        
+        self.add_dimension_point(2, Vector((-0.5 * self._x - self.frame_x, y, 0)))
+        self.add_dimension_point(3, Vector((0.5 * self._x + self.frame_x, y, 0)))
+        
         # support for instances childs, update at object level
         self.synch_childs(context, o)
 
-        # synch wall dimensions when apply
+        # synch dimensions when apply
         if o.parent:
-            for c in o.parent.children:
-                if c.data and "archipack_wall2" in c.data:
-                    c.data.archipack_wall2[0].synch_dimension(context, c)
-
+            self.update_dimensions(context, o)
+            
         # restore context
         self.restore_context(context)
 
@@ -2365,7 +2279,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
     def _add_spline(self, curve, coords):
         spline = curve.splines.new('POLY')
         spline.use_endpoint_u = False
-        spline.use_cyclic_u = len(coords) > 2
+        spline.use_cyclic_u = coords[-1] == coords[0]
         if coords[-1] == coords[0]:
             coords.pop()
         spline.points.add(len(coords) - 1)
@@ -2388,8 +2302,14 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
         # frame
         center, origin, size, radius = self.get_radius(self._x, self._z)
         offset = Vector((0, 0, 0))
+
+        # draw borders
+        connect = 2
+        if self.window_type == 'RAIL':
+            connect = 3
+
         coords = self.window.as_2d(self.curve_steps, offset, center, origin,
-            size, radius, 0, 0, shape_z=None, path_type=self.shape)
+            size, radius, 0, 0, connect=connect)
 
         # panels
         childs = self.get_childs_panels(context, o)
@@ -2412,7 +2332,7 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             child_n += 1
             # location y + frame width. frame depends on choosen profile (fixed or not)
             # update linked childs location too
-            d = child.data.archipack_window_panel[0]
+            d = archipack_window_panel.datablock(child)
             location = Vector((
                 origin[panel].x,
                 origin[panel].y + location_y + self.panel_y,
@@ -2421,8 +2341,22 @@ class archipack_window(ArchipackObject, Manipulable, PropertyGroup):
             coords.extend(
                 child.data.archipack_window_panel[0].window.as_2d(
                     self.curve_steps, location, d.center, d.origin,
-                    d.size, d.radius, 0, d.pivot, shape_z=None, path_type=d.shape)
+                    d.size, d.radius, 0, d.pivot)
                 )
+            # arc
+            if self.window_type == 'FLAT' and not d.fixed:
+                x, y = location.x, location.y
+                r = d.size.x
+                steps = 8
+                # 30 deg
+                da = pi / (6 * steps)
+                arc = [Vector((
+                        x + d.pivot * r * cos(da * i),
+                        y + r * sin(da * i),
+                        0))
+                    for i in range(steps + 1)]
+                arc.append(location)
+                coords.append(arc)
 
         curve = self._to_curve(context, coords, name="{}-2d".format(o.name), dimensions='2D')
         curve.matrix_world = o.matrix_world.copy()

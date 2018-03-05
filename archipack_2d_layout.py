@@ -94,33 +94,24 @@ paper_enum = tuple([(
         ) for k in paper_keys])
 
 
-# Note: must contain a 'USER_DEFINED' key
-model_scale = {
-    '1000': 1000,
-    '500': 500,
-    '200': 200,
-    '100': 100,
-    '50': 50,
-    '20': 20,
-    '10': 10,
-    '5': 5,
-    '2': 2,
-    '1': 1,
-    'USER_DEFINED': 100
-    }
-scale_enum = tuple([(
-        k,
-        "1/{}".format(k),
-        "1/{}".format(k)
-        ) for k in model_scale])
-
-
 class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
     """ Archipack Layout frame"""
 
     detail_scale = EnumProperty(
         name="Scale",
-        items=scale_enum,
+        items=(
+            ('1000', '1/1000', '1/1000'),
+            ('500', '1/500', '1/500'),
+            ('200', '1/200', '1/200'),
+            ('100', '1/100', '1/100'),
+            ('50', '1/50', '1/50'),
+            ('20', '1/20', '1/20'),
+            ('10', '1/10', '1/10'),
+            ('5', '1/5', '1/5'),
+            ('2', '1/2', '1/2'),
+            ('1', '1/1', '1/1'),
+            ('USER_DEFINED', 'User defined', 'User defined')
+        ),
         default='50',
         update=update
         )
@@ -152,11 +143,12 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         name='Orientation',
         items=(
             ('PORTRAIT', 'Portrait', 'Portrait'),
-            ('PAYSAGE', 'Paysage', 'Paysage')
+            ('LANDSCAPE', 'Landscape', 'Landscape')
         ),
-        default='PAYSAGE',
+        default='LANDSCAPE',
         update=update
         )
+
     resolution = IntProperty(
         name="resolution (dpi)",
         default=90
@@ -181,29 +173,29 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
             update=update
             )
 
+    @property
+    def scale(self):
+        if self.detail_scale == 'USER_DEFINED':
+            s = self.detail_user
+        else:
+            s = float(self.detail_scale)
+        return s
+
     def canvas_size(self, context):
         """
           Canvas size in world coordinates (m)
         """
         w, h = self.paper_size
-        scale_name = self.detail_scale
-        s = model_scale[scale_name]
-        if scale_name == 'USER_DEFINED':
-            s = self.detail_user
         # Unit scale: 1 Blender unit = 1 m * this factor
-        scale = context.scene.unit_settings.scale_length * s
+        scale = context.scene.unit_settings.scale_length * self.scale
         return w / 1000 * scale, h / 1000 * scale
 
     def canvas_scale(self, context):
         """
          * scale factor from world to paper unit (mm)
         """
-        scale_name = self.detail_scale
-        s = model_scale[scale_name]
-        if scale_name == 'USER_DEFINED':
-            s = self.detail_user
         # Unit scale: 1 Blender unit = 1 m * this factor
-        return context.scene.unit_settings.scale_length * s / 1000
+        return context.scene.unit_settings.scale_length * self.scale / 1000
 
     @property
     def pixel_size(self):
@@ -264,7 +256,7 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
         if self.detail_scale == 'USER_DEFINED':
             text.body = "{}: 1/{}".format(self.scale_prefix, self.user_scale)
         else:
-            text.body = "{}: {}".format(self.scale_prefix, self.detail_scale)
+            text.body = "{}: 1/{}".format(self.scale_prefix, self.detail_scale)
 
         text.size = self.text_size
         text.align_x = 'CENTER'

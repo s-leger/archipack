@@ -1477,12 +1477,14 @@ class Io():
         self._add_spline(curve, poly.exterior)
         exterior = bpy.data.objects.new(name, curve)
         exterior.matrix_world = self.coordsys.world
+        
         self.scene.objects.link(exterior)
-
+        
         # create a plane to cut
         location = Vector()
         poly.envelope.centre(location)
         radius = max(poly.envelope.width, poly.envelope.height)
+        
         bpy.ops.mesh.primitive_plane_add(
             radius=radius,
             enter_editmode=True,
@@ -1498,9 +1500,11 @@ class Io():
 
         # cut plane
         bpy.ops.mesh.knife_project()
+        
         exterior.select = False
         self.scene.objects.unlink(exterior)
-
+        bpy.data.curves.remove(curve)
+        
         # remove outside parts
         bpy.ops.mesh.select_all(action='INVERT')
         bpy.ops.mesh.intersect_boolean()

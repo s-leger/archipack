@@ -76,6 +76,7 @@ class CutterSegment(Line):
 class CutterGenerator():
 
     def __init__(self, d):
+        self.d = d
         self.parts = d.parts
         self.operation = d.operation
         self.segs = []
@@ -123,8 +124,8 @@ class CutterGenerator():
         else:
             side = 1
         for i, f in enumerate(self.segs):
-
-            manipulators = self.parts[i].manipulators
+            part = self.parts[i]
+            manipulators = part.manipulators
             p0 = f.p0.to_3d()
             p1 = f.p1.to_3d()
             # angle from last to current segment
@@ -155,7 +156,9 @@ class CutterGenerator():
                 p0 + f.sized_normal(0, max(0.0001, self.parts[i].offset)).v.to_3d(),
                 (0.5, 0, 0)
             ])
-
+            
+            self.d.add_dimension_point(part.uid, p0)
+                               
     def change_coordsys(self, fromTM, toTM):
         """
             move shape fromTM into toTM coordsys
@@ -583,8 +586,7 @@ class ArchipackCutterPart():
     """
     length = FloatProperty(
             name="Length",
-            min=0.01,
-            max=1000.0,
+            min=0.001,
             default=2.0,
             update=update_hole
             )
@@ -602,7 +604,9 @@ class ArchipackCutterPart():
             default=0,
             update=update_hole
             )
-
+    # DimensionProvider        
+    uid = IntProperty(default=0)
+    
     def find_in_selection(self, context):
         raise NotImplementedError
 
@@ -672,6 +676,7 @@ class ArchipackCutter():
             )
     # UI layout related
     parts_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     closed = BoolProperty(
@@ -703,7 +708,11 @@ class ArchipackCutter():
         # add rows
         for i in range(len(self.parts), self.n_parts + 1):
             self.parts.add()
-
+        
+        for p in self.parts:
+            if p.uid == 0:
+                self.create_uid(p)
+                
         self.setup_manipulators()
 
     def update_parent(self, context):
@@ -927,7 +936,9 @@ class ArchipackCutter():
         # update parent on direct edit
         if manipulable_refresh or update_parent:
             self.update_parent(context, o)
-
+        
+        self.update_dimensions(context, o)
+        
         # restore context
         self.restore_context(context)
 

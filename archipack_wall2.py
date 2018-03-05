@@ -50,6 +50,7 @@ from .archipack_2d import Line, Arc
 from .archipack_snap import snap_point
 from .archipack_keymaps import Keymaps
 from .archipack_polylines import Io
+from .archipack_dimension import DimensionProvider
 
 import logging
 logger = logging.getLogger("archipack")
@@ -142,10 +143,11 @@ class CurvedWall(Wall, Arc):
 
 
 class WallGenerator():
-    def __init__(self, parts):
+    def __init__(self, d):
+        self.d = d
+        self.parts = d.parts
         self.last_type = 'NONE'
         self.segs = []
-        self.parts = parts
         self.faces_type = 'NONE'
         self.closed = False
 
@@ -249,7 +251,8 @@ class WallGenerator():
                 w.v = dp
 
     def locate_manipulators(self, side):
-
+                
+        i_max = len(self.segs) - 1
         for i, wall in enumerate(self.segs):
 
             manipulators = self.parts[i].manipulators
@@ -291,7 +294,11 @@ class WallGenerator():
             # dumb, segment index
             z = Vector((0, 0, 0.75 * wall.wall_z))
             manipulators[3].set_pts([p0 + z, p1 + z, (1, 0, 0)])
-
+            part = self.parts[i]
+            
+            # Dimensions points
+            self.d.add_dimension_point(part.uid, p0)
+            
     def make_wall(self, step_angle, flip, closed, z_min, verts, faces):
 
         # swap manipulators so they always face outside
@@ -647,7 +654,7 @@ class archipack_wall2_part(PropertyGroup):
             )
     length = FloatProperty(
             name="Length",
-            min=0.01,
+            min=0.001,
             default=2.0,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -715,6 +722,8 @@ class archipack_wall2_part(PropertyGroup):
             )
     auto_update = BoolProperty(default=True)
     manipulators = CollectionProperty(type=archipack_manipulator)
+    # DimensionProvider related
+    uid = IntProperty(default=0)
     # ui related
     expand = BoolProperty(default=False)
 
@@ -796,7 +805,7 @@ class archipack_wall2_child(PropertyGroup):
         return child, d
 
 
-class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
+class archipack_wall2(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     parts = CollectionProperty(type=archipack_wall2_part)
     n_parts = IntProperty(
             name="Parts",
@@ -883,7 +892,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             default=False,
             name="Dimensions",
             description="Buid static dimensions",
-            update=update
+            update=update_childs
             )
     # dumb manipulators to show sizes between childs
     childs_manipulators = CollectionProperty(type=archipack_manipulator)
@@ -895,7 +904,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
             default="",
             update=update_t_part
             )
-
+    
     def insert_part(self, context, o, where):
         
         # disable manipulate as we are changing structure
@@ -1011,7 +1020,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
 
     def get_generator(self):
         # print("get_generator")
-        g = WallGenerator(self.parts)
+        g = WallGenerator(self)
         for part in self.parts:
             g.add_part(part, self.z, self.flip)
         g.close(self.closed)
@@ -1032,7 +1041,11 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         for i in range(len(self.parts), self.n_parts + 1):
             row_change = True
             self.parts.add()
-
+            
+        for p in self.parts:
+            if p.uid == 0:
+                self.create_uid(p)
+            
         self.setup_manipulators()
 
         g = self.get_generator()
@@ -1288,8 +1301,13 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         self.relocate_childs(context, o, g)
         # store gl points
         self.update_childs(context, o, g)
+        
+        # Add / remove providers to wall dimensions
         self.update_dimension(context, o, g)
-
+        
+        # Update all dimensions
+        self.update_dimensions(context, o)
+        
         # else:
         #   bpy.ops.archipack.wall2_throttle_update(name=o.name)
 
@@ -1414,6 +1432,15 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                             dir_y = crM * Vector((0, -1))
                             # let door orient where user want
                             flip = (dir_y - dir).length > 0.5
+                            if "archipack_door" in cd:
+                                # TODO:
+                                # flip dimension instead
+                                # allow unique dimension on shared object
+                                if cd.archipack_door[0].flip != flip:
+                                    child.select = True
+                                    cd.archipack_door[0].flip = flip
+                                    child.select = False
+                                    
                         # store z in wall space
                         relocate.append((
                             child.name,
@@ -1549,71 +1576,93 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
     def remove_dimension(self, context, o):
         o.select = True
         context.scene.objects.active = o
-        if bpy.ops.archipack.dimension.poll():
-            bpy.ops.archipack.dimension(mode='DELETE')
+        if bpy.ops.archipack.dimension_auto.poll():
+            bpy.ops.archipack.dimension_auto(mode='DELETE')
 
     def update_dimension(self, context, o, g, synch_childs=True):
+        
         # swap manipulators so they always face outside
-        dims = [child
+        # dims = [child
+        #    for child in o.children
+        #    if child.data and "archipack_dimension_auto" in child.data
+        #    ]
+        
+        dims = {child.data.archipack_dimension_auto[0].parent_uid: child 
             for child in o.children
-            if child.data and "archipack_dimension" in child.data
-            ]
-
-        n_dims = len(dims)
-        dim_idx = 0
-
+            if child.data and "archipack_dimension_auto" in child.data
+            }
+        
         if self.dimensions:
-            m_idx = 0
+            
+            force_update = False
             for wall_idx, wall in enumerate(g.segs):
-
-                if wall_idx < self.n_parts or self.closed:
-                    m = self.parts[wall_idx].manipulators[1]
-                    if m.type_key == 'SIZE':
-                        if dim_idx < n_dims:
-                            dim = dims[dim_idx]
-                            dim_idx += 1
-                        else:
-                            dim = None
-                        m.as_dimension(context, o, dim)
-
-                wall_has_childs = False
+                
+                parent_uid = self.parts[wall_idx].uid
+                
+                if parent_uid in dims:
+                    dim = dims[parent_uid]
+                    # remove last part dim when not closed
+                    if self.closed or wall_idx < self.n_parts:
+                        del dims[parent_uid]
+                    dim.select = True
+                    context.scene.objects.active = dim
+                else:
+                    # dont create missing dim for last segment 
+                    # when not closed
+                    if not self.closed and wall_idx >= self.n_parts:
+                        continue
+                        
+                    bpy.ops.archipack.dimension_auto(
+                        distance=1,
+                        auto_parent=False, 
+                        flip_side=True, 
+                        auto_manipulate=False)
+                        
+                    dim = context.active_object
+                    dim.parent = o
+                    dim.matrix_world = o.matrix_world.copy()
+                    
+                dim.location = wall.p0.to_3d()
+                dim.rotation_euler.z = wall.angle
+                # force dim matrix_world update 
+                if parent_uid not in dims:
+                    force_update = True
+                    
+                dim_d = dim.data.archipack_dimension_auto[0]
+                dim_d.parent_uid = parent_uid
+                
+                dim_d.add_source(o, parent_uid, 'WALL2')
+                # TODO: 
+                # when open last is wall_idx + 1
+                # when closed last is parts[0]
+                if self.closed and wall_idx >= self.n_parts:
+                    dim_d.add_source(o, self.parts[0].uid, 'WALL2')
+                elif wall_idx < self.n_parts:
+                    dim_d.add_source(o, self.parts[wall_idx + 1].uid, 'WALL2')
+                else:
+                    dim_d.add_source(o, self.parts[wall_idx].uid, 'WALL2')
+                    
                 for child in self.childs:
                     if child.wall_idx == wall_idx:
                         c, d = child.get_child(context)
                         if d is not None:
                             # child is either a window or a door
-                            wall_has_childs = True
-                            # dumb size between childs
-                            if dim_idx < n_dims:
-                                dim = dims[dim_idx]
-                                dim_idx += 1
+                            if "archipack_window" in c.data:
+                                provider_type = 'WINDOW'
                             else:
-                                dim = None
-                            self.childs_manipulators[m_idx].as_dimension(context, o, dim)
-                            m_idx += 1
-
-                if wall_has_childs:
-                    # dub size after all childs
-                    if dim_idx < n_dims:
-                        dim = dims[dim_idx]
-                        dim_idx += 1
-                    else:
-                        dim = None
-                    self.childs_manipulators[m_idx].as_dimension(context, o, dim)
-                    m_idx += 1
-
-        for i in range(dim_idx, n_dims):
-            dim = dims[i]
-            self.remove_dimension(context, dim)
-
-        if synch_childs:
-            for child in self.childs:
-                c, d = child.get_child(context)
-                if d is not None and d.dimensions != self.dimensions:
-                    c.select = True
-                    context.scene.objects.active = c
-                    d.dimensions = self.dimensions
-                    c.select = False
+                                provider_type = 'DOOR'
+                            dim_d.add_source(c, 0, provider_type)
+                            dim_d.add_source(c, 1, provider_type)
+                            
+                # dim_d.update(context)
+                dim.select = False
+            
+            if force_update:
+                context.scene.update()
+                
+        for parent_uid in dims:
+            dim = dims[parent_uid]
+            self.delete_object(context, dim)
 
         o.select = True
         context.scene.objects.active = o
@@ -1625,7 +1674,7 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
         if self.dimensions:
             g = self.update_parts(o, update_childs=False)
             # self.setup_childs(o, g, maxiter=0)
-            self.update_childs(context, o, g)
+            # self.update_childs(context, o, g)
             # prevent cyclic call
             self.update_dimension(context, o, g, synch_childs=False)
 
@@ -1682,7 +1731,8 @@ class archipack_wall2(ArchipackObject, Manipulable, PropertyGroup):
                     child.pos = (t * wall.length, d, child.pos.z)
             # update childs manipulators
             self.update_childs(context, o, g)
-            self.update_dimension(context, o, g, synch_childs=False)
+            # self.update_dimension(context, o, g, synch_childs=False)
+            self.update_dimensions(context, o)
 
     def manipulable_move_t_part(self, context, o=None, manipulator=None):
         """

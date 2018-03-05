@@ -41,6 +41,7 @@ from .archipack_2d import Line, Arc
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_object import ArchipackCreateTool, ArchipackObject
 from .archipack_polylines import Io
+from .archipack_dimension import DimensionProvider
 
 
 class Stair():
@@ -478,7 +479,13 @@ class StraightStair(Stair, Line):
         else:
             part = self.r_line
         return t, part, self.height, 'LINE'
-
+    
+    def measure_point(self, d, uid):
+        p0 = self.l_line.p0.to_3d()
+        p1 = self.r_line.p0.to_3d()
+        d.add_dimension_point(uid, p0)
+        d.add_dimension_point(uid + 1, p1)
+        
 
 class CurvedStair(Stair, Arc):
     def __init__(self, c, radius, a0, da, left_offset, right_offset, steps_type, nose_type,
@@ -715,7 +722,22 @@ class CurvedStair(Stair, Arc):
         # print("respect_edges:%s t_step:%s n_step:%s" % (respect_edges, 1.0 / steps, int(steps)))
         return 1.0 / steps, int(steps)
 
-
+    def measure_point(self, d, uid):
+        p0 = self.l_t0.p0.to_3d()
+        p1 = self.r_t0.p0.to_3d()
+        if self.edges_multiples:
+            p2 = self.l_tc.p0.to_3d()
+            p3 = self.r_tc.p0.to_3d()
+            d.add_dimension_point(uid + 2, p2)
+            d.add_dimension_point(uid + 3, p3)
+        p4 = self.l_t1.p0.to_3d()
+        p5 = self.r_t1.p0.to_3d()
+        d.add_dimension_point(uid, p0)
+        d.add_dimension_point(uid + 1, p1)
+        d.add_dimension_point(uid + 4, p4)
+        d.add_dimension_point(uid + 5, p5)
+         
+        
 class StraightLanding(StraightStair):
     def __init__(self, p, v, left_offset, right_offset, steps_type,
             nose_type, z_mode, nose_z, bottom_z, last_type='STAIR'):
@@ -885,8 +907,9 @@ class CurvedLanding(CurvedStair):
 
 
 class StairGenerator():
-    def __init__(self, parts):
-        self.parts = parts
+    def __init__(self, d):
+        self.d = d
+        self.parts = d.parts
         self.last_type = 'NONE'
         self.stairs = []
         self.steps_type = 'NONE'
@@ -979,7 +1002,8 @@ class StairGenerator():
 
         for s, stair in enumerate(self.stairs):
             if s < len(self.parts):
-                manipulator = self.parts[s].manipulators[0]
+                part = self.parts[s]
+                manipulator = part.manipulators[0]
                 # Store Gl Points for manipulators
                 if 'Curved' in type(stair).__name__:
                     c = stair.c
@@ -999,7 +1023,9 @@ class StairGenerator():
                     manipulator.set_pts([(v0.x, v0.y, stair.top), (v1.x, v1.y, stair.top), (side, 0, 0)])
                     manipulator.type_key = 'SIZE'
                     manipulator.prop1_name = 'length'
-
+                
+            stair.measure_point(self.d, part.uid)
+                
             for i in range(stair.n_step):
                 stair.make_step(i, verts, faces, matids, uvs, nose_y=nose_y)
                 if s < len(self.stairs) - 1 and self.steps_type != 'OPEN' and \
@@ -1661,7 +1687,9 @@ class archipack_stair_part(PropertyGroup):
             update=update
             )
     manipulators = CollectionProperty(type=archipack_manipulator)
-
+    # DimensionProvider
+    uid = IntProperty(default=0)
+    
     def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -1705,7 +1733,7 @@ class archipack_stair_part(PropertyGroup):
                 row.prop(self, "length")
 
 
-class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
+class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
 
     parts = CollectionProperty(type=archipack_stair_part)
     n_parts = IntProperty(
@@ -2268,30 +2296,39 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
 
     # UI layout related
     parts_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     steps_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     rail_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     idmats_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     handrail_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     string_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     post_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     panel_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     subs_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
 
@@ -2335,7 +2372,12 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         # add parts
         for i in range(len(self.parts), self.n_parts):
             self.parts.add()
-
+        
+        # rebuild measure points
+        self.dimension_points.clear()
+        for i, p in enumerate(self.parts):
+            p.uid = 6 * i
+        
         self.setup_manipulators()
 
     def update(self, context, manipulable_refresh=False):
@@ -2348,13 +2390,6 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         # clean up manipulators before any data model change
         if manipulable_refresh:
             self.manipulable_disable(context)
-
-        if self.z_mode == '2D':
-            self.as_2d(context, o)
-            if manipulable_refresh:
-                self.manipulable_refresh = True
-            self.restore_context(context)
-            return
 
         self.update_parts()
 
@@ -2378,7 +2413,7 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulators[0].set_pts([(-width_left, 0, 0), (width_right, 0, 0), (1, 0, 0)])
         self.manipulators[1].set_pts([(0, 0, 0), (0, 0, self.height), (1, 0, 0)])
 
-        g = StairGenerator(self.parts)
+        g = StairGenerator(self)
         if self.presets == 'STAIR_USER':
             for part in self.parts:
                 g.add_part(part.type, self.steps_type, self.nose_type, self.z_mode, self.nose_z,
@@ -2541,7 +2576,10 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
                 self.string_alt, 0, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
-
+        
+        if o.parent:
+            self.update_dimensions(context, o)
+        
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
@@ -2564,7 +2602,7 @@ class archipack_stair(ArchipackObject, Manipulable, PropertyGroup):
         width_left = 0.5 * self.width - self.x_offset
         width_right = 0.5 * self.width + self.x_offset
         steps_type = 'OPEN'
-        g = StairGenerator(self.parts)
+        g = StairGenerator(self)
         if self.presets == 'STAIR_USER':
             for part in self.parts:
                 g.add_part(part.type, steps_type, self.nose_type, '2D', self.nose_z,

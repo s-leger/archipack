@@ -45,6 +45,7 @@ from .archipack_cutter import (
     ArchipackCutter,
     ArchipackCutterPart
     )
+from .archipack_dimension import DimensionProvider
 
 
 class Slab():
@@ -89,8 +90,9 @@ class CurvedSlab(Slab, Arc):
 
 class SlabGenerator(CutAblePolygon, CutAbleGenerator):
 
-    def __init__(self, parts):
-        self.parts = parts
+    def __init__(self, d):
+        self.d = d
+        self.parts = d.parts
         self.segs = []
         self.holes = []
         self.convex = True
@@ -157,8 +159,8 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
             setup manipulators
         """
         for i, f in enumerate(self.segs):
-
-            manipulators = self.parts[i].manipulators
+            part = self.parts[i]
+            manipulators = part.manipulators
             p0 = f.p0.to_3d()
             p1 = f.p1.to_3d()
             # angle from last to current segment
@@ -185,7 +187,10 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
             # dumb segment id
             manipulators[3].set_pts([p0, p1, (1, 0, 0)])
-
+            
+            # Dimensions points
+            self.d.add_dimension_point(part.uid, p0)
+            
     def get_verts(self, verts):
         verts.extend([s.p0.to_3d() for s in self.segs])
 
@@ -439,7 +444,7 @@ class ArchipackSegment():
             )
     length = FloatProperty(
             name="Length",
-            min=0.01,
+            min=0.001,
             default=2.0,
             update=update
             )
@@ -509,7 +514,9 @@ class ArchipackSegment():
 
 
 class archipack_slab_part(ArchipackSegment, PropertyGroup):
-
+    # DimensionProvider related
+    uid = IntProperty(default=0)
+    
     def draw_insert(self, context, layout, index):
         row = layout.row(align=True)
         row.operator("archipack.slab_insert", text="Split").index = index
@@ -532,7 +539,7 @@ class archipack_slab_part(ArchipackSegment, PropertyGroup):
         return None
 
 
-class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
+class archipack_slab(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     # boundary
     n_parts = IntProperty(
             name="Parts",
@@ -580,7 +587,7 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             )
 
     def get_generator(self):
-        g = SlabGenerator(self.parts)
+        g = SlabGenerator(self)
         for part in self.parts:
             # type, radius, da, length
             g.add_part(part)
@@ -950,7 +957,11 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
         for i in range(len(self.parts), self.n_parts):
             row_change = True
             self.parts.add()
-
+        
+        for p in self.parts:
+            if p.uid == 0:
+                self.create_uid(p)
+                
         self.setup_manipulators()
 
         g = self.get_generator()
@@ -1147,7 +1158,9 @@ class archipack_slab(ArchipackObject, Manipulable, PropertyGroup):
             (0, 0, -self.z),
             (-1, 0, 0)
             ], normal=g.segs[0].straight(-1, 0).v.to_3d())
-
+        
+        self.update_dimensions(context, o)
+        
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
@@ -1251,7 +1264,7 @@ class archipack_slab_cutter_segment(ArchipackCutterPart, PropertyGroup):
         box.prop(self, "a0")
 
 
-class archipack_slab_cutter(ArchipackCutter, ArchipackObject, Manipulable, PropertyGroup):
+class archipack_slab_cutter(ArchipackCutter, ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     parts = CollectionProperty(type=archipack_slab_cutter_segment)
 
     def update_points(self, context, o, pts, update_parent=False):

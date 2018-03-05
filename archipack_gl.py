@@ -771,7 +771,94 @@ class TriHandle(GlHandle):
         y = c * self.size * scale
         return [self.pos_3d - x + y, self.pos_3d - x - y, self.pos_3d]
 
+        
+class CruxHandle(GlHandle):
 
+    def __init__(self, sensor_size, size, draggable=True, selectable=False):
+        GlHandle.__init__(self, sensor_size, size, draggable, selectable)
+        self.branch_0 = GlPolygon((1, 1, 1, 1), d=3)
+        self.branch_1 = GlPolygon((1, 1, 1, 1), d=3)
+        
+    def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
+        self.pos_3d = pos_3d
+        self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
+        o = self.pos_3d
+        w = self.size
+        d = 0.5 * self.size
+        c = d / 1.4242
+        s = w - c
+        x = direction.normalized()
+        y = x.cross(normal)
+        xs = x * s
+        xw = x * w
+        ys = y * s
+        yw = y * w
+        p0 = o + xs + yw
+        p1 = o + xw + ys
+        p2 = o - xs - yw
+        p3 = o - xw - ys
+        p4 = o - xs + yw
+        p5 = o + xw - ys
+        p6 = o + xs - yw
+        p7 = o - xw + ys
+        
+        self.branch_0.set_pos([p0, p1, p2, p3])
+        self.branch_1.set_pos([p4, p5, p6, p7])
+
+    @property
+    def pts(self):
+        return [self.pos_3d]
+
+    def draw(self, context, render=False):
+        self.render = render
+        self.branch_0.colour_inactive = self.colour
+        self.branch_1.colour_inactive = self.colour
+        self.branch_0.draw(context)
+        self.branch_1.draw(context)
+        
+
+class PlusHandle(GlHandle):
+
+    def __init__(self, sensor_size, size, draggable=True, selectable=False):
+        GlHandle.__init__(self, sensor_size, size, draggable, selectable)
+        self.branch_0 = GlPolygon((1, 1, 1, 1), d=3)
+        self.branch_1 = GlPolygon((1, 1, 1, 1), d=3)
+        
+    def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
+        self.pos_3d = pos_3d
+        self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
+        o = self.pos_3d
+        w = self.size
+        s = 0.25 * w
+        x = direction.normalized()
+        y = x.cross(normal)
+        xs = x * s
+        xw = x * w
+        ys = y * s
+        yw = y * w
+        p0 = o - xw + ys
+        p1 = o + xw + ys
+        p2 = o + xw - ys
+        p3 = o - xw - ys
+        p4 = o - xs + yw
+        p5 = o + xs + yw
+        p6 = o + xs - yw
+        p7 = o - xs - yw
+        self.branch_0.set_pos([p0, p1, p2, p3])
+        self.branch_1.set_pos([p4, p5, p6, p7])
+        
+    @property
+    def pts(self):
+        return [self.pos_3d]
+
+    def draw(self, context, render=False):
+        self.render = render
+        self.branch_0.colour_inactive = self.colour
+        self.branch_1.colour_inactive = self.colour
+        self.branch_0.draw(context)
+        self.branch_1.draw(context)
+        
+        
 class EditableText(GlText, GlHandle):
     def __init__(self, sensor_size, size, draggable=False, selectable=False):
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
@@ -1061,7 +1148,8 @@ class GlCursorFence():
     def set_location(self, context, location):
         w = context.region.width
         h = context.region.height
-        x, y = location.x, location.y
+        p = Vector(location)
+        x, y = p.x, p.y
         self.line_x.p = Vector((0, y))
         self.line_x.v = Vector((w, 0))
         self.line_y.p = Vector((x, 0))
@@ -1100,8 +1188,10 @@ class GlCursorArea():
             self.min.y <= pt.y and self.max.y >= pt.y)
 
     def set_location(self, context, p0, p1):
-        x0, y0 = p0.x, p0.y
-        x1, y1 = p1.x, p1.y
+        p = Vector(p0)
+        x0, y0 = p.x, p.y
+        p = Vector(p1)
+        x1, y1 = p.x, p.y
         if x0 > x1:
             x1, x0 = x0, x1
         if y0 > y1:

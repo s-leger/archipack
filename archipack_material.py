@@ -344,7 +344,6 @@ class MaterialSetManager():
         else:
             self.enums[object_type] = [(s.upper(), s.capitalize(), '', i) for i, s in enumerate(s_keys)]
 
-
     def get_enum(self, object_type):
 
         if object_type not in self.objects.keys():
