@@ -61,11 +61,17 @@ class ArchipackObject():
             class_name.filter(object) from outside world
             self.__class__.filter(object) from instance
         """
+        res = False
         try:
-            return cls.__name__ in o.data
+            res = cls.__name__ in o.data
         except:
             pass
-        return False
+        if not res:
+            try:
+                res = cls.__name__ in o
+            except:
+                pass
+        return res
 
     @classmethod
     def datablock(cls, o):
@@ -78,11 +84,18 @@ class ArchipackObject():
                 class_name.datablock(object) from outside world
                 self.__class__.datablock(object) from instance
         """
+        d = None
         try:
-            return getattr(o.data, cls.__name__)[0]
+            d = getattr(o.data, cls.__name__)[0]
         except:
             pass
-        return None
+            
+        if d is None:    
+            try:
+                d = getattr(o, cls.__name__)[0]
+            except:
+                pass
+        return d
 
     def find_in_selection(self, context, auto_update=True):
         """
@@ -132,7 +145,9 @@ class ArchipackObject():
             self._delete_childs(context, o)
     
     def restore_context(self, context):
-        # restore context
+        """
+         restore context
+        """ 
         bpy.ops.object.select_all(action="DESELECT")
 
         try:

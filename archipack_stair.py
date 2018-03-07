@@ -2577,8 +2577,7 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
         
-        if o.parent:
-            self.update_dimensions(context, o)
+        self.update_dimensions(context, o)
         
         # enable manipulators rebuild
         if manipulable_refresh:

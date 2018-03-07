@@ -110,7 +110,7 @@ class SvgPath:
             first_curve_point = None
             previous = None
             for n, point in enumerate(spline.bezier_points):
-                co = tM * point.co
+                co = tM * point.co.to_3d()
                 if n == 0:
                     first_curve_point = point
                     self.path.append(MOVE_COMMAND.format(co.x, co.y))
@@ -123,7 +123,7 @@ class SvgPath:
 
         elif spline.type == 'POLY':
             for n, point in enumerate(spline.points):
-                co = tM * point.co
+                co = tM * point.co.to_3d()
                 if n == 0:
                     self.path.append(MOVE_COMMAND.format(co.x, co.y))
                 else:
@@ -134,9 +134,9 @@ class SvgPath:
             self.fill = fill_color
 
     def make_curve_command(self, previous, tM, point):
-        co = tM * point.co
-        left = tM * point.handle_left
-        right = tM * previous.handle_right
+        co = tM * point.co.to_3d()
+        left = tM * point.handle_left.to_3d()
+        right = tM * previous.handle_right.to_3d()
         return CURVE_COMMAND.format(right.x, right.y, left.x, left.y, co.x, co.y)
 
     def output(self, f):
@@ -309,7 +309,7 @@ class ARCHIPACK_OP_ExportSvg(Operator, ExportHelper):
         if o.data and "archipack_dimension_auto" in o.data:
             dims.append(o)
         for c in o.children:
-            self.get_dimensions(o, dims)
+            self.get_dimensions(c, dims)
     
     def execute(self, context):
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -382,9 +382,10 @@ class ARCHIPACK_OP_ExportSvg(Operator, ExportHelper):
         
         for dim in dims:
             if dim.name in curves:
-                del curves[c.name]
+                del curves[dim.name]
                 for child in dim.children:
-                    del curves[child.name]
+                    if child.name in curves:
+                        del curves[child.name]
                     
         # line width in mm
         line_width = 0.2 * pixel_size
@@ -460,10 +461,10 @@ def menu_func_export(self, context):
 
 def register():
     bpy.utils.register_class(ARCHIPACK_OP_ExportSvg)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    # bpy.types.INFO_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     import bpy
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    # bpy.types.INFO_MT_file_export.remove(menu_func_export)
     bpy.utils.unregister_class(ARCHIPACK_OP_ExportSvg)

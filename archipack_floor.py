@@ -1518,8 +1518,7 @@ class archipack_floor(ArchipackObject, Manipulable, DimensionProvider, PropertyG
         g.cut(context, o, self)
         g.floor(context, o, self)
         
-        if o.parent:
-            self.update_dimensions(context, o)
+        self.update_dimensions(context, o)
         
         # enable manipulators rebuild
         if manipulable_refresh:

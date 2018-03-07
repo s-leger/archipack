@@ -34,6 +34,7 @@ from bpy.props import (
     EnumProperty
     )
 from math import sin, cos, tan, ceil, floor, pi, asin, acos, radians, atan2
+from random import uniform
 from mathutils import Vector, Matrix
 from .bmesh_utils import BmeshEdit as bmed
 from .archipack_manipulator import Manipulable
@@ -906,7 +907,11 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
             min=0.02, default=0.04, precision=3,
             description='Frame depth'
             )
-
+    randomize = BoolProperty(
+            name='Randomize',
+            description='Randomize slats opening',
+            default=False
+            )
     style = EnumProperty(
         items=(
             ('VENITIAN', 'Venitian', 'Venitian', 0),
@@ -940,6 +945,9 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
         d.frame_height = self.frame_height
         d.frame_depth = self.frame_depth
         d.style = self.style
+        if self.randomize:
+            d.ratio = uniform(0, 100)
+            d.angle = -pi / 200 * uniform(0, 100)
 
         # Link object into scene
         context.scene.objects.link(o)

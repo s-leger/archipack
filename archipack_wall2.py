@@ -1661,8 +1661,9 @@ class archipack_wall2(ArchipackObject, Manipulable, DimensionProvider, PropertyG
                 context.scene.update()
                 
         for parent_uid in dims:
-            dim = dims[parent_uid]
-            self.delete_object(context, dim)
+            if parent_uid != 0:
+                dim = dims[parent_uid]
+                self.delete_object(context, dim)
 
         o.select = True
         context.scene.objects.active = o

@@ -48,6 +48,7 @@ from .archipack_cutter import (
     ArchipackCutter,
     ArchipackCutterPart
     )
+from archipack.archipack_polylines import Io, ShapelyOps
 from .archipack_dimension import DimensionProvider
 
 
@@ -5245,6 +5246,125 @@ class ARCHIPACK_OT_roof_from_curve(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+            
+class ARCHIPACK_OT_roof_from_wall(Operator):
+    bl_idname = "archipack.roof_from_wall"
+    bl_label = "Roof"
+    bl_description = "Create a roof from a wall"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    auto_manipulate = BoolProperty(default=True)
+    roof_overflow = FloatProperty(
+        name="Overflow",
+        default=1.0, 
+        min=0
+        )
+    use_small_as_axis = BoolProperty(
+        name="Use small side as axis",
+        default=False
+        )
+    cut_borders = BoolProperty(
+        name="Cut borders",
+        default=False
+        )
+    
+    @classmethod
+    def poll(self, context):
+        o = context.active_object
+        return o and o.data is not None and "archipack_wall2" in o.data
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, 'roof_overflow')
+        layout.prop(self, 'use_small_as_axis')
+        layout.prop(self, 'cut_borders')
+        
+    def create(self, context, wall):
+        
+        wd = wall.data.archipack_wall2[0]
+        io, exterior = wd.as_geom(context, wall, 'OUTSIDE', [], [], [])
+        if self.cut_borders:
+            buffer = exterior.buffer(self.roof_overflow,
+                                    resolution=12,
+                                    join_style=2,
+                                    cap_style=3,
+                                    mitre_limit=10 * self.roof_overflow,
+                                    single_sided=False
+                                    )
+            tM, w, h, poly, w_pts = ShapelyOps.min_bounding_rect(buffer)
+        else:
+            tM, w, h, poly, w_pts = ShapelyOps.min_bounding_rect(exterior)
+            
+        # compute height from w / h
+        if self.use_small_as_axis:
+            height = wd.z + 0.25 * max(w, h)
+            h, w = w, h
+            rM = Matrix([
+                [0, -1, 0, 0],
+                [1, 0, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                ])
+        else:
+            height = wd.z + 0.25 * min(w, h)
+            rM = Matrix()
+            
+        bpy.ops.archipack.roof(auto_manipulate=False)
+        o = context.active_object
+        if wall.parent:
+            o.parent = wall.parent
+        else:
+            o.parent = wall
+        o.matrix_world = io.coordsys.world * tM * rM * Matrix.Translation(
+            Vector((-(self.roof_overflow + 0.5 * w), 0, 0)))
+        
+        d = o.data.archipack_roof[0]
+        d.auto_update = False
+        d.z = height
+        d.width_left = self.roof_overflow + (h / 2)
+        d.width_right = self.roof_overflow + (h / 2)
+        d.parts[0].length = w + 2 * self.roof_overflow
+        
+        if self.cut_borders:
+            # output geom as curve
+            result = Io.to_curve(context.scene, io.coordsys, buffer, 'buffer')
+            bpy.ops.archipack.roof_cutter(parent=o.name, auto_manipulate=False)
+            cutter = context.active_object
+            cutter.data.archipack_roof_cutter[0].operation = 'INTERSECTION'
+            cutter.data.archipack_roof_cutter[0].user_defined_path = result.name
+            rd = result.data
+            context.scene.objects.unlink(result)
+            bpy.data.curves.remove(rd)
+            
+        o.select = True
+        context.scene.objects.active = o
+        d.auto_update = True
+        wall.select = True
+        context.scene.objects.active = wall
+        bpy.ops.archipack.wall2_fit_roof()
+        wall.select = False
+        return o
+    
+    def invoke(self, context, event):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+        
+    # -----------------------------------------------------
+    # Execute
+    # -----------------------------------------------------
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            wall = context.active_object
+            bpy.ops.object.select_all(action="DESELECT")
+            o = self.create(context, wall)
+            o.select = True
+            context.scene.objects.active = o
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
 
 # Update throttle
 class ArchipackThrottleHandler():
@@ -5397,6 +5517,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_roof)
     bpy.utils.register_class(ARCHIPACK_OT_roof_preset)
     bpy.utils.register_class(ARCHIPACK_OT_roof_from_curve)
+    bpy.utils.register_class(ARCHIPACK_OT_roof_from_wall)
     bpy.utils.register_class(ARCHIPACK_OT_roof_throttle_update)
 
 
@@ -5415,4 +5536,5 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_roof)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_from_curve)
+    bpy.utils.unregister_class(ARCHIPACK_OT_roof_from_wall)
     bpy.utils.unregister_class(ARCHIPACK_OT_roof_throttle_update)

@@ -2313,40 +2313,43 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
 
         # panels
         childs = self.get_childs_panels(context, o)
-        child_n = 0
+        
         row_n = 0
         location_y = 0.5 * self.y - self.offset + 0.5 * self.frame_y
 
         row = self.rows[0]
         row_n += 1
 
-        size, origin, pivot = row.get_row(self._x, 0)
         materials = [0 for i in range(row.cols)]
-
-        if self.window_type == 'RAIL':
-            self.adjust_size_and_origin(size, origin, pivot, materials)
-
+        
+        n_childs = len(childs)
+        
         for panel in range(row.cols):
-
-            child = childs[child_n]
-            child_n += 1
+            if panel >= n_childs:
+                break
+            child = childs[panel]
+            
             # location y + frame width. frame depends on choosen profile (fixed or not)
             # update linked childs location too
-            d = archipack_window_panel.datablock(child)
+            d = archipack_window_panel.datablock(child) 
+            if d.shape == 'CIRCLE':
+                s = 2
+            else: 
+                s = 1
             location = Vector((
-                origin[panel].x,
-                origin[panel].y + location_y + self.panel_y,
+                d.origin.x,
+                d.origin.y + location_y + self.panel_y,
                 0))
 
             coords.extend(
-                child.data.archipack_window_panel[0].window.as_2d(
+                d.window.as_2d(
                     self.curve_steps, location, d.center, d.origin,
-                    d.size, d.radius, 0, d.pivot)
+                    s * d.size, d.radius, 0, d.pivot, path_type=d.shape)
                 )
             # arc
             if self.window_type == 'FLAT' and not d.fixed:
                 x, y = location.x, location.y
-                r = d.size.x
+                r = s * d.size.x
                 steps = 8
                 # 30 deg
                 da = pi / (6 * steps)

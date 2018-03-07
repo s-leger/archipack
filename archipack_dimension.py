@@ -76,7 +76,7 @@ class DimensionProvider():
     def create_uid(self, part, increment=1):
         """
          Generate an unique index number
-         increment > 1 allow to create stable 
+         increment > 1 allow to create stable
          uid to store more than one measurable
          for each object parts
         """
@@ -129,7 +129,7 @@ class DimensionProvider():
             if p.index == uid:
                 return o.matrix_world * p.location
         return None
-    
+
     def _update_dimensions(self, context, o):
         d = archipack_dimension_auto.datablock(o)
         if d:
@@ -137,25 +137,25 @@ class DimensionProvider():
             context.scene.objects.active = o
             d.update(context)
             o.select = False
-                     
+
     def _get_topmost_parent(self, o):
         if o.parent:
             return self._get_topmost_parent(o.parent)
         else:
             return o
-            
+
     def _update_child_dimensions(self, context, o):
         self._update_dimensions(context, o)
         for c in o.children:
             self._update_child_dimensions(context, c)
-            
+
     def update_dimensions(self, context, o):
         p = self._get_topmost_parent(o)
         self._update_child_dimensions(context, p)
         o.select = True
         context.scene.objects.active = o
-        
-        
+
+
 class archipack_dimension(ArchipackObject, Manipulable, PropertyGroup):
     """ Archipack Dimension curve"""
     distance = FloatProperty(
@@ -693,10 +693,21 @@ class archipack_dimension_source(PropertyGroup):
                 if self.index < len(pts):
                     pos = itM * o.matrix_world * pts[self.index].co
             else:
-                d = getattr(o.data, "archipack_{}".format(self.provider_type.lower()))[0]
-                pt = d.dimension_point(o, self.index)
+                d = None
+                try:
+                    d = getattr(o.data, "archipack_{}".format(self.provider_type.lower()))[0]
+                except:
+                    pass
+                if d is None:
+                    try:
+                        d = getattr(o, "archipack_{}".format(self.provider_type.lower()))[0]
+                    except:
+                        pass
+                if d:
+                    pt = d.dimension_point(o, self.index)
                 if pt is not None:
                     pos = itM * pt
+
         elif self.provider_type == 'USER':
             pos = Vector((self.loc.x, self.loc.y, 0))
 
@@ -789,6 +800,12 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             subtype='ANGLE', unit='ROTATION',
             update=update
             )
+    text_offset = FloatProperty(
+            name="Text Offset",
+            default=0.0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
     text_location = EnumProperty(
             items=(
                 ("TOP_CENTER", "Top center", "Top center"),
@@ -812,10 +829,10 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
         description="Unique index of part in parent",
         default=0
         )
-    
+
     # source selection manipulators
     source_selector = CollectionProperty(type=archipack_manipulator)
-    
+
     def add_source(self, obj, index, provider_type):
         if provider_type == 'USER':
             s = self.sources.add()
@@ -866,11 +883,11 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             s = self.manipulators.add()
             s.prop1_name = "distance"
             s.type_key = 'SIZE'
-            
+
             s = self.manipulators.add()
             s.prop1_name = "offset"
             s.type_key = 'SIZE'
-            
+
             s = self.manipulators.add()
             s.type_key = "OP_ADD"
             s.prop1_name = "archipack.dimension_auto_add"
@@ -886,7 +903,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                     s.type_key = "SNAP_VEC"
                     s.prop1_name = "loc"
             source.manipulators[0].prop2_name = "index={}".format(i)
-            
+
     def _add_selector(self, o, itM):
         if o.data:
             for key in o.data.keys():
@@ -894,13 +911,25 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                     d = getattr(o.data, key)[0]
                     if hasattr(d, 'dimension_points'):
                         for p in d.dimension_points:
-                            pos =  itM * o.matrix_world * p.location
+                            pos = itM * o.matrix_world * p.location
                             m = self.source_selector.add()
                             m.type_key = "OP_ADD"
                             m.prop1_name = "archipack.dimension_auto_add"
                             m.prop2_name = "obj={},index={},provider_type={}".format(o.name, p.index, key[10::].upper())
                             m.set_pts([pos, pos + Vector((1, 0, 0)), Vector((1, 0, 0))])
-              
+        # support for objects like section target storing params in Object instead of data
+        for key in o.keys():
+            if "archipack_" in key:
+                d = getattr(o, key)[0]
+                if hasattr(d, 'dimension_points'):
+                    for p in d.dimension_points:
+                        pos = itM * o.matrix_world * p.location
+                        m = self.source_selector.add()
+                        m.type_key = "OP_ADD"
+                        m.prop1_name = "archipack.dimension_auto_add"
+                        m.prop2_name = "obj={},index={},provider_type={}".format(o.name, p.index, key[10::].upper())
+                        m.set_pts([pos, pos + Vector((1, 0, 0)), Vector((1, 0, 0))])
+
     def _add_child_selector(self, o, itM):
         self._add_selector(o, itM)
         for c in o.children:
@@ -911,13 +940,13 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             return self._get_topmost_parent(o.parent)
         else:
             return o
-            
+
     def update_source_selector(self, o):
         itM = o.matrix_world.inverted()
         p = self._get_topmost_parent(o)
         self.source_selector.clear()
         self._add_child_selector(p, itM)
-                
+
     def manipulable_setup(self, context):
         # print("manipulable_setup")
         self.manipulable_disable(context)
@@ -925,9 +954,9 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
 
         # update manipulators on version change
         self.setup_manipulators()
-        
+
         self.update_source_selector(o)
-        
+
         for i, source in enumerate(self.sources):
             # call to remove operator
             self.manip_stack.append(source.manipulators[0].setup(context, o, source))
@@ -936,10 +965,10 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
-        
+
         for m in self.source_selector:
             self.manip_stack.append(m.setup(context, o, self))
-        
+
     def manipulable_exit(self, context):
         """
             Override with action to do when modal exit
@@ -1008,6 +1037,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
 
         text.body = self.text(context, value)
         text.size = self.text_size
+        text.align_y = 'BOTTOM'
         text.align_x = 'CENTER'
         return t_o
 
@@ -1072,6 +1102,12 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             side = -1
         else:
             side = 1
+
+        if self.text_location == 'TOP_CENTER':
+            text_location = 0.5 * self.text_size + self.text_offset
+        else:
+            text_location = -1.2 * self.text_size - self.text_offset
+
         p0 = Vector((0, 0, 0))
 
         if self.type == 'SIZE':
@@ -1108,24 +1144,24 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                 n_text = n_pts
             else:
                 n_text = n_pts - 1
-                
-            if n_childs > 0:  
+
+            if n_childs > 0:
                 for i in range(n_childs, n_text, -1):
                     c = childs.pop()
                     self.delete_object(context, c)
 
-            # size        
+            # size
             self.manipulators[0].set_pts([
                 Vector((0, side * self.offset, 0)),
                 Vector((0, side * (self.offset + self.distance), 0)),
                 (-1, 0, 0)])
-            
+
             # offset
             self.manipulators[1].set_pts([
                 Vector((0, 0, 0)),
                 Vector((0, side * self.offset, 0)),
                 (-1, 0, 0)])
-                
+
             # add user source
             self.manipulators[2].set_pts([
                 Vector((0, side * (self.offset + 0.5 * self.distance), 0)),
@@ -1146,14 +1182,14 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                         p0 = Vector((pts[0].x - s, dy, 0))
                         p1 = Vector((pts[-1].x + s, dy, 0))
                     self._add_spline(curve, False, [p0, p1])
-                    
+
                     p0 = Vector((pts[0].x, dy, 0))
                     p1 = Vector((pts[-1].x, dy, 0))
                     self.symbol(curve, p0, -1)
                     self.symbol(curve, p1, 1)
-                    center = 0.5 * (p0 + p1) + Vector((0, self.text_size, 0))
+                    center = 0.5 * (p0 + p1) + Vector((0, text_location, 0))
                     t_o = self.update_child(context, o, childs, n_text - 1, center, pts[-1].x - pts[0].x)
-                
+
                 # regular bar
                 if self.symbol_type != 'ARROW':
                     p0 = Vector((pts[0].x - s, side * (self.offset + self.distance), 0))
@@ -1174,7 +1210,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                     else:
                         dy = side * (self.offset + self.distance + s)
                     p1 = Vector((p.x, dy, 0))
-                    
+
                     # side
                     self._add_spline(curve, False, [p0, p1])
 
@@ -1193,10 +1229,10 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                         if self.symbol_type == 'ARROW':
                             self._add_spline(curve, False, [p1 - x, p1 + p2 + x])
 
-                        center = p1 + 0.5 * p2 + Vector((0, self.text_size, 0))
+                        center = p1 + 0.5 * p2 + Vector((0, text_location, 0))
                         t_o = self.update_child(context, o, childs, i - 1, center, p.x - dist)
                     dist = p.x
-            
+
             else:
                 tM = Matrix()
                 verts = [[tM * Vector(p) for p in d] for d in [
@@ -1214,12 +1250,12 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                     (0.063, 0.139, 0.0), (0.063, -0.122, 0.0), (0.146, -0.122, 0.0),
                     (0.146, 0.266, 0.0), (0.21, 0.266, 0.0), (-0.175, 0.516, 0.0),
                     (-0.561, 0.266, 0.0), (-0.496, 0.266, 0.0), (-0.496, -0.122, 0.0)],
-                    [(-0.337, 0.015, 0.0), (-0.177, 0.015, 0.0), (-0.177, 0.139, 0.0), (-0.337, 0.139, 0.0), (-0.337, 0.015, 0.0)]
+                    [(-0.337, 0.015, 0.0), (-0.177, 0.015, 0.0), (-0.177, 0.139, 0.0),
+                    (-0.337, 0.139, 0.0), (-0.337, 0.015, 0.0)]
                     ]]
                 for coords in verts:
                     self._add_spline(curve, coords[0] == coords[-1], coords)
-                         
-                    
+
         elif self.type == 'ALTITUDE':
             p1 = Vector((0, self.size, 0))
             p2 = Vector((dist, 0, 0))
@@ -1256,11 +1292,11 @@ class ARCHIPACK_PT_dimension_auto(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'ArchiPack'
-    
+
     @classmethod
     def poll(cls, context):
         return archipack_dimension_auto.filter(context.active_object)
-        
+
     def draw(self, context):
         o = context.active_object
         if not archipack_dimension_auto.filter(o):
@@ -1269,7 +1305,7 @@ class ARCHIPACK_PT_dimension_auto(Panel):
 
         # retrieve datablock of your object
         props = archipack_dimension_auto.datablock(o)
-        
+
         # Manipulate mode operator
         row = layout.row(align=True)
         row.operator('archipack.manipulate', icon='HAND')
@@ -1305,7 +1341,9 @@ class ARCHIPACK_PT_dimension_auto(Panel):
         box.prop(props, 'symbol_size')
         if "ARROW" in props.symbol_type:
             box.prop(props, 'symbol_thickness')
+        box.prop(props, 'text_location')
         box.prop(props, 'text_size')
+        box.prop(props, 'text_offset')
         box.prop(props, 'text_angle')
 
 
@@ -1328,18 +1366,19 @@ d.update(C)
 
 """
 
+
 class ARCHIPACK_OT_dimension_auto_orient(Operator):
     bl_idname = "archipack.dimension_auto_orient"
     bl_label = "Orient"
     bl_description = "Orient according measured point"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     @classmethod
     def poll(cls, context):
         d = archipack_dimension_auto.datablock(context.active_object)
         return d and len(d.sources) > 1
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
@@ -1364,41 +1403,66 @@ class ARCHIPACK_OT_dimension_auto_orient(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_dimension_auto_update(DimensionProvider, Operator):
+class ARCHIPACK_OT_dimension_auto_update(Operator):
     bl_idname = "archipack.dimension_auto_update"
     bl_label = "Update"
     bl_description = "Update dimensions"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     @classmethod
     def poll(cls, context):
         return archipack_dimension_auto.filter(context.active_object)
-        
+
+    def _update_dimensions(self, context, o):
+        d = archipack_dimension_auto.datablock(o)
+        if d:
+            o.select = True
+            context.scene.objects.active = o
+            d.update(context)
+            o.select = False
+
+    def _get_topmost_parent(self, o):
+        if o.parent:
+            return self._get_topmost_parent(o.parent)
+        else:
+            return o
+
+    def _update_child_dimensions(self, context, o):
+        self._update_dimensions(context, o)
+        for c in o.children:
+            self._update_child_dimensions(context, c)
+
+    def update_dimensions(self, context, o):
+        p = self._get_topmost_parent(o)
+        self._update_child_dimensions(context, p)
+
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
             self.update_dimensions(context, o)
+            o.select = True
+            context.scene.objects.active = o
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-            
-            
+
+
 class ARCHIPACK_OT_dimension_auto_add(Operator):
     bl_idname = "archipack.dimension_auto_add"
     bl_label = "Add"
     bl_description = "Add user defined measured point"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     obj = StringProperty(default="")
     index = IntProperty(default=0)
     provider_type = StringProperty(
         name="Provider type",
         default="USER"
         )
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
@@ -1452,9 +1516,9 @@ class ARCHIPACK_OT_dimension_auto(ArchipackCreateTool, Operator):
     distance = FloatProperty(default=1)
     flip_side = BoolProperty(default=False)
     auto_parent = BoolProperty(default=True)
-    
+
     def create(self, context):
-         
+
         # Create an empty curve datablock
         c = bpy.data.curves.new("Dimension", type='CURVE')
         c.dimensions = '2D'
@@ -1464,14 +1528,14 @@ class ARCHIPACK_OT_dimension_auto(ArchipackCreateTool, Operator):
         d = c.archipack_dimension_auto.add()
         d.distance = self.distance
         d.flip_side = self.flip_side
-        
+
         # Link object into scene
         context.scene.objects.link(o)
 
         # select and make active
         o.select = True
         context.scene.objects.active = o
-        
+
         # Load preset into datablock
         self.load_preset(d)
 

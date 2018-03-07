@@ -69,6 +69,7 @@ if "bpy" in locals():
     imp.reload(archipack_kitchen)
     imp.reload(archipack_molding)
     imp.reload(archipack_rendering)
+    imp.reload(archipack_section)
     # imp.reload(archipack_envi)
     imp.reload(archipack_io)
     imp.reload(archipack_2d_layout)
@@ -102,6 +103,7 @@ else:
     from . import archipack_kitchen
     from . import archipack_molding
     from . import archipack_rendering
+    from . import archipack_section
     # from . import archipack_envi
     from . import archipack_io
     from . import archipack_2d_layout
@@ -532,8 +534,7 @@ class TOOLS_PT_Archipack_Create(Panel):
 
         icons = icons_collection["main"]
         layout = self.layout
-        row = layout.row(align=True)
-        box = row.box()
+        box = layout.box()
         box.label("Objects")
         row = box.row(align=True)
         row.operator("archipack.wall2",
@@ -563,8 +564,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Draw",
                     icon='GREASEPENCIL'
                     ).preset_operator = "archipack.door_draw"
-        row = box.row(align=True)
-        row.operator("archipack.stair_preset_menu",
+        box.operator("archipack.stair_preset_menu",
                     text="Stair",
                     icon_value=icons["stair"].icon_id
                     ).preset_operator = "archipack.stair" 
@@ -574,8 +574,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     icon_value=icons["fence"].icon_id
                     ).preset_operator = "archipack.fence"
         row.operator("archipack.fence_from_curve", text="", icon='CURVE_DATA')
-        row = box.row(align=True)
-        row.operator("archipack.wall2_from_slab",
+        box.operator("archipack.wall2_from_slab",
                     icon_value=icons["wall_from_slab"].icon_id)
         
         row = box.row(align=True)
@@ -620,37 +619,51 @@ class TOOLS_PT_Archipack_Create(Panel):
                     )
                     # .preset_operator = "archipack.molding_from_curve"
 
-
         row = box.row(align=True)
         row.operator("archipack.roof_preset_menu",
                     text="Roof",
                     icon_value=icons["roof"].icon_id
                     ).preset_operator = "archipack.roof"
+        row.operator("archipack.roof_from_wall",
+                    text="->Roof",
+                    icon_value=icons["roof_from_wall"].icon_id
+                    )
         # toolkit
         # row = box.row(align=True)
         # row.operator("archipack.myobject")
-        row = box.row(align=True)
-        row.operator("archipack.kitchen_preset_menu",
+        box.operator("archipack.kitchen_preset_menu",
                     text="Kitchen",
                     icon_value=icons["kitchen"].icon_id
                     ).preset_operator = "archipack.kitchen"
         
-        row = box.row(align=True)
-        row.operator("archipack.blind_preset_menu",
+        box.operator("archipack.blind_preset_menu",
                     text="Blind",
                     icon_value=icons["blind"].icon_id
                     ).preset_operator = "archipack.blind"
-        row = box.row(align=True)
-        row.operator("archipack.truss",
+        box.operator("archipack.truss",
                     icon_value=icons["truss"].icon_id
                     )
+        
+        box = layout.box()
+        box.label("2d Objects")
+        box.operator("archipack.dimension_auto",
+                    icon_value=icons["dimension_auto"].icon_id
+                    )
+        box.operator("archipack.layout",
+                    icon_value=icons["layout"].icon_id
+                    ) 
+        box.operator("archipack.section",
+                    icon_value=icons["section"].icon_id
+                    )
+        box.operator("archipack.section_camera",
+                    text="Section cam",
+                    icon='CAMERA_DATA'
+                    ).mode = 'CREATE'
         if prefs.experimental_features:
             box = layout.box()
             box.label(text="Experimental features")
             box.operator("archipack.floor_heating")                    
             box.operator("archipack.dimension")
-            box.operator("archipack.dimension_auto")
-            box.operator("archipack.layout") 
             
             
         box = layout.box()
@@ -719,9 +732,20 @@ def draw_menu(self, context):
                     text="Truss",
                     icon_value=icons["truss"].icon_id
                     )
-    layout.operator("archipack.dimension")              
-    layout.operator("archipack.layout") 
-    
+    layout.operator("archipack.dimension_auto",
+                    icon_value=icons["dimension_auto"].icon_id
+                    )
+    layout.operator("archipack.layout",
+                    icon_value=icons["layout"].icon_id
+                    ) 
+    layout.operator("archipack.section",
+                    icon_value=icons["section"].icon_id
+                    )
+    layout.operator("archipack.section_camera",
+                    text="Section cam",
+                    icon='CAMERA_DATA'
+                    ).mode = 'CREATE'
+            
     
 class ARCHIPACK_create_menu(Menu):
     bl_label = 'Archipack'
@@ -796,6 +820,7 @@ def register():
     archipack_floor.register()
     archipack_floor_heating.register()
     archipack_rendering.register()
+    archipack_section.register()
     archipack_io.register()
     archipack_2d_layout.register()
     archipack_io_export_svg.register()
@@ -842,6 +867,7 @@ def unregister():
     archipack_floor.unregister()
     archipack_floor_heating.unregister()
     archipack_rendering.unregister()
+    archipack_section.unregister()
     archipack_io.unregister()
     archipack_2d_layout.unregister()
     archipack_io_export_svg.unregister()

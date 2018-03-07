@@ -1414,13 +1414,8 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         self.synch_childs(context, o)
         
         # synch wall dimensions when apply
-        if o.parent:
-            self.update_dimensions(context, o)
-            """
-            for c in o.parent.children:
-                if c.data and "archipack_wall2" in c.data:
-                    c.data.archipack_wall2[0].synch_dimension(context, c)
-            """
+        self.update_dimensions(context, o)
+        
         # restore context
         self.restore_context(context)
 
