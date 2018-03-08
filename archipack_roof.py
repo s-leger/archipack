@@ -48,7 +48,7 @@ from .archipack_cutter import (
     ArchipackCutter,
     ArchipackCutterPart
     )
-from archipack.archipack_polylines import Io, ShapelyOps
+from .archipack_polylines import Io, ShapelyOps
 from .archipack_dimension import DimensionProvider
 
 
