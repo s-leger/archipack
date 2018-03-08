@@ -76,6 +76,7 @@ class CutterSegment(Line):
 class CutterGenerator():
 
     def __init__(self, d):
+        self.d = d
         self.parts = d.parts
         self.operation = d.operation
         self.segs = []
@@ -123,8 +124,8 @@ class CutterGenerator():
         else:
             side = 1
         for i, f in enumerate(self.segs):
-
-            manipulators = self.parts[i].manipulators
+            part = self.parts[i]
+            manipulators = part.manipulators
             p0 = f.p0.to_3d()
             p1 = f.p1.to_3d()
             # angle from last to current segment
@@ -155,7 +156,9 @@ class CutterGenerator():
                 p0 + f.sized_normal(0, max(0.0001, self.parts[i].offset)).v.to_3d(),
                 (0.5, 0, 0)
             ])
-
+            
+            self.d.add_dimension_point(part.uid, p0)
+                               
     def change_coordsys(self, fromTM, toTM):
         """
             move shape fromTM into toTM coordsys
@@ -186,12 +189,15 @@ class CutterGenerator():
     def last_seg(self, index):
         return self.segs[index - 1]
 
+    def get_coords(self, verts):
+        for s in self.segs:
+            verts.append(s.line.p0.to_3d())
+
     def get_verts(self, verts, edges):
 
         n_segs = len(self.segs) - 1
 
-        for s in self.segs:
-            verts.append(s.line.p0.to_3d())
+        self.get_coords(verts)
 
         for i in range(n_segs):
             edges.append([i, i + 1])
@@ -209,6 +215,7 @@ class CutAblePolygon():
     def as_lines(self, step_angle=0.104):
         """
             Convert curved segments to straight lines
+            Use offset ones when set
         """
         segs = []
         for s in self.segs:
@@ -216,7 +223,10 @@ class CutAblePolygon():
                 dt, steps = s.steps_by_angle(step_angle)
                 segs.extend(s.as_lines(steps))
             else:
-                segs.append(s)
+                if s.line is None:
+                    segs.append(s)
+                else: 
+                    segs.append(s.line)
         self.segs = segs
 
     def inside(self, pt, segs=None):
@@ -576,8 +586,7 @@ class ArchipackCutterPart():
     """
     length = FloatProperty(
             name="Length",
-            min=0.01,
-            max=1000.0,
+            min=0.001,
             default=2.0,
             update=update_hole
             )
@@ -595,7 +604,9 @@ class ArchipackCutterPart():
             default=0,
             update=update_hole
             )
-
+    # DimensionProvider        
+    uid = IntProperty(default=0)
+    
     def find_in_selection(self, context):
         raise NotImplementedError
 
@@ -665,6 +676,7 @@ class ArchipackCutter():
             )
     # UI layout related
     parts_expand = BoolProperty(
+            options={'SKIP_SAVE'},
             default=False
             )
     closed = BoolProperty(
@@ -696,7 +708,11 @@ class ArchipackCutter():
         # add rows
         for i in range(len(self.parts), self.n_parts + 1):
             self.parts.add()
-
+        
+        for p in self.parts:
+            if p.uid == 0:
+                self.create_uid(p)
+                
         self.setup_manipulators()
 
     def update_parent(self, context):
@@ -742,7 +758,9 @@ class ArchipackCutter():
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
         # use normalized to handle non linear t
-        if resolution == 0:
+        if (resolution == 0 or 
+                (p0.handle_right_type == 'VECTOR' and 
+                p1.handle_left_type == 'VECTOR')):
             pts.append(wM * p0.co.to_3d())
         else:
             v = (p1.co - p0.co).normalized()
@@ -800,16 +818,9 @@ class ArchipackCutter():
         if self.is_cw(pts) == (self.operation == 'INTERSECTION'):
             pts = list(reversed(pts))
 
-        pt = wM.inverted() * pts[0]
-
         # pretranslate
         o = self.find_in_selection(context, self.auto_update)
-        o.matrix_world = wM * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
+        o.matrix_world = Matrix.Translation(pts[0].copy())
         self.auto_update = False
         self.from_points(pts)
         self.auto_update = True
@@ -884,7 +895,17 @@ class ArchipackCutter():
         bm.edges.ensure_lookup_table()
         bm.to_mesh(o.data)
         bm.free()
-
+    
+    def get_coords(self):
+        """
+         return coordinates in object coordsys
+        """
+        self.update_parts()
+        verts = []
+        g = self.get_generator()
+        g.get_coords(verts)
+        return verts 
+        
     def update(self, context, manipulable_refresh=False, update_parent=False):
 
         o = self.find_in_selection(context, self.auto_update)
@@ -917,7 +938,9 @@ class ArchipackCutter():
         # update parent on direct edit
         if manipulable_refresh or update_parent:
             self.update_parent(context, o)
-
+        
+        self.update_dimensions(context, o)
+        
         # restore context
         self.restore_context(context)
 

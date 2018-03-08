@@ -292,7 +292,7 @@ class ARCHIPACK_PT_truss(Panel):
             return
         layout = self.layout
         row = layout.row(align=True)
-        row.operator('archipack.truss_manipulate', icon='HAND')
+        row.operator('archipack.manipulate', icon='HAND')
         box = layout.box()
         box.prop(prop, 'truss_type')
         box.prop(prop, 'z')
@@ -343,33 +343,11 @@ class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
             return {'CANCELLED'}
 
 
-# ------------------------------------------------------------------
-# Define operator class to manipulate object
-# ------------------------------------------------------------------
-
-
-class ARCHIPACK_OT_truss_manipulate(Operator):
-    bl_idname = "archipack.truss_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_truss.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_truss.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
 def register():
     bpy.utils.register_class(archipack_truss)
     Mesh.archipack_truss = CollectionProperty(type=archipack_truss)
     bpy.utils.register_class(ARCHIPACK_PT_truss)
     bpy.utils.register_class(ARCHIPACK_OT_truss)
-    bpy.utils.register_class(ARCHIPACK_OT_truss_manipulate)
 
 
 def unregister():
@@ -377,4 +355,3 @@ def unregister():
     del Mesh.archipack_truss
     bpy.utils.unregister_class(ARCHIPACK_PT_truss)
     bpy.utils.unregister_class(ARCHIPACK_OT_truss)
-    bpy.utils.unregister_class(ARCHIPACK_OT_truss_manipulate)

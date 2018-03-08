@@ -1321,7 +1321,11 @@ class Edge(GraphComponent):
 
         # EdgeIntersectionList
         self.eiList = EdgeIntersectionList(self)
-
+    
+    @property
+    def coord(self):
+        return self.coords[0]
+    
     @property
     def intersections(self):
         return self.eiList.intersections

@@ -49,14 +49,13 @@ class BmeshEdit():
             allows an additional 'normal_update=True' to force _normal_ calculations.
         """
         bm = BmeshEdit._start(context, o)
-
+        
         add_vert = bm.verts.new
         add_face = bm.faces.new
         add_edge = bm.edges.new
 
         for bm_to_add in list_of_bmeshes:
             offset = len(bm.verts)
-
             for v in bm_to_add.verts:
                 add_vert(v.co)
 
@@ -91,7 +90,7 @@ class BmeshEdit():
             bm.normal_update()
 
         BmeshEdit._end(bm, o)
-
+    
     @staticmethod
     def _end(bm, o):
         """
@@ -129,13 +128,20 @@ class BmeshEdit():
     def buildmesh(context, o, verts, faces,
             matids=None, uvs=None, weld=False,
             clean=False, auto_smooth=True, temporary=False):
-
+        
+        if o is not None:
+            # ensure object is visible 
+            # otherwhise it is not editable
+            vis_state = o.hide
+            o.hide = False
+        
         if temporary:
             bm = bmesh.new()
         else:
             bm = BmeshEdit._start(context, o)
             bm.clear()
-
+            
+        
         for v in verts:
             bm.verts.new(v)
         bm.verts.index_update()
@@ -168,7 +174,10 @@ class BmeshEdit():
         if clean:
             bpy.ops.mesh.delete_loose()
         bpy.ops.object.mode_set(mode='OBJECT')
-
+        
+        if o is not None:
+            o.hide = vis_state
+               
     @staticmethod
     def addmesh(context, o, verts, faces, matids=None, uvs=None, weld=False, clean=False, auto_smooth=True):
         bm = BmeshEdit._start(context, o)
@@ -258,7 +267,8 @@ class BmeshEdit():
             dist=0.001,
             use_snap_center=False,
             clear_outer=True,
-            clear_inner=False
+            clear_inner=False,
+            in_place=True
             ):
 
         bm = bmesh.new()
@@ -277,10 +287,12 @@ class BmeshEdit():
             clear_outer=clear_outer,
             clear_inner=clear_inner
             )
-
-        bm.to_mesh(o.data)
-        bm.free()
-
+        if in_place:
+            bm.to_mesh(o.data)
+            bm.free()
+            bm = None
+        return bm
+        
     @staticmethod
     def solidify(context, o, amt, floor_bottom=False, altitude=0):
         bm = bmesh.new()

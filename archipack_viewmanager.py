@@ -87,8 +87,12 @@ class ViewManager():
             [0, 0, 0, 1]]).inverted()
         view3d = self.view3d
         view3d.lens = 35
-        view3d.clip_start = (itM * -bound).z - 1
-        view3d.clip_end = 1 - (itM * bound).z
+        start = abs((itM * -bound).z)
+        end = abs((itM * bound).z)
+        if start > end:
+            end, start = start, end
+        view3d.clip_start = max(0, start - 1)
+        view3d.clip_end = 1 + end
         region3d = view3d.region_3d
         region3d.view_perspective = 'ORTHO'
         region3d.view_rotation = Quaternion((

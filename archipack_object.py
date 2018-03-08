@@ -61,11 +61,17 @@ class ArchipackObject():
             class_name.filter(object) from outside world
             self.__class__.filter(object) from instance
         """
+        res = False
         try:
-            return cls.__name__ in o.data
+            res = cls.__name__ in o.data
         except:
             pass
-        return False
+        if not res:
+            try:
+                res = cls.__name__ in o
+            except:
+                pass
+        return res
 
     @classmethod
     def datablock(cls, o):
@@ -78,11 +84,18 @@ class ArchipackObject():
                 class_name.datablock(object) from outside world
                 self.__class__.datablock(object) from instance
         """
+        d = None
         try:
-            return getattr(o.data, cls.__name__)[0]
+            d = getattr(o.data, cls.__name__)[0]
         except:
             pass
-        return None
+            
+        if d is None:    
+            try:
+                d = getattr(o, cls.__name__)[0]
+            except:
+                pass
+        return d
 
     def find_in_selection(self, context, auto_update=True):
         """
@@ -105,9 +118,36 @@ class ArchipackObject():
                 return o
 
         return None
-
+    
+    def _delete_object(self, context, o):
+        d = o.data
+        type = o.type
+        context.scene.objects.unlink(o)
+        bpy.data.objects.remove(o)
+        if d and d.users < 1:
+            if type == 'MESH':
+                bpy.data.meshes.remove(d)
+            elif type == 'CURVE':
+                bpy.data.curves.remove(d)
+            elif type == 'LAMP':
+                bpy.data.lamps.remove(d)
+            
+    def _delete_childs(self, context, o):
+        for child in o.children:
+            self._delete_childs(context, child)
+        self._delete_object(context, o)
+        
+    def delete_object(self, context, o):
+        """
+          Recursively delete object and childs
+        """
+        if o is not None:
+            self._delete_childs(context, o)
+    
     def restore_context(self, context):
-        # restore context
+        """
+         restore context
+        """ 
         bpy.ops.object.select_all(action="DESELECT")
 
         try:
@@ -146,6 +186,31 @@ class ArchipackCreateTool():
         """
         return self.bl_idname[13:]
 
+    def _delete_object(self, context, o):
+        d = o.data
+        type = o.type
+        context.scene.objects.unlink(o)
+        bpy.data.objects.remove(o)
+        if d and d.users < 1:
+            if type == 'MESH':
+                bpy.data.meshes.remove(d)
+            elif type == 'CURVE':
+                bpy.data.curves.remove(d)
+            elif type == 'LAMP':
+                bpy.data.lamps.remove(d)
+            
+    def _delete_childs(self, context, o):
+        for child in o.children:
+            self._delete_childs(context, child)
+        self._delete_object(context, o)
+        
+    def delete_object(self, context, o):
+        """
+          Recursively delete object and childs
+        """
+        if o is not None:
+            self._delete_childs(context, o)
+            
     def load_preset(self, d):
         """
             Load python preset
@@ -163,10 +228,13 @@ class ArchipackCreateTool():
             if fallback:
                 # fallback to load preset on background process
                 try:
-                    exec(compile(open(self.filepath).read(), self.filepath, 'exec'))
+                    f = open(self.filepath)
+                    exec(compile(f.read(), self.filepath, 'exec'))
                 except:
                     print("Archipack unable to load preset file : %s" % (self.filepath))
                     pass
+                finally:
+                    f.close()
         d.auto_update = True
 
     def add_material(self, o, material='DEFAULT', category=None):
@@ -187,9 +255,8 @@ class ArchipackCreateTool():
     def manipulate(self):
         if self.auto_manipulate:
             try:
-                op = getattr(bpy.ops.archipack, self.archipack_category + "_manipulate")
-                if op.poll():
-                    op('INVOKE_DEFAULT')
+                if bpy.ops.archipack.manipulate.poll():
+                    bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
             except:
                 print("Archipack bpy.ops.archipack.%s_manipulate not found" % (self.archipack_category))
                 pass
@@ -272,7 +339,7 @@ class ArchpackDrawTool():
                     [x.y, y.y, z.y, pt.y],
                     [x.z, y.z, z.z, o.matrix_world.translation.z],
                     [0, 0, 0, 1]
-                    ]), o, d.width, y
+                    ]), o, d.width, y, d.z_offset
 
             elif 'archipack_wall' in o.data:
                 # one point on the oposite to raycast side (1 unit inside)
@@ -296,5 +363,5 @@ class ArchpackDrawTool():
                         [x.y, y.y, z.y, p1.y],
                         [x.z, y.z, z.z, o.matrix_world.translation.z],
                         [0, 0, 0, 1]
-                        ]), o, width, y
-        return False, Matrix(), None, 0, Vector()
+                        ]), o, width, y, 0
+        return False, Matrix(), None, 0, Vector(), 0

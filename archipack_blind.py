@@ -34,6 +34,7 @@ from bpy.props import (
     EnumProperty
     )
 from math import sin, cos, tan, ceil, floor, pi, asin, acos, radians, atan2
+from random import uniform
 from mathutils import Vector, Matrix
 from .bmesh_utils import BmeshEdit as bmed
 from .archipack_manipulator import Manipulable
@@ -728,13 +729,13 @@ class archipack_blind(ArchipackObject, Manipulable, PropertyGroup):
         if len(self.manipulators) < 1:
             # add manipulator for x property
             s = self.manipulators.add()
-            s.prop1_name = "width"
+            s.prop1_name = "x"
             s.prop2_name = "x"
             s.type_key = 'SNAP_SIZE_LOC'
 
             # add manipulator for y property
             s = self.manipulators.add()
-            s.prop1_name = "height"
+            s.prop1_name = "z"
             s.type_key = 'SIZE'
             s.normal = Vector((0, 1, 0))
 
@@ -818,7 +819,7 @@ class ARCHIPACK_PT_blind(Panel):
         props = archipack_blind.datablock(o)
 
         # Manipulate mode operator
-        layout.operator('archipack.blind_manipulate', icon='HAND')
+        layout.operator('archipack.manipulate', icon='HAND')
 
         box = layout.box()
         row = box.row(align=True)
@@ -906,7 +907,11 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
             min=0.02, default=0.04, precision=3,
             description='Frame depth'
             )
-
+    randomize = BoolProperty(
+            name='Randomize',
+            description='Randomize slats opening',
+            default=False
+            )
     style = EnumProperty(
         items=(
             ('VENITIAN', 'Venitian', 'Venitian', 0),
@@ -931,7 +936,7 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
 
         # Add your properties on mesh datablock
         d = m.archipack_blind.add()
-
+        d.auto_update = False
         d.x = self.x
         d.z = self.z
         d.offset_y = self.offset_y
@@ -940,6 +945,9 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
         d.frame_height = self.frame_height
         d.frame_depth = self.frame_depth
         d.style = self.style
+        if self.randomize:
+            d.ratio = uniform(0, 100)
+            d.angle = -pi / 200 * uniform(0, 100)
 
         # Link object into scene
         context.scene.objects.link(o)
@@ -972,6 +980,7 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
 
 
 class ARCHIPACK_OT_blind_preset_menu(PresetMenuOperator, Operator):
+    """Create Blind from preset"""
     bl_idname = "archipack.blind_preset_menu"
     bl_label = "Blind preset"
     preset_subdir = "archipack_blind"
@@ -988,22 +997,6 @@ class ARCHIPACK_OT_blind_preset(ArchipackPreset, Operator):
         return ['manipulators']
 
 
-class ARCHIPACK_OT_blind_manipulate(Operator):
-    bl_idname = "archipack.blind_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_blind.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_blind.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
 def register():
     bpy.utils.register_class(archipack_blind)
     Mesh.archipack_blind = CollectionProperty(type=archipack_blind)
@@ -1011,7 +1004,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_blind)
     bpy.utils.register_class(ARCHIPACK_OT_blind_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_blind_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_blind_manipulate)
 
 
 def unregister():
@@ -1021,4 +1013,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_blind)
     bpy.utils.unregister_class(ARCHIPACK_OT_blind_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_blind_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_blind_manipulate)

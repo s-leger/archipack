@@ -29,20 +29,21 @@ import bmesh
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import FloatProperty, CollectionProperty
 from .archipack_object import ArchipackObject, ArchipackCreateTool
+from .archipack_dimension import DimensionProvider
 
 
 def update_wall(self, context):
     self.update(context)
 
 
-class archipack_wall(ArchipackObject, PropertyGroup):
+class archipack_wall(ArchipackObject, DimensionProvider, PropertyGroup):
     z = FloatProperty(
             name='height',
             min=0.1, max=10000,
             default=2.7, precision=2,
             description='height', update=update_wall,
             )
-
+       
     def update(self, context):
         # update height via bmesh to avoid loosing material ids
         # this should be the rule for other simple objects
@@ -52,6 +53,10 @@ class archipack_wall(ArchipackObject, PropertyGroup):
             return
         # bpy.ops.object.mode_set(mode='EDIT')
         me = o.data
+        
+        for v in me.vertices:
+            self.add_dimension_point(v.index, v.co)
+        
         # bm = bmesh.from_edit_mesh(me)
         # bm.verts.ensure_lookup_table()
         # bm.faces.ensure_lookup_table()
@@ -67,6 +72,8 @@ class archipack_wall(ArchipackObject, PropertyGroup):
             for i, g in enumerate(vertex_groups):
                 if 'Top' in g:
                     me.vertices[i].co.z = new_z
+                    
+        self.update_dimensions(context, o)
         # bpy.ops.object.mode_set(mode='OBJECT')
 
 
@@ -124,10 +131,10 @@ class ARCHIPACK_OT_wall(Operator, ArchipackCreateTool):
             o = context.active_object
             if archipack_wall.filter(o):
                 return {'CANCELLED'}
-            params = o.data.archipack_wall.add()
+            d = o.data.archipack_wall.add()
             # @TODO: estimate z from mesh,
             # using "TOP" vertex group
-            params.z = self.z
+            d.z = self.z
             self.add_material(o)
             return {'FINISHED'}
         else:

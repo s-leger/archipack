@@ -43,6 +43,7 @@ from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 # from .archipack_gl import FeedbackPanel
 from .archipack_object import ArchipackObject, ArchipackCreateTool
+from .archipack_dimension import DimensionProvider
 # from .archipack_keymaps import Keymaps
 tan22_5 = (2 ** 0.5 - 1)
 sq2 = 0.5 * 2 ** 0.5
@@ -1753,7 +1754,10 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
             description="disable auto update to avoid infinite recursion",
             default=True
             )
-
+            
+    # DimensionProvider        
+    uid = IntProperty(default=0)
+    
     @property
     def location(self):
         """
@@ -1931,7 +1935,7 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
                     module.draw(box, self.n_modules - i, int(prop.z_mode))
 
 
-class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
+class archipack_kitchen(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
 
     door_style = EnumProperty(
             name='Doors',
@@ -2428,7 +2432,11 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
                 m_right,
                 (-m_dist, 0, 0)
                 ])
-
+                
+        # Dimension points of cab
+        self.add_dimension_point(cab.uid, m_left)
+        self.add_dimension_point(cab.uid + 1, m_right)
+        
         if cab_type == 1:
             # Corner L side
             m_left = tM * Vector((x, - door_y - y, z0))
@@ -3303,7 +3311,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             z += self.base_height
 
         n_cabs = self.cabinet_num
-
+        next_type = -1
         for i, cab in enumerate(self.cabinets):
 
             cab_depth = self.cabinet_depth(cab)
@@ -3456,8 +3464,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
             if to_remove < 1:
                 return
             to_remove -= 1
-            context.scene.objects.unlink(child)
-            bpy.data.objects.remove(child, do_unlink=True)
+            self.delete_object(context, child)
 
     def update_modules(self, context, o):
 
@@ -3815,7 +3822,9 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
         # when loading presets
         for cab in self.cabinets:
             cab.update_parts()
-
+            if cab.uid == 0:
+                self.create_uid(cab, increment=4)
+        
         self.setup_manipulators()
 
     def update(self, context, manipulable_refresh=False):
@@ -3863,7 +3872,9 @@ class archipack_kitchen(ArchipackObject, Manipulable, PropertyGroup):
 
         if manipulable_refresh:
             self.manipulable_refresh = True
-
+        
+        self.update_dimensions(context, o)
+        
         # restore context
         self.restore_context(context)
 
@@ -3889,7 +3900,7 @@ class ARCHIPACK_PT_kitchen(Panel):
             return
 
         layout = self.layout
-        layout.operator('archipack.kitchen_manipulate', icon='HAND')
+        layout.operator('archipack.manipulate', icon='HAND')
         """
         row = layout.row(align=True)
         row.operator('archipack.kitchen', text="Refresh", icon='FILE_REFRESH').mode = 'REFRESH'
@@ -4058,15 +4069,9 @@ class ARCHIPACK_OT_kitchen(ArchipackCreateTool, Operator):
         row = layout.row()
         row.label("Use Properties panel (N) to define parms", icon='INFO')
 
-    def delete(self, context):
-        o = context.active_object
+    def delete(self, context, o):
         if archipack_kitchen.filter(o):
-            bpy.ops.archipack.disable_manipulate()
-            for child in o.children:
-                context.scene.objects.unlink(child)
-                bpy.data.objects.remove(child, do_unlink=True)
-            context.scene.objects.unlink(o)
-            bpy.data.objects.remove(o, do_unlink=True)
+            self.delete_object(context, o)
 
     def create(self, context):
         m = bpy.data.meshes.new("Kitchen")
@@ -4098,7 +4103,9 @@ class ARCHIPACK_OT_kitchen(ArchipackCreateTool, Operator):
                 context.scene.objects.active = o
                 self.manipulate()
             else:
-                self.delete(context)
+                o = context.active_object
+                bpy.ops.archipack.disable_manipulate()
+                self.delete(context, o)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -4151,27 +4158,6 @@ class ARCHIPACK_OT_kitchen_remove(Operator):
 
 
 # ------------------------------------------------------------------
-# Define operator class to manipulate object
-# ------------------------------------------------------------------
-
-
-class ARCHIPACK_OT_kitchen_manipulate(Operator):
-    bl_idname = "archipack.kitchen_manipulate"
-    bl_label = "Manipulate"
-    bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_kitchen.filter(context.active_object)
-
-    def invoke(self, context, event):
-        d = archipack_kitchen.datablock(context.active_object)
-        d.manipulable_invoke(context)
-        return {'FINISHED'}
-
-
-# ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
 
@@ -4207,7 +4193,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_kitchen_remove)
     bpy.utils.register_class(ARCHIPACK_OT_kitchen_insert)
     bpy.utils.register_class(ARCHIPACK_OT_kitchen_preset)
-    bpy.utils.register_class(ARCHIPACK_OT_kitchen_manipulate)
 
 
 def unregister():
@@ -4223,4 +4208,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_remove)
     bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_insert)
     bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_preset)
-    bpy.utils.unregister_class(ARCHIPACK_OT_kitchen_manipulate)

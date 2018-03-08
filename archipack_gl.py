@@ -77,13 +77,13 @@ class Gl():
         """ coord given in local input coordsys
         """
         if self.d == 2:
-            return coord
+            return Vector(coord)
         if render:
             return self.get_render_location(context, coord)
         region = context.region
         rv3d = context.region_data
         loc = view3d_utils.location_3d_to_region_2d(region, rv3d, coord, self.pos_2d)
-        return loc
+        return Vector(loc)
 
     def get_render_location(self, context, coord):
         scene = context.scene
@@ -92,7 +92,7 @@ class Gl():
         render_scale = scene.render.resolution_percentage / 100
         render_size = (int(scene.render.resolution_x * render_scale),
                        int(scene.render.resolution_y * render_scale))
-        return [round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1])]
+        return Vector(round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1]))
 
     def _end(self):
 
@@ -243,7 +243,7 @@ class GlText(Gl):
 
         # print("draw_text %s %s" % (self.text, type(self).__name__))
         self.render = render
-        x, y = self.position_2d_from_coord(context, self.pts[0], render)
+        p = self.position_2d_from_coord(context, self.pts[0], render)
         # dirty fast assignment
         dpi, font_id = context.user_preferences.system.dpi, 0
         bgl.glColor4f(*self.colour)
@@ -251,7 +251,7 @@ class GlText(Gl):
             blf.enable(font_id, blf.ROTATION)
             blf.rotation(font_id, self.angle)
         blf.size(font_id, self.font_size, dpi)
-        blf.position(font_id, x, y, 0)
+        blf.position(font_id, p.x, p.y, 0)
         blf.draw(font_id, self.text)
         if self.angle != 0:
             blf.disable(font_id, blf.ROTATION)
@@ -294,8 +294,8 @@ class GlBaseLine(Gl):
             bgl.glBegin(bgl.GL_LINE_STRIP)
 
         for pt in self.pts:
-            x, y = self.position_2d_from_coord(context, pt, render)
-            bgl.glVertex2f(x, y)
+            p = self.position_2d_from_coord(context, pt, render)
+            bgl.glVertex2f(p.x, p.y)
         self._end()
 
 
@@ -580,8 +580,8 @@ class GlPolygon(Gl):
         bgl.glBegin(bgl.GL_POLYGON)
 
         for pt in self.pts:
-            x, y = self.position_2d_from_coord(context, pt, render)
-            bgl.glVertex2f(x, y)
+            p = self.position_2d_from_coord(context, pt, render)
+            bgl.glVertex2f(p.x, p.y)
         self._end()
 
 
@@ -771,7 +771,94 @@ class TriHandle(GlHandle):
         y = c * self.size * scale
         return [self.pos_3d - x + y, self.pos_3d - x - y, self.pos_3d]
 
+        
+class CruxHandle(GlHandle):
 
+    def __init__(self, sensor_size, size, draggable=True, selectable=False):
+        GlHandle.__init__(self, sensor_size, size, draggable, selectable)
+        self.branch_0 = GlPolygon((1, 1, 1, 1), d=3)
+        self.branch_1 = GlPolygon((1, 1, 1, 1), d=3)
+        
+    def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
+        self.pos_3d = pos_3d
+        self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
+        o = self.pos_3d
+        w = self.size
+        d = 0.5 * self.size
+        c = d / 1.4242
+        s = w - c
+        x = direction.normalized()
+        y = x.cross(normal)
+        xs = x * s
+        xw = x * w
+        ys = y * s
+        yw = y * w
+        p0 = o + xs + yw
+        p1 = o + xw + ys
+        p2 = o - xs - yw
+        p3 = o - xw - ys
+        p4 = o - xs + yw
+        p5 = o + xw - ys
+        p6 = o + xs - yw
+        p7 = o - xw + ys
+        
+        self.branch_0.set_pos([p0, p1, p2, p3])
+        self.branch_1.set_pos([p4, p5, p6, p7])
+
+    @property
+    def pts(self):
+        return [self.pos_3d]
+
+    def draw(self, context, render=False):
+        self.render = render
+        self.branch_0.colour_inactive = self.colour
+        self.branch_1.colour_inactive = self.colour
+        self.branch_0.draw(context)
+        self.branch_1.draw(context)
+        
+
+class PlusHandle(GlHandle):
+
+    def __init__(self, sensor_size, size, draggable=True, selectable=False):
+        GlHandle.__init__(self, sensor_size, size, draggable, selectable)
+        self.branch_0 = GlPolygon((1, 1, 1, 1), d=3)
+        self.branch_1 = GlPolygon((1, 1, 1, 1), d=3)
+        
+    def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
+        self.pos_3d = pos_3d
+        self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
+        o = self.pos_3d
+        w = self.size
+        s = 0.25 * w
+        x = direction.normalized()
+        y = x.cross(normal)
+        xs = x * s
+        xw = x * w
+        ys = y * s
+        yw = y * w
+        p0 = o - xw + ys
+        p1 = o + xw + ys
+        p2 = o + xw - ys
+        p3 = o - xw - ys
+        p4 = o - xs + yw
+        p5 = o + xs + yw
+        p6 = o + xs - yw
+        p7 = o - xs - yw
+        self.branch_0.set_pos([p0, p1, p2, p3])
+        self.branch_1.set_pos([p4, p5, p6, p7])
+        
+    @property
+    def pts(self):
+        return [self.pos_3d]
+
+    def draw(self, context, render=False):
+        self.render = render
+        self.branch_0.colour_inactive = self.colour
+        self.branch_1.colour_inactive = self.colour
+        self.branch_0.draw(context)
+        self.branch_1.draw(context)
+        
+        
 class EditableText(GlText, GlHandle):
     def __init__(self, sensor_size, size, draggable=False, selectable=False):
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
@@ -783,10 +870,10 @@ class EditableText(GlText, GlHandle):
         self.pos_3d = pos_3d
         self.value = value
         self._text = self.add_units(context)
-        x, y = self.text_size(context)
+        ts = self.text_size(context)
         self.pos_2d = self.position_2d_from_coord(context, pos_3d)
-        self.pos_2d.x += 0.5 * x
-        self.sensor_width, self.sensor_height = 0.5 * x, y
+        self.pos_2d.x += 0.5 * ts.x
+        self.sensor_width, self.sensor_height = 0.5 * ts.x, ts.y
 
     @property
     def sensor_center(self):
@@ -1061,7 +1148,8 @@ class GlCursorFence():
     def set_location(self, context, location):
         w = context.region.width
         h = context.region.height
-        x, y = location
+        p = Vector(location)
+        x, y = p.x, p.y
         self.line_x.p = Vector((0, y))
         self.line_x.v = Vector((w, 0))
         self.line_y.p = Vector((x, 0))
@@ -1100,8 +1188,10 @@ class GlCursorArea():
             self.min.y <= pt.y and self.max.y >= pt.y)
 
     def set_location(self, context, p0, p1):
-        x0, y0 = p0
-        x1, y1 = p1
+        p = Vector(p0)
+        x0, y0 = p.x, p.y
+        p = Vector(p1)
+        x1, y1 = p.x, p.y
         if x0 > x1:
             x1, x0 = x0, x1
         if y0 > y1:
