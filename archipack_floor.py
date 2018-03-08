@@ -1349,7 +1349,9 @@ class archipack_floor(ArchipackObject, Manipulable, DimensionProvider, PropertyG
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
         # use normalized to handle non linear t
-        if resolution == 0:
+        if (resolution == 0 or 
+                (p0.handle_right_type == 'VECTOR' and 
+                p1.handle_left_type == 'VECTOR')):
             pts.append(wM * p0.co.to_3d())
         else:
             v = (p1.co - p0.co).normalized()

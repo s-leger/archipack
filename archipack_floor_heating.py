@@ -1162,12 +1162,30 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         Io.add_curves(Q_points, tree, coordsys, curves, resolution)
         logger.debug("n geoms:%s", tree.ngeoms)
         cw = d.pattern == 'CW'
-        p = Vector((-0.5 * tree.width, -0.5 * tree.height, 0))
-        p += d.spacing * Vector((0.5, 0.5, 0))
-        if cw:
-            v = Vector((d.spacing, 0, 0))
-        else:
-            v = Vector((0, d.spacing, 0))
+        start = 0
+        center = Vector((0.5 * tree.width, 0.5 * tree.height, 0))
+        for s in self.segs:
+            length = s.length
+            if start + length < d.start_location:
+                start += length
+            else:
+                t = (d.start_location - start) / length
+                t_min = 0.5 * d.spacing / length
+                n = s.sized_normal(min(max(t_min, t), 1 - t_min), -0.5 * d.spacing)
+                p = (n.p + n.v).to_3d() - center
+                if cw:
+                    v = d.spacing * s.v.normalized().to_3d()
+                else:
+                    v = -d.spacing * s.v.normalized().to_3d()
+        
+        print(p, v)      
+        
+        #Vector((-0.5 * tree.width, -0.5 * tree.height, 0))
+        # p += d.spacing * Vector((0.5, 0.5, 0))
+        # if cw:
+        #    v = Vector((d.spacing, 0, 0))
+        # else:
+        #    v = Vector((0, d.spacing, 0))
 
         pf = PathFinder(tree, d.spacing, d.backward, cw)
         pf.start(p, v)
@@ -1181,7 +1199,7 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         else:
             coords = pf.coords
         self._add_spline(pipes, False, coords)
-        child.location = Vector((0.5 * tree.width, 0.5 * tree.height, 0))
+        child.location = center
         self.iter = pf.iter
         self.pipe_len = sum([(coords[i - 1] - co).length for i, co in enumerate(coords) if i > 0])
         self.area = 0
@@ -1448,7 +1466,12 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             precision=2,
             update=update
             )
-
+    start_location = FloatProperty(
+            name="Start location",
+            default=0.1,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
     def get_generator(self):
         g = FloorGenerator(self.parts)
         for part in self.parts:
@@ -1491,7 +1514,9 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
         # use normalized to handle non linear t
-        if resolution == 0:
+        if (resolution == 0 or 
+                (p0.handle_right_type == 'VECTOR' and 
+                p1.handle_left_type == 'VECTOR')):
             pts.append(wM * p0.co.to_3d())
         else:
             v = (p1.co - p0.co).normalized()
@@ -1528,17 +1553,9 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             else:
                 pts.append(wM * points[-1].co)
 
-        pt = wM.inverted() * pts[0]
-
         # pretranslate
         o = self.find_in_selection(context, self.auto_update)
-        o.matrix_world = wM * Matrix([
-            [1, 0, 0, pt.x],
-            [0, 1, 0, pt.y],
-            [0, 0, 1, pt.z],
-            [0, 0, 0, 1]
-            ])
-        self.from_points(pts)
+        o.matrix_world = self.from_points(pts)
 
     def from_points(self, pts):
 
@@ -1552,6 +1569,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
         self.update_parts(None)
 
         p0 = pts.pop(0)
+        tM = Matrix.Translation(p0.copy())
         a0 = 0
         for i, p1 in enumerate(pts):
             dp = p1 - p0
@@ -1571,7 +1589,8 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
 
         self.closed = True
         self.auto_update = True
-
+        return tM
+        
     def update_path(self, context):
         user_def_path = context.scene.objects.get(self.user_defined_path)
         if user_def_path is not None and user_def_path.type == 'CURVE':
@@ -1831,7 +1850,7 @@ class ARCHIPACK_PT_floor_heating(Panel):
         if props.user_defined_path != "":
             box.prop(props, 'user_defined_resolution')
         box.prop(props, 'x_offset')
-
+        box.prop(props, 'start_location')
         box = layout.box()
         row = box.row()
         if props.parts_expand:

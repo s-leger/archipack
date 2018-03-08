@@ -38,7 +38,7 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import interpolate_bezier
 from math import sin, cos, pi, acos, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator
-from .archipack_2d import Line, Arc
+from .archipack_2d import Line
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_object import ArchipackCreateTool, ArchipackObject
 
@@ -76,7 +76,6 @@ class StraightMolding(Molding, Line):
     def __init__(self, p, v):
         Molding.__init__(self)
         Line.__init__(self, p, v)
-
 
 
 class MoldingSegment():
@@ -149,13 +148,13 @@ class MoldingGenerator():
         f = self.segs[0]
         f_last = self.segs[-1].line
         closed_path = (f.line.p - (f_last.p + f_last.v)).length < 0.0001
-        
+
         # add first section
-        if closed_path:            
+        if closed_path:
             n = f_last.sized_normal(1, 1)
         else:
             n = f.line.sized_normal(0, 1)
-        
+
         # n.p = f.lerp(x_offset)
         sections.append((n, f.dz / f.line.length, f.z0))
 
@@ -212,13 +211,13 @@ class MoldingGenerator():
             matids += lofter.mat(1, idmat, idmat, path_type='USER_DEFINED')
             v = Vector((0, 0))
             uvs += lofter.uv(1, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
-            
+
     def update_manipulators(self):
         """
-           
+
         """
         for i, f in enumerate(self.segs):
-            
+
             manipulators = self.parts[i].manipulators
             p0 = f.line.p0.to_3d()
             p1 = f.line.p1.to_3d()
@@ -236,7 +235,6 @@ class MoldingGenerator():
             # snap manipulator, dont change index !
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
 
-           
 
 def update(self, context):
     self.update(context)
@@ -375,14 +373,14 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
             update=update
             )
     closed = BoolProperty(
-        default=True, 
+        default=True,
         options={'SKIP_SAVE'}
         )
     # UI layout related
     parts_expand = BoolProperty(
             default=False
             )
-    
+
     # Flag to prevent mesh update while making bulk changes over variables
     # use :
     # .auto_update = False
@@ -435,7 +433,9 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
         # use normalized to handle non linear t
-        if resolution == 0:
+        if (resolution == 0 or
+                (p0.handle_right_type == 'VECTOR' and
+                p1.handle_left_type == 'VECTOR')):
             pts.append(wM * p0.co.to_3d())
         else:
             v = (p1.co - p0.co).normalized()
@@ -577,7 +577,7 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
             da = pi / (2 * segs)
             molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0))]
             molding.extend([Vector((x + r * (cos(a * da) - 1), y + r * (sin(a * da) - 1))) for a in range(segs + 1)])
-            
+
         g.make_profile(molding, 0, self.x_offset,
             0, 0, True, verts, faces, matids, uvs)
 
@@ -776,10 +776,10 @@ class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
             d.user_defined_path = curve.name
             d.auto_update = True
             sel.append(o)
-            
+
         for obj in sel:
             obj.select = True
-        
+
         return o
 
     def execute(self, context):
@@ -824,7 +824,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             lines = wall.geoms
         else:
             lines = [wall]
-        
+
         for i, line in enumerate(lines):
             boundary = io._to_curve(line, "{}-boundary".format(w.name), '2D')
             bpy.ops.archipack.molding(auto_manipulate=False, filepath=self.filepath)
@@ -840,7 +840,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             self.delete_object(context, boundary)
             d.user_defined_path = ""
             sel.append(o)
-            
+
         for obj in sel:
             obj.select = True
         return o
@@ -867,7 +867,8 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-            
+
+
 # ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
@@ -882,13 +883,13 @@ class ARCHIPACK_OT_molding_preset_from_wall(PresetMenuOperator, Operator):
         options={'SKIP_SAVE'},
         default="archipack.molding_from_wall"
     )
-    
+
     @classmethod
     def poll(self, context):
         o = context.active_object
         return o and o.data and "archipack_wall2" in o.data
 
-        
+
 class ARCHIPACK_OT_molding_preset_from_curve(PresetMenuOperator, Operator):
     bl_description = "Molding from curve"
     bl_idname = "archipack.molding_preset_from_curve"
@@ -898,12 +899,12 @@ class ARCHIPACK_OT_molding_preset_from_curve(PresetMenuOperator, Operator):
         options={'SKIP_SAVE'},
         default="archipack.molding_from_curve"
     )
-    
+
     @classmethod
     def poll(self, context):
         o = context.active_object
         return o and o.type == 'CURVE'
-        
+
 
 class ARCHIPACK_OT_molding_preset_menu(PresetMenuOperator, Operator):
     bl_description = "Create Molding from presets"
@@ -936,7 +937,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_molding_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_molding_from_wall)
     bpy.utils.register_class(ARCHIPACK_OT_molding_curve_update)
-    
+
 
 def unregister():
     bpy.utils.unregister_class(archipack_molding_part)
@@ -951,4 +952,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_from_wall)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_curve_update)
-    

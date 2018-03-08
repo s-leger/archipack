@@ -920,16 +920,20 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
         # support for objects like section target storing params in Object instead of data
         for key in o.keys():
             if "archipack_" in key:
-                d = getattr(o, key)[0]
-                if hasattr(d, 'dimension_points'):
-                    for p in d.dimension_points:
-                        pos = itM * o.matrix_world * p.location
-                        m = self.source_selector.add()
-                        m.type_key = "OP_ADD"
-                        m.prop1_name = "archipack.dimension_auto_add"
-                        m.prop2_name = "obj={},index={},provider_type={}".format(o.name, p.index, key[10::].upper())
-                        m.set_pts([pos, pos + Vector((1, 0, 0)), Vector((1, 0, 0))])
-
+                try:
+                    # hybridholes fails here
+                    d = getattr(o, key)[0]
+                    if hasattr(d, 'dimension_points'):
+                        for p in d.dimension_points:
+                            pos = itM * o.matrix_world * p.location
+                            m = self.source_selector.add()
+                            m.type_key = "OP_ADD"
+                            m.prop1_name = "archipack.dimension_auto_add"
+                            m.prop2_name = "obj={},index={},provider_type={}".format(o.name, p.index, key[10::].upper())
+                            m.set_pts([pos, pos + Vector((1, 0, 0)), Vector((1, 0, 0))])
+                except:
+                    pass 
+                    
     def _add_child_selector(self, o, itM):
         self._add_selector(o, itM)
         for c in o.children:

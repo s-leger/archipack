@@ -1097,7 +1097,9 @@ class archipack_wall2(ArchipackObject, Manipulable, DimensionProvider, PropertyG
             p.manipulators[3].prop1_name = str(i + 1)
 
     def interpolate_bezier(self, pts, wM, p0, p1, resolution):
-        if resolution == 0:
+        if (resolution == 0 or 
+                (p0.handle_right_type == 'VECTOR' and 
+                p1.handle_left_type == 'VECTOR')):
             pts.append(wM * p0.co.to_3d())
         else:
             v = (p1.co - p0.co).normalized()

@@ -187,10 +187,10 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
             manipulators[2].set_pts([p0, p1, (1, 0, 0)])
             # dumb segment id
             manipulators[3].set_pts([p0, p1, (1, 0, 0)])
-            
+
             # Dimensions points
             self.d.add_dimension_point(part.uid, p0)
-            
+
     def get_verts(self, verts):
         verts.extend([s.p0.to_3d() for s in self.segs])
 
@@ -516,7 +516,7 @@ class ArchipackSegment():
 class archipack_slab_part(ArchipackSegment, PropertyGroup):
     # DimensionProvider related
     uid = IntProperty(default=0)
-    
+
     def draw_insert(self, context, layout, index):
         row = layout.row(align=True)
         row.operator("archipack.slab_insert", text="Split").index = index
@@ -957,11 +957,11 @@ class archipack_slab(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         for i in range(len(self.parts), self.n_parts):
             row_change = True
             self.parts.add()
-        
+
         for p in self.parts:
             if p.uid == 0:
                 self.create_uid(p)
-                
+
         self.setup_manipulators()
 
         g = self.get_generator()
@@ -1017,7 +1017,9 @@ class archipack_slab(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         # straight segment, worth testing here
         # since this can lower points count by a resolution factor
         # use normalized to handle non linear t
-        if resolution == 0:
+        if (resolution == 0 or
+                (p0.handle_right_type == 'VECTOR' and
+                p1.handle_left_type == 'VECTOR')):
             pts.append(wM * p0.co.to_3d())
         else:
             v = (p1.co - p0.co).normalized()
@@ -1158,9 +1160,9 @@ class archipack_slab(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
             (0, 0, -self.z),
             (-1, 0, 0)
             ], normal=g.segs[0].straight(-1, 0).v.to_3d())
-        
+
         self.update_dimensions(context, o)
-        
+
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
@@ -1661,7 +1663,7 @@ class ARCHIPACK_OT_slab_cutter(ArchipackCreateTool, Operator):
             d.n_parts = 3
             d.close = True
             d.auto_update = True
-            
+
         else:
             o.location = context.scene.cursor_location
         # make manipulators selectable
@@ -1671,7 +1673,7 @@ class ARCHIPACK_OT_slab_cutter(ArchipackCreateTool, Operator):
         context.scene.objects.active = o
         self.load_preset(d)
         update_operation(d, context)
-        
+
         return o
 
     # -----------------------------------------------------

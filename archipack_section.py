@@ -128,7 +128,7 @@ class ArchipackSectionManager():
         bpy.ops.object.mode_set(mode='OBJECT')
         return o
 
-    def as_curves(self, context, o, tM, src_name, previous_section_name):
+    def as_curves(self, context, o, tM, loc, src_name, section_name):
         """
          tM source object matrix world
         """
@@ -148,9 +148,9 @@ class ArchipackSectionManager():
             bpy.ops.object.convert(target='CURVE', keep_original=False)
 
             o = context.active_object
-            old = scene.objects.get(previous_section_name)
+            old = scene.objects.get(section_name)
 
-            if old is not None and o.name != previous_section_name:
+            if old is not None and o.name != section_name:
                 # replace old.data by new one
                 rem = old.data
                 old.data = o.data
@@ -158,7 +158,9 @@ class ArchipackSectionManager():
                 scene.objects.unlink(o)
                 bpy.data.curves.remove(rem)
                 o = old
-
+            else:
+                o.location = loc
+                
             context.scene.objects.active = o
             d = archipack_section_target.datablock(o)
 
@@ -398,14 +400,16 @@ class archipack_section(ArchipackObject, ArchipackSectionManager, Manipulable, P
         if o is None:
             return
         src_name = o.name
+        loc = o.matrix_world.translation
         x = 0.5 * self.size
         sel = []
         tM = self.get_objects(context, o, sel)
         o = self.generate_section(context, o, sel, tM, x)
-        o = self.as_curves(context, o, tM, src_name, self.section_name)
+        o = self.as_curves(context, o, tM, loc, src_name, self.section_name)
+        self.section_name = o.name
         self.restore_context(context)
         return o
-        
+
     def update(self, context):
 
         # provide support for "copy to selected"
@@ -475,7 +479,7 @@ class archipack_section_camera(ArchipackObject, ArchipackSectionManager, Propert
             self.delete_object(context, last_o)
         self.restore_context(context)
         return new_o
-        
+
     def update(self, context):
 
         # provide support for "copy to selected"
@@ -713,7 +717,7 @@ class ARCHIPACK_OT_section_camera(ArchipackCreateTool, Operator):
         context.scene.objects.active = o
 
         return o
-        
+
     def delete(self, context, o):
         if archipack_section_camera.filter(o):
             d = archipack_section_camera.datablock(o)
@@ -721,9 +725,9 @@ class ARCHIPACK_OT_section_camera(ArchipackCreateTool, Operator):
             if c:
                 self.delete_object(context, c)
             self.delete_object(context, o)
-            
+
     def execute(self, context):
-        if context.mode == "OBJECT":            
+        if context.mode == "OBJECT":
             if self.mode == 'DELETE':
                 o = context.active_object
                 bpy.ops.archipack.disable_manipulate()
@@ -774,17 +778,17 @@ class ARCHIPACK_OT_section_update(Operator):
                 src.select = True
                 context.scene.objects.active = src
                 dst = d.update_section(context)
-            
+
             src.select = False
             if dst and select_new:
                 dst.select = True
                 context.scene.objects.active = dst
-            else:    
+            else:
                 if dst:
                     dst.select = False
                 act.select = True
                 context.scene.objects.active = act
-                
+
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
