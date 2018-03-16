@@ -114,8 +114,13 @@ class ArchipackBoolManager():
         hole.cycles_visibility.transmission = False
 
     def get_child_hole(self, o):
+        
+        # Handle custom holes : objects tagged with "archipack_custom_hole"
+        if "archipack_custom_hole" in o:
+            return o
+
         for hole in o.children:
-            if "archipack_hole" in hole:
+            if "archipack_hole" in hole or "archipack_custom_hole" in hole:
                 return hole
         return None
 
@@ -124,10 +129,6 @@ class ArchipackBoolManager():
         hole = self.get_child_hole(o)
         if hole is not None:
             return hole
-
-        # Handle custom holes : objects tagged with "archipack_custom_hole"
-        if "archipack_custom_hole" in o:
-            return o
 
         # generate single hole from archipack primitives
         # regardless of location to allow draw tools to show holes
@@ -313,8 +314,13 @@ class ArchipackBoolManager():
 
         wall.select = True
         for o in childs:
-            o.hide_select = False
-            o.select = True
+            # parent archipack_custom
+            if o.parent and o.data and "archipack_custom_part" in o.data: 
+                o.parent.hide_select = False
+                o.parent.select = True
+            else:
+                o.hide_select = False
+                o.select = True
 
         if bpy.ops.archipack.parent_to_reference.poll():
             bpy.ops.archipack.parent_to_reference()
@@ -331,13 +337,8 @@ class ArchipackBoolManager():
         """
 
         # generate holes for crossing window and doors
-        d = self.datablock(o)
-
-        hole = None
+        hole = self._generate_hole(context, o)
         hole_obj = None
-
-        if d is not None:
-            hole = d.interactive_hole(context, o)
 
         if hole is None:
             return
@@ -533,6 +534,7 @@ class ARCHIPACK_OT_custom_hole(Operator):
                                     hole.modifiers.remove(m)
             else:
                 o["archipack_custom_hole"] = 1
+                o.draw_type = 'WIRE'
                 manager = ArchipackBoolManager()
                 manager._init_bounding_box(o)
                 walls = [wall for wall in context.scene.objects

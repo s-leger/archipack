@@ -2332,16 +2332,17 @@ class archipack_manipulator(PropertyGroup):
 class ARCHIPACK_OT_manipulate(Operator):
     bl_idname = "archipack.manipulate"
     bl_label = "Manipulate"
-    bl_description = "Manipulate archipack objects"
+    bl_description = "Manipulate archipack objects (only work in object mode)"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(self, context):
-        o = context.active_object
-        if o.data:
-            for key in o.data.keys():
-                if "archipack_" in key:
-                    return True
+        if context.mode == 'OBJECT':
+            o = context.active_object
+            if o.data:
+                for key in o.data.keys():
+                    if "archipack_" in key:
+                        return True
         return False
 
     def invoke(self, context, event):
@@ -2515,7 +2516,10 @@ class Manipulable():
             self.manip_stack.append(m.setup(context, o, self))
 
     def _manipulable_invoke(self, context):
-
+        # disallow manipulate in other mode than object
+        if context.mode != 'OBJECT':
+            return 
+            
         object_name = context.active_object.name
 
         # store a reference to self for operators
@@ -2579,7 +2583,7 @@ class Manipulable():
             self.manipulable_refresh = False
             self.manipulable_setup(context)
             self.manipulate_mode = True
-
+            
         if context.area is None:
             self.manipulable_disable(context)
             return {'FINISHED'}
@@ -2588,6 +2592,10 @@ class Manipulable():
 
         if self.keymap is None:
             self.keymap = Keymaps(context)
+        
+        if context.mode != 'OBJECT':
+            self.manipulable_disable(context)
+            return {'FINISHED'}
 
         if self.keymap.check(event, self.keymap.undo):
             # user feedback on undo by disabling manipulators

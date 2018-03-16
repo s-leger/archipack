@@ -41,7 +41,7 @@ from .archipack_handle import create_handle, window_handle_vertical_01, window_h
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_gl import FeedbackPanel
-from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchpackDrawTool
+from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchipackDrawTool
 from .archipack_keymaps import Keymaps
 from .archipack_dimension import DimensionProvider
 
@@ -2734,7 +2734,7 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_window_draw(ArchpackDrawTool, Operator):
+class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
     bl_idname = "archipack.window_draw"
     bl_label = "Draw Windows"
     bl_description = "Draw Windows over walls"

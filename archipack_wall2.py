@@ -45,7 +45,7 @@ from .archipack_manipulator import (
     GlPolygon, GlPolyline,
     GlLine, GlText, FeedbackPanel
     )
-from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchpackDrawTool
+from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchipackDrawTool
 from .archipack_2d import Line, Arc
 from .archipack_snap import snap_point
 from .archipack_keymaps import Keymaps
@@ -2465,7 +2465,7 @@ class ARCHIPACK_OT_wall2_to_curve(Operator):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_wall2_draw(ArchpackDrawTool, Operator):
+class ARCHIPACK_OT_wall2_draw(ArchipackDrawTool, Operator):
     bl_idname = "archipack.wall2_draw"
     bl_label = "Draw a Wall"
     bl_description = "Draw a Wall"

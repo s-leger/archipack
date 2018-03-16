@@ -776,11 +776,12 @@ class SelectPolygons(Selectable):
             self.recall()
         elif event.type in {'B'}:
             areas = [self.geoms[i].area for i in self.ba.list]
-            area = max(areas)
-            self.ba.none()
-            for i, geom in enumerate(self.geoms):
-                if geom.area > area:
-                    self.ba.set(i)
+            if len(areas) > 0:
+                area = max(areas)
+                self.ba.none()
+                for i, geom in enumerate(self.geoms):
+                    if geom.area > area:
+                        self.ba.set(i)
 
         elif event.type in {'W'}:
             self.action = 'window'
@@ -1073,7 +1074,7 @@ class Point(GeosPoint):
         GeosPoint.__init__(self, coord, factory)
         self.users = 0
         self.index = 0
-    
+
     def distance(self, point):
         """ euclidian distance between points """
         return self.coord.distance(point.coord)
@@ -1407,19 +1408,19 @@ class Io():
             io._curve_as_geom(gf, curve, resolution, geoms)
         logger.debug("Io.curves_to_geoms() :%.2f seconds", time.time() - t)
         return coordsys
-         
+
     def coords_to_linestring(self, tM, lines_coords):
         """
          * Create linestrings from arrays of coords
          * shell: array of tuple xyz
          * holes: array of array of tuple xyz
-         * Coords are ment to be local to object 
+         * Coords are ment to be local to object
          * tM is object matrix_world
          * must init coordsys with objects before
         """
-        t = time.time()
+        # t = time.time()
         gf = GeometryFactory()
-        itM = self.coordsys.invert * tM  
+        itM = self.coordsys.invert * tM
         coords = [[itM * Vector(co) for co in coords] for coords in lines_coords]
         out = []
         for i, co in enumerate(coords):
@@ -1431,26 +1432,26 @@ class Io():
                 ])
             out.append(gf.createLineString(cs))
         return gf.buildGeometry(out)
-                
+
     def coords_to_polygon(self, tM, shell, holes=None):
         """
          * Create polygon from shell and holes
          * shell: array of tuple xyz
          * holes: array of array of tuple xyz
-         * Coords are ment to be local to object 
+         * Coords are ment to be local to object
          * tM is object matrix_world
          * must init coordsys with objects before
         """
-        t = time.time()
+        # t = time.time()
         gf = GeometryFactory()
         exterior = None
         interiors = []
-        itM = self.coordsys.invert * tM  
+        itM = self.coordsys.invert * tM
         shell = [itM * Vector(co) for co in shell]
         coords = [shell]
         if holes is not None:
             coords.extend([[itM * Vector(co) for co in hole] for hole in holes])
-            
+
         for i, co in enumerate(coords):
             co = CoordinateSequence._removeRepeatedPoints(co)
             if co[0] != co[-1]:
@@ -1467,9 +1468,9 @@ class Io():
                 if ring.is_ccw:
                     ring = gf.createLinearRing(list(reversed(cs)))
                 interiors.append(ring)
-                
-        return gf.createPolygon(exterior, interiors)   
-                
+
+        return gf.createPolygon(exterior, interiors)
+
     def _poly_to_surface(self, vm, poly, name: str="Surface"):
         # create Exterior line
         curve = bpy.data.curves.new(name, type='CURVE')
@@ -1477,14 +1478,14 @@ class Io():
         self._add_spline(curve, poly.exterior)
         exterior = bpy.data.objects.new(name, curve)
         exterior.matrix_world = self.coordsys.world
-        
+
         self.scene.objects.link(exterior)
-        
+
         # create a plane to cut
         location = Vector()
         poly.envelope.centre(location)
         radius = max(poly.envelope.width, poly.envelope.height)
-        
+
         bpy.ops.mesh.primitive_plane_add(
             radius=radius,
             enter_editmode=True,
@@ -1500,11 +1501,11 @@ class Io():
 
         # cut plane
         bpy.ops.mesh.knife_project()
-        
+
         exterior.select = False
         self.scene.objects.unlink(exterior)
         bpy.data.curves.remove(curve)
-        
+
         # remove outside parts
         bpy.ops.mesh.select_all(action='INVERT')
         bpy.ops.mesh.intersect_boolean()
@@ -1818,7 +1819,7 @@ class Io():
         target.location = self.coordsys.world * Vector((coord.x, coord.y, 0))
         self.scene.objects.link(target)
 
-               
+
 class ShapelyOps():
 
     @staticmethod

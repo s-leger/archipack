@@ -291,10 +291,8 @@ class Tree(Qtree):
         return new_seg
 
 
-# ------------------------------------------------------------------
-# Define property class to store object parameters and update mesh
-# ------------------------------------------------------------------
 class PathFinder():
+    
     def __init__(self, tree, spacing, allow_backward, cw):
         self.tree = tree
         self.spacing = spacing
@@ -1472,6 +1470,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+            
     def get_generator(self):
         g = FloorGenerator(self.parts)
         for part in self.parts:
