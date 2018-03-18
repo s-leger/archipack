@@ -37,7 +37,100 @@ import logging
 logger = logging.getLogger("archipack")
 
 
-class ArchipackObject():
+class ArchipackObjectsManager():
+    """
+      Provide objects and datablock utility
+      Support meshes curves and lamps
+      - recursive delete objects and datablocks
+      - recursive clone linked
+      - recursive copy
+    """
+    def _cleanup_datablock(self, d, typ):
+        if d and d.users < 1:
+            if typ == 'MESH':
+                bpy.data.meshes.remove(d)
+            elif typ == 'CURVE':
+                bpy.data.curves.remove(d)
+            elif typ == 'LAMP':
+                bpy.data.lamps.remove(d)
+
+    def _delete_object(self, context, o):
+        d = o.data
+        typ = o.type
+        context.scene.objects.unlink(o)
+        bpy.data.objects.remove(o)
+        self._cleanup_datablock(d, typ)
+
+    def _delete_childs(self, context, o):
+        for child in o.children:
+            self._delete_childs(context, child)
+        self._delete_object(context, o)
+
+    def delete_object(self, context, o):
+        """
+          Recursively delete object and childs
+          Cleanup datablock when needed
+          @o: object to delete
+        """
+        if o is not None:
+            self._delete_childs(context, o)
+
+    def _duplicate_object(self, context, o, linked):
+        new_o = o.copy()
+        if o.data:
+            if linked:
+                new_o.data = o.data
+            else:
+                new_o.data = o.data.copy()
+        context.scene.objects.link(new_o)
+        return new_o
+
+    def _duplicate_childs(self, context, o, linked):
+        p = self._duplicate_object(context, o, linked)
+        for child in o.children:
+            c = self._duplicate_childs(context, child, linked)
+            c.parent = p
+            # c.location = child.location.copy()
+            c.matrix_local = child.matrix_local.copy()
+            c.matrix_parent_inverse = child.matrix_parent_inverse.copy()
+        return p
+
+    def duplicate_object(self, context, o, linked):
+        """
+          Recursively duplicate object and childs
+          @o: object to duplicate
+          @linked : boolean linked duplicate
+          return parent on success
+        """
+        if o is not None:
+            return self._duplicate_childs(context, o, linked)
+        return None
+
+    def _link_object(self, src, o):
+        if src.data:
+            d = o.data
+            typ = o.type
+            o.data = src.data
+            self._cleanup_datablock(d, typ)
+
+    def _link_child(self, src, o):
+        self._link_object(src, o)
+        if len(src.children) == len(o.children):
+            for i, child in enumerate(src.children):
+                self._link_child(child, o.children[i])
+
+    def link_object(self, src, o):
+        """
+         Recursievely link datablock
+         @src: object source
+         @o: object destination
+         src and o parent child relationship must match
+        """
+        if src is not None:
+            self._link_child(src, o)
+
+
+class ArchipackObject(ArchipackObjectsManager):
     """
         Shared property of archipack's objects PropertyGroup
         provide basic support for copy to selected
@@ -89,8 +182,8 @@ class ArchipackObject():
             d = getattr(o.data, cls.__name__)[0]
         except:
             pass
-            
-        if d is None:    
+
+        if d is None:
             try:
                 d = getattr(o, cls.__name__)[0]
             except:
@@ -118,36 +211,11 @@ class ArchipackObject():
                 return o
 
         return None
-    
-    def _delete_object(self, context, o):
-        d = o.data
-        type = o.type
-        context.scene.objects.unlink(o)
-        bpy.data.objects.remove(o)
-        if d and d.users < 1:
-            if type == 'MESH':
-                bpy.data.meshes.remove(d)
-            elif type == 'CURVE':
-                bpy.data.curves.remove(d)
-            elif type == 'LAMP':
-                bpy.data.lamps.remove(d)
-            
-    def _delete_childs(self, context, o):
-        for child in o.children:
-            self._delete_childs(context, child)
-        self._delete_object(context, o)
-        
-    def delete_object(self, context, o):
-        """
-          Recursively delete object and childs
-        """
-        if o is not None:
-            self._delete_childs(context, o)
-    
+
     def restore_context(self, context):
         """
          restore context
-        """ 
+        """
         bpy.ops.object.select_all(action="DESELECT")
 
         try:
@@ -162,7 +230,7 @@ class ArchipackObject():
         self.previously_active = None
 
 
-class ArchipackCreateTool():
+class ArchipackCreateTool(ArchipackObjectsManager):
     """
         Shared property of archipack's create tool Operator
     """
@@ -186,31 +254,6 @@ class ArchipackCreateTool():
         """
         return self.bl_idname[13:]
 
-    def _delete_object(self, context, o):
-        d = o.data
-        type = o.type
-        context.scene.objects.unlink(o)
-        bpy.data.objects.remove(o)
-        if d and d.users < 1:
-            if type == 'MESH':
-                bpy.data.meshes.remove(d)
-            elif type == 'CURVE':
-                bpy.data.curves.remove(d)
-            elif type == 'LAMP':
-                bpy.data.lamps.remove(d)
-            
-    def _delete_childs(self, context, o):
-        for child in o.children:
-            self._delete_childs(context, child)
-        self._delete_object(context, o)
-        
-    def delete_object(self, context, o):
-        """
-          Recursively delete object and childs
-        """
-        if o is not None:
-            self._delete_childs(context, o)
-            
     def load_preset(self, d):
         """
             Load python preset
@@ -262,7 +305,7 @@ class ArchipackCreateTool():
                 pass
 
 
-class ArchpackDrawTool():
+class ArchipackDrawTool(ArchipackObjectsManager):
     """
         Draw tools
     """

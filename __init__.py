@@ -63,6 +63,7 @@ if "bpy" in locals():
     imp.reload(archipack_fence)
     imp.reload(archipack_truss)
     # imp.reload(archipack_toolkit)
+    imp.reload(archipack_custom)
     imp.reload(archipack_floor)
     imp.reload(archipack_floor_heating)
     imp.reload(archipack_blind)
@@ -70,6 +71,7 @@ if "bpy" in locals():
     imp.reload(archipack_molding)
     imp.reload(archipack_rendering)
     imp.reload(archipack_section)
+    imp.reload(archipack_animation)
     # imp.reload(archipack_envi)
     imp.reload(archipack_io)
     imp.reload(archipack_2d_layout)
@@ -96,6 +98,7 @@ else:
     from . import archipack_roof
     from . import archipack_fence
     from . import archipack_truss
+    from . import archipack_custom
     # from . import archipack_toolkit
     from . import archipack_floor
     from . import archipack_floor_heating
@@ -104,6 +107,7 @@ else:
     from . import archipack_molding
     from . import archipack_rendering
     from . import archipack_section
+    from . import archipack_animation
     # from . import archipack_envi
     from . import archipack_io
     from . import archipack_2d_layout
@@ -389,7 +393,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             box.prop(params, "polygonize_bezier_resolution")
             box.prop(params, "polygonize_extend")
             box.prop(params, "polygonize_all_segs")
-            
+
             box.operator(
                 "archipack.polylib_pick_2d_polygons",
                 icon_value=icons["selection"].icon_id,
@@ -473,7 +477,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             box.operator("archipack.polylib_boolean", text="SymDifference").opCode = 'SYMDIFFERENCE'
             box.prop(params, "boolean_bezier_resolution")
 
-            
+
 class TOOLS_PT_Archipack_Tools(Panel):
     bl_label = "Archipack Tools"
     bl_idname = "TOOLS_PT_Archipack_Tools"
@@ -482,12 +486,13 @@ class TOOLS_PT_Archipack_Tools(Panel):
     bl_category = "Tools"
     bl_context = "objectmode"
     bl_options = {'DEFAULT_CLOSED'}
-    
+
     @classmethod
     def poll(self, context):
         return True
 
     def draw(self, context):
+        prefs = context.user_preferences.addons[__name__].preferences
         wm = context.window_manager
         layout = self.layout
         box = layout.box()
@@ -508,6 +513,15 @@ class TOOLS_PT_Archipack_Tools(Panel):
         box.label("Rendering")
         box.prop(wm.archipack, 'render_type', text="")
         box.operator("archipack.render", icon='RENDER_STILL')
+        
+        if prefs.experimental_features:
+            box = layout.box()
+            box.label("Animation support")
+            row = box.row(align=True)
+            row.operator("archipack.animation", text="Add", icon='ZOOMIN').mode = 'ENABLE'
+            row.operator("archipack.animation", text="Remove", icon='ZOOMOUT').mode = 'DISABLE'
+            row.operator("archipack.animation", text="Clear", icon='X').mode = 'CLEAR'
+        
         """
         box = layout.box()
         box.label("Generate preset thumbs")
@@ -539,7 +553,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         row = box.row(align=True)
         row.operator("archipack.wall2",
                     icon_value=icons["wall"].icon_id
-                    )
+                    ).mode = 'CREATE'
         row.operator("archipack.wall2_draw", text="Draw", icon='GREASEPENCIL')
         row.operator("archipack.wall2_from_curve", text="", icon='CURVE_DATA')
         row = box.row(align=True)
@@ -567,7 +581,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         box.operator("archipack.stair_preset_menu",
                     text="Stair",
                     icon_value=icons["stair"].icon_id
-                    ).preset_operator = "archipack.stair" 
+                    ).preset_operator = "archipack.stair"
         row = box.row(align=True)
         row.operator("archipack.fence_preset_menu",
                     text="Fence",
@@ -576,7 +590,7 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.fence_from_curve", text="", icon='CURVE_DATA')
         box.operator("archipack.wall2_from_slab",
                     icon_value=icons["wall_from_slab"].icon_id)
-        
+
         row = box.row(align=True)
         row.operator("archipack.slab_from_wall",
                     icon_value=icons["slab_from_wall"].icon_id
@@ -584,11 +598,11 @@ class TOOLS_PT_Archipack_Create(Panel):
         row.operator("archipack.slab_from_wall",
                     text="->Ceiling",
                     icon_value=icons["ceiling_from_wall"].icon_id
-                    ).ceiling = True        
+                    ).ceiling = True
         row.operator("archipack.slab_from_curve",
                     text="", icon='CURVE_DATA'
                     )
-        
+
         row = box.row(align=True)
         row.operator("archipack.floor_preset_menu",
                     text="Floor",
@@ -608,7 +622,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Molding",
                     icon_value=icons["molding"].icon_id
                     ).preset_operator = "archipack.molding"
-        row.operator("archipack.molding_preset_from_wall", 
+        row.operator("archipack.molding_preset_from_wall",
                     text="->Molding",
                     icon_value=icons["molding_from_wall"].icon_id
                     )
@@ -635,7 +649,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Kitchen",
                     icon_value=icons["kitchen"].icon_id
                     ).preset_operator = "archipack.kitchen"
-        
+
         box.operator("archipack.blind_preset_menu",
                     text="Blind",
                     icon_value=icons["blind"].icon_id
@@ -643,18 +657,18 @@ class TOOLS_PT_Archipack_Create(Panel):
         box.operator("archipack.truss",
                     icon_value=icons["truss"].icon_id
                     )
-        
+
         box = layout.box()
         box.label("2d Objects")
         box.operator("archipack.dimension_auto",
                     icon_value=icons["dimension_auto"].icon_id
-                    )
+                    ).mode = 'CREATE'
         box.operator("archipack.layout",
                     icon_value=icons["layout"].icon_id
-                    ) 
+                    )
         box.operator("archipack.section",
                     icon_value=icons["section"].icon_id
-                    )
+                    ).mode = 'CREATE'
         box.operator("archipack.section_camera",
                     text="Section cam",
                     icon='CAMERA_DATA'
@@ -662,10 +676,12 @@ class TOOLS_PT_Archipack_Create(Panel):
         if prefs.experimental_features:
             box = layout.box()
             box.label(text="Experimental features")
-            box.operator("archipack.floor_heating")                    
+            box.operator("archipack.floor_heating")
             box.operator("archipack.dimension")
-            
-            
+            row = box.row(align=True)
+            row.operator("archipack.make_custom", text="Custom", icon='MONKEY')
+            row.operator("archipack.custom_draw", text="Draw", icon='GREASEPENCIL')
+                
         box = layout.box()
         box.label(text="Custom objects")
         box.operator("archipack.wall", text="Custom wall")
@@ -691,7 +707,7 @@ def draw_menu(self, context):
     layout.operator("archipack.wall2",
                     text="Wall",
                     icon_value=icons["wall"].icon_id
-                    )
+                    ).mode = 'CREATE'
     layout.operator("archipack.window_preset_menu",
                     text="Window",
                     icon_value=icons["window"].icon_id
@@ -734,22 +750,22 @@ def draw_menu(self, context):
                     )
     layout.operator("archipack.dimension_auto",
                     icon_value=icons["dimension_auto"].icon_id
-                    )
+                    ).mode = 'CREATE'
     layout.operator("archipack.layout",
                     icon_value=icons["layout"].icon_id
-                    ) 
+                    )
     layout.operator("archipack.section",
                     icon_value=icons["section"].icon_id
-                    )
+                    ).mode = 'CREATE'
     layout.operator("archipack.section_camera",
                     text="Section cam",
                     icon='CAMERA_DATA'
                     ).mode = 'CREATE'
-            
-    
-class ARCHIPACK_create_menu(Menu):
+
+
+class ARCHIPACK_MT_create_menu(Menu):
     bl_label = 'Archipack'
-    bl_idname = 'ARCHIPACK_create_menu'
+    bl_idname = 'ARCHIPACK_MT_create_menu'
 
     def draw(self, context):
         draw_menu(self, context)
@@ -764,7 +780,7 @@ def menu_func(self, context):
     # either draw sub menu or right at end of this one
     if context.user_preferences.addons[__name__].preferences.create_submenu:
         layout.operator_context = 'INVOKE_REGION_WIN'
-        layout.menu("ARCHIPACK_create_menu", icon_value=icons["archipack"].icon_id)
+        layout.menu("ARCHIPACK_MT_create_menu", icon_value=icons["archipack"].icon_id)
     else:
         draw_menu(self, context)
 
@@ -787,7 +803,7 @@ class archipack_data(PropertyGroup):
         description="Render method"
         )
 
-    
+
 def register():
     global icons_collection
     icons = previews.new()
@@ -816,11 +832,13 @@ def register():
     archipack_blind.register()
     archipack_kitchen.register()
     archipack_molding.register()
+    archipack_custom.register()
     # archipack_toolkit.register()
     archipack_floor.register()
     archipack_floor_heating.register()
     archipack_rendering.register()
     archipack_section.register()
+    archipack_animation.register()
     archipack_io.register()
     archipack_2d_layout.register()
     archipack_io_export_svg.register()
@@ -830,16 +848,16 @@ def register():
     WindowManager.archipack = PointerProperty(type=archipack_data)
     bpy.utils.register_class(Archipack_Pref)
     update_panel(None, bpy.context)
-    bpy.utils.register_class(ARCHIPACK_create_menu)
+    bpy.utils.register_class(ARCHIPACK_MT_create_menu)
     bpy.types.INFO_MT_mesh_add.append(menu_func)
 
     addon_updater_ops.register(bl_info)
-    
-    
+
+
 def unregister():
     global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
-    bpy.utils.unregister_class(ARCHIPACK_create_menu)
+    bpy.utils.unregister_class(ARCHIPACK_MT_create_menu)
 
     bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Tools)
@@ -864,10 +882,12 @@ def unregister():
     archipack_kitchen.unregister()
     archipack_molding.unregister()
     # archipack_toolkit.unregister()
+    archipack_custom.unregister()
     archipack_floor.unregister()
     archipack_floor_heating.unregister()
     archipack_rendering.unregister()
     archipack_section.unregister()
+    archipack_animation.unregister()
     archipack_io.unregister()
     archipack_2d_layout.unregister()
     archipack_io_export_svg.unregister()
@@ -876,11 +896,11 @@ def unregister():
     archipack_dimension.unregister()
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack
-
+    # print("Archipack collection.remove start")
     for icons in icons_collection.values():
         previews.remove(icons)
     icons_collection.clear()
-
+    # print("Archipack collection.remove success")
     addon_updater_ops.unregister()
 
 

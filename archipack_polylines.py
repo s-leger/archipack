@@ -656,47 +656,8 @@ class SelectPolygons(Selectable):
                 bpy.ops.object.select_all(action='DESELECT')
                 z = context.window_manager.archipack_polylib.polygonize_thickness
                 Io.to_wall(context, self.coordsys, union, z, 'wall', res)
-                if len(res) > 0:
-                    for wall in res:
-                        wall.select = True
-                    scene.objects.active = res[0]
-                    if len(res) > 1:
-                        bpy.ops.object.join()
-                    wall = scene.objects.active
-                    Io.assign_matindex_to_wall(wall)
-                    bpy.ops.archipack.wall(z=z)
+                Io.merge_walls(context, self.coordsys, res, z)
 
-                    # use overall input bounding box to find a reference point if any
-                    coordsys = self.coordsys
-                    loc = coordsys.world * Vector((-0.5 * coordsys.width, -0.5 * coordsys.height, 0))
-                    # find reference point if any
-                    reference = None
-                    for ref in scene.objects:
-                        if ref.location == loc and 'archipack_reference_point' in ref:
-                            ref.hide = False
-                            ref.hide_select = False
-                            reference = ref
-                            break
-                    # create a new ref if not found
-                    if reference is None:
-                        scene.cursor_location = loc
-                        scene.objects.active = wall
-                        bpy.ops.archipack.reference_point()
-                        reference = scene.objects.active
-                    else:
-                        reference.select = True
-                        scene.objects.active = reference
-                    # parent wall to reference
-                    wall.select = True
-                    if bpy.ops.archipack.parent_to_reference.poll():
-                        bpy.ops.archipack.parent_to_reference()
-
-                    reference.select = False
-                    wall.select = True
-                    scene.objects.active = wall
-                    # autoboolean
-                    if bpy.ops.archipack.auto_boolean.poll():
-                        bpy.ops.archipack.auto_boolean()
             elif self.action == 'rectangle':
                 # currently only output a best fitted rectangle
                 # over selection
@@ -1730,11 +1691,62 @@ class Io():
         return surfaces
 
     @staticmethod
+    def merge_walls(context, coordsys, walls, height):
+        """
+         Merge wall meshes
+         add archipack_wall parameters
+         assign material indexes
+         create reference when needed
+         perform autoboolean
+        """
+        scene = context.scene
+        if len(walls) > 0:
+            for wall in walls:
+                wall.select = True
+                scene.objects.active = walls[0]
+                if len(walls) > 1:
+                    bpy.ops.object.join()
+                wall = scene.objects.active
+                Io.assign_matindex_to_wall(wall)
+                bpy.ops.archipack.wall(z=height)
+
+                # use overall input bounding box to find a reference point if any
+                loc = coordsys.world * Vector((-0.5 * coordsys.width, -0.5 * coordsys.height, 0))
+                # find reference point if any
+                reference = None
+                for ref in scene.objects:
+                    if ref.location == loc and 'archipack_reference_point' in ref:
+                        ref.hide = False
+                        ref.hide_select = False
+                        reference = ref
+                        break
+                        
+                # create a new ref if not found
+                if reference is None:
+                    scene.cursor_location = loc
+                    scene.objects.active = wall
+                    bpy.ops.archipack.reference_point()
+                    reference = scene.objects.active
+                else:
+                    reference.select = True
+                    scene.objects.active = reference
+                
+                # parent wall to reference
+                wall.select = True
+                if bpy.ops.archipack.parent_to_reference.poll():
+                    bpy.ops.archipack.parent_to_reference()
+
+                reference.select = False
+                wall.select = True
+                scene.objects.active = wall
+                # autoboolean
+                if bpy.ops.archipack.auto_boolean.poll():
+                    bpy.ops.archipack.auto_boolean()
+    
+    @staticmethod
     def to_wall(context, coordsys, geoms, height, name: str, walls: list=[]):
         """
-            use curve extrude as it does respect vertices number and is not removing doubles
-            so it is easy to set material index
-            cap faces are tri, sides faces are quads
+         use cookie cut to make walls mesh from pygoes.geoms
         """
         t = time.time()
         vm = ViewManager(context)
@@ -1774,7 +1786,6 @@ class Io():
                 walls.append(obj)
             else:
                 logger.debug("Io.to_wall() :skip %s", type(poly).__name__)
-
         vm.restore()
 
         logger.debug("Io.to_wall(%s) :%.2f seconds", len(walls), time.time() - t)

@@ -41,7 +41,7 @@ from .panel import Panel as DoorPanel
 from .archipack_handle import create_handle, door_handle_horizontal_01
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
-from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchpackDrawTool
+from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchipackDrawTool
 from .archipack_gl import FeedbackPanel
 from .archipack_keymaps import Keymaps
 from .archipack_dimension import DimensionProvider
@@ -1848,7 +1848,7 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_door_draw(ArchpackDrawTool, Operator):
+class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
     bl_idname = "archipack.door_draw"
     bl_label = "Draw Doors"
     bl_description = "Draw Doors over walls"
