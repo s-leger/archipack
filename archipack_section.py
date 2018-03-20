@@ -75,16 +75,18 @@ class ArchipackSectionManager():
         for o in objs:
             o.select = True
             context.scene.objects.active = o
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.bisect(
-                'INVOKE_DEFAULT',
-                plane_co=plane_co,
-                plane_no=plane_no,
-                use_fill=True,
-                clear_inner=True,
-                clear_outer=True)
-            bpy.ops.object.mode_set(mode='OBJECT')
+            if o.data and len(o.data.edges) > 0:
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.select_all(action='SELECT')
+                if bpy.ops.mesh.bisect.poll():
+                    bpy.ops.mesh.bisect(
+                        'INVOKE_DEFAULT',
+                        plane_co=plane_co,
+                        plane_no=plane_no,
+                        use_fill=True,
+                        clear_inner=True,
+                        clear_outer=True)
+                bpy.ops.object.mode_set(mode='OBJECT')
 
         for o in objs:
             o.select = True
@@ -99,33 +101,36 @@ class ArchipackSectionManager():
         bpy.ops.object.join()
 
         o = context.active_object
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
+        if o.data and len(o.data.edges) > 0:
 
-        # clear sides
-        if bpy.ops.mesh.bisect.poll():
-            try:
-                bpy.ops.mesh.bisect(
-                    plane_co=plane_co + x * plane_cr,
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+
+            # clear sides
+            if bpy.ops.mesh.bisect.poll():
+                try:
+                    bpy.ops.mesh.bisect(
+                        plane_co=plane_co + x * plane_cr,
+                        plane_no=plane_cr,
+                        use_fill=False,
+                        clear_inner=False,
+                        clear_outer=True)
+                except:
+                    pass
+
+            bpy.ops.mesh.select_all(action='SELECT')
+            if bpy.ops.mesh.bisect.poll():
+                try:
+                    bpy.ops.mesh.bisect(
+                    plane_co=plane_co - x * plane_cr,
                     plane_no=plane_cr,
                     use_fill=False,
-                    clear_inner=False,
-                    clear_outer=True)
-            except:
-                pass
-        bpy.ops.mesh.select_all(action='SELECT')
-        if bpy.ops.mesh.bisect.poll():
-            try:
-                bpy.ops.mesh.bisect(
-                plane_co=plane_co - x * plane_cr,
-                plane_no=plane_cr,
-                use_fill=False,
-                clear_inner=True,
-                clear_outer=False)
-            except:
-                pass
+                    clear_inner=True,
+                    clear_outer=False)
+                except:
+                    pass
 
-        bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.mode_set(mode='OBJECT')
         return o
 
     def as_curves(self, context, o, tM, loc, src_name, section_name):
@@ -160,7 +165,7 @@ class ArchipackSectionManager():
                 o = old
             else:
                 o.location = loc
-                
+
             context.scene.objects.active = o
             d = archipack_section_target.datablock(o)
 
@@ -169,7 +174,7 @@ class ArchipackSectionManager():
                 d.source_name = src_name
 
             d.update(context)
-
+            self.section_name = o.name
             return o
 
         return None
@@ -404,11 +409,12 @@ class archipack_section(ArchipackObject, ArchipackSectionManager, Manipulable, P
         x = 0.5 * self.size
         sel = []
         tM = self.get_objects(context, o, sel)
-        o = self.generate_section(context, o, sel, tM, x)
-        o = self.as_curves(context, o, tM, loc, src_name, self.section_name)
-        self.section_name = o.name
+        s = self.generate_section(context, o, sel, tM, x)
+        c = self.as_curves(context, s, tM, loc, src_name, self.section_name)
+        if c is None:
+            self.delete_object(context, s)
         self.restore_context(context)
-        return o
+        return c
 
     def update(self, context):
 
