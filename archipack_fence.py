@@ -868,8 +868,10 @@ class archipack_fence_rail(PropertyGroup):
         layout.prop(self, 'extend')
         layout.prop(self, 'mat')
         if self.profil == 'USER':
-            layout.prop_search(self, "user_profil", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-
+            row = layout.row(align=True)
+            row.prop_search(self, "user_profil", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
+            row.operator("archipack.fence_update", icon="FILE_REFRESH", text="")
+        
         
 class archipack_fence(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
 
@@ -1420,10 +1422,9 @@ class archipack_fence(ArchipackObject, Manipulable, DimensionProvider, PropertyG
         auto_update = self.auto_update
         self.auto_update = False
 
+        pts = self.pts_from_spline(spline, wM, resolution)
         self.n_parts = len(pts) - 1
         self.update_parts()
-        
-        pts = self.pts_from_spline(spline, wM, resolution)
         
         if len(pts) < 1:
             return
@@ -1551,7 +1552,7 @@ class archipack_fence(ArchipackObject, Manipulable, DimensionProvider, PropertyG
                         (0, 0.5)]]
                 elif self.rails[i].profil == 'USER':
                     curve = context.scene.objects.get(self.rails[i].user_profil)
-                    if curve:
+                    if curve and curve.type == 'CURVE':
                         spline = curve.data.splines[0]
                         rail = self.pts_from_spline(spline, Matrix(), 12)
                         closed = rail[0] == rail[-1]
@@ -1831,6 +1832,32 @@ class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):
 """
 
 
+class ARCHIPACK_OT_fence_update(Operator):
+    bl_idname = "archipack.fence_update"
+    bl_label = "Fence profile update"
+    bl_description = "Update fence profile from curve"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(self, context):
+        return archipack_fence.filter(context.active_object)
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Use Properties panel (N) to define parms", icon='INFO')
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            d = archipack_fence.datablock(context.active_object)
+            d.update(context)
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+
 class ARCHIPACK_OT_fence_curve_update(Operator):
     bl_idname = "archipack.fence_curve_update"
     bl_label = "Fence curve update"
@@ -1974,6 +2001,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_fence)
     bpy.utils.register_class(ARCHIPACK_OT_fence)
     bpy.utils.register_class(ARCHIPACK_OT_fence_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_fence_update)
     bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_fence_curve_update)
     bpy.utils.register_class(ARCHIPACK_OT_fence_subpart_dimensions)
@@ -1989,6 +2017,7 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_fence)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_fence_update)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_curve_update)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_subpart_dimensions)
