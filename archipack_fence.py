@@ -823,11 +823,16 @@ class archipack_fence_rail(PropertyGroup):
             items=(
                 ('SQUARE', 'Square', '', 0),
                 ('CIRCLE', 'Circle', '', 1),
-                ('SAFETY', 'Safety rail', '', 2)
+                ('SAFETY', 'Safety rail', '', 2),
+                ('USER', 'User defined', '', 3)
                 ),
             default='SQUARE',
             update=update
             )
+    user_profil = StringProperty(
+        default="",
+        update=update
+        )
     mat = EnumProperty(
         items=materials_enum,
         default='0',
@@ -855,14 +860,17 @@ class archipack_fence_rail(PropertyGroup):
 
     def draw(self, context, layout):
         layout.prop(self, 'profil')
-        layout.prop(self, 'x')
-        layout.prop(self, 'z')
+        if self.profil != 'USER':
+            layout.prop(self, 'x')
+            layout.prop(self, 'z')
         layout.prop(self, 'alt')
         layout.prop(self, 'offset')
         layout.prop(self, 'extend')
         layout.prop(self, 'mat')
+        if self.profil == 'USER':
+            layout.prop_search(self, "user_profil", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
 
-
+        
 class archipack_fence(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
 
     parts = CollectionProperty(type=archipack_fence_part)
@@ -1379,14 +1387,8 @@ class archipack_fence(ArchipackObject, Manipulable, DimensionProvider, PropertyG
                     resolution + 1)
                 for i in range(resolution):
                     pts.append(seg[i].to_3d())
-
-    def from_spline(self, context, wM, resolution, spline):
-
-        o = self.find_in_selection(context)
-
-        if o is None:
-            return
-
+    
+    def pts_from_spline(self, spline, wM, resolution):
         pts = []
         if spline.type == 'POLY':
             pts = [wM * p.co.to_3d() for p in spline.points]
@@ -1405,13 +1407,24 @@ class archipack_fence(ArchipackObject, Manipulable, DimensionProvider, PropertyG
                 pts.append(pts[0])
             else:
                 pts.append(wM * points[-1].co)
+        return pts
+    
+    def from_spline(self, context, wM, resolution, spline):
 
+        o = self.find_in_selection(context)
+
+        if o is None:
+            return
+
+        
         auto_update = self.auto_update
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
         self.update_parts()
-
+        
+        pts = self.pts_from_spline(spline, wM, resolution)
+        
         if len(pts) < 1:
             return
 
@@ -1536,7 +1549,16 @@ class archipack_fence(ArchipackObject, Manipulable, DimensionProvider, PropertyG
                         (1, 0.21429),
                         (1, 0.35714),
                         (0, 0.5)]]
-
+                elif self.rails[i].profil == 'USER':
+                    curve = context.scene.objects.get(self.rails[i].user_profil)
+                    if curve:
+                        spline = curve.data.splines[0]
+                        rail = self.pts_from_spline(spline, Matrix(), 12)
+                        closed = rail[0] == rail[-1]
+                        if closed:
+                            rail.pop()
+                    else:
+                        continue
                 g.make_profile(rail, int(self.rails[i].mat), self.x_offset - self.rails[i].offset,
                         self.rails[i].alt, self.rails[i].extend, closed, verts, faces, matids, uvs)
 
