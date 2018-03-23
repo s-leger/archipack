@@ -64,7 +64,47 @@ class ViewManager():
             self.lock_object_name = view3d.lock_object.name
         else:
             self.lock_object_name = ""
-
+    
+    def safe_ortho_view(self, radius, location):
+        """
+         Set view projection so it is able to handle knife project
+         Knife project work best in ortho oblique view
+         Center view on target, set distance and
+         optimize view clip so whole target is visible
+        """
+        distance = 2 * radius
+        bound = Vector((radius, -radius, 0))
+        v = Vector((1, -1, 1)).normalized()
+        z = -v
+        x = z.cross(Vector((0, 0, 1)))
+        y = x.cross(z)
+        loc = location + distance * v
+        # Inverse view matrix
+        itM = Matrix([
+            [x.x, y.x, z.x, loc.x],
+            [x.y, y.y, z.y, loc.y],
+            [x.z, y.z, z.z, loc.z],
+            [0, 0, 0, 1]]).inverted()
+        view3d = self.view3d
+        view3d.lens = 35
+        start = abs((itM * -bound).z)
+        end = abs((itM * bound).z)
+        if start > end:
+            end, start = start, end
+        view3d.clip_start = 0.1
+        view3d.clip_end = 20 * end
+        region3d = view3d.region_3d
+        region3d.view_perspective = 'ORTHO'
+        region3d.view_rotation = Quaternion((
+            0.8204732537269592,
+            0.42470818758010864,
+            0.17591983079910278,
+            0.33985117077827454
+            ))
+        region3d.view_distance = distance
+        region3d.view_location = location
+        region3d.update()
+    
     def safe_knife_project(self, radius, location):
         """
          Set view projection so it is able to handle knife project

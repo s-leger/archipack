@@ -291,10 +291,161 @@ class Tree(Qtree):
         return new_seg
 
 
-# ------------------------------------------------------------------
-# Define property class to store object parameters and update mesh
-# ------------------------------------------------------------------
+        
+class AbstractAnalyser():
+    def __init__(self):
+        self._result = None
+        # segment to check for intersection
+        self.seg = None
+        # tree
+        self.tree = None
+    def reset(self):
+        self._result = None
+    def parse_kwargs(self, kwargs):
+        keys = self.__dict__.keys()
+        self.__dict__.update((key, value) for key, value in kwargs.items() if key in keys)
+    def compute(self, **kwargs):
+        if self._result is None:
+            self.parse_kwargs(kwargs)
+            self.analyse()
+        
+        
+class AnalyseIntersection(AbstractAnalyser):
+    """
+      Find closest intersection in the tree
+      for given seg
+    """
+    def __init__(self):
+        AbstractAnalyser.__init__(self)        
+    def _intersect(self):
+        _seg = self.seg
+        nb, found = self.tree.intersects(_seg)
+        t = 1e32
+        idx = -1
+        intersect = False
+        p0 = _seg.p0
+        for i in found:
+            f_seg = self.tree._geoms[i]
+            # prevent intesection with touching segment
+            if p0 != f_seg.p1:
+                it, pt, u, v = _seg.intersect_ext(f_seg)                
+                # u and v are limited by tree
+                if it and u > 0 and 1.0001 >= v >= -0.0001:
+                    if u < t:
+                        intersect = True
+                        t = u
+                        idx = i
+        return intersect, t, idx
+    def analyse(self):
+        # max param t for intersection on seek seg
+        it, t, idx = self._intersect()
+        self._result = it, t, idx
+    def intersect(self, d):
+        """
+          return intersecting segment
+          or None
+        """
+        seg = None
+        it, t, idx = self.result
+        if it:
+            tmax = d / self.seg.length
+            if t <= tmax:
+                seg = self.tree._geoms[idx]
+        return seg, t
+        
+
+class AnalyseObstacle(AbstractAnalyser):
+    """
+      Find closest cutter in the tree
+      for given seg
+    """
+    def __init__(self):
+        AbstractAnalyser.__init__(self)
+    def _intersect(self):
+        _seg = self.seg
+        nb, found = self.tree.intersects(_seg)
+        t = 1e32
+        idx = -1
+        intersect = False
+        p0 = _seg.p0
+        for i in found:
+            f_seg = self.tree._geoms[i]
+            # prevent intesection with touching segment
+            if p0 != f_seg.p1:
+                it, pt, u, v = _seg.intersect_ext(f_seg)                
+                # u and v are limited by tree
+                if it and u > 0 and 1.0001 >= v >= -0.0001:
+                    if u < t:
+                        intersect = True
+                        t = u
+                        idx = i
+        return intersect, t, idx
+    def analyse(self):
+        # init SeekBox around given segment
+        # find any cutter in that box
+        # compute closest distance to cutter
+        it, t, idx = self._intersect()
+        self._result = it, t, idx
+    def intersect(self, d):
+        """
+          return intersecting segment
+          or None
+        """
+        seg = None
+        it, t, idx = self.result
+        if it:
+            tmax = d / self.seg.length
+            if t <= tmax:
+                seg = self.tree._geoms[idx]
+        return seg, t
+        
+"""    
+a = AnalyseIntersection()
+a.reset()
+a.compute(seg=3, tree=1, d=2)      
+seg, t = a.intersect(dist) 
+"""       
+        
+class AbstractRule():    
+    
+    def __init__(self, apply_immediately):
+        self.apply_immediately = apply_immediately
+    
+    def add_test(self, test):
+        self.tests.append(test)
+        
+    def apply(self, tree, turtle):
+        return 
+    
+    def run(self, tree, turtle):
+        res = False
+        for test in self.tests:
+            res = test(tree, turtle)
+            if res:
+                self.apply(tree, turtle)
+                break
+        return res    
+  
+"""
+Fast and reliabile way detect obstacles ?
+Init a tree with cutters only !
+
+Analysis:
+- intersections in 3 directions
+- obstacles
+- stuck state 
+
+
+Rule:
+determine direction and size for next segment
+-exception: apply immediately
+-generic: let other rules try to apply
+
+
+"""
+     
 class PathFinder():
+    
     def __init__(self, tree, spacing, allow_backward, cw):
         self.tree = tree
         self.spacing = spacing
@@ -459,6 +610,7 @@ class PathFinder():
             it, t, idx = self.intersect(self.turtle.right)
             logger.debug("%s hit right %s", self.iter, idx)
             self.last = idx
+        
         #################
         # regular segment
         #################
@@ -1472,6 +1624,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+            
     def get_generator(self):
         g = FloorGenerator(self.parts)
         for part in self.parts:
@@ -1896,16 +2049,6 @@ class ARCHIPACK_PT_floor_heating_cutter(Panel):
         box = layout.box()
         box.operator('archipack.manipulate', icon='HAND')
         box.prop(prop, 'operation', text="")
-        box = layout.box()
-        box.label(text="From curve")
-        box.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        if prop.user_defined_path != "":
-            box.prop(prop, 'user_defined_resolution')
-            # box.prop(prop, 'x_offset')
-            # box.prop(prop, 'angle_limit')
-        """
-        box.prop_search(prop, "boundary", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        """
         prop.draw(layout, context)
 
 

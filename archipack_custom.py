@@ -34,7 +34,11 @@ from bpy.props import (
 from bpy_extras import view3d_utils
 from math import pi
 from mathutils import Vector, Matrix
-from mathutils.geometry import intersect_line_plane, intersect_point_line, intersect_line_sphere
+from mathutils.geometry import (
+    intersect_line_plane, 
+    intersect_point_line, 
+    intersect_line_sphere
+    )
 from .archipack_manipulator import Manipulable
 # from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_gl import FeedbackPanel, GlPolygon, SquareHandle, GlLine, GlText
@@ -719,9 +723,7 @@ class ARCHIPACK_OT_make_custom(Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-
-
-            
+          
             
 class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
     bl_idname = "archipack.custom_draw"

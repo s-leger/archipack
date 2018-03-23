@@ -34,7 +34,9 @@ from mathutils import Vector, Matrix
 from math import pi, tan
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
-from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_object import (
+    ArchipackCreateTool, ArchipackObject, ArchipackObjectsManager
+    )
 from .archipack_dimension import DimensionProvider
 from .archipack_autoboolean import ArchipackBoolManager
 
@@ -49,7 +51,10 @@ class ArchipackSectionManager():
      as solid surfaces or curves
      from camera or archipack_section
     """
-    def as_mesh(self, context, src):
+    def as_mesh(self, context, src, as_tri=False):
+        """
+         Get temporary meshes to bisect
+        """
         m = src.to_mesh(
             scene=context.scene,
             apply_modifiers=True,
@@ -59,16 +64,71 @@ class ArchipackSectionManager():
         o = bpy.data.objects.new("Temp", m)
         o.matrix_world = src.matrix_world.copy()
         context.scene.objects.link(o)
+
+        if as_tri:
+            o.select = True
+            context.scene.objects.active = o
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
+            bpy.ops.object.mode_set(mode='OBJECT')
+            o.select = False
+
         return o
 
-    def generate_section(self, context, o, sel, tM, x):
+    def clip_section(self, o, plane_co, plane_cr, clip):
+        """
+         Clear sides
+        """
+        if clip > 0 and o.data and len(o.data.edges) > 0:
 
+            d = clip * plane_cr
+
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
+            # clear sides
+            if bpy.ops.mesh.bisect.poll():
+                try:
+                    bpy.ops.mesh.bisect(
+                        plane_co=plane_co + d,
+                        plane_no=plane_cr,
+                        use_fill=False,
+                        clear_inner=False,
+                        clear_outer=True)
+                except:
+                    pass
+
+            bpy.ops.mesh.select_all(action='SELECT')
+            if bpy.ops.mesh.bisect.poll():
+                try:
+                    bpy.ops.mesh.bisect(
+                    plane_co=plane_co - d,
+                    plane_no=plane_cr,
+                    use_fill=False,
+                    clear_inner=True,
+                    clear_outer=False)
+                except:
+                    pass
+
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+    def generate_section(self, context, sel, tM, clip_x, clip_y):
+        """
+          Bisect meshes
+          sel: array of temp mesh to bissect
+          tM: matrix of main bissect plane
+          clip_x: width of bissect in the tM plane
+          clip_y: width of bissect in the tM plane
+            when 0 dosen't clip
+          return mesh object
+        """
         scene = context.scene
         bpy.ops.object.select_all(action='DESELECT')
-
+        rM = tM.to_3x3().transposed()
         plane_co = tM.translation
-        plane_no = tM.to_3x3() * Vector((0, 1, 0))
-        plane_cr = plane_no.cross(Vector((0, 0, 1)))
+        plane_x = rM[0]
+        plane_y = rM[1]
+        plane_no = rM[2]
 
         objs = [self.as_mesh(context, o) for o in sel]
 
@@ -101,51 +161,23 @@ class ArchipackSectionManager():
         bpy.ops.object.join()
 
         o = context.active_object
-        if o.data and len(o.data.edges) > 0:
+        self.clip_section(o, plane_co, plane_x, clip_x)
+        self.clip_section(o, plane_co, plane_y, clip_y)
 
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='SELECT')
-
-            # clear sides
-            if bpy.ops.mesh.bisect.poll():
-                try:
-                    bpy.ops.mesh.bisect(
-                        plane_co=plane_co + x * plane_cr,
-                        plane_no=plane_cr,
-                        use_fill=False,
-                        clear_inner=False,
-                        clear_outer=True)
-                except:
-                    pass
-
-            bpy.ops.mesh.select_all(action='SELECT')
-            if bpy.ops.mesh.bisect.poll():
-                try:
-                    bpy.ops.mesh.bisect(
-                    plane_co=plane_co - x * plane_cr,
-                    plane_no=plane_cr,
-                    use_fill=False,
-                    clear_inner=True,
-                    clear_outer=False)
-                except:
-                    pass
-
-            bpy.ops.object.mode_set(mode='OBJECT')
         return o
 
-    def as_curves(self, context, o, tM, loc, src_name, section_name):
+    def as_curves(self, context, o, itM, loc, src_name, section_name):
         """
-         tM source object matrix world
+         o: source mesh
+         tM: source section object matrix world
+         loc: location for section at create time (wont change on update)
+         src_name: source section object name
+         section_name: old curve name if any
+
+         return curve object or None
         """
         if len(o.data.vertices) > 0:
             scene = context.scene
-
-            itM = (
-                # Matrix.Rotation(-pi / 2, 4, Vector((0, 0, 1))) *
-                Matrix.Rotation(-pi / 2, 4, Vector((1, 0, 0))) *
-                tM.inverted() *
-                o.matrix_world
-                )
 
             for v in o.data.vertices:
                 v.co = itM * v.co
@@ -174,15 +206,22 @@ class ArchipackSectionManager():
                 d.source_name = src_name
 
             d.update(context)
-            self.section_name = o.name
             return o
 
         return None
 
     def get_objects(self, context, o, sel):
+        """
+          Get scene objects found in o bounding box
+          return plane matrix_world (source matrix_world or camera plane)
+        """
         # use manager to find objects in bounding box
         manager = ArchipackBoolManager()
-        tM = o.matrix_world
+
+        # clear scale TODO: check with scaled camera
+        loc, rot, sca = o.matrix_world.decompose()
+        tM = Matrix.Translation(loc) * rot.to_matrix().to_4x4()
+
         if o.type == 'CAMERA':
             d = o.data
             c = d.clip_start
@@ -193,30 +232,32 @@ class ArchipackSectionManager():
             p2 = tM * Vector((-w, -h, -c))
             p3 = tM * Vector((w, -h, -c))
             x = [p.x for p in [p0, p1, p2, p3]]
+            y = [p.y for p in [p0, p1, p2, p3]]
+            z = [p.z for p in [p0, p1, p2, p3]]
             manager.minx = min(x)
             manager.maxx = max(x)
-            y = [p.y for p in [p0, p1, p2, p3]]
             manager.miny = min(y)
             manager.maxy = max(y)
-            z = [p.z for p in [p0, p1, p2, p3]]
             manager.minz = min(z)
             manager.maxz = max(z)
-            tM = (tM *
-                Matrix.Translation(Vector((0, 0, - c - 0.001))) *
-                Matrix.Rotation(pi / 2, 4, Vector((1, 0, 0))))
+            tM = tM * Matrix.Translation(Vector((0, 0, - c - 0.001)))
+            # Matrix.Rotation(pi / 2, 4, Vector((1, 0, 0))))
         else:
+            # Remove scale from matrix
             manager._init_bounding_box(o)
             # exclude z filtering
             manager.minz = -1e32
             manager.maxz = 1e32
             manager.center.z = 0
+
         sel.extend([
-            o for o in context.scene.objects
-            if o.type == 'MESH' and
-            not o.hide and
-            not o.hide_render and
-            not archipack_section_target.filter(o) and
-            manager._contains(o)
+            c for c in context.scene.objects
+            if c.type == 'MESH' and
+            not c.hide and
+            not c.hide_render and
+            c.name != o.name and
+            not archipack_section_target.filter(c) and
+            manager._contains(c)
             ])
         return tM
 
@@ -406,13 +447,22 @@ class archipack_section(ArchipackObject, ArchipackSectionManager, Manipulable, P
             return
         src_name = o.name
         loc = o.matrix_world.translation
-        x = 0.5 * self.size
+        clip_x = 0.5 * self.size
         sel = []
         tM = self.get_objects(context, o, sel)
-        s = self.generate_section(context, o, sel, tM, x)
-        c = self.as_curves(context, s, tM, loc, src_name, self.section_name)
+
+        # rotate section plane normal 90 deg on x axis
+        pM = tM * Matrix.Rotation(pi / 2, 4, Vector((1, 0, 0)))
+        s = self.generate_section(context, sel, pM, clip_x, 0)
+
+        # get points in plane matrix coordsys so they are in 2d
+        itM = pM.inverted()
+        c = self.as_curves(context, s, itM, loc, src_name, self.section_name)
         if c is None:
             self.delete_object(context, s)
+        else:
+            self.section_name = c.name
+
         self.restore_context(context)
         return c
 
@@ -470,19 +520,25 @@ class archipack_section_camera(ArchipackObject, ArchipackSectionManager, Propert
         if o is None:
             return
         src_name = o.name
+
         d = o.data
         c = d.clip_start
-        x = 0.5 * tan(d.angle_x) * c
+        clip_x = tan(0.5 * d.angle_x) * c
+        clip_y = tan(0.5 * d.angle_y) * c
+
         sel = []
         tM = self.get_objects(context, o, sel)
         last_o = context.scene.objects.get(self.section_name)
-        new_o = self.generate_section(context, o, sel, tM, x)
+        new_o = self.generate_section(context, sel, tM, clip_x, clip_y)
         context.scene.objects.active = new_o
+
         d = new_o.archipack_section_target.add()
         d.source_name = src_name
         self.section_name = new_o.name
+
         if last_o:
             self.delete_object(context, last_o)
+
         self.restore_context(context)
         return new_o
 
@@ -835,6 +891,73 @@ class ARCHIPACK_OT_section_select(Operator):
             return {'CANCELLED'}
 
 
+class ARCHIPACK_OT_cross_section(ArchipackObjectsManager, Operator):
+    """
+      Create a cross section using a plane as bisector
+      Plane size on x axis define limits for section on the sides
+    """
+    bl_idname = "archipack.cross_section"
+    bl_label = "Cross section"
+    bl_description = "Create a cross section using a plane as bisector"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    mode = EnumProperty(
+        name="Mode",
+        description="Output type",
+        items=(
+            ('MESH', 'Mesh', 'Output cross section as mesh'),
+            ('CURVE', 'Curve', 'Output cross section as curve')
+            ),
+        default='CURVE'
+        )
+    clip = BoolProperty(
+        name="clip",
+        description="Clip sides at plane boundary",
+        default=False
+        )
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def create(self, context, o):
+        src_name = o.name
+        loc = o.matrix_world.translation
+        if self.clip:
+            clip_x = 0.5 * o.dimensions.x
+            clip_y = 0.5 * o.dimensions.y
+        else:
+            clip_x, clip_y = 0, 0
+
+        sel = []
+        manager = ArchipackSectionManager()
+        tM = manager.get_objects(context, o, sel)
+        s = manager.generate_section(context, sel, tM, clip_x, clip_y)
+
+        if self.mode == 'CURVE':
+            itM = tM.inverted()
+            c = manager.as_curves(context, s, itM, loc, src_name, "")
+            if c is None:
+                self.delete_object(context, s)
+            else:
+                c.matrix_world = tM
+            return c
+        else:
+            return s
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            act = context.active_object
+            bpy.ops.object.select_all(action="DESELECT")
+            o = self.create(context, act)
+            o.select = True
+            context.scene.objects.active = o
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+
 class ARCHIPACK_OT_section_preset_menu(PresetMenuOperator, Operator):
     bl_idname = "archipack.section_preset_menu"
     bl_label = "Section preset"
@@ -863,6 +986,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_section_camera)
     bpy.utils.register_class(ARCHIPACK_PT_section_target)
     bpy.utils.register_class(ARCHIPACK_OT_section)
+    bpy.utils.register_class(ARCHIPACK_OT_cross_section)
     bpy.utils.register_class(ARCHIPACK_OT_section_camera)
     bpy.utils.register_class(ARCHIPACK_OT_section_target)
     bpy.utils.register_class(ARCHIPACK_OT_section_select)
@@ -882,6 +1006,7 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_section_camera)
     bpy.utils.unregister_class(ARCHIPACK_PT_section_target)
     bpy.utils.unregister_class(ARCHIPACK_OT_section)
+    bpy.utils.unregister_class(ARCHIPACK_OT_cross_section)
     bpy.utils.unregister_class(ARCHIPACK_OT_section_camera)
     bpy.utils.unregister_class(ARCHIPACK_OT_section_target)
     bpy.utils.unregister_class(ARCHIPACK_OT_section_select)

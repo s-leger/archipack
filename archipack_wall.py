@@ -65,13 +65,14 @@ class archipack_wall(ArchipackObject, DimensionProvider, PropertyGroup):
         # create vertex group lookup dictionary for names
         vgroup_names = {vgroup.index: vgroup.name for vgroup in o.vertex_groups}
         # create dictionary of vertex group assignments per vertex
-        vertex_groups = [[vgroup_names[g.group] for g in v.groups] for v in me.vertices]
-        last_z = [me.vertices[i].co.z for i, g in enumerate(vertex_groups) if 'Top' in g]
-        if len(last_z) > 0:
-            max_z = max(last_z)
-            for i, g in enumerate(vertex_groups):
-                if 'Top' in g:
-                    me.vertices[i].co.z = new_z
+        if len(vgroup_names) > 0:
+            vertex_groups = [[vgroup_names[g.group] for g in v.groups] for v in me.vertices]
+            last_z = [me.vertices[i].co.z for i, g in enumerate(vertex_groups) if 'Top' in g]
+            if len(last_z) > 0:
+                max_z = max(last_z)
+                for i, g in enumerate(vertex_groups):
+                    if 'Top' in g:
+                        me.vertices[i].co.z = new_z
                     
         self.update_dimensions(context, o)
         # bpy.ops.object.mode_set(mode='OBJECT')

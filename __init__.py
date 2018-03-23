@@ -50,6 +50,7 @@ if "bpy" in locals():
     imp.reload(archipack_material)
     imp.reload(archipack_snap)
     imp.reload(archipack_manipulator)
+    imp.reload(archipack_curveman)
     imp.reload(archipack_dimension)
     imp.reload(archipack_reference_point)
     imp.reload(archipack_autoboolean)
@@ -86,6 +87,7 @@ else:
     from . import archipack_material
     from . import archipack_snap
     from . import archipack_manipulator
+    from . import archipack_curveman
     from . import archipack_dimension
     from . import archipack_reference_point
     from . import archipack_autoboolean
@@ -194,6 +196,7 @@ class Archipack_Pref(AddonPreferences):
             )
     matlib_path = StringProperty(
             name="Folder path",
+            subtype="DIR_PATH",
             description="absolute path to material library folder",
             default=""
             )
@@ -817,6 +820,7 @@ def register():
     archipack_material.register()
     archipack_snap.register()
     archipack_manipulator.register()
+    archipack_curveman.register()
     archipack_dimension.register()
     archipack_reference_point.register()
     archipack_autoboolean.register()
@@ -894,6 +898,7 @@ def unregister():
     archipack_polylines.unregister()
     archipack_manipulator.unregister()
     archipack_dimension.unregister()
+    archipack_curveman.unregister()
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack
     # print("Archipack collection.remove start")
