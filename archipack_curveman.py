@@ -32,13 +32,14 @@ from mathutils.geometry import interpolate_bezier
 from mathutils import Matrix, Vector
 from bpy.types import Operator
 from bpy.props import (
-    StringProperty, EnumProperty, 
+    StringProperty, EnumProperty,
     FloatVectorProperty, IntProperty
     )
 from .archipack_viewmanager import ViewManager
 
 
 profiles_enum = []
+precision = 6
 
 
 @persistent
@@ -153,8 +154,8 @@ class ArchipackCurveManager():
 
 def update_path(self, context):
     self.update_path(context)
-        
-        
+
+
 class ArchipackUserDefinedPath(ArchipackCurveManager):
     """
       User defined path shared properties
@@ -170,7 +171,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             max=128,
             default=12, update=update_path
             )
-     
+
     def draw_user_path(self, layout, context):
         layout.label(text="From curve")
         row = layout.row(align=True)
@@ -179,8 +180,8 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             op.curve_name = self.user_defined_path
             op.update_func_name = "update_path"
             row.operator(
-                "archipack.object_update", 
-                text="", 
+                "archipack.object_update",
+                text="",
                 icon='FILE_REFRESH'
                 ).update_func_name = "update_path"
         row.prop_search(self, "user_defined_path", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
@@ -188,7 +189,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
         if self.user_defined_path is not "":
             layout.prop(self, 'user_defined_resolution')
 
-            
+
 class ArchipackProfileManager(ArchipackCurveManager):
     """
      IO for user defined profiles
@@ -203,51 +204,53 @@ class ArchipackProfileManager(ArchipackCurveManager):
         js = json.loads(json_str)
         curve.resolution_u = js['resolution_u']
         curve.fill_mode = js['fill_mode']
-        spline = curve.splines.new(js['type'])
-        spline.use_cyclic_u = js['use_cyclic_u']
-        handle_left = js['handle_left']
-        handle_right = js['handle_right']
-        pts = js['points']
 
-        if js['type'] == 'BEZIER':
-            spline.bezier_points.add(len(pts) - 1)
-            for i, p in enumerate(pts):
-                spline.bezier_points[i].co = p
-                spline.bezier_points[i].handle_left = handle_left[i]
-                spline.bezier_points[i].handle_right = handle_right[i]
-        elif js['type'] == 'POLY':
-            spline.points.add(len(pts) - 1)
-            for i, p in enumerate(pts):
-                spline.bezier_points[i].co = p
+        for spl in js['splines']:
 
-        return spline, js['x'], js['y']
+            spline = curve.splines.new(spl['type'])
+            spline.use_cyclic_u = spl['use_cyclic_u']
+            handle_left = spl['handle_left']
+            handle_right = spl['handle_right']
+            pts = spl['points']
 
-    def _to_json(self, curve, spline):
+            if spl['type'] == 'BEZIER':
+                spline.bezier_points.add(len(pts) - 1)
+                for i, p in enumerate(pts):
+                    spline.bezier_points[i].co = p
+                    spline.bezier_points[i].handle_left = handle_left[i]
+                    spline.bezier_points[i].handle_right = handle_right[i]
+            elif spl['type'] == 'POLY':
+                spline.points.add(len(pts) - 1)
+                for i, p in enumerate(pts):
+                    spline.bezier_points[i].co = p
+
+        return js['x'], js['y']
+
+    def _to_json(self, curve):
         curve.dimensions = '2D'
-        precision = 6
         js = {
             'resolution_u': curve.resolution_u,
             'fill_mode': curve.fill_mode,
-            'type': spline.type,
-            'use_cyclic_u': spline.use_cyclic_u,
+            'splines': []
             }
 
-        if spline.type == 'BEZIER':
-            pts = spline.bezier_points
-            js['handle_left'] = [self._round_co(p.handle_left, precision) for p in pts]
-            js['handle_right'] = [self._round_co(p.handle_right, precision) for p in pts]
+        for spline in curve.splines:
+            spl = {
+                'type': spline.type,
+                'use_cyclic_u': spline.use_cyclic_u,
+            }
+            if spline.type == 'BEZIER':
+                pts = spline.bezier_points
+                spl['handle_left'] = [self._round_co(p.handle_left, precision) for p in pts]
+                spl['handle_right'] = [self._round_co(p.handle_right, precision) for p in pts]
 
-        elif spline.type == 'POLY':
-            pts = spline.points
+            elif spline.type == 'POLY':
+                pts = spline.points
 
-        js['points'] = [self._round_co(p.co, precision) for p in pts]
+            spl['points'] = [self._round_co(p.co, precision) for p in pts]
+            js['splines'].append(spl)
 
-        # estimate curve size
-        pts = self.coords_from_spline(spline, Matrix(), 12)
-        x = [co.x for co in pts]
-        y = [co.y for co in pts]
-        js['x'] = round(max(0.0001, max(x) - min(x)), precision)
-        js['y'] = round(max(0.0001, max(y) - min(y)), precision)
+        js['x'], js['y'] = self._curve_bound_box(curve)
 
         json_str = json.dumps(js, sort_keys=True)
         return json_str
@@ -279,29 +282,47 @@ class ArchipackProfileManager(ArchipackCurveManager):
                 json_str = ''.join(fh.readlines())
             curve = bpy.data.curves.new(name=bpy.path.display_name(preset_name), type='CURVE')
             curve.dimensions = '2D'
-            spline, x, y = self._from_json(curve, json_str)
+            x, y = self._from_json(curve, json_str)
         except:
             print("Archipack: Error while loading {}".format(preset_name))
             pass
         return curve, x, y
 
-    def save_curve(self, o, preset_name, spline_index=0):
+    def _curve_bound_box(self, curve):
+        # estimate curve size
+        pts = []
+        for spline in curve.splines:
+            pts.extend(self.coords_from_spline(spline, Matrix(), 12))
+        x = [co.x for co in pts]
+        y = [co.y for co in pts]
+        sx = round(max(0.0001, max(x) - min(x)), precision)
+        sy = round(max(0.0001, max(y) - min(y)), precision)
+        return sx, sy
+
+    def save_curve(self, o, preset_name):
         """
          Save a json curve spline definition
         """
         curve = o.data
-        if curve and spline_index < len(curve.splines):
-            spline = curve.splines[spline_index]
+        if curve:
             full_path = self._curve_preset_full_path(preset_name)
-            json_str = self._to_json(curve, spline)
+            json_str = self._to_json(curve)
             with open(full_path, 'w') as fh:
                 fh.write(json_str)
-            # update profiles enum    
+            # update profiles enum
             make_profile_enum()
 
-            
+
 def update(self, context):
-    self.update(context)
+    o = context.scene.objects.get(self.user_profile)
+    if o and o.type == 'CURVE':
+        self.auto_update = False
+        sx, sy = self._curve_bound_box(o.data)
+        self.user_profile_dimension.x = sx
+        self.user_profile_dimension.y = sy
+        self.refresh_profile_size(sx, sy)
+        self.auto_update = True
+        self.update(context)
 
 
 class ArchipackProfile(ArchipackProfileManager):
@@ -342,10 +363,8 @@ class ArchipackProfile(ArchipackProfileManager):
         return
 
     def load_profile(self, context, update=False):
-        print("load_profile ", self.user_profile_filename)
         if self.user_profile_filename == "":
             return None
-
         o = context.scene.objects.get(self.user_profile)
         curve, x, y = self.load_curve(self.user_profile_filename)
         if curve:
@@ -372,7 +391,6 @@ class ArchipackProfile(ArchipackProfileManager):
         o = context.scene.objects.get(self.user_profile)
         if o is None:
             o = self.load_profile(context)
-            print("load_profile", o)
         return o
 
     def draw_user_profile(self, context, layout):
@@ -394,12 +412,12 @@ class ARCHIPACK_OT_object_update(Operator):
     bl_description = "Update object"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     update_func_name = StringProperty(
         description="Update function name",
         default="update"
         )
-        
+
     @classmethod
     def poll(self, context):
         return context.active_object is not None
@@ -408,7 +426,7 @@ class ARCHIPACK_OT_object_update(Operator):
         layout = self.layout
         row = layout.row()
         row.label("Use Properties panel (N) to define parms", icon='INFO')
-    
+
     def update(self, context, o, key):
         if o.data and key in o.data:
             context.scene.objects.active = o
@@ -417,7 +435,7 @@ class ARCHIPACK_OT_object_update(Operator):
                 getattr(d, self.update_func_name)(context)
             except:
                 pass
-            
+
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
@@ -459,7 +477,7 @@ class ARCHIPACK_OT_profile_edit(Operator):
     @classmethod
     def poll(self, context):
         return context.active_object is not None
-    
+
     def modal(self, context, event):
 
         if event.type == 'ESC':
@@ -529,7 +547,7 @@ class ARCHIPACK_OT_profile_save(Operator):
             o = context.scene.objects.get(self.curve_name)
             if o and o.type == 'CURVE':
                 manager = ArchipackProfileManager()
-                manager.save_curve(o, self.preset_name, spline_index=0)
+                manager.save_curve(o, self.preset_name)
                 return {'FINISHED'}
             else:
                 return {'CANCELLED'}

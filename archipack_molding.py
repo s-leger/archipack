@@ -35,7 +35,6 @@ from bpy.props import (
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
-from mathutils.geometry import interpolate_bezier
 from math import sin, cos, pi, acos, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line
@@ -310,7 +309,7 @@ class archipack_molding_part(PropertyGroup):
 class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedPath, Manipulable, PropertyGroup):
 
     parts = CollectionProperty(type=archipack_molding_part)
-    
+
     user_path_reverse = BoolProperty(
             name="Reverse",
             default=False,
@@ -322,7 +321,7 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
             default=0,
             update=update_path
             )
-    
+
     n_parts = IntProperty(
             name="Parts",
             min=1,
@@ -377,7 +376,7 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
             default=True,
             update=update_manipulators
             )
-    
+
     def setup_manipulators(self):
 
         if len(self.manipulators) == 0:
@@ -465,11 +464,11 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
                     o.matrix_world,
                     self.user_defined_resolution,
                     splines[self.user_defined_spline])
-    
+
     def refresh_profile_size(self, x, y):
         self.profil_x = x
         self.profil_y = y
-    
+
     def get_generator(self):
         g = MoldingGenerator(self.parts)
         for part in self.parts:
@@ -505,40 +504,53 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
         if self.profil == 'USER':
             curve = self.update_profile(context)
             if curve and curve.type == 'CURVE':
-                spline = curve.data.splines[0]
-                sx = self.profil_x / self.user_profile_dimension.x
-                sy = self.profil_y / self.user_profile_dimension.y
+                sx, sy = 1, 1
+                if self.user_profile_dimension.x > 0:
+                    sx = self.profil_x / self.user_profile_dimension.x
+                if self.user_profile_dimension.y > 0:
+                    sy = self.profil_y / self.user_profile_dimension.y
+
                 wM = Matrix([
                     [sx, 0, 0, 0],
                     [0, sy, 0, 0],
                     [0, 0, 1, 0],
                     [0, 0, 0, 1]
                     ])
-                molding = self.coords_from_spline(spline, wM, 12, ccw=True)
-                closed = molding[0] == molding[-1]
-                if closed:
-                    molding.pop()
+
+                for spline in curve.data.splines:
+
+                    molding = self.coords_from_spline(spline, wM, 12, ccw=True)
+                    closed = molding[0] == molding[-1]
+                    if closed:
+                        molding.pop()
+                    g.make_profile(molding, 0, self.x_offset,
+                        0, 0, True, verts, faces, matids, uvs)
             else:
                 x = self.profil_x
                 y = self.profil_y
                 molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0)), Vector((x, y))]
-  
-        elif self.profil == 'SQUARE':
-            x = self.profil_x
-            y = self.profil_y
-            molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0)), Vector((x, y))]
+                g.make_profile(molding, 0, self.x_offset,
+                    0, 0, True, verts, faces, matids, uvs)
+        else:
+            if self.profil == 'SQUARE':
+                x = self.profil_x
+                y = self.profil_y
+                molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0)), Vector((x, y))]
 
-        elif self.profil == 'CIRCLE':
-            x = self.profil_x
-            y = self.profil_y
-            r = min(self.profil_radius, x, y)
-            segs = 6
-            da = pi / (2 * segs)
-            molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0))]
-            molding.extend([Vector((x + r * (cos(a * da) - 1), y + r * (sin(a * da) - 1))) for a in range(segs + 1)])
+            elif self.profil == 'CIRCLE':
+                x = self.profil_x
+                y = self.profil_y
+                r = min(self.profil_radius, x, y)
+                segs = 6
+                da = pi / (2 * segs)
+                molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0))]
+                molding.extend([
+                    Vector((x + r * (cos(a * da) - 1), y + r * (sin(a * da) - 1)))
+                    for a in range(segs + 1)
+                    ])
 
-        g.make_profile(molding, 0, self.x_offset,
-            0, 0, True, verts, faces, matids, uvs)
+            g.make_profile(molding, 0, self.x_offset,
+                0, 0, True, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
 
@@ -595,7 +607,6 @@ class ARCHIPACK_PT_molding(Panel):
         prop = archipack_molding.datablock(context.active_object)
         if prop is None:
             return
-        scene = context.scene
         layout = self.layout
         row = layout.row(align=True)
         row.operator('archipack.manipulate', icon='HAND')
@@ -610,7 +621,7 @@ class ARCHIPACK_PT_molding(Panel):
         if prop.user_defined_path is not "":
             box.prop(prop, 'user_defined_spline')
             box.prop(prop, 'user_path_reverse')
-        
+
         box.prop(prop, 'x_offset')
         box = layout.box()
         row = box.row()
@@ -632,7 +643,7 @@ class ARCHIPACK_PT_molding(Panel):
         if prop.profil == 'USER':
             prop.draw_user_profile(context, box)
 
-            
+
 # ------------------------------------------------------------------
 # Define operator class to create object
 # TODO: turn into internal operator, allow molding from wall, from curve and regular

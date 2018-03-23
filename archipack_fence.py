@@ -35,7 +35,6 @@ from bpy.props import (
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
-from mathutils.geometry import interpolate_bezier
 from math import sin, cos, pi, acos, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
@@ -205,7 +204,7 @@ class FenceGenerator():
                     t_start = f.t_end
                     i_start = i
                     self.segments.append(segment)
-            
+
             part = self.parts[i]
             manipulators = part.manipulators
             p0 = f.line.p0.to_3d()
@@ -235,7 +234,7 @@ class FenceGenerator():
             self.d.add_dimension_point(part.uid, p0)
             if i == n_parts:
                 self.d.add_dimension_point(part.uid + 1, p1)
-            
+
         f = self.segs[-1]
         l_seg = f.dist + f.line.length - dist_0
         t_seg = f.t_end - t_start
@@ -740,10 +739,10 @@ class archipack_fence_part(PropertyGroup):
             default=0,
             unit='LENGTH', subtype='DISTANCE'
             )
-            
+
     # DimensionProvider
     uid = IntProperty(default=0)
-    
+
     manipulators = CollectionProperty(type=archipack_manipulator)
 
     def find_datablock_in_selection(self, context):
@@ -839,11 +838,11 @@ class archipack_fence_rail(ArchipackProfile, PropertyGroup):
         options={'SKIP_SAVE'},
         default=True
         )
-        
+
     def refresh_profile_size(self, x, y):
         self.x = x
         self.z = y
-        
+
     def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -859,7 +858,7 @@ class archipack_fence_rail(ArchipackProfile, PropertyGroup):
         return None
 
     def update(self, context, manipulable_refresh=False):
-        if self.auto_update:        
+        if self.auto_update:
             props = self.find_datablock_in_selection(context)
             if props is not None:
                 props.update(context, manipulable_refresh)
@@ -874,8 +873,8 @@ class archipack_fence_rail(ArchipackProfile, PropertyGroup):
         layout.prop(self, 'offset')
         layout.prop(self, 'extend')
         layout.prop(self, 'mat')
-        
-        
+
+
 class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, DimensionProvider, PropertyGroup):
 
     parts = CollectionProperty(type=archipack_fence_part)
@@ -1353,13 +1352,13 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         # add parts
         for i in range(len(self.parts), self.n_parts):
             self.parts.add()
-        
+
         for p in self.parts:
             if p.uid == 0:
                 self.create_uid(p)
-                
+
         self.setup_manipulators()
-    
+
     def from_spline(self, context, wM, resolution, spline):
 
         o = self.find_in_selection(context)
@@ -1373,7 +1372,7 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         pts = self.coords_from_spline(spline, wM, resolution)
         self.n_parts = len(pts) - 1
         self.update_parts()
-        
+
         if len(pts) < 1:
             return
 
@@ -1502,22 +1501,30 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                 elif rd.profil == 'USER':
                     curve = rd.update_profile(context)
                     if curve and curve.type == 'CURVE':
-                        spline = curve.data.splines[0]
-                        sx = rd.x / rd.user_profile_dimension.x
-                        sy = rd.z / rd.user_profile_dimension.y
+                        sx, sy = 1, 1
+                        if rd.user_profile_dimension.x > 0:
+                            sx = rd.x / rd.user_profile_dimension.x
+                        if rd.user_profile_dimension.y > 0:
+                            sy = rd.z / rd.user_profile_dimension.y
                         wM = Matrix([
                             [sx, 0, 0, 0],
                             [0, sy, 0, 0],
                             [0, 0, 1, 0],
                             [0, 0, 0, 1]
                             ])
-                        rail = self.coords_from_spline(spline, wM, 12, ccw=True)
-                        closed = rail[0] == rail[-1]
-                        if closed:
-                            rail.pop()
+                        for spline in curve.data.splines:
+                            rail = self.coords_from_spline(spline, wM, 12, ccw=True)
+                            closed = rail[0] == rail[-1]
+                            if closed:
+                                rail.pop()
+                            g.make_profile(rail, int(rd.mat), self.x_offset - rd.offset,
+                                rd.alt, rd.extend, closed, verts, faces, matids, uvs)
                     else:
                         print("fence.update curve not found")
-                        continue
+
+                    # dont call
+                    continue
+
                 g.make_profile(rail, int(rd.mat), self.x_offset - rd.offset,
                         rd.alt, rd.extend, closed, verts, faces, matids, uvs)
 
@@ -1547,9 +1554,9 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                 self.handrail_alt, self.handrail_extend, True, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=False)
-        
+
         self.update_dimensions(context, o)
-        
+
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
@@ -1613,7 +1620,7 @@ class ARCHIPACK_PT_fence(Panel):
         row.operator("archipack.fence_preset_menu", text=bpy.types.ARCHIPACK_OT_fence_preset_menu.bl_label)
         row.operator("archipack.fence_preset", text="", icon='ZOOMIN')
         row.operator("archipack.fence_preset", text="", icon='ZOOMOUT').remove_active = True
-        
+
         box = layout.box()
         prop.draw_user_path(box, context)
         if prop.user_defined_path is not "":
@@ -1803,7 +1810,7 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
         layout = self.layout
         row = layout.row()
         row.label("Use Properties panel (N) to define parms", icon='INFO')
-    
+
     def create_one(self, context, curve, i):
         bpy.ops.archipack.fence('INVOKE_DEFAULT', auto_manipulate=False)
         o = context.active_object
@@ -1814,7 +1821,7 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
         d.user_defined_resolution = min(128, curve.data.resolution_u)
         d.auto_update = True
         return o
-        
+
     def create(self, context):
         o = None
         curve = context.active_object
@@ -1825,7 +1832,7 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
         for obj in sel:
             obj.select = True
         return o
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
@@ -1835,16 +1842,16 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
                 context.scene.objects.active = o
             # self.manipulate()
             return {'FINISHED'}
-        
+
         elif context.mode == 'EDIT_CURVE':
             # Tynkatopi's contrib
             curve = context.active_object
             d = curve.data
             spline_index = 0
-            
+
             if d.splines.active:
                 spline_index = d.splines[:].index(d.splines.active)
-            
+
             rot = curve.rotation_euler.copy()
             curve.rotation_euler = 0, 0, 0
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -1861,12 +1868,12 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
             curve.rotation_euler = rot
             bpy.ops.object.mode_set(mode='EDIT')
             return {'FINISHED'}
-        
+
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object/Edit mode")
             return {'CANCELLED'}
 
-            
+
 # ------------------------------------------------------------------
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
