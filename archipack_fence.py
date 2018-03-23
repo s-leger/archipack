@@ -1787,32 +1787,6 @@ class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):
 """
 
 
-class ARCHIPACK_OT_fence_curve_update(Operator):
-    bl_idname = "archipack.fence_curve_update"
-    bl_label = "Fence curve update"
-    bl_description = "Update fence data from curve"
-    bl_category = 'Archipack'
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_fence.filter(context.active_object)
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
-
-    def execute(self, context):
-        if context.mode == "OBJECT":
-            d = archipack_fence.datablock(context.active_object)
-            d.update_path(context)
-            return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
-            return {'CANCELLED'}
-
-
 class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
     bl_idname = "archipack.fence_from_curve"
     bl_label = "Fence curve"
@@ -1964,7 +1938,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_fence)
     bpy.utils.register_class(ARCHIPACK_OT_fence_preset)
     bpy.utils.register_class(ARCHIPACK_OT_fence_from_curve)
-    bpy.utils.register_class(ARCHIPACK_OT_fence_curve_update)
     bpy.utils.register_class(ARCHIPACK_OT_fence_subpart_dimensions)
 
 
@@ -1979,5 +1952,4 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_fence)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_from_curve)
-    bpy.utils.unregister_class(ARCHIPACK_OT_fence_curve_update)
     bpy.utils.unregister_class(ARCHIPACK_OT_fence_subpart_dimensions)
