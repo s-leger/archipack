@@ -35,12 +35,13 @@ from bpy.props import (
     )
 from .archipack_2d import Line
 from .archipack_curveman import ArchipackUserDefinedPath
+from .archipack_segment import Segment, Generator
 
 
-class CutterSegment(Line):
+class CutterSegment(Segment):
 
     def __init__(self, p, v, type='DEFAULT'):
-        Line.__init__(self, p, v)
+        Segment.__init__(self, p, v)
         self.type = type
         self.is_hole = True
 
@@ -53,13 +54,6 @@ class CutterSegment(Line):
         s.p = self.lerp(t)
         s.v = self.v.normalized() * length
         return s
-
-    def set_offset(self, offset, last=None):
-        """
-            Offset line and compute intersection point
-            between segments
-        """
-        self.line = self.make_offset(offset, last)
 
     def offset(self, offset):
         s = self.copy
@@ -74,14 +68,12 @@ class CutterSegment(Line):
         return s
 
 
-class CutterGenerator():
+class CutterGenerator(Generator):
 
     def __init__(self, d):
-        self.d = d
-        self.parts = d.parts
+        Generator.__init__(self, d)
         self.operation = d.operation
-        self.segs = []
-
+        
     def add_part(self, part):
 
         if len(self.segs) < 1:
@@ -99,84 +91,13 @@ class CutterGenerator():
 
         self.segs.append(s)
 
-    def set_offset(self):
-        last = None
-        for i, seg in enumerate(self.segs):
-            seg.set_offset(self.parts[i].offset, last)
-            last = seg.line
-
-    def close(self):
-        # Make last segment implicit closing one
-        s0 = self.segs[-1]
-        s1 = self.segs[0]
-        dp = s1.p0 - s0.p0
-        s0.v = dp
-
-        if len(self.segs) > 1:
-            s0.line = s0.make_offset(self.parts[-1].offset, self.segs[-2].line)
-
-        p1 = s1.line.p1
-        s1.line = s1.make_offset(self.parts[0].offset, s0.line)
-        s1.line.p1 = p1
-
     def locate_manipulators(self):
         if self.operation == 'DIFFERENCE':
             side = -1
         else:
             side = 1
-        for i, f in enumerate(self.segs):
-            part = self.parts[i]
-            manipulators = part.manipulators
-            p0 = f.p0.to_3d()
-            p1 = f.p1.to_3d()
-            # angle from last to current segment
-            if i > 0:
-
-                if i < len(self.segs) - 1:
-                    manipulators[0].type_key = 'ANGLE'
-                else:
-                    manipulators[0].type_key = 'DUMB_ANGLE'
-
-                v0 = self.segs[i - 1].straight(-side, 1).v.to_3d()
-                v1 = f.straight(side, 0).v.to_3d()
-                manipulators[0].set_pts([p0, v0, v1])
-
-            # segment length
-            manipulators[1].type_key = 'SIZE'
-            manipulators[1].prop1_name = "length"
-            manipulators[1].set_pts([p0, p1, (side, 0, 0)])
-
-            # snap manipulator, dont change index !
-            manipulators[2].set_pts([p0, p1, (side, 0, 0)])
-            # dumb segment id
-            manipulators[3].set_pts([p0, p1, (side, 0, 0)])
-
-            # offset
-            manipulators[4].set_pts([
-                p0,
-                p0 + f.sized_normal(0, max(0.0001, self.parts[i].offset)).v.to_3d(),
-                (0.5, 0, 0)
-            ])
-            
-            self.d.add_dimension_point(part.uid, p0)
-                               
-    def change_coordsys(self, fromTM, toTM):
-        """
-            move shape fromTM into toTM coordsys
-        """
-        dp = (toTM.inverted() * fromTM.translation).to_2d()
-        da = toTM.row[1].to_2d().angle_signed(fromTM.row[1].to_2d())
-        ca = cos(da)
-        sa = sin(da)
-        rM = Matrix([
-            [ca, -sa],
-            [sa, ca]
-            ])
-        for s in self.segs:
-            tp = (rM * s.p0) - s.p0 + dp
-            s.rotate(da)
-            s.translate(tp)
-
+        Generator.locate_manipulators(self, side=side)
+    
     def get_index(self, index):
         n_segs = len(self.segs)
         if index >= n_segs:
@@ -468,8 +389,18 @@ class CutAblePolygon():
         return True
 
 
-class CutAbleGenerator():
-
+class CutAbleGenerator(Generator):
+    
+    def __init__(self, d):
+        Generator.__init__(self, d)
+        self.holes = []
+        self.convex = True
+        self.xsize = 0
+        
+    def limits(self):
+        x_size = [s.p0.x for s in self.segs]
+        self.xsize = max(x_size) - min(x_size)
+ 
     def bissect(self, bm,
             plane_co,
             plane_no,

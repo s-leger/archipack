@@ -92,11 +92,14 @@ class CurvedSlab(Slab, Arc):
 class SlabGenerator(CutAblePolygon, CutAbleGenerator):
 
     def __init__(self, d):
+        # Shared
         self.d = d
         self.parts = d.parts
         self.segs = []
+        # Cutable
         self.holes = []
         self.convex = True
+        # Private
         self.xsize = 0
 
     def add_part(self, part):
@@ -105,6 +108,7 @@ class SlabGenerator(CutAblePolygon, CutAbleGenerator):
             s = None
         else:
             s = self.segs[-1]
+            
         # start a new slab
         if s is None:
             if part.type == 'S_SEG':
