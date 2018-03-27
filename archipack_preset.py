@@ -36,6 +36,10 @@ from .archipack_gl import (
 )
 preset_paths = bpy.utils.script_paths("presets")
 addons_paths = bpy.utils.script_paths("addons")
+# Global disallow multiple instance of operator
+running = None
+from .archipack_iconmanager import icons
+USE_ICONMANAGER = True
 
 
 class CruxHandle(GlHandle):
@@ -168,10 +172,13 @@ class SeekBox(GlText, GlHandle):
 
 
 class PresetMenuItem():
+    
     def __init__(self, thumbsize, preset, image=None):
         name = bpy.path.display_name_from_filepath(preset)
         self.preset = preset
-        self.handle = ThumbHandle(thumbsize, name, image, draggable=True)
+        self.image = image
+        self.image.gl_load()
+        self.handle = ThumbHandle(thumbsize, name, self.image.bindcode[0], draggable=True)
         self.enable = True
 
     def filter(self, keywords):
@@ -179,7 +186,11 @@ class PresetMenuItem():
             if key not in self.handle.label.label:
                 return False
         return True
-
+    
+    def cleanup(self):
+        self.image.gl_free()
+        bpy.data.images.remove(self.image)
+    
     def set_pos(self, context, pos):
         self.handle.set_pos(context, pos)
 
@@ -198,22 +209,77 @@ class PresetMenuItem():
             self.handle.draw(context)
 
 
-class PresetMenu():
+class ThumbsMan():
+    """
+     Fallback for menu without PreviewCollection
+    """
+    def __init__(self, context, category, format):
+        self.format = format
+        self.imageList = []
+        self.file_list = []
+        self.scan_files(category)
+        
+    def make_file_list(self, category, presets_path, skip_dict):
+        if os.path.exists(presets_path):
+            for file_name in os.listdir(presets_path):
+                if (file_name not in skip_dict and
+                        file_name.endswith(self.format) and
+                        not file_name.startswith('.')):
+                    file_path = presets_path + os.path.sep + file_name[:-3]
+                    self.file_list.append(file_path)
+                    skip_dict[file_name] = file_path
+
+    def scan_files(self, category):
+        """
+         Scan files from user dir
+         user files overrides factory ones
+        """
+        self.file_list.clear()
+        skip_dict = {}
+        # load user def presets
+        for path in preset_paths:
+            presets_path = os.path.join(path, category)
+            self.make_file_list(category, presets_path, skip_dict)
+
+        # load factory presets (unless user def override)
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        sub_path = "presets" + os.path.sep + category
+        presets_path = os.path.join(dir_path, sub_path)
+        self.make_file_list(category, presets_path, skip_dict)
+        self.file_list.sort()
+        
+    
+        for image in bpy.data.images:
+            if image.filepath_raw in self.imageList:
+                # image.user_clear()
+                bpy.data.images.remove(image, do_unlink=True)
+        self.imageList.clear()
+
+               
+class PresetMenu(ThumbsMan):
 
     keyboard_type = {
             'BACK_SPACE', 'DEL',
             'LEFT_ARROW', 'RIGHT_ARROW'
             }
-
-    def __init__(self, context, category, thumbsize=Vector((150, 100))):
-        self.imageList = []
-        self.menuItems = []
+    
+    def __init__(self, context, category, thumbsize=Vector((150, 100)), format='.py'):
+        
         self.thumbsize = thumbsize
-        file_list = self.scan_files(category)
-        self.default_image = None
-        self.load_default_image()
-        for filepath in file_list:
-            self.make_menuitem(filepath)
+        
+        if USE_ICONMANAGER:
+            self.menuItems = [
+                PresetMenuItem(self.thumbsize, full_path[:-4] + format, icon)
+                for full_path, label, icon in icons.menuitems(category)
+                ]
+        else:   
+            ThumbsMan.__init__(self, context, category, format)
+            self.menuItems = []
+            self.default_image = None
+            self.load_default_image()
+            for filepath in self.file_list:
+                self.make_menuitem(filepath)
+            
         self.margin = 50
         self.y_scroll = 0
         self.scroll_max = 1000
@@ -227,80 +293,39 @@ class PresetMenu():
 
         self.border.closed = True
         self.set_pos(context)
-        
+    
+    def clearImages(self):
+        for item in self.menuItems:
+            item.cleanup()
+            
     @property
     def is_empty(self):
         return len(self.menuItems) == 0
-        
+    
     def load_default_image(self):
         img_idx = bpy.data.images.find("missing.png")
         if img_idx > -1:
             self.default_image = bpy.data.images[img_idx]
-            self.imageList.append(self.default_image.filepath_raw)
             return
         dir_path = os.path.dirname(os.path.realpath(__file__))
         sub_path = "presets" + os.path.sep + "missing.png"
         filepath = os.path.join(dir_path, sub_path)
         if os.path.exists(filepath) and os.path.isfile(filepath):
             self.default_image = bpy.data.images.load(filepath=filepath)
-            self.imageList.append(self.default_image.filepath_raw)
         if self.default_image is None:
             raise EnvironmentError("archipack/presets/missing.png not found")
-    
-    def make_file_list(self, category, presets_path, file_list, skip_dict):
-        if os.path.exists(presets_path):
-            for file_name in os.listdir(presets_path):
-                if (file_name not in skip_dict and 
-                        file_name.endswith('.py') and
-                        not file_name.startswith('.')):
-                    file_path = presets_path + os.path.sep + file_name[:-3]
-                    file_list.append(file_path)
-                    skip_dict[file_name] = file_path 
-    
-    def scan_files(self, category):
-        """
-         Scan files from user dir
-         user files overrides factory ones
-        """
-        file_list = []
-        skip_dict = {}
-        # load user def presets
-        for path in preset_paths:
-            presets_path = os.path.join(path, category)
-            self.make_file_list(category, presets_path, file_list, skip_dict)
-                    
-        # load factory presets (unless user def ooverride)
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        sub_path = "presets" + os.path.sep + category
-        presets_path = os.path.join(dir_path, sub_path)
-        self.make_file_list(category, presets_path, file_list, skip_dict)
-        
-        file_list.sort()
-        return file_list
-
-    def clearImages(self):
-        for image in bpy.data.images:
-            if image.filepath_raw in self.imageList:
-                # image.user_clear()
-                bpy.data.images.remove(image, do_unlink=True)
-        self.imageList.clear()
 
     def make_menuitem(self, filepath):
-        """
-            @TODO:
-            Lazy load images
-        """
         image = None
         img_idx = bpy.data.images.find(os.path.basename(filepath) + '.png')
         if img_idx > -1 and bpy.data.images[img_idx].filepath_raw == filepath:
             image = bpy.data.images[img_idx]
-            self.imageList.append(image.filepath_raw)
         elif os.path.exists(filepath + '.png') and os.path.isfile(filepath + '.png'):
             image = bpy.data.images.load(filepath=filepath + '.png')
-            self.imageList.append(image)
         if image is None:
             image = self.default_image
-        item = PresetMenuItem(self.thumbsize, filepath + '.py', image)
+        
+        item = PresetMenuItem(self.thumbsize, filepath + self.format, image)
         self.menuItems.append(item)
 
     def set_pos(self, context):
@@ -349,7 +374,6 @@ class PresetMenu():
 
     def mouse_press(self, context, event):
         self.mouse_position(event)
-
         if self.keywords.cancel.hover:
             self.keywords.label = ""
             self.keywords.line_pos = 0
@@ -392,12 +416,18 @@ class PresetMenuOperator():
         options={'SKIP_SAVE'},
         default="script.execute_preset"
     )
-
+    cursor_location = None
+    
     def __init__(self):
         self.menu = None
         self._handle = None
+        self.disable = False
 
     def exit(self, context):
+        if not self.disable:
+            global running
+            running = None
+        context.scene.cursor_location = self.cursor_location
         self.menu.clearImages()
         bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
@@ -405,9 +435,13 @@ class PresetMenuOperator():
         self.menu.draw(context)
 
     def modal(self, context, event):
-        if self.menu is None:
-            return {'FINISHED'}
         context.area.tag_redraw()
+        if self.menu is None:
+            if not self.disable:
+                global running
+                running = None
+            return {'FINISHED'}
+
         if event.type == 'MOUSEMOVE':
             self.menu.mouse_move(context, event)
         elif event.type == 'WHEELUPMOUSE' or \
@@ -416,57 +450,67 @@ class PresetMenuOperator():
         elif event.type == 'WHEELDOWNMOUSE' or \
                 (event.type == 'DOWN_ARROW' and event.value == 'PRESS'):
             self.menu.scroll_down(context, event)
-        elif event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
-            preset = self.menu.mouse_press(context, event)
-            if preset is not None:
-                self.exit(context)
-                po = self.preset_operator.split(".")
-                op = getattr(getattr(bpy.ops, po[0]), po[1])
-                if self.preset_operator == 'script.execute_preset':
-                    # call from preset menu
-                    # ensure right active_object class
-                    act = context.active_object
-                    sel = context.selected_objects
-                    for o in sel:
-                        context.scene.objects.active = o
-                        d = None
-                        if o.data and self.preset_subdir in o.data:
-                            d = getattr(o.data, self.preset_subdir)[0]
-                        elif self.preset_subdir in o:
-                            d = getattr(o, self.preset_subdir)[0]
-                        if d is not None:
-                            d.auto_update = False
-                            # print("Archipack execute_preset loading auto_update:%s" % d.auto_update)
-                            op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
-                            # print("Archipack execute_preset loaded  auto_update: %s" % d.auto_update)
-                            d.auto_update = True
-                    context.scene.objects.active = act
-                else:
-                    # call draw operator
-                    if op.poll():
-                        op('INVOKE_DEFAULT', filepath=preset)
+        elif event.type == 'LEFTMOUSE':
+            if event.value == 'RELEASE':
+                preset = self.menu.mouse_press(context, event)
+                if preset is not None:
+                    self.exit(context)
+                    po = self.preset_operator.split(".")
+                    op = getattr(getattr(bpy.ops, po[0]), po[1])
+                    if self.preset_operator == 'script.execute_preset':
+                        # call from preset menu
+                        # ensure right active_object class
+                        act = context.active_object
+                        sel = context.selected_objects
+                        for o in sel:
+                            context.scene.objects.active = o
+                            d = None
+                            if o.data and self.preset_subdir in o.data:
+                                d = getattr(o.data, self.preset_subdir)[0]
+                            elif self.preset_subdir in o:
+                                d = getattr(o, self.preset_subdir)[0]
+                            if d is not None:
+                                d.auto_update = False
+                                # print("Archipack execute_preset loading auto_update:%s" % d.auto_update)
+                                op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
+                                # print("Archipack execute_preset loaded  auto_update: %s" % d.auto_update)
+                                d.auto_update = True
+                        context.scene.objects.active = act
                     else:
-                        print("Poll failed")
-                return {'FINISHED'}
+                        # call draw operator
+                        if op.poll():
+                            op('INVOKE_DEFAULT', filepath=preset)
+                        else:
+                            print("Poll failed")
+                    return {'FINISHED'}
+
         elif event.ascii or (
                 event.type in self.menu.keyboard_type and
                 event.value == 'RELEASE'):
             self.menu.keyboard_entry(context, event)
-        elif event.type in {'RIGHTMOUSE', 'ESC'}:
+            # prevent keyboard event to buble up when typing on seek box
+            return {'RUNNING_MODAL'}
+
+        elif event.type in {'RIGHTMOUSE', 'ESC'} or self.disable:
             self.exit(context)
             return {'CANCELLED'}
 
-        return {'RUNNING_MODAL'}
+        return {'PASS_THROUGH'}
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
-            
+
             # with alt pressed on invoke, will bypass menu operator and
             # call preset_operator
             # allow start drawing linked copy of active object
             o = context.active_object
             
-            if (o and o.data and 
+            # store cursor location as left click event in menu move it while pass_through
+            self.cursor_location = context.scene.cursor_location.copy()
+            
+            self.disable = False
+
+            if (o and o.data and
                     ("archipack_door" in o.data or "archipack_window" in o.data) and
                     (event.alt or event.ctrl)):
                 po = self.preset_operator.split(".")
@@ -481,10 +525,16 @@ class PresetMenuOperator():
                 return {'FINISHED'}
 
             self.menu = PresetMenu(context, self.preset_subdir)
-            
+
+            global running
+            if running is not None:
+                # disable running operator if any
+                running.disable = True
+            running = self
+
             if self.menu.is_empty:
                 # Fallback for empty presets
-                # call preset operator 
+                # call preset operator
                 try:
                     po = self.preset_operator.split(".")
                     op = getattr(getattr(bpy.ops, po[0]), po[1])
@@ -494,11 +544,12 @@ class PresetMenuOperator():
                     pass
                 self.report({'WARNING'}, "No preset found")
                 return {'FINISHED'}
-                
+
             # the arguments we pass the the callback
             args = (self, context)
             # Add the region OpenGL drawing callback
             # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
+
             self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_handler, args, 'WINDOW', 'POST_PIXEL')
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
@@ -509,7 +560,7 @@ class PresetMenuOperator():
 
 class ArchipackPreset(AddPresetBase):
     """Extend base preset class"""
-        
+
     @classmethod
     def poll(cls, context):
         o = context.active_object
@@ -528,16 +579,16 @@ class ArchipackPreset(AddPresetBase):
             may override on addon basis
         """
         return []
-    
+
     def add(self, context, filepath):
         """
           Override add method
-          deep filter property 
+          deep filter property
         """
         print("Writing Preset: %r" % filepath)
         blacklist = [key for key in bpy.types.Mesh.bl_rna.properties.keys() if "archipack" not in key]
         blacklist.extend(self.blacklist)
-        
+
         # sligthly modified to filter sub properties too
         def rna_recursive_attr_expand(prop, rna_path_step, level):
             if isinstance(prop, bpy.types.PropertyGroup):
@@ -566,7 +617,7 @@ class ArchipackPreset(AddPresetBase):
                 except:
                     pass
                 file_preset.write("%s = %r\n" % (rna_path_step, prop))
-            
+
         file_preset = open(filepath, 'w', encoding="utf-8")
         file_preset.write("import bpy\n")
 
@@ -575,18 +626,18 @@ class ArchipackPreset(AddPresetBase):
             exec(rna_path)
             file_preset.write("%s\n" % rna_path)
         file_preset.write("\n")
-        
+
         # retrieve root props of archipack objects
         d = getattr(context.active_object.data, self.preset_subdir)[0]
         props = d.rna_type.bl_rna.properties.items()
-        preset_values = ["d.%s" % attr 
-            for attr, rna_prop in props 
+        preset_values = ["d.%s" % attr
+            for attr, rna_prop in props
             if attr not in blacklist and
             not (rna_prop.is_hidden or rna_prop.is_skip_save)]
-        
-        # alpha sort 
+
+        # alpha sort
         preset_values.sort()
-            
+
         for rna_path in preset_values:
             value = eval(rna_path)
             rna_recursive_attr_expand(value, rna_path, 1)
@@ -622,7 +673,7 @@ class ArchipackPreset(AddPresetBase):
             "--factory-startup",
             "-noaudio",
             "--python", generator,
-             "--",
+            "--",
             "addon:" + addon_name,
             "matlib:" + matlib_path,
             "cls:" + cls,

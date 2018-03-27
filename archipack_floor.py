@@ -1728,7 +1728,7 @@ class ARCHIPACK_PT_floor_cutter(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_floor_cutter.filter(context.active_object)
+        return archipack_floor_cutter.poll(context.active_object)
 
     def draw(self, context):
         prop = archipack_floor_cutter.datablock(context.active_object)

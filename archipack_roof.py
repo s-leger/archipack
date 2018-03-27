@@ -4901,7 +4901,7 @@ class ARCHIPACK_PT_roof_cutter(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_roof_cutter.filter(context.active_object)
+        return archipack_roof_cutter.poll(context.active_object)
 
     def draw(self, context):
         prop = archipack_roof_cutter.datablock(context.active_object)
@@ -4929,7 +4929,7 @@ class ARCHIPACK_PT_roof(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_roof.filter(context.active_object)
+        return archipack_roof.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object

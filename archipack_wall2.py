@@ -36,7 +36,7 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import (
     interpolate_bezier
     )
-from math import sin, cos, pi, atan2
+from math import sin, cos, pi, atan2, degrees
 from .archipack_manipulator import (
     Manipulable, archipack_manipulator,
     GlPolygon, GlPolyline,
@@ -437,14 +437,16 @@ class WallGenerator():
 
 def update(self, context):
     self.update(context)
+    return None
 
-
+    
 def update_childs(self, context):
     self.update(context, update_childs=True, manipulable_refresh=True)
-
+    return None
 
 def update_manipulators(self, context):
     self.update(context, manipulable_refresh=True)
+    return None
 
 
 def update_t_part(self, context):
@@ -578,6 +580,7 @@ def update_t_part(self, context):
             self.t_part = ""
 
     self.restore_context(context)
+    return None
 
 
 def set_splits(self, value):
@@ -660,6 +663,22 @@ def update_type(self, context):
 
         d.auto_update = True
 
+       
+def update_angle(self, context):
+    self.update_angle(context)
+        
+        
+def set_a(self, value):
+    self.last_a = self.a
+    self.a = value 
+    return None
+
+    
+def get_a(self):
+    return self.a
+
+    
+    
 
 class archipack_wall2_part(PropertyGroup):
     type = EnumProperty(
@@ -684,14 +703,34 @@ class archipack_wall2_part(PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+    
+    last_a = FloatProperty(
+            description="Store last angle between segments on update",
+            min=-pi,
+            max=pi,
+            default=pi / 2,
+            subtype='ANGLE', unit='ROTATION',
+            options={'SKIP_SAVE'}
+            )
+    a = FloatProperty(
+            description="Store angle between segments",
+            min=-pi,
+            max=pi,
+            default=pi / 2,
+            subtype='ANGLE', unit='ROTATION',
+            update=update_angle
+            )
     a0 = FloatProperty(
             name="Start angle",
             min=-pi,
             max=pi,
             default=pi / 2,
             subtype='ANGLE', unit='ROTATION',
-            update=update
+            set=set_a,
+            get=get_a,
+            options={'SKIP_SAVE'}
             )
+    
     da = FloatProperty(
             name="Angle",
             min=-pi,
@@ -738,7 +777,10 @@ class archipack_wall2_part(PropertyGroup):
             max=31,
             update=update
             )
-    auto_update = BoolProperty(default=True)
+    auto_update = BoolProperty(
+        default=True,
+        options={'SKIP_SAVE'}
+        )
     manipulators = CollectionProperty(type=archipack_manipulator)
     # DimensionProvider related
     uid = IntProperty(default=0)
@@ -755,19 +797,66 @@ class archipack_wall2_part(PropertyGroup):
             find witch selected object this instance belongs to
             provide support for "copy to selected"
         """
-        selected = [o for o in context.selected_objects]
+        selected = context.selected_objects[:]
         for o in selected:
             props = archipack_wall2.datablock(o)
             if props:
-                for part in props.parts:
+                for idx, part in enumerate(props.parts):
                     if part == self:
-                        return props
-        return None
+                        return idx, props
+        return -1, None
+    
+    def update_angle(self, context):
+        if not self.auto_update:
+            return
+        i, d = self.find_datablock_in_selection(context)
+        if d is not None:
+            print("update angle", self.a - self.last_a)
+            n_parts = len(d.parts)
+            
+            if not d.closed:
+                n_parts -= 1
+                
+            if i + 1 < n_parts:
+                # compute angle and length for next segments
+                print("self.a", degrees(self.a))
+                print("self.last_a", degrees(self.last_a))
+                # current segment with new orientation
+                p = Vector((0, 0))
+                v = Vector((self.length, 0))
+                s0 = Line(p=p, v=v).rotate(self.a)
+                
+                # next segment before update
+                part = d.parts[i + 1]
+                tmp = Line(p=p, v=v).rotate(self.last_a)
+                v = Vector((part.length, 0))
+                s1 = Line(p=tmp.p1, v=v).rotate(self.last_a + part.a)                
+                # intersection
+                res, p, u, v = s0.intersect_ext(s1)
+                # set current last pos and next start pos
+                s0.p1 = p
+                s1.p0 = p
+                a = s1.delta_angle(s0)
+                if abs(a) < pi and v < 1:
+                    part.auto_update = False
+                    self.auto_update = False
+                    # compute start angle of next segment
+                    part.a = a
+                    # compute length of both segments
+                    part.length = s1.length
+                    self.length = s0.length
+                    part.auto_update = True
+                    self.auto_update = True
+                    d.update(context)
+                else:
+                    self.a = self.last_a
+            else:   
+                d.update(context)
 
     def update(self, context, manipulable_refresh=False):
         if not self.auto_update:
             return
-        props = self.find_datablock_in_selection(context)
+        i, props = self.find_datablock_in_selection(context)
         if props is not None:
             props.update(context, manipulable_refresh)
 
@@ -958,7 +1047,7 @@ class archipack_wall2(ArchipackObject, ArchipackCurveManager, Manipulable, Dimen
         part_1.type = typ
         part_1.length = length
         part_1.da = da
-        part_1.a0 = 0
+        part_1.a = 0
 
         # move after current one
         self.parts.move(len(self.parts) - 1, where + 1)
@@ -1016,7 +1105,7 @@ class archipack_wall2(ArchipackObject, ArchipackCurveManager, Manipulable, Dimen
             w.p1 = g.segs[where].p1
 
             if where + 1 < self.n_parts:
-                self.parts[where + 1].a0 = g.segs[where + 1].delta_angle(w)
+                self.parts[where + 1].a = g.segs[where + 1].delta_angle(w)
 
             if "C_" in part.type:
                 part.radius = w.r
@@ -1024,9 +1113,9 @@ class archipack_wall2(ArchipackObject, ArchipackCurveManager, Manipulable, Dimen
                 part.length = w.length
 
             if where > 1:
-                part.a0 = w.delta_angle(g.segs[where - 2])
+                part.a = w.delta_angle(g.segs[where - 2])
             else:
-                part.a0 = w.straight(1, 0).angle
+                part.a = w.straight(1, 0).angle
 
         # get child location on removed seg and
         # update so they are in where - 1
@@ -1115,7 +1204,7 @@ class archipack_wall2(ArchipackObject, ArchipackCurveManager, Manipulable, Dimen
                 s.prop1_name = "length"
             if n_manips < 3:
                 s = p.manipulators.add()
-                s.type_key = 'WALL_SNAP'
+                s.type_key = 'LINE_SNAP'
                 s.prop1_name = str(i)
                 s.prop2_name = 'z'
             if n_manips < 4:
@@ -1126,14 +1215,14 @@ class archipack_wall2(ArchipackObject, ArchipackCurveManager, Manipulable, Dimen
             p.manipulators[3].prop1_name = str(i + 1)
 
     def from_spline(self, wM, resolution, spline):
-
+        
         pts = self.coords_from_spline(
-            spline,
-            wM,
-            resolution,
+            spline, 
+            wM, 
+            resolution, 
             ccw=True
             )
-
+            
         # translation of target object
         tM = Matrix.Translation(pts[0].copy())
         self.auto_update = False
@@ -1253,7 +1342,7 @@ class archipack_wall2(ArchipackObject, ArchipackCurveManager, Manipulable, Dimen
             roof, rd = self.find_roof(o)
             if roof:
                 rd.make_wall_fit(context, roof, o, inside=False, auto_update=False, skip_z=True)
-
+        
         verts = []
         faces = []
 
@@ -2260,7 +2349,7 @@ class ARCHIPACK_PT_wall2(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_wall2.filter(context.active_object)
+        return archipack_wall2.poll(context.active_object)
 
 
 # ------------------------------------------------------------------
@@ -2271,7 +2360,7 @@ class ARCHIPACK_PT_wall2(Panel):
 class ARCHIPACK_OT_wall2(ArchipackCreateTool, Operator):
     bl_idname = "archipack.wall2"
     bl_label = "Wall"
-    bl_description = "Create a Wall"
+    bl_description = "Create a Wall at 3D cursor's position"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
     mode = EnumProperty(
@@ -2448,7 +2537,7 @@ class ARCHIPACK_OT_wall2_fit_roof(Operator):
 
     @classmethod
     def poll(self, context):
-        return archipack_wall2.filter(context.active_object)
+        return archipack_wall2.poll(context.active_object)
 
     def execute(self, context):
         o = context.active_object
@@ -2580,7 +2669,7 @@ class ARCHIPACK_OT_wall2_to_curve(ArchipackObjectsManager, Operator):
 class ARCHIPACK_OT_wall2_draw(ArchipackDrawTool, Operator):
     bl_idname = "archipack.wall2_draw"
     bl_label = "Draw a Wall"
-    bl_description = "Draw a Wall"
+    bl_description = "Create a wall by drawing its baseline in 3D view"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2970,12 +3059,12 @@ class ARCHIPACK_OT_wall2_reverse(Operator):
 class ARCHIPACK_OT_wall2_manipulate(Operator):
     bl_idname = "archipack.wall2_manipulate"
     bl_label = "Manipulate"
-    bl_description = "Manipulate"
+    bl_description = "Manipulate wall in 3d view using handles"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(self, context):
-        return archipack_wall2.filter(context.active_object)
+        return archipack_wall2.poll(context.active_object)
 
     def invoke(self, context, event):
         d = archipack_wall2.datablock(context.active_object)

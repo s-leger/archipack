@@ -137,12 +137,15 @@ class ArchipackActiveManip:
         for m in self.stack:
             if m is not None:
                 m.exit()
-        # verify object still there        
         if self.manipulable is not None:
-            # on undo accessing this will crash blender
+            
+            # on undo accessing bpy.prop manipulate_mode will crash blender
+            # use living manipulable_draw_handler to check for validity
             if self.manipulable.manipulable_draw_handler is not None:
                 self.manipulable.manipulate_mode = False
+            
             self.manipulable = None
+            
         self.object_name = ""
         self.stack.clear()
 
@@ -889,6 +892,119 @@ class WallSnapManipulator(Manipulator):
         self.feedback.draw(context, render)
 
 
+class LineSnapManipulator(WallSnapManipulator):
+    """
+        np_station snap inspired manipulator
+        Use prop1_name as string part index
+        Use prop2_name as string identifier height property for placeholders
+
+        Misnamed as it work for all line based archipack's
+        primitives, currently wall and fences,
+        but may also work with stairs (sharing same data structure)
+    """
+    def __init__(self, context, o, datablock, manipulator, handle_size, snap_callback=None):
+        WallSnapManipulator.__init__(self, context, o, datablock, manipulator, handle_size, snap_callback)
+
+    def sp_callback(self, context, event, state, sp):
+        """
+            np station callback on moving, place, or cancel
+        """
+        global gl_pts3d
+        logger.debug("LineSnapManipulator.sp_callback")
+
+        if state == 'SUCCESS':
+
+            self.o.select = True
+            # apply changes to wall
+            d = self.datablock
+            d.auto_update = False
+            
+            for part in d.parts:
+                part.auto_update = False
+                
+            g = d.get_generator()
+
+            # rotation relative to object
+            rM = self.o.matrix_world.inverted().to_3x3()
+            delta = (rM * sp.delta).to_2d()
+            # x_axis = (rM * Vector((1, 0, 0))).to_2d()
+
+            # update generator
+            idx = 0
+            for p0, p1, selected in gl_pts3d:
+
+                if selected:
+
+                    # new location in object space
+                    pt = g.segs[idx].lerp(0) + delta
+
+                    # move last point of segment before current
+                    if idx > 0:
+                        g.segs[idx - 1].p1 = pt
+
+                    # move first point of current segment
+                    g.segs[idx].p0 = pt
+
+                idx += 1
+
+            # update properties from generator
+            idx = 0
+            for p0, p1, selected in gl_pts3d:
+
+                if selected:
+
+                    # adjust segment before current
+                    if idx > 0:
+                        w = g.segs[idx - 1]
+                        part = d.parts[idx - 1]
+
+                        if idx > 1:
+                            part.a = w.delta_angle(g.segs[idx - 2])
+                        else:
+                            part.a = w.straight(1, 0).angle
+
+                        if "C_" in part.type:
+                            part.radius = w.r
+                        else:
+                            part.length = w.length
+
+                    # adjust current segment
+                    w = g.segs[idx]
+                    part = d.parts[idx]
+
+                    if idx > 0:
+                        part.a = w.delta_angle(g.segs[idx - 1])
+                    else:
+                        part.a = w.straight(1, 0).angle
+                        # move object when point 0
+                        self.o.location += sp.delta
+                        self.o.matrix_world.translation += sp.delta
+
+                    if "C_" in part.type:
+                        part.radius = w.r
+                    else:
+                        part.length = w.length
+
+                    # adjust next one
+                    if idx + 1 < d.n_parts:
+                        d.parts[idx + 1].a = g.segs[idx + 1].delta_angle(w)
+
+                idx += 1
+
+            self.mouse_release(context, event)
+            
+            for part in d.parts:
+                part.auto_update = True
+            
+            d.auto_update = True
+
+        if state == 'CANCEL':
+            self.mouse_release(context, event)
+        logger.debug("LineSnapManipulator.sp_callback done")
+
+        return
+    
+        
 class CounterManipulator(Manipulator):
     """
         increase or decrease an integer step by step
@@ -2761,12 +2877,14 @@ def register():
     register_manipulator('DUMB_SIZE', DumbSizeManipulator)
     register_manipulator('DELTA_LOC', DeltaLocationManipulator)
     register_manipulator('DUMB_STRING', DumbStringManipulator)
-
+    
     # snap aware size loc
     register_manipulator('SNAP_SIZE_LOC', SnapSizeLocationManipulator)
     # register_manipulator('SNAP_POINT', SnapPointManipulator)
     # wall's line based object snap
     register_manipulator('WALL_SNAP', WallSnapManipulator)
+    # line snap manipulator disable parts update
+    register_manipulator('LINE_SNAP', LineSnapManipulator)
     # Dimension manipulator (vector in object space)
     register_manipulator('SNAP_VEC', SnapVectorManipulator)
     # Add / remove operator

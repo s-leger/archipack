@@ -436,7 +436,8 @@ class ARCHIPACK_PT_material(Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object is not None and 'archipack_material' in context.active_object
+        o =  context.active_object
+        return o is not None and o.select and 'archipack_material' in o
 
     def draw(self, context):
         layout = self.layout

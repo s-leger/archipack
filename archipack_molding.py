@@ -41,8 +41,8 @@ from .archipack_2d import Line
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_object import ArchipackCreateTool, ArchipackObject
 from .archipack_curveman import ArchipackProfile, ArchipackUserDefinedPath
-
-
+    
+    
 class Molding():
 
     def __init__(self):
@@ -376,7 +376,7 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
             default=True,
             update=update_manipulators
             )
-
+        
     def setup_manipulators(self):
 
         if len(self.manipulators) == 0:
@@ -601,13 +601,16 @@ class ARCHIPACK_PT_molding(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_molding.filter(context.active_object)
+        return archipack_molding.poll(context.active_object)
 
     def draw(self, context):
         prop = archipack_molding.datablock(context.active_object)
         if prop is None:
             return
         layout = self.layout
+        
+        layout.template_icon_view(prop, "preset", show_labels=True, scale=10)
+        
         row = layout.row(align=True)
         row.operator('archipack.manipulate', icon='HAND')
         box = layout.box()
@@ -674,7 +677,7 @@ class ARCHIPACK_OT_molding(ArchipackCreateTool, Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            o.location = bpy.context.scene.cursor_location
+            o.location = context.scene.cursor_location
             o.select = True
             context.scene.objects.active = o
             self.manipulate()
@@ -692,7 +695,7 @@ class ARCHIPACK_OT_molding(ArchipackCreateTool, Operator):
 class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
     bl_idname = "archipack.molding_from_curve"
     bl_label = "Molding curve"
-    bl_description = "Create a molding from a curve"
+    bl_description = "Create molding from curve"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -817,7 +820,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
 
 
 class ARCHIPACK_OT_molding_preset_from_wall(PresetMenuOperator, Operator):
-    bl_description = "Molding from wall"
+    bl_description = "Create molding from wall"
     bl_idname = "archipack.molding_preset_from_wall"
     bl_label = "-> Molding"
     preset_subdir = "archipack_molding"
@@ -833,7 +836,7 @@ class ARCHIPACK_OT_molding_preset_from_wall(PresetMenuOperator, Operator):
 
 
 class ARCHIPACK_OT_molding_preset_from_curve(PresetMenuOperator, Operator):
-    bl_description = "Molding from curve"
+    bl_description = "Create molding from curve"
     bl_idname = "archipack.molding_preset_from_curve"
     bl_label = "-> Molding"
     preset_subdir = "archipack_molding"

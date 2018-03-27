@@ -27,7 +27,7 @@
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, StringProperty, EnumProperty
 from mathutils import Vector, Matrix
 from mathutils.geometry import (
     intersect_line_plane
@@ -35,7 +35,16 @@ from mathutils.geometry import (
 from bpy_extras import view3d_utils
 import logging
 logger = logging.getLogger("archipack")
+from .archipack_iconmanager import icons
 
+
+def get_enum(self, context):
+    return icons.enum(context, self.__class__.__name__)
+
+    
+def preset_operator(self, context):
+    bpy.ops.script.python_file_run(filepath="{}.py".format(self.preset[:-4]))
+    
 
 class ArchipackObjectsManager():
     """
@@ -129,6 +138,12 @@ class ArchipackObjectsManager():
         if src is not None:
             self._link_child(src, o)
 
+    def get_topmost_parent(self, o):
+        if o.parent:
+            return self.get_topmost_parent(o.parent)
+        else:
+            return o
+
 
 class ArchipackObject(ArchipackObjectsManager):
     """
@@ -136,7 +151,13 @@ class ArchipackObject(ArchipackObjectsManager):
         provide basic support for copy to selected
         and datablock access / filtering by object
     """
-
+    preset = EnumProperty(
+        name="Preset",
+        description="Preset thumbs available right on object panel",
+        items=get_enum,
+        update=preset_operator
+        )
+    
     def iskindof(self, o, typ):
         """
             return true if object contains databloc of typ name
@@ -165,7 +186,25 @@ class ArchipackObject(ArchipackObjectsManager):
             except:
                 pass
         return res
-
+    
+    @classmethod
+    def poll(cls, o):
+        """
+            Filter object with this class in data
+            return
+            True when object contains this datablock
+            False otherwhise
+            usage:
+            class_name.filter(object) from outside world
+            self.__class__.filter(object) from instance
+        """
+        res = False
+        try:
+            res = o.select and cls.filter(o) 
+        except:
+            pass
+        return res
+    
     @classmethod
     def datablock(cls, o):
         """
@@ -228,8 +267,8 @@ class ArchipackObject(ArchipackObjectsManager):
             context.scene.objects.active = self.previously_active
         self.previously_selected = None
         self.previously_active = None
-
-
+   
+        
 class ArchipackCreateTool(ArchipackObjectsManager):
     """
         Shared property of archipack's create tool Operator
@@ -246,7 +285,7 @@ class ArchipackCreateTool(ArchipackObjectsManager):
             description="Full filename of python preset to load at create time",
             default=""
             )
-
+    
     @property
     def archipack_category(self):
         """
@@ -304,7 +343,10 @@ class ArchipackCreateTool(ArchipackObjectsManager):
                 print("Archipack bpy.ops.archipack.%s_manipulate not found" % (self.archipack_category))
                 pass
 
-
+    def invoke(self, context, event):
+        return self.execute(context)
+    
+    
 class ArchipackDrawTool(ArchipackObjectsManager):
     """
         Draw tools

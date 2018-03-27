@@ -42,83 +42,65 @@ bl_info = {
     'category': 'Add Mesh'
     }
 
+
+__version__ = ".".join([str(i) for i in bl_info['version']])
+
+
 import os
+import importlib as imp
+
+
+submodules = (
+    'iconmanager',
+    'progressbar',
+    'material',
+    'snap',
+    'manipulator',
+    'curveman',
+    'dimension',
+    'reference_point',
+    'autoboolean',
+    'door',
+    'window',
+    'stair',
+    'wall',
+    'wall2',
+    'slab',
+    'roof',
+    'fence',
+    'truss',
+    'custom',
+    # toolkit
+    'floor',
+    'floor_heating',
+    'blind',
+    'kitchen',
+    'molding',
+    'rendering',
+    'section',
+    'animation',
+    # envi
+    'io',
+    '2d_layout',
+    'io_export_svg',
+    'polylines',
+)
+
 
 if "bpy" in locals():
-    import importlib as imp
-    imp.reload(archipack_progressbar)
-    imp.reload(archipack_material)
-    imp.reload(archipack_snap)
-    imp.reload(archipack_manipulator)
-    imp.reload(archipack_curveman)
-    imp.reload(archipack_dimension)
-    imp.reload(archipack_reference_point)
-    imp.reload(archipack_autoboolean)
-    imp.reload(archipack_door)
-    imp.reload(archipack_window)
-    imp.reload(archipack_stair)
-    imp.reload(archipack_wall)
-    imp.reload(archipack_wall2)
-    imp.reload(archipack_slab)
-    imp.reload(archipack_roof)
-    imp.reload(archipack_fence)
-    imp.reload(archipack_truss)
-    # imp.reload(archipack_toolkit)
-    imp.reload(archipack_custom)
-    imp.reload(archipack_floor)
-    imp.reload(archipack_floor_heating)
-    imp.reload(archipack_blind)
-    imp.reload(archipack_kitchen)
-    imp.reload(archipack_molding)
-    imp.reload(archipack_rendering)
-    imp.reload(archipack_section)
-    imp.reload(archipack_animation)
-    # imp.reload(archipack_envi)
-    imp.reload(archipack_io)
-    imp.reload(archipack_2d_layout)
-    imp.reload(archipack_io_export_svg)
-    imp.reload(archipack_polylines)
+    glob = globals()
+    for sub in submodules:
+        imp.reload(glob["archipack_{}".format(sub)])
     imp.reload(addon_updater_ops)
-    # imp.reload(archipack_i18n)
-
     print("archipack: reload ready")
-else:
-    from . import archipack_progressbar
-    from . import archipack_material
-    from . import archipack_snap
-    from . import archipack_manipulator
-    from . import archipack_curveman
-    from . import archipack_dimension
-    from . import archipack_reference_point
-    from . import archipack_autoboolean
-    from . import archipack_door
-    from . import archipack_window
-    from . import archipack_stair
-    from . import archipack_wall
-    from . import archipack_wall2
-    from . import archipack_slab
-    from . import archipack_roof
-    from . import archipack_fence
-    from . import archipack_truss
-    from . import archipack_custom
-    # from . import archipack_toolkit
-    from . import archipack_floor
-    from . import archipack_floor_heating
-    from . import archipack_blind
-    from . import archipack_kitchen
-    from . import archipack_molding
-    from . import archipack_rendering
-    from . import archipack_section
-    from . import archipack_animation
-    # from . import archipack_envi
-    from . import archipack_io
-    from . import archipack_2d_layout
-    from . import archipack_io_export_svg
-    from . import archipack_polylines
-    from . import addon_updater_ops
-    # from . import archipack_i18n
 
+else:
+    glob = globals()
+    for sub in submodules:
+        glob["archipack_{}".format(sub)] = imp.import_module(".archipack_{}".format(sub), __package__)
+    from . import addon_updater_ops
     print("archipack: ready")
+
 
 # noinspection PyUnresolvedReferences
 import bpy
@@ -133,8 +115,8 @@ from bpy.props import (
     IntProperty, FloatProperty, FloatVectorProperty
     )
 
-from bpy.utils import previews
-icons_collection = {}
+
+icon_man = None
 
 
 # ----------------------------------------------------
@@ -194,10 +176,55 @@ class Archipack_Pref(AddonPreferences):
             min=2,
             default=10
             )
+    constant_handle_size = BoolProperty(
+            name="Constant handle size",
+            description="When checked, handle size on scree remains constant (handle size pixels)",
+            default=False
+            )
+    handle_colour_selected = FloatVectorProperty(
+            name="Selected handle colour",
+            description="Handle color when selected",
+            subtype='COLOR_GAMMA',
+            default=(0.0, 0.0, 0.7, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    handle_colour_inactive = FloatVectorProperty(
+            name="Inactive handle colour",
+            description="Handle color when disabled",
+            subtype='COLOR_GAMMA',
+            default=(0.3, 0.3, 0.3, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    handle_colour_normal = FloatVectorProperty(
+            name="Handle colour normal",
+            description="Base handle color when not selected",
+            subtype='COLOR_GAMMA',
+            default=(1.0, 1.0, 1.0, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    handle_colour_hover = FloatVectorProperty(
+            name="Handle colour hover",
+            description="Handle color when mouse hover",
+            subtype='COLOR_GAMMA',
+            default=(1.0, 1.0, 0.0, 1.0),
+            size=4,
+            min=0, max=1
+            )
+    handle_colour_active = FloatVectorProperty(
+            name="Handle colour active",
+            description="Handle colour when moving",
+            subtype='COLOR_GAMMA',
+            default=(1.0, 0.0, 0.0, 1.0),
+            size=4,
+            min=0, max=1
+            )
     matlib_path = StringProperty(
             name="Folder path",
             subtype="DIR_PATH",
-            description="absolute path to material library folder",
+            description="Absolute path to material library folder",
             default=""
             )
     # Font sizes and basic colour scheme
@@ -342,6 +369,18 @@ class Archipack_Pref(AddonPreferences):
         row.prop(self, "feedback_colour_key")
         row = col.row(align=True)
         row.prop(self, "feedback_colour_shortcut")
+
+        row = col.row(align=True)
+        row.prop(self, "handle_colour_normal")
+        row = col.row(align=True)
+        row.prop(self, "handle_colour_hover")
+        row = col.row(align=True)
+        row.prop(self, "handle_colour_active")
+        row = col.row(align=True)
+        row.prop(self, "handle_colour_selected")
+        row = col.row(align=True)
+        row.prop(self, "handle_colour_inactive")
+
         col = split.column()
         col.label(text="Font size:")
         col.prop(self, "feedback_size_main")
@@ -350,6 +389,7 @@ class Archipack_Pref(AddonPreferences):
         col.label(text="Manipulators:")
         col.prop(self, "arrow_size")
         col.prop(self, "handle_size")
+        col.prop(self, "constant_handle_size")
         addon_updater_ops.update_settings_ui(self, context)
 
 
@@ -359,7 +399,7 @@ class Archipack_Pref(AddonPreferences):
 
 
 class TOOLS_PT_Archipack_PolyLib(Panel):
-    bl_label = "Archipack 2d to 3d"
+    bl_label = "Archipack 2d to 3d {}".format(__version__)
     bl_idname = "TOOLS_PT_Archipack_PolyLib"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
@@ -374,8 +414,8 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
                 (context.object is not None and context.object.type == 'CURVE'))
 
     def draw(self, context):
-        global icons_collection
-        icons = icons_collection["main"]
+        global icon_man
+        icons = icon_man["main"]
         layout = self.layout
         params = context.window_manager.archipack_polylib
         row = layout.row(align=True)
@@ -482,7 +522,7 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
 
 
 class TOOLS_PT_Archipack_Tools(Panel):
-    bl_label = "Archipack Tools"
+    bl_label = "Archipack Tools {}".format(__version__)
     bl_idname = "TOOLS_PT_Archipack_Tools"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
@@ -516,7 +556,7 @@ class TOOLS_PT_Archipack_Tools(Panel):
         box.label("Rendering")
         box.prop(wm.archipack, 'render_type', text="")
         box.operator("archipack.render", icon='RENDER_STILL')
-        
+
         if prefs.experimental_features:
             box = layout.box()
             box.label("Animation support")
@@ -524,7 +564,7 @@ class TOOLS_PT_Archipack_Tools(Panel):
             row.operator("archipack.animation", text="Add", icon='ZOOMIN').mode = 'ENABLE'
             row.operator("archipack.animation", text="Remove", icon='ZOOMOUT').mode = 'DISABLE'
             row.operator("archipack.animation", text="Clear", icon='X').mode = 'CLEAR'
-        
+
         """
         box = layout.box()
         box.label("Generate preset thumbs")
@@ -533,7 +573,7 @@ class TOOLS_PT_Archipack_Tools(Panel):
 
 
 class TOOLS_PT_Archipack_Create(Panel):
-    bl_label = "Add Archipack"
+    bl_label = "Add Archipack {}".format(__version__)
     bl_idname = "TOOLS_PT_Archipack_Create"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
@@ -545,11 +585,11 @@ class TOOLS_PT_Archipack_Create(Panel):
         return True
 
     def draw(self, context):
-        global icons_collection
+        global icon_man
         prefs = context.user_preferences.addons[__name__].preferences
         addon_updater_ops.check_for_update_background(context)
 
-        icons = icons_collection["main"]
+        icons = icon_man["main"]
         layout = self.layout
         box = layout.box()
         box.label("Objects")
@@ -615,11 +655,10 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="->Floor",
                     icon_value=icons["floor_from_wall"].icon_id
                     )
-                    # .preset_operator = "archipack.floor_from_wall"
         row.operator("archipack.floor_preset_from_curve",
                     text="",
                     icon='CURVE_DATA')
-                    # .preset_operator = "archipack.floor_from_curve"
+
         row = box.row(align=True)
         row.operator("archipack.molding_preset_menu",
                     text="Molding",
@@ -629,12 +668,10 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="->Molding",
                     icon_value=icons["molding_from_wall"].icon_id
                     )
-                    # .preset_operator = "archipack.molding_from_wall"
         row.operator("archipack.molding_preset_from_curve",
                     text="",
                     icon='CURVE_DATA'
                     )
-                    # .preset_operator = "archipack.molding_from_curve"
 
         row = box.row(align=True)
         row.operator("archipack.roof_preset_menu",
@@ -676,6 +713,7 @@ class TOOLS_PT_Archipack_Create(Panel):
                     text="Section cam",
                     icon='CAMERA_DATA'
                     ).mode = 'CREATE'
+
         if prefs.experimental_features:
             box = layout.box()
             box.label(text="Experimental features")
@@ -684,7 +722,7 @@ class TOOLS_PT_Archipack_Create(Panel):
             row = box.row(align=True)
             row.operator("archipack.make_custom", text="Custom", icon='MONKEY')
             row.operator("archipack.custom_draw", text="Draw", icon='GREASEPENCIL')
-                
+
         box = layout.box()
         box.label(text="Custom objects")
         box.operator("archipack.wall", text="Custom wall")
@@ -702,8 +740,8 @@ class TOOLS_PT_Archipack_Create(Panel):
 
 
 def draw_menu(self, context):
-    global icons_collection
-    icons = icons_collection["main"]
+    global icon_man
+    icons = icon_man["main"]
     layout = self.layout
     layout.operator_context = 'INVOKE_REGION_WIN'
 
@@ -777,8 +815,8 @@ class ARCHIPACK_MT_create_menu(Menu):
 def menu_func(self, context):
     layout = self.layout
     layout.separator()
-    global icons_collection
-    icons = icons_collection["main"]
+    global icon_man
+    icons = icon_man["main"]
 
     # either draw sub menu or right at end of this one
     if context.user_preferences.addons[__name__].preferences.create_submenu:
@@ -808,45 +846,17 @@ class archipack_data(PropertyGroup):
 
 
 def register():
-    global icons_collection
-    icons = previews.new()
-    icons_dir = os.path.join(os.path.dirname(__file__), "icons")
-    for icon in os.listdir(icons_dir):
-        name, ext = os.path.splitext(icon)
-        icons.load(name, os.path.join(icons_dir, icon), 'IMAGE')
-    icons_collection["main"] = icons
+    global icon_man
 
-    archipack_progressbar.register()
-    archipack_material.register()
-    archipack_snap.register()
-    archipack_manipulator.register()
-    archipack_curveman.register()
-    archipack_dimension.register()
-    archipack_reference_point.register()
-    archipack_autoboolean.register()
-    archipack_door.register()
-    archipack_window.register()
-    archipack_stair.register()
-    archipack_wall.register()
-    archipack_wall2.register()
-    archipack_roof.register()
-    archipack_slab.register()
-    archipack_fence.register()
-    archipack_truss.register()
-    archipack_blind.register()
-    archipack_kitchen.register()
-    archipack_molding.register()
-    archipack_custom.register()
-    # archipack_toolkit.register()
-    archipack_floor.register()
-    archipack_floor_heating.register()
-    archipack_rendering.register()
-    archipack_section.register()
-    archipack_animation.register()
-    archipack_io.register()
-    archipack_2d_layout.register()
-    archipack_io_export_svg.register()
-    archipack_polylines.register()
+    glob = globals()
+    for sub in submodules:
+        module = glob["archipack_{}".format(sub)]
+        if hasattr(module, "register"):
+            module.register()
+
+    # load icons, icon_man automatically free on unregister
+    icon_man = glob["archipack_iconmanager"].icons
+    icon_man.load(os.path.join(os.path.dirname(__file__), "icons"), 'main')
 
     bpy.utils.register_class(archipack_data)
     WindowManager.archipack = PointerProperty(type=archipack_data)
@@ -859,53 +869,23 @@ def register():
 
 
 def unregister():
-    global icons_collection
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
     bpy.utils.unregister_class(ARCHIPACK_MT_create_menu)
-
     bpy.utils.unregister_class(TOOLS_PT_Archipack_PolyLib)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Tools)
     bpy.utils.unregister_class(TOOLS_PT_Archipack_Create)
     bpy.utils.unregister_class(Archipack_Pref)
-    # unregister subs
-    archipack_progressbar.unregister()
-    archipack_material.unregister()
-    archipack_snap.unregister()
-    archipack_autoboolean.unregister()
-    archipack_reference_point.unregister()
-    archipack_door.unregister()
-    archipack_window.unregister()
-    archipack_stair.unregister()
-    archipack_wall.unregister()
-    archipack_wall2.unregister()
-    archipack_roof.unregister()
-    archipack_slab.unregister()
-    archipack_fence.unregister()
-    archipack_truss.unregister()
-    archipack_blind.unregister()
-    archipack_kitchen.unregister()
-    archipack_molding.unregister()
-    # archipack_toolkit.unregister()
-    archipack_custom.unregister()
-    archipack_floor.unregister()
-    archipack_floor_heating.unregister()
-    archipack_rendering.unregister()
-    archipack_section.unregister()
-    archipack_animation.unregister()
-    archipack_io.unregister()
-    archipack_2d_layout.unregister()
-    archipack_io_export_svg.unregister()
-    archipack_polylines.unregister()
-    archipack_manipulator.unregister()
-    archipack_dimension.unregister()
-    archipack_curveman.unregister()
+
+    # unregister submodules
+    glob = globals()
+    for sub in reversed(submodules):
+        module = glob["archipack_{}".format(sub)]
+        if hasattr(module, "unregister"):
+            module.unregister()
+
     bpy.utils.unregister_class(archipack_data)
     del WindowManager.archipack
-    # print("Archipack collection.remove start")
-    for icons in icons_collection.values():
-        previews.remove(icons)
-    icons_collection.clear()
-    # print("Archipack collection.remove success")
+
     addon_updater_ops.unregister()
 
 

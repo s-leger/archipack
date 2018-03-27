@@ -70,7 +70,10 @@ def register():
 
     def info_draw(self, context):
         global info_header_draw
-        info_header_draw(self, context)
+        try:
+            info_header_draw(self, context)
+        except:
+            pass
         if (context.scene.archipack_progress > -1 and
                 context.scene.archipack_progress < 101):
             self.layout.separator()

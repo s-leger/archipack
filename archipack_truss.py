@@ -284,7 +284,7 @@ class ARCHIPACK_PT_truss(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_truss.filter(context.active_object)
+        return archipack_truss.poll(context.active_object)
 
     def draw(self, context):
         prop = archipack_truss.datablock(context.active_object)

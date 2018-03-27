@@ -1604,7 +1604,7 @@ class ARCHIPACK_PT_fence(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_fence.filter(context.active_object)
+        return archipack_fence.poll(context.active_object)
 
     def draw(self, context):
         prop = archipack_fence.datablock(context.active_object)

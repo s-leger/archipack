@@ -182,7 +182,8 @@ class ARCHIPACK_PT_reference_point(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.filter(context.active_object)
+        o = context.active_object
+        return o.select and archipack_reference_point.filter(o)
 
     def draw(self, context):
         o = context.active_object
@@ -263,7 +264,7 @@ class ARCHIPACK_OT_move_to_3d(Operator):
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.filter(context.active_object)
+        return archipack_reference_point.poll(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
@@ -341,7 +342,7 @@ class ARCHIPACK_OT_move_to_2d(Operator):
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.filter(context.active_object)
+        return archipack_reference_point.poll(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
@@ -366,7 +367,7 @@ class ARCHIPACK_OT_store_2d_reference(Operator):
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.filter(context.active_object)
+        return archipack_reference_point.poll(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
@@ -391,7 +392,7 @@ class ARCHIPACK_OT_move_2d_reference_to_cursor(Operator):
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.filter(context.active_object)
+        return archipack_reference_point.poll(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":
@@ -420,7 +421,7 @@ class ARCHIPACK_OT_parent_to_reference(Operator):
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.filter(context.active_object)
+        return archipack_reference_point.poll(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":

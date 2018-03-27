@@ -74,6 +74,7 @@ def get_cols(self):
 class archipack_window_panelrow(PropertyGroup):
     width = FloatVectorProperty(
             name="Width",
+            description="Panel width in percent of overall width",
             min=0.1,
             max=100.0,
             default=[
@@ -87,6 +88,7 @@ class archipack_window_panelrow(PropertyGroup):
             )
     fixed = BoolVectorProperty(
             name="Fixed",
+            description="Fixed panel (generate a smallest frame)",
             default=[
                 False, False, False, False, False, False, False, False,
                 False, False, False, False, False, False, False, False,
@@ -98,7 +100,7 @@ class archipack_window_panelrow(PropertyGroup):
             )
     cols = IntProperty(
             name="Panels",
-            description="number of panels getter and setter, to avoid infinite recursion",
+            description="Number of panels on this row (up to 32)",
             min=1,
             max=32,
             default=2,
@@ -122,7 +124,7 @@ class archipack_window_panelrow(PropertyGroup):
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             name="auto_update",
-            description="disable auto update to avoid infinite recursion",
+            description="Disable auto update to avoid infinite recursion",
             default=True
             )
 
@@ -1007,7 +1009,8 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             min=0.0, max=100,
             default=80, precision=1,
             subtype='PERCENTAGE',
-            description='Store open', update=update,
+            description="Blind open", 
+            update=update,
             )
     rows = CollectionProperty(type=archipack_window_panelrow)
     n_rows = IntProperty(
@@ -1024,12 +1027,14 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             )
     hole_outside_mat = IntProperty(
             name="Outside",
+            description="Material index of wall for outside part of the hole",
             min=0,
             max=128,
             default=0, update=update,
             )
     hole_inside_mat = IntProperty(
             name="Inside",
+            description="Material index of wall for inside part of the hole",
             min=0,
             max=128,
             default=1, update=update,
@@ -1147,7 +1152,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     portal = BoolProperty(
             default=False,
             name="Portal",
-            description="Generate a portal",
+            description="Makes this window a light portal, enabling better photon gathering during render",
             update=update
             )
 
@@ -2419,7 +2424,7 @@ class ARCHIPACK_PT_window(Panel):
         row = layout.row(align=True)
         row.operator('archipack.window', text="Refresh", icon='FILE_REFRESH').mode = 'REFRESH'
         if o.data.users > 1:
-            row.operator('archipack.window', text="Make unique", icon='UNLINKED').mode = 'UNIQUE'
+            row.operator('archipack.window', text="Make unique ({})".format(o.data.users), icon='UNLINKED').mode = 'UNIQUE'
         row.operator('archipack.window', text="Delete", icon='ERROR').mode = 'DELETE'
         box = layout.box()
         # box.label(text="Styles")
@@ -2460,12 +2465,12 @@ class ARCHIPACK_PT_window(Panel):
             box = layout.box()
             box.prop(prop, 'enable_glass')
             box = layout.box()
-            box.label("Frame")
+            box.label("Window frame")
             box.prop(prop, 'frame_x')
             box.prop(prop, 'frame_y')
             box.prop(prop, 'frame_overflow')
             box = layout.box()
-            box.label("Panels")
+            box.label("Panel frames")
             box.prop(prop, 'panel_x')
             box.prop(prop, 'panel_y')
             if prop.window_shape != 'CIRCLE':

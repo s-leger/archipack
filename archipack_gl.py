@@ -24,7 +24,6 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
-
 import bgl
 import blf
 import bpy
@@ -52,6 +51,22 @@ class DefaultColorScheme:
     feedback_colour_shortcut = (0.51, 0.51, 0.51, 1.0)
     feedback_shortcut_area = (0, 0.4, 0.6, 0.2)
     feedback_title_area = (0, 0.4, 0.6, 0.5)
+    handle_colour_normal = (1.0, 1.0, 1.0, 1.0)
+    handle_colour_hover = (1.0, 1.0, 0.0, 1.0)
+    handle_colour_active = (1.0, 0.0, 0.0, 1.0)
+    handle_colour_selected = (0.0, 0.0, 0.7, 1.0)
+    handle_colour_inactive = (0.3, 0.3, 0.3, 1.0)
+
+
+def get_prefs(context):
+    global __name__
+    try:
+        addon_name = __name__.split('.')[0]
+        prefs = context.user_preferences.addons[addon_name].preferences
+    except:
+        prefs = DefaultColorScheme
+        pass
+    return prefs
 
 
 class Gl():
@@ -571,6 +586,7 @@ class GlPolygon(Gl):
 
         # print("draw_polygon")
         self.render = render
+        
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         bgl.glEnable(bgl.GL_BLEND)
         if render:
@@ -614,6 +630,7 @@ class GlImage(Gl):
     def __init__(self,
         d=2,
         image=None):
+        # GImage bindcode[0]
         self.image = image
         self.colour_inactive = (1, 1, 1, 1)
         Gl.__init__(self, d)
@@ -632,16 +649,19 @@ class GlImage(Gl):
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         p0 = self.pts[0]
         p1 = self.pts[1]
+
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glColor4f(*self.colour)
         bgl.glRectf(p0.x, p0.y, p1.x, p1.y)
-        self.image.gl_load()
-        bgl.glEnable(bgl.GL_BLEND)
-        bgl.glBindTexture(bgl.GL_TEXTURE_2D, self.image.bindcode[0])
+
+        # bgl.glEnable(bgl.GL_BLEND)
+
+        bgl.glBindTexture(bgl.GL_TEXTURE_2D, self.image)
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
         bgl.glEnable(bgl.GL_TEXTURE_2D)
         bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
+
         # bgl.glColor4f(1, 1, 1, 1)
         bgl.glBegin(bgl.GL_QUADS)
         bgl.glTexCoord2d(0, 0)
@@ -653,7 +673,6 @@ class GlImage(Gl):
         bgl.glTexCoord2d(1, 0)
         bgl.glVertex2d(p1.x, p0.y)
         bgl.glEnd()
-        self.image.gl_free()
         bgl.glDisable(bgl.GL_TEXTURE_2D)
 
 
@@ -680,11 +699,19 @@ class GlHandle(GlPolygon):
             size : 3d size of handle
         """
         GlPolygon.__init__(self, d=d)
-        self.colour_active = (1.0, 0.0, 0.0, 1.0)
-        self.colour_hover = (1.0, 1.0, 0.0, 1.0)
-        self.colour_normal = (1.0, 1.0, 1.0, 1.0)
-        self.colour_selected = (0.0, 0.0, 0.7, 1.0)
+        prefs = get_prefs(bpy.context)
+        self.colour_active = prefs.handle_colour_active
+        self.colour_hover = prefs.handle_colour_hover
+        self.colour_normal = prefs.handle_colour_normal
+        self.colour_selected = prefs.handle_colour_selected
+        self.colour_inactive = prefs.handle_colour_inactive
+        # variable symbol size in world coords
         self.size = size
+        # constant symbol size in pixels
+        self.symbol_size = sensor_size
+        # scale factor for constant symbol pixel size
+        self.scale = 1
+        # sensor size in pixels
         self.sensor_width = sensor_size
         self.sensor_height = sensor_size
         self.pos_3d = Vector((0, 0, 0))
@@ -696,11 +723,38 @@ class GlHandle(GlPolygon):
         self.selectable = selectable
         self.selected = False
 
+    def scale_factor(self, context, pts):
+        """
+         Compute screen scale factor for symbol
+         given 2 points in symbol direction (eg start and end of arrow)
+        """
+        prefs = get_prefs(context)
+        if not prefs.constant_handle_size:
+            return 1
+
+        p2d = []
+        for pt in pts:
+            p2d.append(self.position_2d_from_coord(context, pt))
+        sx = [p.x for p in p2d]
+        sy = [p.y for p in p2d]
+        x = max(sx) - min(sx)
+        y = max(sy) - min(sy)
+        s = max(x, y)
+        if s > 0:
+            fac = self.symbol_size / s
+        else:
+            fac = 1
+        return fac
+
     def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
         self.c_axis = self.up_axis.cross(normal)
         self.pos_3d = pos_3d
         self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
+        x = self.up_axis * 0.5 * self.size
+        y = self.c_axis * 0.5 * self.size
+        pts = [self.sensor_center + v for v in [-x, x, -y, y]]
+        self.scale = self.scale_factor(context, pts)
 
     def check_hover(self, pos_2d):
         if self.draggable:
@@ -751,8 +805,8 @@ class SquareHandle(GlHandle):
             scale = 1
         else:
             scale = 0.5
-        x = n * self.size * scale
-        y = c * self.size * scale
+        x = n * self.scale * self.size * scale
+        y = c * self.scale * self.size * scale
         return [self.pos_3d - x - y, self.pos_3d + x - y, self.pos_3d + x + y, self.pos_3d - x + y]
 
 
@@ -771,28 +825,35 @@ class TriHandle(GlHandle):
         scale = 1
         # else:
         #    scale = 0.5
-        x = n * self.size * 4 * scale
-        y = c * self.size * scale
+        x = n * self.scale * self.size * 4 * scale
+        y = c * self.scale * self.size * scale
         return [self.pos_3d - x + y, self.pos_3d - x - y, self.pos_3d]
 
-        
+
 class CruxHandle(GlHandle):
 
     def __init__(self, sensor_size, size, draggable=True, selectable=False):
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
         self.branch_0 = GlPolygon((1, 1, 1, 1), d=3)
         self.branch_1 = GlPolygon((1, 1, 1, 1), d=3)
-        
+
     def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.pos_3d = pos_3d
         self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
         o = self.pos_3d
-        w = self.size
         d = 0.5 * self.size
-        c = d / 1.4242
-        s = w - c
         x = direction.normalized()
         y = x.cross(normal)
+
+        sx = x * 0.5 * self.size
+        sy = y * 0.5 * self.size
+        pts = [o + v for v in [-sx, sx, -sy, sy]]
+        self.scale = self.scale_factor(context, pts)
+
+        c = self.scale * d / 1.4242
+        w = self.scale * self.size
+        s = w - c
+
         xs = x * s
         xw = x * w
         ys = y * s
@@ -805,7 +866,7 @@ class CruxHandle(GlHandle):
         p5 = o + xw - ys
         p6 = o + xs - yw
         p7 = o - xw + ys
-        
+
         self.branch_0.set_pos([p0, p1, p2, p3])
         self.branch_1.set_pos([p4, p5, p6, p7])
 
@@ -819,7 +880,7 @@ class CruxHandle(GlHandle):
         self.branch_1.colour_inactive = self.colour
         self.branch_0.draw(context)
         self.branch_1.draw(context)
-        
+
 
 class PlusHandle(GlHandle):
 
@@ -827,15 +888,20 @@ class PlusHandle(GlHandle):
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
         self.branch_0 = GlPolygon((1, 1, 1, 1), d=3)
         self.branch_1 = GlPolygon((1, 1, 1, 1), d=3)
-        
+
     def set_pos(self, context, pos_3d, direction, normal=Vector((0, 0, 1))):
         self.pos_3d = pos_3d
         self.pos_2d = self.position_2d_from_coord(context, self.sensor_center)
         o = self.pos_3d
-        w = self.size
-        s = 0.25 * w
         x = direction.normalized()
         y = x.cross(normal)
+        sx = x * 0.5 * self.size
+        sy = y * 0.5 * self.size
+        pts = [o + v for v in [-sx, sx, -sy, sy]]
+        self.scale = self.scale_factor(context, pts)
+        w = self.scale * self.size
+        s = self.scale * 0.25 * w
+
         xs = x * s
         xw = x * w
         ys = y * s
@@ -850,7 +916,7 @@ class PlusHandle(GlHandle):
         p7 = o - xs - yw
         self.branch_0.set_pos([p0, p1, p2, p3])
         self.branch_1.set_pos([p4, p5, p6, p7])
-        
+
     @property
     def pts(self):
         return [self.pos_3d]
@@ -861,8 +927,8 @@ class PlusHandle(GlHandle):
         self.branch_1.colour_inactive = self.colour
         self.branch_0.draw(context)
         self.branch_1.draw(context)
-        
-        
+
+
 class EditableText(GlText, GlHandle):
     def __init__(self, sensor_size, size, draggable=False, selectable=False):
         GlHandle.__init__(self, sensor_size, size, draggable, selectable)
@@ -943,7 +1009,6 @@ class Screen():
         if (system.use_region_overlap and
                 system.window_draw_method in {'TRIPLE_BUFFER', 'AUTOMATIC'}):
             area = context.area
-
             for r in area.regions:
                 if r.type == 'TOOLS':
                     x_min += r.width
@@ -959,7 +1024,7 @@ class FeedbackPanel():
     """
     def __init__(self, title='Archipack'):
 
-        prefs = self.get_prefs(bpy.context)
+        prefs = get_prefs(bpy.context)
 
         self.main_title = GlText(d=2,
             label=title + " : ",
@@ -994,22 +1059,11 @@ class FeedbackPanel():
     def enable(self):
         self.on = True
 
-    def get_prefs(self, context):
-        global __name__
-        try:
-            # retrieve addon name from imports
-            addon_name = __name__.split('.')[0]
-            prefs = context.user_preferences.addons[addon_name].preferences
-        except:
-            prefs = DefaultColorScheme
-            pass
-        return prefs
-
     def instructions(self, context, title, explanation, shortcuts):
         """
             position from bottom to top
         """
-        prefs = self.get_prefs(context)
+        prefs = get_prefs(context)
 
         self.explanation.label = explanation
         self.title.label = title

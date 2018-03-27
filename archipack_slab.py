@@ -1249,7 +1249,7 @@ class ARCHIPACK_PT_slab(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_slab.filter(context.active_object)
+        return archipack_slab.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -1288,7 +1288,7 @@ class ARCHIPACK_PT_slab_cutter(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_slab_cutter.filter(context.active_object)
+        return archipack_slab_cutter.poll(context.active_object)
 
     def draw(self, context):
         prop = archipack_slab_cutter.datablock(context.active_object)

@@ -2768,7 +2768,7 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
 
 class ARCHIPACK_PT_stair(Panel):
     bl_idname = "ARCHIPACK_PT_stair"
-    bl_label = "Stair"
+    bl_label = "Stairs"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     # bl_context = 'object'
@@ -2776,7 +2776,7 @@ class ARCHIPACK_PT_stair(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_stair.filter(context.active_object)
+        return archipack_stair.poll(context.active_object)
 
     def draw(self, context):
         prop = archipack_stair.datablock(context.active_object)
@@ -2786,14 +2786,13 @@ class ARCHIPACK_PT_stair(Panel):
         layout = self.layout
         row = layout.row(align=True)
         row.operator('archipack.manipulate', icon='HAND')
-        row = layout.row(align=True)
-        row.prop(prop, 'presets', text="")
         box = layout.box()
         row = box.row(align=True)
         row.operator("archipack.stair_preset_menu", text=bpy.types.ARCHIPACK_OT_stair_preset_menu.bl_label)
         row.operator("archipack.stair_preset", text="", icon='ZOOMIN')
         row.operator("archipack.stair_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
+        box.prop(prop, 'presets', text="")
         box.prop(prop, 'width')
         box.prop(prop, 'height')
         box.prop(prop, 'bottom_z')
@@ -2983,8 +2982,8 @@ class ARCHIPACK_PT_stair(Panel):
 
 class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
     bl_idname = "archipack.stair"
-    bl_label = "Stair"
-    bl_description = "Create a Stair"
+    bl_label = "Stairs"
+    bl_description = "Create Stairs"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -3020,7 +3019,7 @@ class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
 class ARCHIPACK_OT_stair_to_curve(Operator):
     bl_idname = "archipack.stair_to_curve"
     bl_label = "To curve"
-    bl_description = "Create curve from stair"
+    bl_description = "Create curve from stairs"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
     mode = EnumProperty(
@@ -3069,16 +3068,16 @@ class ARCHIPACK_OT_stair_to_curve(Operator):
 
 
 class ARCHIPACK_OT_stair_preset_menu(PresetMenuOperator, Operator):
-    bl_description = "Show Stair Presets"
+    bl_description = "Show Stairs Presets"
     bl_idname = "archipack.stair_preset_menu"
     bl_label = "Stair style"
     preset_subdir = "archipack_stair"
 
 
 class ARCHIPACK_OT_stair_preset(ArchipackPreset, Operator):
-    """Add a Stair Preset"""
+    """Add Stairs Preset"""
     bl_idname = "archipack.stair_preset"
-    bl_label = "Add Stair Style"
+    bl_label = "Add Stairs Style"
     preset_menu = "ARCHIPACK_OT_stair_preset_menu"
 
     @property

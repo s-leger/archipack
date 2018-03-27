@@ -302,7 +302,7 @@ class ARCHIPACK_PT_layout(Panel):
     @classmethod
     def poll(cls, context):
         # ensure your object panel only show when active object is the right one
-        return archipack_layout.filter(context.active_object)
+        return archipack_layout.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object

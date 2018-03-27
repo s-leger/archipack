@@ -29,6 +29,13 @@ import bmesh
 
 
 class BmeshEdit():
+    
+    @staticmethod
+    def ensure_bmesh(bm):
+        bm.verts.ensure_lookup_table()
+        bm.edges.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        
     @staticmethod
     def _start(context, o):
         """
@@ -38,10 +45,9 @@ class BmeshEdit():
         context.scene.objects.active = o
         bpy.ops.object.mode_set(mode='EDIT')
         bm = bmesh.from_edit_mesh(o.data)
-        bm.verts.ensure_lookup_table()
-        bm.faces.ensure_lookup_table()
+        BmeshEdit.ensure_bmesh(bm)
         return bm
-
+    
     @staticmethod
     def bmesh_join(context, o, list_of_bmeshes, normal_update=False):
         """
@@ -60,8 +66,8 @@ class BmeshEdit():
                 add_vert(v.co)
 
             bm.verts.index_update()
-            bm.verts.ensure_lookup_table()
-
+            BmeshEdit.ensure_bmesh(bm)
+            
             if bm_to_add.faces:
                 layer = bm_to_add.loops.layers.uv.verify()
                 dest = bm.loops.layers.uv.verify()
@@ -141,17 +147,20 @@ class BmeshEdit():
             bm = BmeshEdit._start(context, o)
             bm.clear()
             
+        BmeshEdit.ensure_bmesh(bm)
         
         for v in verts:
             bm.verts.new(v)
-        bm.verts.index_update()
         bm.verts.ensure_lookup_table()
-
+        bm.verts.index_update()
+        
         for f in faces:
             bm.faces.new([bm.verts[i] for i in f])
-        bm.faces.index_update()
+        bm.edges.ensure_lookup_table()
         bm.faces.ensure_lookup_table()
-
+        bm.faces.index_update()
+        
+        
         if matids is not None:
             BmeshEdit._matids(bm, matids)
 
@@ -239,7 +248,7 @@ class BmeshEdit():
         """
         bm = bmesh.new()
         bm.from_mesh(o.data)
-        bm.verts.ensure_lookup_table()
+        BmeshEdit.ensure_bmesh(bm)
         if use_selection:
             geom = [v for v in bm.verts if v.select]
             geom.extend([ed for ed in bm.edges if ed.select])
@@ -273,7 +282,7 @@ class BmeshEdit():
 
         bm = bmesh.new()
         bm.from_mesh(o.data)
-        bm.verts.ensure_lookup_table()
+        BmeshEdit.ensure_bmesh(bm)
         geom = bm.verts[:]
         geom.extend(bm.edges[:])
         geom.extend(bm.faces[:])
@@ -297,7 +306,8 @@ class BmeshEdit():
     def solidify(context, o, amt, floor_bottom=False, altitude=0):
         bm = bmesh.new()
         bm.from_mesh(o.data)
-        bm.verts.ensure_lookup_table()
+        BmeshEdit.ensure_bmesh(bm)
+        
         geom = bm.faces[:]
         bmesh.ops.solidify(bm, geom=geom, thickness=amt)
         if floor_bottom:

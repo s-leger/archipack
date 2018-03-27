@@ -1383,13 +1383,13 @@ class Io():
         gf = GeometryFactory()
         itM = self.coordsys.invert * tM
         coords = [[itM * Vector(co) for co in coords] for coords in lines_coords]
-
+        
         if force_2d:
             for co in coords:
             # make coords planar
                 for p in co:
                     p.z = 0
-
+        
         out = []
         for i, co in enumerate(coords):
             co = CoordinateSequence._removeRepeatedPoints(co)
@@ -1419,13 +1419,13 @@ class Io():
         coords = [shell]
         if holes is not None:
             coords.extend([[itM * Vector(co) for co in hole] for hole in holes])
-
+        
         if force_2d:
             for co in coords:
                 # make coords planar
                 for p in co:
                     p.z = 0
-
+        
         for i, co in enumerate(coords):
             co = CoordinateSequence._removeRepeatedPoints(co)
             if co[0] != co[-1]:

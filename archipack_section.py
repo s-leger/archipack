@@ -563,7 +563,7 @@ class ARCHIPACK_PT_section_camera(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_section_camera.filter(context.active_object)
+        return archipack_section_camera.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -586,7 +586,7 @@ class ARCHIPACK_PT_section(Panel):
     @classmethod
     def poll(cls, context):
         # ensure your object panel only show when active object is the right one
-        return archipack_section.filter(context.active_object)
+        return archipack_section.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -637,7 +637,7 @@ class ARCHIPACK_PT_section_target(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_section_target.filter(context.active_object)
+        return archipack_section_target.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object

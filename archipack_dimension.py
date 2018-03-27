@@ -484,8 +484,7 @@ class ARCHIPACK_PT_dimension(Panel):
 
     @classmethod
     def poll(cls, context):
-        # ensure your object panel only show when active object is the right one
-        return archipack_dimension.filter(context.active_object)
+        return archipack_dimension.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -939,15 +938,9 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
         for c in o.children:
             self._add_child_selector(c, itM)
 
-    def _get_topmost_parent(self, o):
-        if o.parent:
-            return self._get_topmost_parent(o.parent)
-        else:
-            return o
-
     def update_source_selector(self, o):
         itM = o.matrix_world.inverted()
-        p = self._get_topmost_parent(o)
+        p = self.get_topmost_parent(o)
         self.source_selector.clear()
         self._add_child_selector(p, itM)
 
@@ -1299,7 +1292,7 @@ class ARCHIPACK_PT_dimension_auto(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_dimension_auto.filter(context.active_object)
+        return archipack_dimension_auto.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -1416,7 +1409,7 @@ class ARCHIPACK_OT_dimension_auto_update(Operator):
 
     @classmethod
     def poll(cls, context):
-        return archipack_dimension_auto.filter(context.active_object)
+        return archipack_dimension_auto.poll(context.active_object)
 
     def _update_dimensions(self, context, o):
         d = archipack_dimension_auto.datablock(o)

@@ -76,7 +76,7 @@ This code is free to share, use, reuse, and modify according to the MIT license,
 
 - Karim Bahgat (2015)
 - Joschua Gandert (2016)
-
+- Stephen Leget (2017)
 """
 
 
@@ -121,6 +121,33 @@ class _QuadTree(object):
                 self._split()
         else:
             self._insert_into_children(item, bbox)
+
+    def _remove(self, item, bbox):
+        if len(self.children) > 0:
+            self._remove_from_children(item, bbox)
+        else:
+            for i, node in enumerate(self.nodes):
+                if node.item == item:
+                    self.nodes.pop(i)
+                    return
+
+    def _remove_from_children(self, item, rect):
+        # if rect spans center then remove here
+        if (rect[0] <= self.center[0] and rect[2] >= self.center[0] and
+                rect[1] <= self.center[1] and rect[3] >= self.center[1]):
+            self._remove(item, rect)
+        else:
+            # try to remove from children
+            if rect[0] <= self.center[0]:
+                if rect[1] <= self.center[1]:
+                    self.children[0]._remove(item, rect)
+                if rect[3] >= self.center[1]:
+                    self.children[1]._remove(item, rect)
+            if rect[2] > self.center[0]:
+                if rect[1] <= self.center[1]:
+                    self.children[2]._remove(item, rect)
+                if rect[3] >= self.center[1]:
+                    self.children[3]._remove(item, rect)
 
     def _intersect(self, rect, results=None):
         if results is None:

@@ -176,7 +176,7 @@ class archipack_myobject(ArchipackObject, Manipulable, PropertyGroup):
         self.manipulators[2].set_pts([(x, -y, 0), (x, -y, self.z), (-1, 0, 0)])
 
         # always restore context
-        self.restore_context(context)
+        self.restore_context()
 
 
 class ARCHIPACK_PT_myobject(Panel):
@@ -189,7 +189,7 @@ class ARCHIPACK_PT_myobject(Panel):
     @classmethod
     def poll(cls, context):
         # ensure your object panel only show when active object is the right one
-        return archipack_myobject.filter(context.active_object)
+        return archipack_myobject.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -297,7 +297,7 @@ class ARCHIPACK_OT_myobject_manipulate(Operator):
 
     @classmethod
     def poll(self, context):
-        return archipack_myobject.filter(context.active_object)
+        return archipack_myobject.poll(context.active_object)
 
     def invoke(self, context, event):
         d = archipack_myobject.datablock(context.active_object)

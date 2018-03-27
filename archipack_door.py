@@ -608,7 +608,7 @@ class ARCHIPACK_PT_door_panel(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_door_panel.filter(context.active_object)
+        return archipack_door_panel.poll(context.active_object)
 
     def draw(self, context):
         layout = self.layout
@@ -1583,7 +1583,7 @@ class ARCHIPACK_PT_door(Panel):
 
     @classmethod
     def poll(cls, context):
-        return archipack_door.filter(context.active_object)
+        return archipack_door.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
