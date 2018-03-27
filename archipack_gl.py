@@ -600,8 +600,12 @@ class GlRect(GlPolygon):
             # enable anti-alias on polygons
             bgl.glEnable(bgl.GL_POLYGON_SMOOTH)
         bgl.glColor4f(*self.colour)
-        p0 = self.pts[0]
-        p1 = self.pts[1]
+        pts = [
+            self.position_2d_from_coord(context, pt, render)
+            for pt in self.pts_3d
+            ]
+        p0 = pts[0]
+        p1 = pts[1]
         bgl.glRectf(p0.x, p0.y, p1.x, p1.y)
         self._end()
 

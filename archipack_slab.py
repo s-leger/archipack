@@ -46,6 +46,7 @@ from .archipack_cutter import (
     ArchipackCutterPart
     )
 from .archipack_dimension import DimensionProvider
+from .archipack_curveman import ArchipackCurveManager
 
 
 class Slab():
@@ -510,8 +511,7 @@ class ArchipackSegment():
         else:
             box.prop(self, "length")
         box.prop(self, "a0")
-        # box.prop(self, "offset")
-
+        
 
 class archipack_slab_part(ArchipackSegment, PropertyGroup):
     # DimensionProvider related
@@ -539,12 +539,13 @@ class archipack_slab_part(ArchipackSegment, PropertyGroup):
         return None
 
 
-class archipack_slab(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
+class archipack_slab(ArchipackObject, ArchipackCurveManager, Manipulable, DimensionProvider, PropertyGroup):
     # boundary
     n_parts = IntProperty(
             name="Parts",
             min=1,
-            default=1, update=update_manipulators
+            default=1, 
+            update=update_manipulators
             )
     parts = CollectionProperty(type=archipack_slab_part)
     closed = BoolProperty(
@@ -1005,70 +1006,21 @@ class archipack_slab(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
 
         self.parts[-1].manipulators[0].type_key = 'DUMB_ANGLE'
 
-    def is_cw(self, pts):
-        p0 = pts[0]
-        d = 0
-        for p in pts[1:]:
-            d += (p.x * p0.y - p.y * p0.x)
-            p0 = p
-        return d > 0
-
-    def interpolate_bezier(self, pts, wM, p0, p1, resolution):
-        # straight segment, worth testing here
-        # since this can lower points count by a resolution factor
-        # use normalized to handle non linear t
-        if (resolution == 0 or
-                (p0.handle_right_type == 'VECTOR' and
-                p1.handle_left_type == 'VECTOR')):
-            pts.append(wM * p0.co.to_3d())
-        else:
-            v = (p1.co - p0.co).normalized()
-            d1 = (p0.handle_right - p0.co).normalized()
-            d2 = (p1.co - p1.handle_left).normalized()
-            if d1 == v and d2 == v:
-                pts.append(wM * p0.co.to_3d())
-            else:
-                seg = interpolate_bezier(wM * p0.co,
-                    wM * p0.handle_right,
-                    wM * p1.handle_left,
-                    wM * p1.co,
-                    resolution + 1)
-                for i in range(resolution):
-                    pts.append(seg[i].to_3d())
-
     def from_spline(self, wM, resolution, spline):
-        pts = []
-        if spline.type == 'POLY':
-            pts = [wM * p.co.to_3d() for p in spline.points]
-            if spline.use_cyclic_u:
-                pts.append(pts[0])
-        elif spline.type == 'BEZIER':
-            points = spline.bezier_points
-            for i in range(1, len(points)):
-                p0 = points[i - 1]
-                p1 = points[i]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            if spline.use_cyclic_u:
-                p0 = points[-1]
-                p1 = points[0]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-                pts.append(pts[0])
-            else:
-                pts.append(wM * points[-1].co)
-
-        return self.from_points(pts, spline.use_cyclic_u)
-
+    
+        pts = self.coords_from_spline(spline, wM, resolution, ccw=True)
+        tM = Matrix.Translation(pts[0].copy())
+        self.from_points(pts, spline.use_cyclic_u)
+        return tM
+        
     def from_points(self, pts, closed):
-
-        if self.is_cw(pts):
-            pts = list(reversed(pts))
 
         self.auto_update = False
 
         self.n_parts = len(pts) - 1
 
         self.update_parts(None)
-        tM = Matrix.Translation(pts[0].copy())
+        
         p0 = pts.pop(0)
         a0 = 0
         for i, p1 in enumerate(pts):
@@ -1089,8 +1041,7 @@ class archipack_slab(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
 
         self.closed = closed
         self.auto_update = True
-        return tM
-
+        
     def make_surface(self, o, verts):
         bm = bmesh.new()
         for v in verts:
@@ -1348,16 +1299,6 @@ class ARCHIPACK_PT_slab_cutter(Panel):
         box = layout.box()
         box.operator('archipack.manipulate', icon='HAND')
         box.prop(prop, 'operation', text="")
-        box = layout.box()
-        box.label(text="From curve")
-        box.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        if prop.user_defined_path != "":
-            box.prop(prop, 'user_defined_resolution')
-            # box.prop(prop, 'x_offset')
-            # box.prop(prop, 'angle_limit')
-        """
-        box.prop_search(prop, "boundary", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        """
         prop.draw(layout, context)
 
 

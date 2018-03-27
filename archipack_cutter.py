@@ -34,6 +34,7 @@ from bpy.props import (
     StringProperty, EnumProperty
     )
 from .archipack_2d import Line
+from .archipack_curveman import ArchipackUserDefinedPath
 
 
 class CutterSegment(Line):
@@ -639,7 +640,7 @@ def update_manipulators(self, context):
     self.update(context, manipulable_refresh=True)
 
 
-class ArchipackCutter():
+class ArchipackCutter(ArchipackUserDefinedPath):
     n_parts = IntProperty(
             name="Parts",
             min=1,
@@ -650,16 +651,6 @@ class ArchipackCutter():
             description="Dumb z for manipulator placeholder",
             default=0.01,
             options={'SKIP_SAVE'}
-            )
-    user_defined_path = StringProperty(
-            name="User defined",
-            update=update_path
-            )
-    user_defined_resolution = IntProperty(
-            name="Resolution",
-            min=1,
-            max=128,
-            default=12, update=update_path
             )
     operation = EnumProperty(
             items=(
@@ -686,6 +677,8 @@ class ArchipackCutter():
             )
 
     def draw(self, layout, context):
+        box = layout.box()
+        self.draw_user_path(box, context)
         box = layout.box()
         row = box.row()
         if self.parts_expand:
@@ -754,37 +747,6 @@ class ArchipackCutter():
         g.close()
         return g
 
-    def interpolate_bezier(self, pts, wM, p0, p1, resolution):
-        # straight segment, worth testing here
-        # since this can lower points count by a resolution factor
-        # use normalized to handle non linear t
-        if (resolution == 0 or 
-                (p0.handle_right_type == 'VECTOR' and 
-                p1.handle_left_type == 'VECTOR')):
-            pts.append(wM * p0.co.to_3d())
-        else:
-            v = (p1.co - p0.co).normalized()
-            d1 = (p0.handle_right - p0.co).normalized()
-            d2 = (p1.co - p1.handle_left).normalized()
-            if d1 == v and d2 == v:
-                pts.append(wM * p0.co.to_3d())
-            else:
-                seg = interpolate_bezier(wM * p0.co,
-                    wM * p0.handle_right,
-                    wM * p1.handle_left,
-                    wM * p1.co,
-                    resolution + 1)
-                for i in range(resolution):
-                    pts.append(seg[i].to_3d())
-
-    def is_cw(self, pts):
-        p0 = pts[0]
-        d = 0
-        for p in pts[1:]:
-            d += (p.x * p0.y - p.y * p0.x)
-            p0 = p
-        return d > 0
-
     def ensure_direction(self):
         # get segs ensure they are cw or ccw depending on operation
         # whatever the user do with points
@@ -796,28 +758,16 @@ class ArchipackCutter():
         return g
 
     def from_spline(self, context, wM, resolution, spline):
-        pts = []
-        if spline.type == 'POLY':
-            pts = [wM * p.co.to_3d() for p in spline.points]
-            if spline.use_cyclic_u:
-                pts.append(pts[0])
-        elif spline.type == 'BEZIER':
-            points = spline.bezier_points
-            for i in range(1, len(points)):
-                p0 = points[i - 1]
-                p1 = points[i]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            if spline.use_cyclic_u:
-                p0 = points[-1]
-                p1 = points[0]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-                pts.append(pts[0])
-            else:
-                pts.append(wM * points[-1].co)
-
-        if self.is_cw(pts) == (self.operation == 'INTERSECTION'):
-            pts = list(reversed(pts))
-
+        
+        pts = self.coords_from_spline(
+            spline, 
+            wM, 
+            resolution, 
+            ccw=(self.operation == 'INTERSECTION'), 
+            cw=(self.operation != 'INTERSECTION'), 
+            close=True
+            )
+        
         # pretranslate
         o = self.find_in_selection(context, self.auto_update)
         o.matrix_world = Matrix.Translation(pts[0].copy())
@@ -842,8 +792,8 @@ class ArchipackCutter():
             if da < -pi:
                 da += 2 * pi
             if i >= len(self.parts):
-                # print("Too many pts for parts")
                 break
+            
             p = self.parts[i]
             p.length = dp.to_2d().length
             p.dz = dp.z
@@ -877,12 +827,12 @@ class ArchipackCutter():
         self.update_parent(context, o)
 
     def update_path(self, context):
-        user_def_path = context.scene.objects.get(self.user_defined_path)
-        if user_def_path is not None and user_def_path.type == 'CURVE':
+        o = context.scene.objects.get(self.user_defined_path)
+        if o is not None and o.type == 'CURVE':
             self.from_spline(context,
-                user_def_path.matrix_world,
+                o.matrix_world,
                 self.user_defined_resolution,
-                user_def_path.data.splines[0])
+                o.data.splines[0])
 
     def make_surface(self, o, verts, edges):
         bm = bmesh.new()

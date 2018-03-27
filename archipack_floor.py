@@ -46,6 +46,7 @@ from .archipack_cutter import (
     ArchipackCutterPart
     )
 from .archipack_dimension import DimensionProvider
+from .archipack_curveman import ArchipackUserDefinedPath
 
 
 # ------------------------------------------------------------------
@@ -678,7 +679,7 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
 
             start_orient_length = not start_orient_length
             x += bl + d.spacing
-
+            
     def herringbone(self, d, verts, faces, matids, uvs):
         """
         Boards are at 45 degree angle, in chevron pattern, ends are angled
@@ -1006,24 +1007,14 @@ class archipack_floor_part(PropertyGroup):
         box.prop(self, "a0")
 
 
-class archipack_floor(ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
+class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, DimensionProvider, PropertyGroup):
     n_parts = IntProperty(
             name="Parts",
             min=1,
             default=1, update=update_manipulators
             )
     parts = CollectionProperty(type=archipack_floor_part)
-    user_defined_path = StringProperty(
-            name="User defined",
-            update=update_path
-            )
-    user_defined_resolution = IntProperty(
-            name="Resolution",
-            min=1,
-            max=128,
-            default=12, update=update_path
-            )
-
+    
     # UI layout related
     parts_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -1337,66 +1328,22 @@ class archipack_floor(ArchipackObject, Manipulable, DimensionProvider, PropertyG
             elif edge.verts[0].co.z != edge.verts[1].co.z:  # not horizontal, so they are vertical seams
                 edge.seam = True
 
-    def is_cw(self, pts):
-        p0 = pts[0]
-        d = 0
-        for p in pts[1:]:
-            d += (p.x * p0.y - p.y * p0.x)
-            p0 = p
-        return d > 0
-
-    def interpolate_bezier(self, pts, wM, p0, p1, resolution):
-        # straight segment, worth testing here
-        # since this can lower points count by a resolution factor
-        # use normalized to handle non linear t
-        if (resolution == 0 or 
-                (p0.handle_right_type == 'VECTOR' and 
-                p1.handle_left_type == 'VECTOR')):
-            pts.append(wM * p0.co.to_3d())
-        else:
-            v = (p1.co - p0.co).normalized()
-            d1 = (p0.handle_right - p0.co).normalized()
-            d2 = (p1.co - p1.handle_left).normalized()
-            if d1 == v and d2 == v:
-                pts.append(wM * p0.co.to_3d())
-            else:
-                seg = interpolate_bezier(wM * p0.co,
-                    wM * p0.handle_right,
-                    wM * p1.handle_left,
-                    wM * p1.co,
-                    resolution + 1)
-                for i in range(resolution):
-                    pts.append(seg[i].to_3d())
-
     def from_spline(self, context, wM, resolution, spline):
-        pts = []
-        if spline.type == 'POLY':
-            pts = [wM * p.co.to_3d() for p in spline.points]
-            if spline.use_cyclic_u:
-                pts.append(pts[0])
-        elif spline.type == 'BEZIER':
-            points = spline.bezier_points
-            for i in range(1, len(points)):
-                p0 = points[i - 1]
-                p1 = points[i]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            if spline.use_cyclic_u:
-                p0 = points[-1]
-                p1 = points[0]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-                pts.append(pts[0])
-            else:
-                pts.append(wM * points[-1].co)
-
+        
+        pts = self.coords_from_spline(
+            spline, 
+            wM, 
+            resolution, 
+            ccw=True,
+            close=True
+            )
+        
         # pretranslate
         o = self.find_in_selection(context)
         o.matrix_world = Matrix.Translation(pts[0].copy())
         self.from_points(pts)
 
     def from_points(self, pts):
-
-        if self.is_cw(pts):
-            pts = list(reversed(pts))
 
         last_state = self.auto_update
         self.auto_update = False
@@ -1425,13 +1372,13 @@ class archipack_floor(ArchipackObject, Manipulable, DimensionProvider, PropertyG
         self.auto_update = last_state
 
     def update_path(self, context):
-        user_def_path = context.scene.objects.get(self.user_defined_path)
-        if user_def_path is not None and user_def_path.type == 'CURVE':
+        o = context.scene.objects.get(self.user_defined_path)
+        if o is not None and o.type == 'CURVE':
             self.from_spline(
                 context,
-                user_def_path.matrix_world,
+                o.matrix_world,
                 self.user_defined_resolution,
-                user_def_path.data.splines[0])
+                o.data.splines[0])
 
     def add_manipulator(self, name, pt1, pt2, pt3):
         m = self.manipulators.add()
@@ -1685,10 +1632,8 @@ class ARCHIPACK_PT_floor(Panel):
         box.operator('archipack.floor_cutter').parent = o.name
 
         box = layout.box()
-        box.label(text="From curve")
-        box.prop_search(props, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        if props.user_defined_path != "":
-            box.prop(props, 'user_defined_resolution')
+        props.draw_user_path(box, context)
+        
         box.prop(props, 'x_offset')
 
         box = layout.box()
@@ -1696,11 +1641,11 @@ class ARCHIPACK_PT_floor(Panel):
         if props.parts_expand:
             row.prop(props, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
             box.prop(props, 'n_parts')
-            # box.prop(prop, 'closed')
             for i, part in enumerate(props.parts):
                 part.draw(context, layout, i)
         else:
             row.prop(props, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
+        
         layout.separator()
         box = layout.box()
         box.prop(props, 'pattern', text="")
@@ -1794,16 +1739,6 @@ class ARCHIPACK_PT_floor_cutter(Panel):
         box = layout.box()
         box.operator('archipack.manipulate', icon='HAND')
         box.prop(prop, 'operation', text="")
-        box = layout.box()
-        box.label(text="From curve")
-        box.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        if prop.user_defined_path != "":
-            box.prop(prop, 'user_defined_resolution')
-            # box.prop(prop, 'x_offset')
-            # box.prop(prop, 'angle_limit')
-        """
-        box.prop_search(prop, "boundary", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-        """
         prop.draw(layout, context)
 
 
@@ -1941,7 +1876,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
          Use slab cutters, windows and doors, T childs walls
         """
         # wall is either a single or collection of polygons
-        io, wall = wd.as_geom(context, w, 'FLOORS', [], [], [])
+        io, wall, childs = wd.as_geom(context, w, 'FLOORS', [], [], [])
         ref = None
         # find slab holes if any
         cutters = []
@@ -1970,21 +1905,27 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
                 o.parent = ref
             d = archipack_floor.datablock(o)
             d.auto_update = False
+            d.thickness = wd.z_offset
             d.user_defined_path = boundary.name
             self.delete_object(context, boundary)
             d.user_defined_path = ""
             for hole in poly.interiors:
                 curve = io._to_curve(hole, "{}-cut".format(o.name), '3D')
                 bpy.ops.archipack.floor_cutter(auto_manipulate=False, parent=o.name, curve=curve.name)
+                c = context.active_object
+                cd = archipack_floor_cutter.datablock(c)
+                cd.user_defined_path = ""
                 self.delete_object(context, curve)
             for cutter in cutters:
                 if poly.intersects(cutter):
                     curve = io._to_curve(cutter, "{}-cut".format(o.name), '3D')
                     bpy.ops.archipack.floor_cutter(auto_manipulate=False, parent=o.name, curve=curve.name)
+                    c = context.active_object
+                    cd = archipack_floor_cutter.datablock(c)
+                    cd.user_defined_path = ""
                     self.delete_object(context, curve)
             o.select = True
             context.scene.objects.active = o
-            d.thickness = wd.z_offset
             d.auto_update = True
             o.location.z -= wd.z_offset
         return o

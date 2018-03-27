@@ -248,7 +248,7 @@ class ArchipackBoolManager():
             # to support "revival" of applied modifiers
             m = wall.modifiers.get("Wall")
             wd = wall.data.archipack_wall2[0]
-            io, wall2d = wd.as_geom(context, wall, 'BOTH', [], [], [])
+            io, wall2d, childs = wd.as_geom(context, wall, 'BOTH', [], [], [])
             if m is None:
                 wall.select = True
                 context.scene.objects.active = wall
@@ -452,6 +452,7 @@ class ARCHIPACK_OT_auto_boolean(Operator):
 
     def execute(self, context):
         if context.mode == "OBJECT":
+            bpy.ops.archipack.disable_manipulate()
             manager = ArchipackBoolManager()
             active = context.scene.objects.active
             walls = [wall for wall in context.selected_objects if manager.filter_wall(wall)]

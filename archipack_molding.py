@@ -35,12 +35,12 @@ from bpy.props import (
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
-from mathutils.geometry import interpolate_bezier
 from math import sin, cos, pi, acos, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_curveman import ArchipackProfile, ArchipackUserDefinedPath
 
 
 class Molding():
@@ -306,13 +306,10 @@ class archipack_molding_part(PropertyGroup):
         row.prop(self, "a0")
 
 
-class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
+class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedPath, Manipulable, PropertyGroup):
 
     parts = CollectionProperty(type=archipack_molding_part)
-    user_defined_path = StringProperty(
-            name="User defined",
-            update=update_path
-            )
+
     user_path_reverse = BoolProperty(
             name="Reverse",
             default=False,
@@ -324,12 +321,7 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
             default=0,
             update=update_path
             )
-    user_defined_resolution = IntProperty(
-            name="Resolution",
-            min=1,
-            max=128,
-            default=12, update=update_path
-            )
+
     n_parts = IntProperty(
             name="Parts",
             min=1,
@@ -346,7 +338,7 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
             items=(
                 ('SQUARE', 'Square', '', 0),
                 ('CIRCLE', 'Circle', '', 1),
-                ('COMPLEX', 'Circle over square', '', 2)
+                ('USER', 'User defined', '', 2)
                 ),
             default='SQUARE',
             update=update
@@ -376,16 +368,9 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
         default=True,
         options={'SKIP_SAVE'}
         )
-    # UI layout related
     parts_expand = BoolProperty(
             default=False
             )
-
-    # Flag to prevent mesh update while making bulk changes over variables
-    # use :
-    # .auto_update = False
-    # bulk changes
-    # .auto_update = True
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
@@ -429,29 +414,6 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
 
         self.setup_manipulators()
 
-    def interpolate_bezier(self, pts, wM, p0, p1, resolution):
-        # straight segment, worth testing here
-        # since this can lower points count by a resolution factor
-        # use normalized to handle non linear t
-        if (resolution == 0 or
-                (p0.handle_right_type == 'VECTOR' and
-                p1.handle_left_type == 'VECTOR')):
-            pts.append(wM * p0.co.to_3d())
-        else:
-            v = (p1.co - p0.co).normalized()
-            d1 = (p0.handle_right - p0.co).normalized()
-            d2 = (p1.co - p1.handle_left).normalized()
-            if d1 == v and d2 == v:
-                pts.append(wM * p0.co.to_3d())
-            else:
-                seg = interpolate_bezier(wM * p0.co,
-                    wM * p0.handle_right,
-                    wM * p1.handle_left,
-                    wM * p1.co,
-                    resolution + 1)
-                for i in range(resolution):
-                    pts.append(seg[i].to_3d())
-
     def from_spline(self, context, wM, resolution, spline):
 
         o = self.find_in_selection(context)
@@ -459,25 +421,7 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
         if o is None:
             return
 
-        pts = []
-        if spline.type == 'POLY':
-            pts = [wM * p.co.to_3d() for p in spline.points]
-            if spline.use_cyclic_u:
-                pts.append(pts[0])
-        elif spline.type == 'BEZIER':
-            points = spline.bezier_points
-            for i in range(1, len(points)):
-                p0 = points[i - 1]
-                p1 = points[i]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            if spline.use_cyclic_u:
-                p0 = points[-1]
-                p1 = points[0]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-                pts.append(pts[0])
-            else:
-                pts.append(wM * points[-1].co)
-
+        pts = self.coords_from_spline(spline, wM, resolution)
         auto_update = self.auto_update
         self.auto_update = False
 
@@ -511,15 +455,19 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
         self.auto_update = auto_update
 
     def update_path(self, context):
-        path = context.scene.objects.get(self.user_defined_path)
-        if path is not None and path.type == 'CURVE':
-            splines = path.data.splines
+        o = context.scene.objects.get(self.user_defined_path)
+        if o is not None and o.type == 'CURVE':
+            splines = o.data.splines
             if len(splines) > self.user_defined_spline:
                 self.from_spline(
                     context,
-                    path.matrix_world,
+                    o.matrix_world,
                     self.user_defined_resolution,
                     splines[self.user_defined_spline])
+
+    def refresh_profile_size(self, x, y):
+        self.profil_x = x
+        self.profil_y = y
 
     def get_generator(self):
         g = MoldingGenerator(self.parts)
@@ -553,33 +501,56 @@ class archipack_molding(ArchipackObject, Manipulable, PropertyGroup):
 
         # reset user def posts
 
-        if self.profil == 'COMPLEX':
-            sx = self.profil_x
-            sy = self.profil_y
-            molding = [Vector((sx * x, sy * y)) for x, y in [
-            (-0.28, 1.83), (-0.355, 1.77), (-0.415, 1.695), (-0.46, 1.605), (-0.49, 1.51), (-0.5, 1.415),
-            (-0.49, 1.315), (-0.46, 1.225), (-0.415, 1.135), (-0.355, 1.06), (-0.28, 1.0), (-0.255, 0.925),
-            (-0.33, 0.855), (-0.5, 0.855), (-0.5, 0.0), (0.5, 0.0), (0.5, 0.855), (0.33, 0.855), (0.255, 0.925),
-            (0.28, 1.0), (0.355, 1.06), (0.415, 1.135), (0.46, 1.225), (0.49, 1.315), (0.5, 1.415),
-            (0.49, 1.51), (0.46, 1.605), (0.415, 1.695), (0.355, 1.77), (0.28, 1.83), (0.19, 1.875),
-            (0.1, 1.905), (0.0, 1.915), (-0.095, 1.905), (-0.19, 1.875)]]
+        if self.profil == 'USER':
+            curve = self.update_profile(context)
+            if curve and curve.type == 'CURVE':
+                sx, sy = 1, 1
+                if self.user_profile_dimension.x > 0:
+                    sx = self.profil_x / self.user_profile_dimension.x
+                if self.user_profile_dimension.y > 0:
+                    sy = self.profil_y / self.user_profile_dimension.y
 
-        elif self.profil == 'SQUARE':
-            x = self.profil_x
-            y = self.profil_y
-            molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0)), Vector((x, y))]
+                wM = Matrix([
+                    [sx, 0, 0, 0],
+                    [0, sy, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1]
+                    ])
 
-        elif self.profil == 'CIRCLE':
-            x = self.profil_x
-            y = self.profil_y
-            r = min(self.profil_radius, x, y)
-            segs = 6
-            da = pi / (2 * segs)
-            molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0))]
-            molding.extend([Vector((x + r * (cos(a * da) - 1), y + r * (sin(a * da) - 1))) for a in range(segs + 1)])
+                for spline in curve.data.splines:
 
-        g.make_profile(molding, 0, self.x_offset,
-            0, 0, True, verts, faces, matids, uvs)
+                    molding = self.coords_from_spline(spline, wM, 12, ccw=True)
+                    closed = molding[0] == molding[-1]
+                    if closed:
+                        molding.pop()
+                    g.make_profile(molding, 0, self.x_offset,
+                        0, 0, True, verts, faces, matids, uvs)
+            else:
+                x = self.profil_x
+                y = self.profil_y
+                molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0)), Vector((x, y))]
+                g.make_profile(molding, 0, self.x_offset,
+                    0, 0, True, verts, faces, matids, uvs)
+        else:
+            if self.profil == 'SQUARE':
+                x = self.profil_x
+                y = self.profil_y
+                molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0)), Vector((x, y))]
+
+            elif self.profil == 'CIRCLE':
+                x = self.profil_x
+                y = self.profil_y
+                r = min(self.profil_radius, x, y)
+                segs = 6
+                da = pi / (2 * segs)
+                molding = [Vector((0, y)), Vector((0, 0)), Vector((x, 0))]
+                molding.extend([
+                    Vector((x + r * (cos(a * da) - 1), y + r * (sin(a * da) - 1)))
+                    for a in range(segs + 1)
+                    ])
+
+            g.make_profile(molding, 0, self.x_offset,
+                0, 0, True, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
 
@@ -636,7 +607,6 @@ class ARCHIPACK_PT_molding(Panel):
         prop = archipack_molding.datablock(context.active_object)
         if prop is None:
             return
-        scene = context.scene
         layout = self.layout
         row = layout.row(align=True)
         row.operator('archipack.manipulate', icon='HAND')
@@ -647,13 +617,9 @@ class ARCHIPACK_PT_molding(Panel):
         row.operator("archipack.molding_preset", text="", icon='ZOOMIN')
         row.operator("archipack.molding_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
-        row = box.row(align=True)
-        row.operator("archipack.molding_curve_update", text="", icon='FILE_REFRESH')
-        row.prop_search(prop, "user_defined_path", scene, "objects", text="", icon='OUTLINER_OB_CURVE')
-
+        prop.draw_user_path(box, context)
         if prop.user_defined_path is not "":
             box.prop(prop, 'user_defined_spline')
-            box.prop(prop, 'user_defined_resolution')
             box.prop(prop, 'user_path_reverse')
 
         box.prop(prop, 'x_offset')
@@ -674,6 +640,8 @@ class ARCHIPACK_PT_molding(Panel):
         box.prop(prop, 'profil_y')
         if prop.profil == 'CIRCLE':
             box.prop(prop, 'profil_radius')
+        if prop.profil == 'USER':
+            prop.draw_user_profile(context, box)
 
 
 # ------------------------------------------------------------------
@@ -719,32 +687,6 @@ class ARCHIPACK_OT_molding(ArchipackCreateTool, Operator):
 # ------------------------------------------------------------------
 # Define operator class to create object
 # ------------------------------------------------------------------
-
-
-class ARCHIPACK_OT_molding_curve_update(Operator):
-    bl_idname = "archipack.molding_curve_update"
-    bl_label = "Molding curve update"
-    bl_description = "Update molding data from curve"
-    bl_category = 'Archipack'
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(self, context):
-        return archipack_molding.filter(context.active_object)
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
-
-    def execute(self, context):
-        if context.mode == "OBJECT":
-            d = archipack_molding.datablock(context.active_object)
-            d.update_path(context)
-            return {'FINISHED'}
-        else:
-            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
-            return {'CANCELLED'}
 
 
 class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
@@ -814,7 +756,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
          Use slab cutters, windows and doors, T childs walls
         """
         # wall is either a single or collection of polygons
-        io, wall = wd.as_geom(context, w, 'FLOOR_MOLDINGS', [], [], [])
+        io, wall, childs = wd.as_geom(context, w, 'FLOOR_MOLDINGS', [], [], [])
         ref = w.parent
         # find slab holes if any
         o = None
@@ -936,7 +878,6 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_molding_preset)
     bpy.utils.register_class(ARCHIPACK_OT_molding_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_molding_from_wall)
-    bpy.utils.register_class(ARCHIPACK_OT_molding_curve_update)
 
 
 def unregister():
@@ -951,4 +892,3 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_from_wall)
-    bpy.utils.unregister_class(ARCHIPACK_OT_molding_curve_update)

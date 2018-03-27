@@ -41,8 +41,8 @@ from .archipack_keymaps import Keymaps
 from .archipack_dimension import DimensionProvider
 
 
-        
-        
+
+
 def update(self, context):
     self.update(context)
 
@@ -55,10 +55,10 @@ class archipack_custom_part(ArchipackObject, PropertyGroup):
       parts might have pivot not matching parent one
       so we must recompute pivot location
     """
-    
+
     # pivot location relative to parent
     pivot_location = FloatVectorProperty(subtype='XYZ')
-    
+
     def find_custom(self, context):
         o = self.find_in_selection(context)
         if o and o.parent:
@@ -72,18 +72,18 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
     """
     last_size = FloatVectorProperty(subtype='XYZ')
     x = FloatProperty(
-        name="width", 
-        min=0.01, 
+        name="width",
+        min=0.01,
         update=update
         )
     y = FloatProperty(
-        name="depth", 
-        min=0.01, 
+        name="depth",
+        min=0.01,
         update=update
         )
     z = FloatProperty(
-        name="height", 
-        min=0.01, 
+        name="height",
+        min=0.01,
         update=update
         )
 
@@ -102,15 +102,15 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
         """
           apply delta to child location
         """
-        
+
         d = archipack_custom_part.datablock(o)
-        
+
         # child location relative to parent
         loc = d.pivot_location.copy()
-        
+
         # delta location of pivot
         pivot = Vector()
-        
+
         if loc.x > 0:
             pivot.x = dx
         else:
@@ -119,27 +119,27 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
             pivot.y = dy
         else:
             pivot.y = -dy
-        
+
         # delta for parent part
         loc += pivot
-        
+
         # delta for child part
         # move verts so pivot dosent change in child
         cM = Matrix.Translation(-pivot)
         for v in o.data.vertices:
-            v.co = cM * v.co 
-        # Move child so the pivot stay in same location relative to parent    
+            v.co = cM * v.co
+        # Move child so the pivot stay in same location relative to parent
         o.location = loc
         # store location to child data
         d.pivot_location = loc.copy()
-        
+
     def get_weights(self, o, group_index):
         for i, v in enumerate(o.data.vertices):
             for g in v.groups:
                 if g.group == group_index:
                     yield (i, g.weight)
                     break
-    
+
     def move_left(self, o, group_index):
         for i, v in enumerate(o.data.vertices):
             is_ingroup = False
@@ -151,7 +151,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
                 yield v.co.x <= 0
             else:
                 yield v.co.x > 0
-                
+
     def move_right(self, o, group_index):
         for i, v in enumerate(o.data.vertices):
             is_ingroup = False
@@ -163,10 +163,10 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
                 yield v.co.x >= 0
             else:
                 yield v.co.x < 0
-                
+
     def resize(self, context, o, group_name, delta, use_weights=True):
         # recompute locations in object coordsys
-        
+
         m = o.data
         vgroups = {vgroup.name: vgroup.index for vgroup in o.vertex_groups}
         if group_name in vgroups:
@@ -178,7 +178,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
             else:
                 for i, w in weights:
                     m.vertices[i].co += delta
-            
+
     def setup_manipulators(self):
         if len(self.manipulators) > 0:
             return
@@ -205,16 +205,16 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
 
         # store current position before manipulating
         global last_pos
-        
+
         # last_pos = context.active_object.matrix_world.translation.copy()
 
         self.manipulable_setup(context)
         self.manipulate_mode = True
-        
+
         self._manipulable_invoke(context)
 
         return True
-    
+
     def _synch_childs(self, o):
         childs = self.find_parts(o)
         # update linked child location relative to parent
@@ -222,7 +222,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
         for c in childs:
             d = archipack_custom_part.datablock(c)
             c.location = d.pivot_location.copy()
-    
+
     def synch_childs(self, context, o):
         """
             synch childs nodes of linked objects
@@ -235,7 +235,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
         for linked in context.selected_objects:
             if linked != o:
                 self._synch_childs(linked)
-                               
+
     def update(self, context):
         o = self.find_in_selection(context, self.auto_update)
 
@@ -245,14 +245,14 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
         self.setup_manipulators()
 
         parts = self.find_parts(o)
-        
+
         last_x, last_y, last_z = self.last_size
         dx = 0.5 * (self.x - last_x)
         dy = 0.5 * (self.y - last_y)
         dz = self.z - last_z
         new_size = Vector((self.x, self.y, self.z))
         parts.append(o)
-        
+
         itM = o.matrix_world.inverted()
 
         for c in parts:
@@ -267,9 +267,9 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
             # relocate child
             if o.name != c.name:
                 self.relocate(itM, c, dx, dy)
-        
+
         self.last_size = new_size
-        
+
         x, y = 0.5 * self.x, 0.5 * self.y
         self.manipulators[0].set_pts([(-x, -y, 0), (x, -y, 0), (1, 0, 0)])
         self.manipulators[1].set_pts([(-x, -y, 0), (-x, y, 0), (-1, 0, 0)])
@@ -280,10 +280,10 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
         self.add_dimension_point(0, Vector((-x, -y, 0)))
         self.add_dimension_point(1, Vector((x, -y, 0)))
         self.update_dimensions(context, o)
-        
+
         # synch linked childs location
         self.synch_childs(context, o)
-        
+
         self.restore_context(context)
 
 
@@ -332,7 +332,7 @@ class ARCHIPACK_OT_make_custom(Operator):
     bl_description = "Add custom parametric ability to selection"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    
+
     x_min = FloatProperty(
         name="min",
         min=0
@@ -365,11 +365,11 @@ class ARCHIPACK_OT_make_custom(Operator):
         name="soft",
         min=0
         )
-    
-    @classmethod 
+
+    @classmethod
     def poll(cls, context):
         return context.active_object is not None
-        
+
     def draw(self, context):
         layout = self.layout
         row = layout.row(align=True)
@@ -388,11 +388,11 @@ class ARCHIPACK_OT_make_custom(Operator):
         row.label(text="z")
         row.prop(self, "z_max", text="")
         row.prop(self, "z_soft", text="")
-        
+
     def weight(self, o, group, itM, soft, limit):
         """                 p.x
                     0          limit    p.x max
-                          | soft |  
+                          | soft |
                         start
         """
         for v in o.data.vertices:
@@ -409,22 +409,22 @@ class ARCHIPACK_OT_make_custom(Operator):
                 group.add([v.index], w, 'REPLACE')
             else:
                 group.remove([v.index])
-                
+
     def add_vertex_groups(self, o, d, center):
         vgroups = {vgroup.name: vgroup.index for vgroup in o.vertex_groups}
-        
+
         # matrix to retrieve vertex distance from center
         tM = Matrix.Translation(center)
         rM_top = Matrix.Rotation(-pi / 2, 4, Vector((0, 1, 0)))
         rM_front = Matrix.Rotation(pi / 2, 4, Vector((0, 0, 1)))
-        rM_back = Matrix.Rotation(-pi / 2, 4, Vector((0, 0, 1))) 
+        rM_back = Matrix.Rotation(-pi / 2, 4, Vector((0, 0, 1)))
         rM_left =  Matrix.Rotation(pi, 4, Vector((0, 0, 1)))
         rM_right = Matrix.Rotation(0, 4, Vector((0, 0, 1)))
         itM = [(tM * rM).inverted() * o.matrix_world for rM in [rM_left, rM_right, rM_back, rM_front, rM_top]]
-        
+
         limit = [
             self.x_min, self.x_max,
-            self.y_min, self.y_max, 
+            self.y_min, self.y_max,
             self.z_max,
             ]
         soft = [
@@ -432,7 +432,7 @@ class ARCHIPACK_OT_make_custom(Operator):
             self.y_soft, self.y_soft,
             self.z_soft,
             ]
-        
+
         for i, group_name in enumerate(['left', 'right', 'back', 'front', 'top']):
             if group_name not in vgroups:
                 g = o.vertex_groups.new()
@@ -440,9 +440,9 @@ class ARCHIPACK_OT_make_custom(Operator):
             else:
                 g = o.vertex_groups[group_name]
             self.weight(o, g, itM[i], soft[i], limit[i])
-                            
+
     def create(self, context):
-        
+
         act = context.active_object
         d = archipack_custom.datablock(act)
         if not d:
@@ -457,7 +457,7 @@ class ARCHIPACK_OT_make_custom(Operator):
         d.z = act.dimensions.z
         d.auto_update = True
         d.update(context)
-        
+
         sel = [o for o in context.selected_objects if o.type == 'MESH']
         names = [o.name for o in sel]
         sel.extend([c for c in act.children if c.name not in names and c.type == 'MESH'])
@@ -465,7 +465,7 @@ class ARCHIPACK_OT_make_custom(Operator):
         center = act.matrix_world * (0.5 * bound)
         center.z = 0
         itM = act.matrix_world.inverted()
-        
+
         for o in sel:
             self.add_vertex_groups(o, d, center)
             if o.name != act.name:
@@ -477,9 +477,9 @@ class ARCHIPACK_OT_make_custom(Operator):
                     o.data.archipack_custom_part.add()
                 d = archipack_custom_part.datablock(o)
                 d.pivot_location = itM * o.matrix_world.translation
-                
+
         return act
-    
+
     def invoke(self, context, event):
         o = context.active_object
         self.x_min = 0.5 * o.dimensions.x
@@ -488,7 +488,7 @@ class ARCHIPACK_OT_make_custom(Operator):
         self.y_max = 0.5 * o.dimensions.y
         self.z_max = 0.5 * o.dimensions.z
         return self.execute(context)
-            
+
     def execute(self, context):
         print("execute")
         if context.mode == "OBJECT":
@@ -500,7 +500,7 @@ class ARCHIPACK_OT_make_custom(Operator):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
-            
+
 class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
     bl_idname = "archipack.custom_draw"
     bl_label = "Draw Custom"
@@ -538,13 +538,13 @@ class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
 
             # instance subs
             o.select = False
-            
+
             # copy when shift pressed
             o = self.duplicate_object(context, o, not event.shift)
-            
+
             o.select = True
             context.scene.objects.active = o
-            
+
         self.object_name = o.name
 
         o.select = True
@@ -559,11 +559,11 @@ class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
             return {'FINISHED'}
 
         d = archipack_custom.datablock(o)
-        
+
         # hide hole from raycast
         to_hide = [o]
         to_hide.extend([child for child in o.children if archipack_custom_part.filter(child)])
-        
+
         for obj in to_hide:
             obj.hide = True
 
@@ -594,7 +594,7 @@ class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
                         self.stack.append(o)
                         self.add_object(context, event)
                         context.active_object.matrix_world = tM
-                        
+
                     return {'RUNNING_MODAL'}
             # prevent selection of other object
             if event.type in {'RIGHTMOUSE'}:
