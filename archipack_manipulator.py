@@ -137,8 +137,11 @@ class ArchipackActiveManip:
         for m in self.stack:
             if m is not None:
                 m.exit()
+        # verify object still there        
         if self.manipulable is not None:
-            self.manipulable.manipulate_mode = False
+            # on undo accessing this will crash blender
+            if self.manipulable.manipulable_draw_handler is not None:
+                self.manipulable.manipulate_mode = False
             self.manipulable = None
         self.object_name = ""
         self.stack.clear()
