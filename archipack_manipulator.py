@@ -114,7 +114,8 @@ class ArchipackActiveManip:
         self.stack = []
         # reference to object manipulable instance
         self.manipulable = None
-
+        self.datablock = None
+        
     @property
     def dirty(self):
         """
@@ -137,12 +138,17 @@ class ArchipackActiveManip:
         for m in self.stack:
             if m is not None:
                 m.exit()
-        # verify object still there        
+         
         if self.manipulable is not None:
-            # on undo accessing this will crash blender
-            if self.manipulable.manipulable_draw_handler is not None:
-                self.manipulable.manipulate_mode = False
-            self.manipulable = None
+            # always retrieve fresh datablock instance
+            # as manipulable might loose proper reference
+            o = bpy.data.objects.get(self.object_name)
+            d = self.datablock(o)
+            if d:
+                d.manipulate_mode = False
+        
+        self.manipulable = None
+        self.datablock = None
         self.object_name = ""
         self.stack.clear()
 
@@ -202,6 +208,8 @@ def add_manipulable(key, manipulable):
         manips[key] = ArchipackActiveManip(key)
 
     manips[key].manipulable = manipulable
+    # class method for fast datablock access
+    manips[key].datablock = manipulable.__class__.datablock
     return manips[key].stack
 
 
