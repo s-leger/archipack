@@ -526,9 +526,10 @@ class PresetMenuOperator():
             self.menu = PresetMenu(context, self.preset_subdir)
 
             global running
-            if running is not None:
+            if running is not None and hasattr(running, "disable"):
                 # disable running operator if any
                 running.disable = True
+                
             running = self
 
             if self.menu.is_empty:
