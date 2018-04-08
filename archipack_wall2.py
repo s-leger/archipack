@@ -1451,7 +1451,8 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                 [0, 0, 0, 1]
             ])
             c.matrix_world = wM
-            self.add_generator(c.name, c, d, generators, tM=wM)
+            if d is not None:
+                self.add_generator(c.name, c, d, generators, tM=wM)
         
         # Throttle relocation of reloc_childs
         if do_throttle_reloc and throttle.is_active(o.name):
