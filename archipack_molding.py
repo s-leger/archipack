@@ -35,111 +35,28 @@ from bpy.props import (
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
-from math import sin, cos, pi, acos, atan2
+from math import sin, cos, pi, acos
 from .archipack_manipulator import Manipulable, archipack_manipulator
-from .archipack_2d import Line
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_dimension import DimensionProvider
 from .archipack_curveman import ArchipackProfile, ArchipackUserDefinedPath
-    
-    
-class Molding():
-
-    def __init__(self):
-        # total distance from start
-        self.dist = 0
-        self.t_start = 0
-        self.t_end = 0
-        self.dz = 0
-        self.z0 = 0
-
-    def set_offset(self, offset, last=None):
-        """
-            Offset line and compute intersection point
-            between segments
-        """
-        self.line = self.make_offset(offset, last)
-
-    @property
-    def t_diff(self):
-        return self.t_end - self.t_start
-
-    def straight_molding(self, a0, length):
-        s = self.straight(length).rotate(a0)
-        return StraightMolding(s.p, s.v)
+from .archipack_segments import ArchipackSegment, Generator
 
 
-class StraightMolding(Molding, Line):
-    def __str__(self):
-        return "t_start:{} t_end:{} dist:{}".format(self.t_start, self.t_end, self.dist)
+class MoldingGenerator(Generator):
 
-    def __init__(self, p, v):
-        Molding.__init__(self)
-        Line.__init__(self, p, v)
-
-
-class MoldingSegment():
-    def __str__(self):
-        return "t_start:{} t_end:{} n_step:{}  t_step:{} i_start:{} i_end:{}".format(
-            self.t_start, self.t_end, self.n_step, self.t_step, self.i_start, self.i_end)
-
-    def __init__(self, t_start, t_end, n_step, t_step, i_start, i_end):
-        self.t_start = t_start
-        self.t_end = t_end
-        self.n_step = n_step
-        self.t_step = t_step
-        self.i_start = i_start
-        self.i_end = i_end
-
-
-class MoldingGenerator():
-
-    def __init__(self, parts):
-        self.parts = parts
-        self.segs = []
-        self.length = 0
-        self.user_defined_post = None
-        self.user_defined_uvs = None
-        self.user_defined_mat = None
-
-    def add_part(self, part):
-
-        if len(self.segs) < 1:
-            s = None
-        else:
-            s = self.segs[-1]
-
-        # start a new molding
-        if s is None:
-            p = Vector((0, 0))
-            v = part.length * Vector((cos(part.a0), sin(part.a0)))
-            s = StraightMolding(p, v)
-        else:
-            s = s.straight_molding(part.a0, part.length)
-
-        # s.dist = self.length
-        # self.length += s.length
-        self.segs.append(s)
-        self.last_type = type
-
-    def set_offset(self, offset):
-        # @TODO:
-        # re-evaluate length of offset line here
-        last = None
-        for seg in self.segs:
-            seg.set_offset(offset, last)
-            last = seg.line
+    def __init__(self, d, o=None):
+        Generator.__init__(self, d, o)
 
     def make_profile(self, profile, idmat,
             x_offset, z_offset, extend, closed, verts, faces, matids, uvs):
-
-        last = None
-        for seg in self.segs:
-            seg.line = seg.make_offset(x_offset, last)
-            last = seg.line
-
+        
+        if not self.closed:
+            self.segs.pop()
+        
         n_moldings = len(self.segs) - 1
-
+        
         if n_moldings < 0:
             return
 
@@ -156,32 +73,28 @@ class MoldingGenerator():
             n = f.line.sized_normal(0, 1)
 
         # n.p = f.lerp(x_offset)
-        sections.append((n, f.dz / f.line.length, f.z0))
-
-        for s, f in enumerate(self.segs):
+        sections.append(n)
+        
+        for s, f in enumerate(self.segs):                           
             if f.line.length == 0:
                 continue
             n = f.line.sized_normal(1, 1)
-            # n.p = f.lerp(x_offset)
-            sections.append((n, f.dz / f.line.length, f.z0 + f.dz))
+            sections.append(n)
 
         user_path_verts = len(sections)
         offset = len(verts)
         if user_path_verts > 0:
             user_path_uv_v = []
-            n, dz, z0 = sections[-1]
-            sections[-1] = (n, dz, z0)
             n_sections = user_path_verts - 1
-            n, dz, zl = sections[0]
+            n = sections[0]
             p0 = n.p
             v0 = n.v.normalized()
-            for s, section in enumerate(sections):
-                n, dz, zl = section
+            for s, n in enumerate(sections):
                 p1 = n.p
                 if s > 0:
                     user_path_uv_v.append((p1 - p0).length)
                 if s < n_sections:
-                    v1 = sections[s + 1][0].v.normalized()
+                    v1 = sections[s + 1].v.normalized()
                 elif closed_path:
                     break
                 dir = (v0 + v1).normalized()
@@ -189,7 +102,7 @@ class MoldingGenerator():
                 for p in profile:
                     # x, y = n.p + scale * (x_offset + p.x) * dir
                     x, y = n.p + scale * p.x * dir
-                    z = zl + p.y + z_offset
+                    z = p.y + z_offset
                     verts.append((x, y, z))
                 p0 = p1
                 v0 = v1
@@ -212,29 +125,6 @@ class MoldingGenerator():
             v = Vector((0, 0))
             uvs += lofter.uv(1, v, v, v, v, 0, v, 0, 0, path_type='USER_DEFINED')
 
-    def update_manipulators(self):
-        """
-
-        """
-        for i, f in enumerate(self.segs):
-
-            manipulators = self.parts[i].manipulators
-            p0 = f.line.p0.to_3d()
-            p1 = f.line.p1.to_3d()
-            # angle from last to current segment
-            if i > 0:
-                v0 = self.segs[i - 1].line.straight(-1, 1).v.to_3d()
-                v1 = f.line.straight(1, 0).v.to_3d()
-                manipulators[0].set_pts([p0, v0, v1])
-
-            # segment length
-            manipulators[1].type_key = 'SIZE'
-            manipulators[1].prop1_name = "length"
-            manipulators[1].set_pts([p0, p1, (1, 0, 0)])
-
-            # snap manipulator, dont change index !
-            manipulators[2].set_pts([p0, p1, (1, 0, 0)])
-
 
 def update(self, context):
     self.update(context)
@@ -248,65 +138,20 @@ def update_path(self, context):
     self.update_path(context)
 
 
-class archipack_molding_part(PropertyGroup):
-    type = EnumProperty(
-            items=(
-                ('S_SEG', 'Straight', '', 0),
-                ),
-            default='S_SEG'
-            )
-    length = FloatProperty(
-            name="Length",
-            min=0.01,
-            default=2.0,
-            unit='LENGTH', subtype='DISTANCE',
-            update=update
-            )
-    a0 = FloatProperty(
-            name="Start angle",
-            min=-2 * pi,
-            max=2 * pi,
-            default=0,
-            subtype='ANGLE', unit='ROTATION',
-            update=update
-            )
-    dz = FloatProperty(
-            name="delta z",
-            default=0,
-            unit='LENGTH', subtype='DISTANCE'
-            )
-
+class archipack_molding_part(ArchipackSegment, PropertyGroup):
     manipulators = CollectionProperty(type=archipack_manipulator)
 
-    def find_datablock_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            props = archipack_molding.datablock(o)
-            if props is not None:
-                for part in props.parts:
-                    if part == self:
-                        return props
-        return None
-
-    def update(self, context, manipulable_refresh=False):
-        props = self.find_datablock_in_selection(context)
-        if props is not None:
-            props.update(context, manipulable_refresh)
-
-    def draw(self, layout, context, index):
-        box = layout.box()
-        row = box.row()
-        row = box.row()
-        row.prop(self, "length")
-        row = box.row()
-        row.prop(self, "a0")
+    def get_datablock(self, o):
+        return archipack_molding.datablock(o)
 
 
-class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedPath, Manipulable, PropertyGroup):
+class archipack_molding(
+        ArchipackObject,
+        ArchipackProfile,
+        ArchipackUserDefinedPath,
+        Manipulable,
+        DimensionProvider,
+        PropertyGroup):
 
     parts = CollectionProperty(type=archipack_molding_part)
 
@@ -322,11 +167,6 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
             update=update_path
             )
 
-    n_parts = IntProperty(
-            name="Parts",
-            min=1,
-            default=1, update=update_manipulators
-            )
     x_offset = FloatProperty(
             name="Offset",
             default=0.0, precision=2, step=1,
@@ -365,18 +205,20 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
             update=update
             )
     closed = BoolProperty(
-        default=True,
-        options={'SKIP_SAVE'}
-        )
-    parts_expand = BoolProperty(
-            default=False
+            default=False,
+            update=update
             )
+    always_closed = BoolProperty(
+            default=False,
+            options={'SKIP_SAVE'}
+            )
+
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
             update=update_manipulators
             )
-        
+
     def setup_manipulators(self):
 
         if len(self.manipulators) == 0:
@@ -386,33 +228,7 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
             s.prop1_name = "height"
             s.normal = Vector((0, 1, 0))
 
-        for i in range(self.n_parts):
-            p = self.parts[i]
-            n_manips = len(p.manipulators)
-            if n_manips == 0:
-                s = p.manipulators.add()
-                s.type_key = "ANGLE"
-                s.prop1_name = "a0"
-                s = p.manipulators.add()
-                s.type_key = "SIZE"
-                s.prop1_name = "length"
-                s = p.manipulators.add()
-                # s.type_key = 'SNAP_POINT'
-                s.type_key = 'WALL_SNAP'
-                s.prop1_name = str(i)
-                s.prop2_name = 'profil_y'
-
-    def update_parts(self):
-
-        # remove parts
-        for i in range(len(self.parts), self.n_parts, -1):
-            self.parts.remove(i - 1)
-
-        # add parts
-        for i in range(len(self.parts), self.n_parts):
-            self.parts.add()
-
-        self.setup_manipulators()
+        self.setup_parts_manipulators('profil_y')
 
     def from_spline(self, context, wM, resolution, spline):
 
@@ -421,14 +237,13 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
         if o is None:
             return
 
-        pts = self.coords_from_spline(spline, wM, resolution)
-        auto_update = self.auto_update
-        self.auto_update = False
+        pts = self.coords_from_spline(
+            spline,
+            wM,
+            resolution
+            )
 
-        self.n_parts = len(pts) - 1
-        self.update_parts()
-
-        if len(pts) < 1:
+        if len(pts) < 2:
             return
 
         if self.user_path_reverse:
@@ -436,47 +251,27 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
 
         o.matrix_world = Matrix.Translation(pts[0].copy())
 
-        p0 = pts.pop(0)
-        a0 = 0
-        for i, p1 in enumerate(pts):
-            dp = p1 - p0
-            da = atan2(dp.y, dp.x) - a0
-            if da > pi:
-                da -= 2 * pi
-            if da < -pi:
-                da += 2 * pi
-            p = self.parts[i]
-            p.length = dp.to_2d().length
-            p.dz = dp.z
-            p.a0 = da
-            a0 += da
-            p0 = p1
+        auto_update = self.auto_update
+        self.auto_update = False
 
+        self.closed = spline.use_cyclic_u
+        if self.closed:
+            pts.pop()
+
+        self.from_points(pts)
         self.auto_update = auto_update
-
-    def update_path(self, context):
-        o = context.scene.objects.get(self.user_defined_path)
-        if o is not None and o.type == 'CURVE':
-            splines = o.data.splines
-            if len(splines) > self.user_defined_spline:
-                self.from_spline(
-                    context,
-                    o.matrix_world,
-                    self.user_defined_resolution,
-                    splines[self.user_defined_spline])
 
     def refresh_profile_size(self, x, y):
         self.profil_x = x
         self.profil_y = y
 
-    def get_generator(self):
-        g = MoldingGenerator(self.parts)
+    def get_generator(self, o=None):
+        g = MoldingGenerator(self, o)
         for part in self.parts:
-            # type, radius, da, length
             g.add_part(part)
-
         g.set_offset(self.x_offset)
-        g.update_manipulators()
+        g.close(self.x_offset)
+        g.locate_manipulators()
         return g
 
     def update(self, context, manipulable_refresh=False):
@@ -575,7 +370,7 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
         self.setup_manipulators()
 
         for i, part in enumerate(self.parts):
-            if i >= self.n_parts:
+            if self.closed and i >= self.n_parts:
                 break
 
             if i > 0:
@@ -587,6 +382,9 @@ class archipack_molding(ArchipackObject, ArchipackProfile, ArchipackUserDefinedP
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
+
+            # index
+            self.manip_stack.append(part.manipulators[3].setup(context, o, self))
 
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
@@ -609,8 +407,9 @@ class ARCHIPACK_PT_molding(Panel):
             return
         layout = self.layout
         
-        layout.template_icon_view(prop, "preset", show_labels=True, scale=10)
-        
+        # template with icon right on object
+        # layout.template_icon_view(prop, "preset", show_labels=True, scale=10)
+
         row = layout.row(align=True)
         row.operator('archipack.manipulate', icon='HAND')
         box = layout.box()
@@ -620,32 +419,29 @@ class ARCHIPACK_PT_molding(Panel):
         row.operator("archipack.molding_preset", text="", icon='ZOOMIN')
         row.operator("archipack.molding_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
-        prop.draw_user_path(box, context)
+        prop.template_user_path(context, box)
         if prop.user_defined_path is not "":
             box.prop(prop, 'user_defined_spline')
             box.prop(prop, 'user_path_reverse')
 
         box.prop(prop, 'x_offset')
-        box = layout.box()
-        row = box.row()
-        if prop.parts_expand:
-            row.prop(prop, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
-            box.prop(prop, 'n_parts')
-            for i, part in enumerate(prop.parts):
-                part.draw(layout, context, i)
-        else:
-            row.prop(prop, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
+        prop.template_parts(context, layout, draw_type=False)
 
         box = layout.box()
         row = box.row(align=True)
-        box.prop(prop, 'profil')
-        box.prop(prop, 'profil_x')
-        box.prop(prop, 'profil_y')
-        if prop.profil == 'CIRCLE':
-            box.prop(prop, 'profil_radius')
-        if prop.profil == 'USER':
-            prop.draw_user_profile(context, box)
 
+        if prop.profile_expand:
+            row.prop(prop, 'profile_expand', icon="TRIA_DOWN", icon_only=True, text="", emboss=False)
+        else:
+            row.prop(prop, 'profile_expand', icon="TRIA_RIGHT", icon_only=True, text="", emboss=False)
+        row.prop(prop, 'profil')
+        if prop.profile_expand:
+            box.prop(prop, 'profil_x')
+            box.prop(prop, 'profil_y')
+            if prop.profil == 'CIRCLE':
+                box.prop(prop, 'profil_radius')
+            if prop.profil == 'USER':
+                prop.draw_user_profile(context, box)
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -666,9 +462,8 @@ class ARCHIPACK_OT_molding(ArchipackCreateTool, Operator):
         d = m.archipack_molding.add()
         # make manipulators selectable
         d.manipulable_selectable = True
-        context.scene.objects.link(o)
-        o.select = True
-        context.scene.objects.active = o
+        self.link_object_to_scene(context, o)
+        self.select_object(context, o, True)
         self.load_preset(d)
         self.add_material(o)
         return o
@@ -678,8 +473,7 @@ class ARCHIPACK_OT_molding(ArchipackCreateTool, Operator):
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
             o.location = context.scene.cursor_location
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
             self.manipulate()
             return {'FINISHED'}
         else:
@@ -723,7 +517,7 @@ class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
             sel.append(o)
 
         for obj in sel:
-            obj.select = True
+            self.select_object(context, o)
 
         return o
 
@@ -731,10 +525,7 @@ class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            if o is not None:
-                o.select = True
-                context.scene.objects.active = o
-            # self.manipulate()
+            self.select_object(context, o, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -787,7 +578,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             sel.append(o)
 
         for obj in sel:
-            obj.select = True
+            self.select_object(context, obj)
         return o
 
     def create(self, context):
@@ -803,9 +594,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            if o is not None:
-                o.select = True
-                context.scene.objects.active = o
+            self.select_object(context, o, True)
             # if self.auto_manipulate:
             #    bpy.ops.archipack.manipulate('INVOKE_DEFAULT')
             return {'FINISHED'}
@@ -836,7 +625,7 @@ class ARCHIPACK_OT_molding_preset_from_wall(PresetMenuOperator, Operator):
 
 
 class ARCHIPACK_OT_molding_preset_from_curve(PresetMenuOperator, Operator):
-    bl_description = "Create molding from curve"
+    bl_description = "Create molding(s) from a curve"
     bl_idname = "archipack.molding_preset_from_curve"
     bl_label = "-> Molding"
     preset_subdir = "archipack_molding"
@@ -851,8 +640,15 @@ class ARCHIPACK_OT_molding_preset_from_curve(PresetMenuOperator, Operator):
         return o and o.type == 'CURVE'
 
 
+class ARCHIPACK_OT_molding_preset_create(PresetMenuOperator, Operator):
+    bl_description = "Show Molding presets and create object at cursor location"
+    bl_idname = "archipack.molding_preset_create"
+    bl_label = "Molding Styles"
+    preset_subdir = "archipack_molding"
+
+
 class ARCHIPACK_OT_molding_preset_menu(PresetMenuOperator, Operator):
-    bl_description = "Create Molding from presets"
+    bl_description = "Display Molding presets"
     bl_idname = "archipack.molding_preset_menu"
     bl_label = "Molding Styles"
     preset_subdir = "archipack_molding"
@@ -874,6 +670,7 @@ def register():
     bpy.utils.register_class(archipack_molding)
     Mesh.archipack_molding = CollectionProperty(type=archipack_molding)
     bpy.utils.register_class(ARCHIPACK_OT_molding_preset_menu)
+    bpy.utils.register_class(ARCHIPACK_OT_molding_preset_create)
     bpy.utils.register_class(ARCHIPACK_OT_molding_preset_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_molding_preset_from_wall)
     bpy.utils.register_class(ARCHIPACK_PT_molding)
@@ -888,6 +685,7 @@ def unregister():
     bpy.utils.unregister_class(archipack_molding)
     del Mesh.archipack_molding
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset_menu)
+    bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset_create)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_molding_preset_from_wall)
     bpy.utils.unregister_class(ARCHIPACK_PT_molding)

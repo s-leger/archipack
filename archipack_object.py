@@ -41,10 +41,10 @@ from .archipack_iconmanager import icons
 def get_enum(self, context):
     return icons.enum(context, self.__class__.__name__)
 
-    
+
 def preset_operator(self, context):
     bpy.ops.script.python_file_run(filepath="{}.py".format(self.preset[:-4]))
-    
+
 
 class ArchipackObjectsManager():
     """
@@ -53,7 +53,51 @@ class ArchipackObjectsManager():
       - recursive delete objects and datablocks
       - recursive clone linked
       - recursive copy
+     
+     @TODO: 
+     Provide abstraction layer for blender 2.8 series
+      
     """
+    def get_scene_object(self, context, name):
+        return context.scene.objects.get(name)
+        
+    def get_scene_objects(self, context):
+        return context.scene.objects
+        
+    def select_object(self, context, o, active=False):
+        """
+         Select object and optionnaly make active
+        """
+        if o is not None:
+            # o.select_set(action='SELECT')
+            o.select = True
+            if active:
+                context.scene.objects.active = o
+    
+    def unselect_object(self, o):
+        # o.select_set(action='DESELECT')
+        o.select = False
+    
+    def link_object_to_scene(self, context, o):
+        context.scene.objects.link(o)
+    
+    def unlink_object_from_scene(self, context, o):
+        context.scene.objects.unlink(o)
+    
+    def is_visible(self, o):
+        # o.visible_get()
+        return o.hide == False
+    
+    def is_selected(self, o):
+        # o.select_get()
+        return o.select
+        
+    def hide_object(self, o):
+        o.hide = True
+        
+    def show_object(self, o):
+        o.hide = False
+    
     def _cleanup_datablock(self, d, typ):
         if d and d.users < 1:
             if typ == 'MESH':
@@ -66,7 +110,7 @@ class ArchipackObjectsManager():
     def _delete_object(self, context, o):
         d = o.data
         typ = o.type
-        context.scene.objects.unlink(o)
+        self.unlink_object_from_scene(context, o)
         bpy.data.objects.remove(o)
         self._cleanup_datablock(d, typ)
 
@@ -91,7 +135,7 @@ class ArchipackObjectsManager():
                 new_o.data = o.data
             else:
                 new_o.data = o.data.copy()
-        context.scene.objects.link(new_o)
+        self.link_object_to_scene(new_o)
         return new_o
 
     def _duplicate_childs(self, context, o, linked):
@@ -145,19 +189,69 @@ class ArchipackObjectsManager():
             return o
 
 
+class ArchipackGenericOperator(ArchipackObjectsManager):
+    """
+     Generic operator working on any archipack object
+     Provide generic datablock accessor
+     Polling for selected and active archipack objects
+    """
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        o = context.active_object
+        return o and ArchipackObjectsManager.is_selected(cls, o) and cls.filter(o)
+
+    @classmethod
+    def filter(cls, o):
+        if o.data:
+            for key in o.data.keys():
+                if "archipack_" in key:
+                    return True
+            for key in o.keys():
+                if "archipack_" in key:
+                    return True
+        return False
+
+    def datablock(self, o):
+        """
+         Return archipack datablock from object
+        """
+        d = None
+        if o:
+            if o.data:
+                try:
+                    for key in o.data.keys():
+                        if "archipack_" in key:
+                            d = getattr(o.data, key)[0]
+                            break
+                except:
+                    pass
+            if d is None:
+                try:
+                    for key in o.keys():
+                        if "archipack_" in key:
+                            d = getattr(o, key)[0]
+                            break
+                except:
+                    pass
+        return d
+
+
 class ArchipackObject(ArchipackObjectsManager):
     """
         Shared property of archipack's objects PropertyGroup
         provide basic support for copy to selected
         and datablock access / filtering by object
     """
+
     preset = EnumProperty(
         name="Preset",
         description="Preset thumbs available right on object panel",
         items=get_enum,
         update=preset_operator
         )
-    
+
     def iskindof(self, o, typ):
         """
             return true if object contains databloc of typ name
@@ -186,7 +280,7 @@ class ArchipackObject(ArchipackObjectsManager):
             except:
                 pass
         return res
-    
+
     @classmethod
     def poll(cls, o):
         """
@@ -200,11 +294,11 @@ class ArchipackObject(ArchipackObjectsManager):
         """
         res = False
         try:
-            res = o.select and cls.filter(o) 
+            res = ArchipackObjectsManager.is_selected(cls, o) and cls.filter(o)
         except:
             pass
         return res
-    
+
     @classmethod
     def datablock(cls, o):
         """
@@ -259,20 +353,20 @@ class ArchipackObject(ArchipackObjectsManager):
 
         try:
             for o in self.previously_selected:
-                o.select = True
+                self.select_object(context, o, False)
         except:
             pass
-        if self.previously_active is not None:
-            self.previously_active.select = True
-            context.scene.objects.active = self.previously_active
+        self.select_object(context, self.previously_active, True)
         self.previously_selected = None
         self.previously_active = None
-   
-        
+
+
 class ArchipackCreateTool(ArchipackObjectsManager):
     """
         Shared property of archipack's create tool Operator
     """
+    bl_options = {'INTERNAL', 'UNDO'}
+
     auto_manipulate = BoolProperty(
             name="Auto manipulate",
             description="Enable object's manipulators after create",
@@ -285,7 +379,7 @@ class ArchipackCreateTool(ArchipackObjectsManager):
             description="Full filename of python preset to load at create time",
             default=""
             )
-    
+
     @property
     def archipack_category(self):
         """
@@ -345,12 +439,14 @@ class ArchipackCreateTool(ArchipackObjectsManager):
 
     def invoke(self, context, event):
         return self.execute(context)
-    
-    
+
+
 class ArchipackDrawTool(ArchipackObjectsManager):
     """
         Draw tools
     """
+    bl_options = {'INTERNAL', 'UNDO'}
+
     def region_2d_to_orig_and_vect(self, context, event):
 
         region = context.region
@@ -441,7 +537,7 @@ class ArchipackDrawTool(ArchipackObjectsManager):
                     dp)
                 if res:
                     width = (pt - pos).to_2d().length
-                    print("hit:%s  w:%s  pt:%s pos:%s" % (object.name, width, pt, pos))
+                    # print("hit:%s  w:%s  pt:%s pos:%s" % (object.name, width, pt, pos))
                     p1 = pt + (0.5 * width) * y.normalized()
                     return True, Matrix([
                         [x.x, y.x, z.x, p1.x],

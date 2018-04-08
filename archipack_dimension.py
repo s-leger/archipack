@@ -25,6 +25,7 @@
 #
 # ----------------------------------------------------------
 import bpy
+import json
 from bpy.types import Operator, PropertyGroup, Curve, Panel
 from bpy.props import (
     FloatProperty, EnumProperty, BoolProperty, IntProperty,
@@ -34,7 +35,11 @@ from mathutils import Vector, Matrix
 from math import cos, sin, pi, atan2
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
-from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_object import (
+    ArchipackCreateTool, 
+    ArchipackObject, 
+    ArchipackObjectsManager
+    )
 from .archipack_gl import GlText
 
 
@@ -133,10 +138,9 @@ class DimensionProvider():
     def _update_dimensions(self, context, o):
         d = archipack_dimension_auto.datablock(o)
         if d:
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
             d.update(context)
-            o.select = False
+            self.unselect_object(o)
 
     def _get_topmost_parent(self, o):
         if o.parent:
@@ -152,8 +156,7 @@ class DimensionProvider():
     def update_dimensions(self, context, o):
         p = self._get_topmost_parent(o)
         self._update_child_dimensions(context, p)
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
 
 
 class archipack_dimension(ArchipackObject, Manipulable, PropertyGroup):
@@ -340,7 +343,9 @@ class archipack_dimension(ArchipackObject, Manipulable, PropertyGroup):
             text = bpy.data.curves.new(o.name, type='FONT')
             text.dimensions = '2D'
             t_o = bpy.data.objects.new(o.name, text)
-            context.scene.objects.link(t_o)
+            # Link object into scene
+            self.link_object_to_scene(context, t_o)
+        
             t_o.parent = o
 
         t_o.location = center
@@ -560,12 +565,11 @@ class ARCHIPACK_OT_dimension(ArchipackCreateTool, Operator):
         # Add your properties on curve datablock
         d = c.archipack_dimension.add()
 
-        # Link object into scene
-        context.scene.objects.link(o)
-
+       # Link object into scene
+        self.link_object_to_scene(context, o)
+        
         # select and make active
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
 
         # Load preset into datablock
         self.load_preset(d)
@@ -593,8 +597,7 @@ class ARCHIPACK_OT_dimension(ArchipackCreateTool, Operator):
                 bpy.ops.object.select_all(action="DESELECT")
                 o = self.create(context)
                 o.location = bpy.context.scene.cursor_location
-                o.select = True
-                context.scene.objects.active = o
+                self.select_object(context, o, True)
 
                 # Start manipulate mode
                 self.manipulate()
@@ -621,7 +624,7 @@ class ARCHIPACK_OT_dimension_preset(ArchipackPreset, Operator):
         return ['manipulators']
 
 
-class archipack_dimension_source(PropertyGroup):
+class archipack_dimension_source(ArchipackObjectsManager, PropertyGroup):
     """
       Store dimension provider source path
       used as sub group for multi-dimension
@@ -647,7 +650,10 @@ class archipack_dimension_source(PropertyGroup):
         default="USER"
         )
     manipulators = CollectionProperty(type=archipack_manipulator)
-    auto_update = BoolProperty(default=True, options={'SKIP_SAVE'})
+    auto_update = BoolProperty(
+        default=True, 
+        options={'SKIP_SAVE'}
+        )
 
     def find_datablock_in_selection(self, context):
         """
@@ -676,7 +682,7 @@ class archipack_dimension_source(PropertyGroup):
          bool: valid state
          vector: measured point absolute world location
         """
-        o = context.scene.objects.get(self.obj)
+        o = self.get_scene_object(context, self.obj)
         pos = None
         if o is not None:
             if self.provider_type == 'MESH':
@@ -890,7 +896,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             s = self.manipulators.add()
             s.type_key = "OP_ADD"
             s.prop1_name = "archipack.dimension_auto_add"
-            s.prop2_name = ""
+            s.prop2_name = "{}"
 
         for i, source in enumerate(self.sources):
             if len(source.manipulators) < 1:
@@ -901,7 +907,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                     s = source.manipulators.add()
                     s.type_key = "SNAP_VEC"
                     s.prop1_name = "loc"
-            source.manipulators[0].prop2_name = "index={}".format(i)
+            source.manipulators[0].prop2_name = json.dumps({'index': i})
 
     def _add_selector(self, o, itM):
         if o.data:
@@ -914,7 +920,11 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                             m = self.source_selector.add()
                             m.type_key = "OP_ADD"
                             m.prop1_name = "archipack.dimension_auto_add"
-                            m.prop2_name = "obj={},index={},provider_type={}".format(o.name, p.index, key[10::].upper())
+                            m.prop2_name = json.dumps({
+                                'obj': o.name, 
+                                'index': p.index,
+                                'provider_type': key[10::].upper()
+                                })
                             m.set_pts([pos, pos + Vector((1, 0, 0)), Vector((1, 0, 0))])
         # support for objects like section target storing params in Object instead of data
         for key in o.keys():
@@ -928,7 +938,11 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
                             m = self.source_selector.add()
                             m.type_key = "OP_ADD"
                             m.prop1_name = "archipack.dimension_auto_add"
-                            m.prop2_name = "obj={},index={},provider_type={}".format(o.name, p.index, key[10::].upper())
+                            m.prop2_name = json.dumps({
+                                'obj': o.name, 
+                                'index': p.index,
+                                'provider_type': key[10::].upper()
+                                })
                             m.set_pts([pos, pos + Vector((1, 0, 0)), Vector((1, 0, 0))])
                 except:
                     pass 
@@ -1023,7 +1037,9 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             text = bpy.data.curves.new(o.name, type='FONT')
             text.dimensions = '2D'
             t_o = bpy.data.objects.new(o.name, text)
-            context.scene.objects.link(t_o)
+            # Link object into scene
+            self.link_object_to_scene(context, t_o)
+        
             t_o.parent = o
             m = t_o.archipack_material.add()
             m.category = "dimension_auto"
@@ -1393,6 +1409,7 @@ class ARCHIPACK_OT_dimension_auto_orient(Operator):
             o.rotation_euler.z += atan2(dl.y, dl.x)
             context.scene.update()
             d.update(context)
+            # d.manipulate_mode = False
             d.manipulable_invoke(context)
             return {'FINISHED'}
         else:
@@ -1400,7 +1417,7 @@ class ARCHIPACK_OT_dimension_auto_orient(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_dimension_auto_update(Operator):
+class ARCHIPACK_OT_dimension_auto_update(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.dimension_auto_update"
     bl_label = "Update"
     bl_description = "Update dimensions"
@@ -1414,10 +1431,9 @@ class ARCHIPACK_OT_dimension_auto_update(Operator):
     def _update_dimensions(self, context, o):
         d = archipack_dimension_auto.datablock(o)
         if d:
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
             d.update(context)
-            o.select = False
+            self.unselect_object(o)
 
     def _get_topmost_parent(self, o):
         if o.parent:
@@ -1438,15 +1454,14 @@ class ARCHIPACK_OT_dimension_auto_update(Operator):
         if context.mode == "OBJECT":
             o = context.active_object
             self.update_dimensions(context, o)
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_dimension_auto_add(Operator):
+class ARCHIPACK_OT_dimension_auto_add(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.dimension_auto_add"
     bl_label = "Add"
     bl_description = "Add user defined measured point"
@@ -1465,7 +1480,7 @@ class ARCHIPACK_OT_dimension_auto_add(Operator):
             o = context.active_object
             bpy.ops.archipack.disable_manipulate()
             d = archipack_dimension_auto.datablock(o)
-            obj = context.scene.objects.get(self.obj)
+            obj = self.get_scene_object(context, self.obj)
             d.add_source(obj, self.index, self.provider_type)
             d.update(context)
             d.manipulable_invoke(context)
@@ -1490,6 +1505,7 @@ class ARCHIPACK_OT_dimension_auto_remove(Operator):
             d = archipack_dimension_auto.datablock(o)
             d.remove_source(self.index)
             d.update(context)
+            d.manipulate_mode = False
             d.manipulable_invoke(context)
             return {'FINISHED'}
         else:
@@ -1527,11 +1543,10 @@ class ARCHIPACK_OT_dimension_auto(ArchipackCreateTool, Operator):
         d.flip_side = self.flip_side
 
         # Link object into scene
-        context.scene.objects.link(o)
-
+        self.link_object_to_scene(context, o)
+        
         # select and make active
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
 
         # Load preset into datablock
         self.load_preset(d)
@@ -1560,8 +1575,9 @@ class ARCHIPACK_OT_dimension_auto(ArchipackCreateTool, Operator):
                     o.matrix_world = act.matrix_world.copy()
                 else:
                     o.location = bpy.context.scene.cursor_location
-                o.select = True
-                context.scene.objects.active = o
+                
+                # select and make active
+                self.select_object(context, o, True)
 
                 # Start manipulate mode
                 self.manipulate()

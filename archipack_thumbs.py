@@ -182,7 +182,6 @@ def create_camera(context, loc, rot):
         location=loc,
         rotation=rot)
     cam = context.active_object
-    cam.select = True
     context.scene.camera = cam
     return cam
 
@@ -254,8 +253,17 @@ def generateThumb(context, cls, preset):
         # preset is image name
         d, x, y = man.load_curve(preset)
         curve = bpy.data.objects.new("Curve", d)
-        context.scene.objects.link(curve)
-
+        try:
+            # 2.7
+            context.scene.objects.link(curve)
+        except:
+            pass
+        try:
+            # 2.8
+            bpy.context.scene_collection.objects.link(curve)
+        except:
+            pass
+            
         # bevel open splines
         for spline in curve.data.splines:
             if not spline.use_cyclic_u:
@@ -296,7 +304,14 @@ def generateThumb(context, cls, preset):
         cam.data.lens = 50
 
         bpy.ops.object.select_all(action="DESELECT")
-        o.select = True
+        try:
+            o.select = True
+        except:
+            pass
+        try:
+            o.select_set(action="SELECT")
+        except:
+            pass
         bpy.ops.view3d.camera_to_view_selected()
 
         log("Prepare scene")

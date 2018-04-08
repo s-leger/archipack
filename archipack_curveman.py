@@ -28,15 +28,17 @@ import bpy
 import os
 import json
 import subprocess
+from math import atan2, pi
 from mathutils.geometry import interpolate_bezier
 from mathutils import Matrix, Vector
 from bpy.types import Operator
 from bpy.props import (
-    StringProperty, EnumProperty,
+    StringProperty, EnumProperty, BoolProperty,
     FloatVectorProperty, IntProperty
     )
 from .archipack_viewmanager import ViewManager
 from .archipack_iconmanager import icons
+from .archipack_object import ArchipackGenericOperator, ArchipackObjectsManager
 
 
 precision = 6
@@ -71,7 +73,7 @@ def preset_operator(self, context):
         for o in sel:
             if o.data and o.name != act.name:
                 if cls in o.data:
-                    context.scene.objects.active = o
+                    ArchipackObjectsManager.select_object(self, context, o, True)
                     d = getattr(o.data, cls)[0]
                     d.auto_update = False
                     # enable user profile
@@ -84,7 +86,7 @@ def preset_operator(self, context):
                     d.refresh_profile_size(x, y)
                     d.auto_update = True
                     d.update(context)
-        context.scene.objects.active = act
+        ArchipackObjectsManager.select_object(self, context, act, True)
 
     return None
 
@@ -160,6 +162,8 @@ class ArchipackCurveManager():
             else:
                 pts.append(wM * points[-1].co)
 
+        # pts = [p for i, p in enumerate(pts) if i == 0 or pts[i - 1] != p]
+
         if ccw or cw:
             is_cw = self.is_cw(pts)
             if (ccw and is_cw) or (cw and not is_cw):
@@ -172,16 +176,47 @@ def update_path(self, context):
     self.update_path(context)
 
 
+def update_manipulators(self, context):
+    self.update(context, manipulable_refresh=True)
+
+
 class ArchipackUserDefinedPath(ArchipackCurveManager):
     """
-      User defined path shared properties
-      and operators
+      Archipack path based base class
+      base for wall, slab, floor, fence, molding and cutters
+      provide "from curve" and parts management (insert/remove)
     """
+
+    """
+     Origin allow to move first point of an object
+     without actually changing the pivot location
+     currently for tests only, might break T childs walls and roofs
+    """
+    origin = FloatVectorProperty(
+            name="Origin",
+            description="Object origin in local space (offset from pivot)",
+            subtype="XYZ"
+            )
+
     user_defined_path = StringProperty(
             description="Use a curve to define shape",
             name="User defined",
             update=update_path
             )
+
+    user_defined_reverse = BoolProperty(
+            name="Reverse",
+            default=False,
+            update=update_path
+            )
+
+    user_defined_spline = IntProperty(
+            name="Spline index",
+            min=0,
+            default=0,
+            update=update_path
+            )
+
     user_defined_resolution = IntProperty(
             name="Resolution",
             min=1,
@@ -190,11 +225,306 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             update=update_path
             )
 
-    def draw_user_path(self, layout, context):
+    n_parts = IntProperty(
+            name="Parts",
+            min=1,
+            default=1,
+            update=update_manipulators
+            )
+    parts_expand = BoolProperty(
+            options={'SKIP_SAVE'},
+            default=False
+            )
+
+    def move_object(self, o, p):
+        """
+         When firstpoint is moving we must move object according
+         p is new x, y location in world coordsys
+        """
+        p = Vector((p.x, p.y, o.matrix_world.translation.z))
+        dp = o.matrix_world.inverted() * p
+        # p is in o coordsys
+        if o.parent:
+            o.location = p * o.parent.matrix_world.inverted()
+        else:
+            o.location = p
+        # update matrix_world by hand   
+        o.matrix_world.translation = p
+        """
+        # when parent move, must apply inverse on child !
+        loc, rot, scale = o.matrix_world.decompose()
+        for c in o.children:
+            # dp in in o coordsys = child location coordsys
+            c.location -= dp
+            # find dp in world coordsys
+            c.matrix_world.translation -= rot * dp
+        """
+        
+    def from_points(self, pts):
+        """
+         Make parts from points
+        """
+        self.n_parts = len(pts) - 1
+
+        self.update_parts()
+        p0 = pts.pop(0)
+        a0 = 0
+        for i, p1 in enumerate(pts):
+            if i >= len(self.parts):
+                break
+            dp = p1 - p0
+            da = atan2(dp.y, dp.x) - a0
+            if da > pi:
+                da -= 2 * pi
+            if da < -pi:
+                da += 2 * pi
+            p = self.parts[i]
+            p.length = dp.to_2d().length
+            p.dz = dp.z
+            p.a0 = da
+            a0 += da
+            p0 = p1
+
+    def relocate_childs(self, context, o, g):
+        """
+         Override this method to synch childs when changes are done
+        """
+        return 
+        
+    def after_reverse(self, context, o):
+        self.auto_update = True
+            
+    def reverse(self, context, o):
+            
+        g = self.get_generator(o)
+        
+        # 2nd check for fences
+        if not self.closed and len(g.segs) > self.n_parts:
+            g.segs.pop()
+
+        s_type = [p.type for p in self.parts]
+        g_segs = [s.oposite for s in reversed(g.segs)]
+        
+        self.auto_update = False
+        
+        last = None
+        for i, s in enumerate(g_segs):
+            p = self.parts[i]
+            p.type = s_type[i]
+            if "C_" in s_type[i]:
+                p.radius = s.r
+                p.da = s.da
+            else:
+                p.length = s.length
+            if last is None:
+                p.a0 = s.a0
+            else:
+                p.a0 = s.delta_angle(last)
+            last = s
+        
+        # location wont change when closed
+        if not self.closed:
+            self.move_object(o, g_segs[0].p0)
+        
+        self.after_reverse(context, o)
+        
+    def update_path(self, context):
+        """
+         Handle curve Io
+         including multiple splines
+        """
+        path = self.get_scene_object(context, self.user_defined_path)
+        if path is not None and path.type == 'CURVE':
+            splines = path.data.splines
+            if len(splines) > self.user_defined_spline:
+                self.from_spline(
+                    context,
+                    path.matrix_world,
+                    self.user_defined_resolution,
+                    splines[self.user_defined_spline])
+
+    def setup_parts_manipulators(self, z_prop='z'):
+        """
+         z_prop: prop name of dumb or real z size for placeholder
+                 when drawing wall snap manipulator
+        """
+        for i, p in enumerate(self.parts):
+            n_manips = len(p.manipulators)
+            if n_manips < 1:
+                s = p.manipulators.add()
+                s.type_key = "ANGLE"
+                s.prop1_name = "a_ui"
+            if n_manips < 2:
+                s = p.manipulators.add()
+                s.type_key = "SIZE"
+                s.prop1_name = "l_ui"
+            if n_manips < 3:
+                s = p.manipulators.add()
+                s.type_key = 'WALL_SNAP'
+                s.prop1_name = str(i)
+                s.prop2_name = z_prop
+            if n_manips < 4:
+                s = p.manipulators.add()
+                s.type_key = 'DUMB_STRING'
+                s.prop1_name = str(i + 1)
+
+            p.manipulators[2].prop1_name = str(i)
+            p.manipulators[2].type_key = 'WALL_SNAP'
+            p.manipulators[3].prop1_name = str(i + 1)
+
+    def add_part(self, context, length):
+        self.manipulable_disable(context)
+        self.auto_update = False
+        p = self.parts.add()
+        p.length = length
+        if not self.always_closed:
+            self.parts.move(len(self.parts) - 1, self.n_parts)
+            p = self.parts[self.n_parts]
+        self.n_parts += 1
+        self.setup_manipulators()
+        self.auto_update = True
+        return p
+
+    def before_insert_part(self, context, o, g):
+        return
+
+    def after_insert_part(self, context, o, where, distance):
+        """
+         Rebuild childs index and location
+         When removing a part
+         Override in objects synch childs
+        """
+        return
+
+    def insert_part(self, context, o, where):
+
+        # disable manipulate as we are changing structure
+        self.manipulable_disable(context)
+        self.auto_update = False
+
+        g = self.get_generator()
+        length = g.segs[where].length / 2
+
+        # detect childs location
+        self.before_insert_part(context, o, g)
+
+        # the part we do split
+        part_0 = self.parts[where]
+        typ = part_0.type
+        # length = part_0.length / 2
+        da = part_0.da / 2
+
+        part_0.length = length
+        part_0.da = da
+
+        part_1 = self.parts.add()
+        part_1.type = typ
+        part_1.length = length
+        part_1.da = da
+        part_1.a0 = 0
+
+        # move after current one
+        self.n_parts += 1
+        self.parts.move(len(self.parts) - 1, where + 1)
+
+        self.after_insert_part(context, o, where, length)
+
+        self.setup_manipulators()
+        self.auto_update = True
+    
+    def before_remove_part(self, context, o, g):
+        return
+
+    def after_remove_part(self, context, o, where, distance):
+        return
+
+    def remove_part(self, context, o, where):
+
+        if self.n_parts < 2 or where < 1:
+            return
+
+        # disable manipulate as we are changing structure
+        self.manipulable_disable(context)
+        self.auto_update = False
+
+        g = self.get_generator()
+
+        # detect childs location
+        self.before_remove_part(context, o, g)
+
+        # preserve shape
+        # using generator
+        w = g.segs[where - 1]
+        part = self.parts[where - 1]
+
+        # length of merged segment
+        # to be added to childs of [where]
+        length = w.length
+
+        w.p1 = g.segs[where].p1
+
+        if where + 1 < self.n_parts:
+            self.parts[where + 1].a0 = g.segs[where + 1].delta_angle(w)
+
+        if "C_" in part.type:
+            part.radius = w.r
+        else:
+            part.length = w.length
+
+        if where > 1:
+            part.a0 = w.delta_angle(g.segs[where - 2])
+        else:
+            part.a0 = w.straight(1, 0).angle
+
+        self.after_remove_part(context, o, where, length)
+
+        self.parts.remove(where)
+        self.n_parts -= 1
+
+        # fix snap manipulators index
+        self.setup_manipulators()
+        self.auto_update = True
+        
+    def update_parts(self):
+
+        # For some reason floors dosent follow the + 1 rule ??
+
+        # flag indicate parts change
+        changed = False
+
+        # when object is .always_closed
+        # n_parts match real parts count
+        n_parts = self.n_parts
+        if not self.always_closed:
+            # otherwhise n_parts is 1 part less than real parts count
+            n_parts += 1
+
+        # remove parts
+        for i in range(len(self.parts), n_parts, -1):
+            changed = True
+            self.parts.remove(i - 1)
+
+        # add missing parts
+        for i in range(len(self.parts), n_parts):
+            changed = True
+            self.parts.add()
+
+        for p in self.parts:
+            if p.uid == 0:
+                self.create_uid(p)
+
+        self.setup_manipulators()
+
+        return changed
+
+    def template_user_path(self, context, layout):
+        """
+         Draw from curve in ui
+        """
         layout.label(text="From curve")
         row = layout.row(align=True)
         if self.user_defined_path != "":
-            op = row.operator("archipack.profile_edit", text="", icon="EDITMODE_HLT")
+            op = row.operator("archipack.curve_edit", text="", icon="EDITMODE_HLT")
             op.curve_name = self.user_defined_path
             op.update_func_name = "update_path"
             row.operator(
@@ -204,13 +534,60 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
                 ).update_func_name = "update_path"
         row.prop_search(self, "user_defined_path", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
 
-        if self.user_defined_path is not "":
+        if self.user_defined_path != "":
             layout.prop(self, 'user_defined_resolution')
 
+    def template_parts(self, context, layout, draw_type=False):
+        """
+         Draw parts in ui
+        """
+        box = layout.box()
+        row = box.row(align=True)
+
+        if self.parts_expand:
+            row.prop(self, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Segments", emboss=False)
+
+            row.prop(self, "n_parts", text="")
+            if not self.always_closed:
+                box.prop(self, "closed")
+                box.operator("archipack.path_reverse", icon='FILE_REFRESH')
+                
+            n_parts = self.n_parts
+            if self.closed or self.always_closed:
+                n_parts += 1
+
+            for i, part in enumerate(self.parts):
+                if i < n_parts:
+                    box = layout.box()
+                    part.draw(context, box, i, draw_type=draw_type)
+
+        else:
+            row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Segments", emboss=False)
+
+            
+class ARCHIPACK_OT_path_reverse(ArchipackGenericOperator, Operator):
+    bl_idname = "archipack.path_reverse"
+    bl_label = "Reverse"
+    bl_description = "Reverse parts order"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            o = context.active_object
+            d = self.datablock(o)
+            if d is None:
+                return {'CANCELLED'}
+            d.reverse(context, o)
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+            
 
 class ArchipackProfileManager(ArchipackCurveManager):
     """
-     IO for user defined profiles
+     IO thumbs and .json files for user defined profiles
     """
     def _round_co(self, co, prec):
         return (round(co.x, prec), round(co.y, prec), round(co.z, prec))
@@ -380,7 +757,7 @@ class ArchipackProfileManager(ArchipackCurveManager):
 
 
 def update(self, context):
-    o = context.scene.objects.get(self.user_profile)
+    o = ArchipackObjectsManager.get_scene_object(self, context, self.user_profile)
     if o and o.type == 'CURVE':
         self.auto_update = False
         sx, sy = self._curve_bound_box(o.data)
@@ -418,6 +795,12 @@ class ArchipackProfile(ArchipackProfileManager):
         description="Profile filename without extension",
         name="Save"
         )
+    profile_expand = BoolProperty(
+        options={'SKIP_SAVE'},
+        default=False,
+        description="Expand panel display",
+        name="Expand"
+        )
 
     def refresh_profile_size(self, x, y):
         """
@@ -433,13 +816,13 @@ class ArchipackProfile(ArchipackProfileManager):
     def load_profile(self, context, update=False):
         if self.user_profile_filename is None:
             return None
-        o = context.scene.objects.get(self.user_profile)
+        o = ArchipackObjectsManager.get_scene_object(self, context, self.user_profile)
         curve, x, y = self.load_curve(self.user_profile_filename)
         if curve:
             if o is None:
                 o = bpy.data.objects.new(curve.name, curve)
                 o.show_name = True
-                context.scene.objects.link(o)
+                ArchipackObjectsManager.link_object_to_scene(self, context, o)
                 self.user_profile_savename = o.name
             else:
                 d = o.data
@@ -459,17 +842,20 @@ class ArchipackProfile(ArchipackProfileManager):
     def update_profile(self, context):
         if self.user_profile == "":
             return
-        o = context.scene.objects.get(self.user_profile)
+        o = ArchipackObjectsManager.get_scene_object(self, context, self.user_profile)
         if o is None:
             o = self.load_profile(context)
         return o
 
-    def draw_user_profile(self, context, layout):
+    def draw_user_profile(self, context, layout, update_func_name="update"):
         # layout.prop(self, 'user_profile_filename')
+
         layout.template_icon_view(self, "user_profile_filename", show_labels=True, scale=5)
         row = layout.row(align=True)
         if self.user_profile != "":
-            row.operator("archipack.profile_edit", text="", icon="EDITMODE_HLT").curve_name = self.user_profile
+            op = row.operator("archipack.profile_edit", text="", icon="EDITMODE_HLT")
+            op.curve_name = self.user_profile
+            op.update_func_name = update_func_name
             row.operator("archipack.object_update", text="", icon="FILE_REFRESH")
         row.prop_search(self, "user_profile", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
 
@@ -481,7 +867,7 @@ class ArchipackProfile(ArchipackProfileManager):
             op.preset_name = self.user_profile_savename
 
 
-class ARCHIPACK_OT_object_update(Operator):
+class ARCHIPACK_OT_object_update(ArchipackGenericOperator, Operator):
     bl_idname = "archipack.object_update"
     bl_label = "Update"
     bl_description = "Update object"
@@ -493,65 +879,49 @@ class ARCHIPACK_OT_object_update(Operator):
         default="update"
         )
 
-    @classmethod
-    def poll(self, context):
-        return context.active_object is not None
-
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        row.label("Use Properties panel (N) to define parms", icon='INFO')
-
-    def update(self, context, o, key):
-        if o.data and key in o.data:
-            context.scene.objects.active = o
-            try:
-                d = getattr(o.data, key)[0]
-                getattr(d, self.update_func_name)(context)
-            except:
-                pass
+    def update(self, context, o):
+        last_state = self.is_selected(o)
+        self.select_object(context, o, True)
+        d = self.datablock(o)
+        try:
+            getattr(d, self.update_func_name)(context)
+        except:
+            pass
+        if last_state:
+            self.select_object(context, o)
+        else:
+            self.unselect_object(o)
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
             sel = context.selected_objects
-            if o:
-                for key in o.data.keys():
-                    if "archipack_" in key:
-                        self.update(context, o, key)
-                        for c in sel:
-                            self.update(context, c, key)
-                o.select = True
-                context.scene.objects.active = o
-            else:
-                self.report({'WARNING'}, "Object not found")
-                return {'CANCELLED'}
+            for c in sel:
+                self.update(context, c)
+            self.select_object(context, o, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_profile_edit(Operator):
-    bl_idname = "archipack.profile_edit"
+class ARCHIPACK_OT_curve_edit(ArchipackGenericOperator, Operator):
+    bl_idname = "archipack.curve_edit"
     bl_label = "Edit"
-    bl_description = "Edit a profile curve"
+    bl_description = "Edit a curve"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
     update_func_name = StringProperty(
         description="Update function name",
         default="update"
         )
     curve_name = StringProperty(
-        description="Profile curve name",
+        description="Curve name",
         default=""
         )
 
     object_name = None
     wm = None
-
-    @classmethod
-    def poll(self, context):
-        return context.active_object is not None
 
     def modal(self, context, event):
 
@@ -559,18 +929,15 @@ class ARCHIPACK_OT_profile_edit(Operator):
             bpy.ops.object.mode_set(mode="OBJECT")
 
         if context.mode != 'EDIT_CURVE':
-            o = context.scene.objects.get(self.object_name)
+            o = self.get_scene_object(context, self.object_name)
             if o and self.update_func_name != "":
-                for key in o.data.keys():
-                    if "archipack_" in key:
-                        bpy.ops.object.select_all(action="DESELECT")
-                        o.select = True
-                        context.scene.objects.active = o
-                        try:
-                            d = getattr(o.data, key)[0]
-                            getattr(d, self.update_func_name)(context)
-                        except:
-                            pass
+                d = self.datablock(o)
+                if d:
+                    try:
+                        self.select_object(context, o, True)
+                        getattr(d, self.update_func_name)(context)
+                    except:
+                        pass
             self.wm.restore()
             return {'FINISHED'}
 
@@ -579,14 +946,13 @@ class ARCHIPACK_OT_profile_edit(Operator):
     def invoke(self, context, event):
         if context.space_data is not None and context.space_data.type == 'VIEW_3D':
             self.object_name = context.active_object.name
-            o = context.scene.objects.get(self.curve_name)
-            if o:
+            o = self.get_scene_object(context, self.curve_name)
+            if o and o.type == 'CURVE':
                 self.wm = ViewManager(context)
                 self.wm.save()
                 self.wm.safe_ortho_view(max(o.dimensions.x, o.dimensions.y), o.matrix_world.translation)
                 bpy.ops.object.select_all(action="DESELECT")
-                o.select = True
-                context.scene.objects.active = o
+                self.select_object(context, o, True)
                 bpy.ops.object.mode_set(mode="EDIT")
                 context.window_manager.modal_handler_add(self)
                 return {'RUNNING_MODAL'}
@@ -598,45 +964,47 @@ class ARCHIPACK_OT_profile_edit(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_profile_save(Operator):
+class ARCHIPACK_OT_profile_save(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.profile_save"
     bl_label = "Save"
     bl_description = "Save a profile curve"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     curve_name = StringProperty(
-        description="Profile curve name",
+        description="Curve object name",
         default=""
         )
     preset_name = StringProperty(
-        description="Preset name",
+        description="Preset file name without extension",
         default=""
         )
 
     @classmethod
     def poll(self, context):
-        return context.active_object is not None
+        return True
 
     def invoke(self, context, event):
         # if context.space_data is not None and context.space_data.type == 'VIEW_3D':
-        o = context.scene.objects.get(self.curve_name)
+        o = self.get_scene_object(context, self.curve_name)
         if o and o.type == 'CURVE':
             manager = ArchipackProfileManager()
             manager.save_curve(o, self.preset_name)
             return {'FINISHED'}
         else:
-            self.report({'WARNING'}, "Active space must be a View3d")
+            self.report({'WARNING'}, "Invalid curve")
             return {'CANCELLED'}
 
 
 def register():
-    bpy.utils.register_class(ARCHIPACK_OT_profile_edit)
+    bpy.utils.register_class(ARCHIPACK_OT_path_reverse)
+    bpy.utils.register_class(ARCHIPACK_OT_curve_edit)
     bpy.utils.register_class(ARCHIPACK_OT_object_update)
     bpy.utils.register_class(ARCHIPACK_OT_profile_save)
 
 
 def unregister():
-    bpy.utils.unregister_class(ARCHIPACK_OT_profile_edit)
+    bpy.utils.unregister_class(ARCHIPACK_OT_path_reverse)
+    bpy.utils.unregister_class(ARCHIPACK_OT_curve_edit)
     bpy.utils.unregister_class(ARCHIPACK_OT_object_update)
     bpy.utils.unregister_class(ARCHIPACK_OT_profile_save)
 

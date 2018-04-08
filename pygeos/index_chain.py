@@ -24,7 +24,7 @@
 # ----------------------------------------------------------
 
 
-from .constants import (
+from .shared import (
     Envelope,
     Quadrant
 )

@@ -950,11 +950,11 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
             d.angle = -pi / 200 * uniform(0, 100)
 
         # Link object into scene
-        context.scene.objects.link(o)
-
+        self.link_object_to_scene(context, o)
+        
         # select and make active
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
+        
 
         # Load preset into datablock
         self.load_preset(d)
@@ -968,8 +968,9 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
             o.location = bpy.context.scene.cursor_location
-            o.select = True
-            context.scene.objects.active = o
+            
+            # select and make active
+            self.select_object(context, o, True)
 
             # Start manipulate mode
             self.manipulate()
@@ -977,6 +978,13 @@ class ARCHIPACK_OT_blind(ArchipackCreateTool, Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
+
+
+class ARCHIPACK_OT_blind_preset_create(PresetMenuOperator, Operator):
+    """Show Blind presets and create object at cursor location"""
+    bl_idname = "archipack.blind_preset_create"
+    bl_label = "Blind preset"
+    preset_subdir = "archipack_blind"
 
 
 class ARCHIPACK_OT_blind_preset_menu(PresetMenuOperator, Operator):
@@ -1003,6 +1011,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_PT_blind)
     bpy.utils.register_class(ARCHIPACK_OT_blind)
     bpy.utils.register_class(ARCHIPACK_OT_blind_preset_menu)
+    bpy.utils.register_class(ARCHIPACK_OT_blind_preset_create)
     bpy.utils.register_class(ARCHIPACK_OT_blind_preset)
 
 
@@ -1012,4 +1021,5 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_PT_blind)
     bpy.utils.unregister_class(ARCHIPACK_OT_blind)
     bpy.utils.unregister_class(ARCHIPACK_OT_blind_preset_menu)
+    bpy.utils.unregister_class(ARCHIPACK_OT_blind_preset_create)
     bpy.utils.unregister_class(ARCHIPACK_OT_blind_preset)

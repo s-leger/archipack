@@ -689,7 +689,7 @@ class ConvexHull():
     def computeOctRing(self, src, tgt) -> bool:
         self.computeOctPts(src, tgt)
         # Remove consecutive equal Coordinates
-        tmp = [co for i, co in enumerate(tgt) if i == 0 or co[i - 1] is not co[i]]
+        tmp = [co for i, co in enumerate(tgt) if i == 0 or tgt[i - 1] is not co]
         tgt.clear()
         tgt.extend(tmp)
         logger.debug("ConvexHull.computeOctRing() %s", [str(co) for co in tgt])
@@ -745,7 +745,7 @@ class ConvexHull():
         self.inputCoords.extend(reducedSet)
 
         if len(self.inputCoords) < 3:
-            self.pararray3(self.inputCoords)
+            self.padArray3(self.inputCoords)
 
     def padArray3(self, coords) -> None:
         for i in range(len(coords), 3):

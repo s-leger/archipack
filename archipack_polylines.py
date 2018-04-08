@@ -849,8 +849,8 @@ class SelectPolygons(Selectable):
             else:
                 self.complete(context)
                 self.feedback.instructions(context, "Select Polygons", "Click & Drag to select polygons in area", [
-                    ('SHIFT', 'deselect'),
-                    ('CTRL', 'contains'),
+                    ('SHIFT', 'Deselect'),
+                    ('CTRL', 'Contains'),
                     ('A', 'All'),
                     ('I', 'Inverse'),
                     ('B', 'Bigger than current'),
@@ -1383,13 +1383,13 @@ class Io():
         gf = GeometryFactory()
         itM = self.coordsys.invert * tM
         coords = [[itM * Vector(co) for co in coords] for coords in lines_coords]
-        
+
         if force_2d:
             for co in coords:
-            # make coords planar
+                # make coords planar
                 for p in co:
                     p.z = 0
-        
+
         out = []
         for i, co in enumerate(coords):
             co = CoordinateSequence._removeRepeatedPoints(co)
@@ -1419,13 +1419,13 @@ class Io():
         coords = [shell]
         if holes is not None:
             coords.extend([[itM * Vector(co) for co in hole] for hole in holes])
-        
+
         if force_2d:
             for co in coords:
                 # make coords planar
                 for p in co:
                     p.z = 0
-        
+
         for i, co in enumerate(coords):
             co = CoordinateSequence._removeRepeatedPoints(co)
             if co[0] != co[-1]:
@@ -2719,7 +2719,7 @@ class ARCHIPACK_OP_PolyLib_Polygonize(Operator):
     bl_idname = "archipack.polylib_polygonize"
     bl_label = "Detect"
     bl_description = "Detect polygons from unordered splines"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'INTERNAL'}
 
     extend = FloatProperty(
             name="Extend end",
@@ -2796,7 +2796,7 @@ class ARCHIPACK_OP_PolyLib_Offset(Operator):
     bl_idname = "archipack.polylib_offset"
     bl_label = "Offset"
     bl_description = "Offset lines (work best on open lines)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'PRESET', 'INTERNAL', 'UNDO'}
 
     bezier_resolution = IntProperty(
             name="Bezier resolution",
@@ -2892,7 +2892,7 @@ class ARCHIPACK_OP_PolyLib_Buffer(Operator):
     bl_idname = "archipack.polylib_buffer"
     bl_label = "Buffer"
     bl_description = "Buffer lines (when single sided, no full support for closed lines)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'PRESET', 'INTERNAL', 'UNDO'}
 
     bezier_resolution = IntProperty(
             name="Bezier resolution",
@@ -3006,7 +3006,7 @@ class ARCHIPACK_OP_PolyLib_Boolean(Operator):
     bl_idname = "archipack.polylib_boolean"
     bl_label = "Boolean"
     bl_description = "Boolean operation (limited to 2 objects at once - use Detect for multiple inputs)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
 
     opCode = EnumProperty(
         name="Operation",
@@ -3109,7 +3109,7 @@ class ARCHIPACK_OP_PolyLib_Simplify(Operator):
     bl_idname = "archipack.polylib_simplify"
     bl_label = "Simplify"
     bl_description = "Simplify lines"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'PRESET', 'INTERNAL', 'UNDO'}
 
     bezier_resolution = IntProperty(
             name="Bezier resolution",
@@ -3163,7 +3163,7 @@ class ARCHIPACK_OP_PolyLib_OutputPolygons(Operator):
     bl_idname = "archipack.polylib_output_polygons"
     bl_label = "Output Polygons"
     bl_description = "Output all polygons"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
 
     @classmethod
     def poll(self, context):
@@ -3182,7 +3182,7 @@ class ARCHIPACK_OP_PolyLib_OutputLines(Operator):
     bl_idname = "archipack.polylib_output_lines"
     bl_label = "Output lines"
     bl_description = "Output all lines"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
 
     @classmethod
     def poll(self, context):
@@ -3199,7 +3199,11 @@ class ARCHIPACK_OP_PolyLib_OutputLines(Operator):
 
 class archipack_polylib(PropertyGroup):
     bl_idname = 'archipack.polylib_parameters'
-    polygonize_expand = BoolProperty(default=False, description="Display polygonize tools")
+    polygonize_expand = BoolProperty(
+            default=True,
+            description="Display polygonize tools",
+            options={'SKIP_SAVE'}
+            )
     polygonize_extend = FloatProperty(
             name="Extend end",
             description="Extend line ends to closest intersecting segment",
@@ -3220,7 +3224,11 @@ class archipack_polylib(PropertyGroup):
             subtype='DISTANCE', unit='LENGTH', min=0
             )
 
-    offset_expand = BoolProperty(default=False, description="Display offset options")
+    offset_expand = BoolProperty(
+            default=False,
+            description="Display offset options",
+            options={'SKIP_SAVE'}
+            )
     offset_bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
@@ -3252,7 +3260,11 @@ class archipack_polylib(PropertyGroup):
             unit='LENGTH', min=0
             )
 
-    buffer_expand = BoolProperty(default=False, description="Display buffer options")
+    buffer_expand = BoolProperty(
+            default=False,
+            description="Display buffer options",
+            options={'SKIP_SAVE'}
+            )
     buffer_bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
@@ -3293,7 +3305,11 @@ class archipack_polylib(PropertyGroup):
             unit='LENGTH', min=0
             )
 
-    simplify_expand = BoolProperty(default=False, description="Display simplify options")
+    simplify_expand = BoolProperty(
+            default=False,
+            description="Display simplify options",
+            options={'SKIP_SAVE'}
+            )
     simplify_bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",
@@ -3310,7 +3326,11 @@ class archipack_polylib(PropertyGroup):
             default=False
             )
 
-    boolean_expand = BoolProperty(default=False, description="Display 2d boolean tools")
+    boolean_expand = BoolProperty(
+            default=False,
+            description="Display 2d boolean tools",
+            options={'SKIP_SAVE'}
+            )
     boolean_bezier_resolution = IntProperty(
             name="Bezier resolution",
             description="Input resolution for bezier curves",

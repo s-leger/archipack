@@ -207,11 +207,10 @@ class Geometry():
             'Polygon',
             'MultiPoint',
             'MultiLineString',
-            'MultiLinearRing',
             'MultiPolygon',
             'GeometryCollection'
             )[self.type_id]
-
+    
     @property
     def type_id(self):
         """

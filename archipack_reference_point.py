@@ -35,6 +35,7 @@ from bpy.props import (
     )
 from mathutils import Vector
 from .bmesh_utils import BmeshEdit as bmed
+from .archipack_object import ArchipackObjectsManager
 
 
 def update(self, context):
@@ -64,6 +65,12 @@ class archipack_reference_point(PropertyGroup):
             ('WALL', 'Wall', '', 0),
             ('ROOF', 'Roof', '', 1)),
         update=update)
+
+    @classmethod
+    def poll(cls, o):
+        return o and \
+            ArchipackObjectsManager.is_selected(cls, o) and \
+            archipack_reference_point.filter(o)
 
     @classmethod
     def filter(cls, o):
@@ -182,8 +189,7 @@ class ARCHIPACK_PT_reference_point(Panel):
 
     @classmethod
     def poll(cls, context):
-        o = context.active_object
-        return o.select and archipack_reference_point.filter(o)
+        return archipack_reference_point.poll(context.active_object)
 
     def draw(self, context):
         o = context.active_object
@@ -199,7 +205,7 @@ class ARCHIPACK_PT_reference_point(Panel):
         layout.prop(props, 'symbol_scale')
 
 
-class ARCHIPACK_OT_reference_point(Operator):
+class ARCHIPACK_OT_reference_point(ArchipackObjectsManager, Operator):
     """Add reference point"""
     bl_idname = "archipack.reference_point"
     bl_label = "Reference point"
@@ -234,21 +240,19 @@ class ARCHIPACK_OT_reference_point(Operator):
         m = bpy.data.meshes.new(name="Reference")
         o = bpy.data.objects.new("Reference", m)
         o.location = Vector((x, y, 0))
-        context.scene.objects.link(o)
+        self.link_object_to_scene(context, o)
         d = o.archipack_reference_point.add()
         d.location_2d = Vector((x, y, 0))
         d.location_3d = self.location_3d
         d.symbol_type = self.symbol_type
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
         d.update(context)
         return o
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = self.create(context)
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -294,7 +298,7 @@ class ARCHIPACK_OT_kill_archipack(Operator):
     def apply(self, context, objects):
 
         for o in objects:
-        
+
             keys = o.keys()
             for key in keys:
                 if "archipack_" in key:
@@ -307,16 +311,16 @@ class ARCHIPACK_OT_kill_archipack(Operator):
                         del o[key]
                     except:
                         pass
-                        
+
             if o.data is not None:
                 keys = o.data.keys()
                 for key in keys:
                     if "archipack_" in key:
                         o.data.property_unset(key)
-    
+
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event)
-    
+
     def execute(self, context):
         if context.mode == "OBJECT":
 
@@ -331,8 +335,8 @@ class ARCHIPACK_OT_kill_archipack(Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-            
-            
+
+
 class ARCHIPACK_OT_move_to_2d(Operator):
     bl_idname = "archipack.move_to_2d"
     bl_label = "Move to 2d"
@@ -383,7 +387,7 @@ class ARCHIPACK_OT_store_2d_reference(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_move_2d_reference_to_cursor(Operator):
+class ARCHIPACK_OT_move_2d_reference_to_cursor(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.move_2d_reference_to_cursor"
     bl_label = "Change 2d"
     bl_description = "Change 2d reference position to cursor location without moving childs"
@@ -403,9 +407,9 @@ class ARCHIPACK_OT_move_2d_reference_to_cursor(Operator):
             bpy.ops.object.select_all(action="DESELECT")
             bpy.ops.archipack.reference_point(location_3d=props.location_3d)
             for child in o.children:
-                child.select = True
+                self.select_object(context, child)
             bpy.ops.archipack.parent_to_reference()
-            context.scene.objects.unlink(o)
+            self.delete_object(context, o)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -421,7 +425,8 @@ class ARCHIPACK_OT_parent_to_reference(Operator):
 
     @classmethod
     def poll(cls, context):
-        return archipack_reference_point.poll(context.active_object)
+        # filter only: reference point dosen't need to be selected
+        return archipack_reference_point.filter(context.active_object)
 
     def execute(self, context):
         if context.mode == "OBJECT":

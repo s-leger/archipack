@@ -131,7 +131,7 @@ class GlText(Gl):
             unit_type='SIZE',
             dimension=1,
             angle=0,
-            font_size=12,
+            font_size=14,
             colour=(1, 1, 1, 1),
             z_axis=Vector((0, 0, 1))):
         """

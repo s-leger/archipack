@@ -39,7 +39,11 @@ from math import sin, cos, pi, floor, acos
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
-from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_object import (
+    ArchipackCreateTool, 
+    ArchipackObject,
+    ArchipackObjectsManager
+    )
 from .archipack_polylines import Io
 from .archipack_dimension import DimensionProvider
 
@@ -2991,9 +2995,10 @@ class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
         m = bpy.data.meshes.new("Stair")
         o = bpy.data.objects.new("Stair", m)
         d = m.archipack_stair.add()
-        context.scene.objects.link(o)
-        o.select = True
-        context.scene.objects.active = o
+        # Link object into scene
+        self.link_object_to_scene(context, o)
+        # select and make active
+        self.select_object(context, o, True)
         self.load_preset(d)
         self.add_material(o)
         m.auto_smooth_angle = 0.20944
@@ -3007,8 +3012,7 @@ class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
             o.location = context.scene.cursor_location
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
             self.manipulate()
             return {'FINISHED'}
         else:
@@ -3016,7 +3020,7 @@ class ARCHIPACK_OT_stair(ArchipackCreateTool, Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_stair_to_curve(Operator):
+class ARCHIPACK_OT_stair_to_curve(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.stair_to_curve"
     bl_label = "To curve"
     bl_description = "Create curve from stairs"
@@ -3054,8 +3058,7 @@ class ARCHIPACK_OT_stair_to_curve(Operator):
             res = io._to_curve(geom, "{}-{}".format(o.name, self.mode.lower()), '3D')
             if self.mode in {'FENCE', 'HOLE'}:
                 res.location.z = d.height
-            res.select = True
-            context.scene.objects.active = res
+            self.select_object(context, res)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -3067,6 +3070,13 @@ class ARCHIPACK_OT_stair_to_curve(Operator):
 # ------------------------------------------------------------------
 
 
+class ARCHIPACK_OT_stair_preset_create(PresetMenuOperator, Operator):
+    bl_description = "Show Stairs presets and create object at cursor location"
+    bl_idname = "archipack.stair_preset_create"
+    bl_label = "Stair style"
+    preset_subdir = "archipack_stair"
+
+    
 class ARCHIPACK_OT_stair_preset_menu(PresetMenuOperator, Operator):
     bl_description = "Show Stairs Presets"
     bl_idname = "archipack.stair_preset_menu"
@@ -3095,6 +3105,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_stair_to_curve)
     bpy.utils.register_class(ARCHIPACK_OT_stair_preset_menu)
     bpy.utils.register_class(ARCHIPACK_OT_stair_preset)
+    bpy.utils.register_class(ARCHIPACK_OT_stair_preset_create)
 
 
 def unregister():
@@ -3107,3 +3118,4 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_to_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset_menu)
     bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset)
+    bpy.utils.unregister_class(ARCHIPACK_OT_stair_preset_create)

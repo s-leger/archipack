@@ -308,7 +308,7 @@ class ARCHIPACK_PT_truss(Panel):
 class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
     bl_idname = "archipack.truss"
     bl_label = "Truss"
-    bl_description = "Create Truss"
+    bl_description = "Create Truss at cursor location"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -318,9 +318,12 @@ class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
         d = m.archipack_truss.add()
         # make manipulators selectable
         # d.manipulable_selectable = True
-        context.scene.objects.link(o)
-        o.select = True
-        context.scene.objects.active = o
+        # Link object into scene
+        self.link_object_to_scene(context, o)
+        
+        # select and make active
+        self.select_object(context, o, True)
+        
         self.load_preset(d)
         self.add_material(o)
         m.auto_smooth_angle = 1.15
@@ -334,8 +337,8 @@ class ARCHIPACK_OT_truss(ArchipackCreateTool, Operator):
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
             o.location = bpy.context.scene.cursor_location
-            o.select = True
-            context.scene.objects.active = o
+            # select and make active
+            self.select_object(context, o, True)
             self.manipulate()
             return {'FINISHED'}
         else:

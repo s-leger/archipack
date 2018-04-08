@@ -129,7 +129,14 @@ class BmeshEdit():
     def _verts(bm, verts):
         for i, v in enumerate(verts):
             bm.verts[i].co = v
-
+    
+    @staticmethod
+    def emptymesh(context, o):
+        bm = BmeshEdit._start(context, o)
+        bm.clear()
+        BmeshEdit.ensure_bmesh(bm)
+        BmeshEdit._end(bm, o)
+        
     @staticmethod
     def buildmesh(context, o, verts, faces,
             matids=None, uvs=None, weld=False,

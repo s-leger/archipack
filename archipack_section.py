@@ -45,7 +45,7 @@ def update(self, context):
     self.update(context)
 
 
-class ArchipackSectionManager():
+class ArchipackSectionManager(ArchipackObjectsManager):
     """
      A class to manage sections
      as solid surfaces or curves
@@ -63,16 +63,16 @@ class ArchipackSectionManager():
             calc_undeformed=False)
         o = bpy.data.objects.new("Temp", m)
         o.matrix_world = src.matrix_world.copy()
-        context.scene.objects.link(o)
-
-        if as_tri:
-            o.select = True
-            context.scene.objects.active = o
+        # Link object into scene
+        self.link_object_to_scene(context, o)
+        
+        if as_tri:        
+            self.select_object(context, o, True)
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
             bpy.ops.object.mode_set(mode='OBJECT')
-            o.select = False
+            self.unselect_object(o)
 
         return o
 
@@ -133,8 +133,10 @@ class ArchipackSectionManager():
         objs = [self.as_mesh(context, o) for o in sel]
 
         for o in objs:
-            o.select = True
-            context.scene.objects.active = o
+        
+            # select and make active
+            self.select_object(context, o, True)
+            
             if o.data and len(o.data.edges) > 0:
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.select_all(action='SELECT')
@@ -149,15 +151,18 @@ class ArchipackSectionManager():
                 bpy.ops.object.mode_set(mode='OBJECT')
 
         for o in objs:
-            o.select = True
-
+            # select and make active
+            self.select_object(context, o)
+            
         # create a placeholder mesh to join other into
         m = bpy.data.meshes.new("Section")
         o = bpy.data.objects.new("Section", m)
-        scene.objects.link(o)
-
-        o.select = True
-        scene.objects.active = o
+        # Link object into scene
+        self.link_object_to_scene(context, o)
+        
+        # select and make active
+        self.select_object(context, o, True)
+        
         bpy.ops.object.join()
 
         o = context.active_object
@@ -192,13 +197,15 @@ class ArchipackSectionManager():
                 rem = old.data
                 old.data = o.data
                 # remove newly created object
-                scene.objects.unlink(o)
+                self.unlink_object_from_scene(context, o)
                 bpy.data.curves.remove(rem)
                 o = old
             else:
                 o.location = loc
 
-            context.scene.objects.active = o
+            # select and make active
+            self.select_object(context, o, True)
+        
             d = archipack_section_target.datablock(o)
 
             if d is None:
@@ -253,7 +260,7 @@ class ArchipackSectionManager():
         sel.extend([
             c for c in context.scene.objects
             if c.type == 'MESH' and
-            not c.hide and
+            not self.is_hidden(c) and
             not c.hide_render and
             c.name != o.name and
             not archipack_section_target.filter(c) and
@@ -312,7 +319,8 @@ class archipack_section_target(ArchipackObject, DimensionProvider, PropertyGroup
             text = bpy.data.curves.new(o.name, type='FONT')
             text.dimensions = '2D'
             t_o = bpy.data.objects.new(o.name, text)
-            context.scene.objects.link(t_o)
+            # Link object into scene
+            self.link_object_to_scene(context, t_o)
             t_o.parent = o
 
         t_o.location = center
@@ -430,7 +438,9 @@ class archipack_section(ArchipackObject, ArchipackSectionManager, Manipulable, P
             text = bpy.data.curves.new(o.name, type='FONT')
             text.dimensions = '2D'
             t_o = bpy.data.objects.new(o.name, text)
-            context.scene.objects.link(t_o)
+            # Link object into scene
+            self.link_object_to_scene(context, t_o)
+        
             t_o.parent = o
 
         t_o.location = center
@@ -530,8 +540,10 @@ class archipack_section_camera(ArchipackObject, ArchipackSectionManager, Propert
         tM = self.get_objects(context, o, sel)
         last_o = context.scene.objects.get(self.section_name)
         new_o = self.generate_section(context, sel, tM, clip_x, clip_y)
-        context.scene.objects.active = new_o
-
+        
+        # select and make active
+        self.select_object(context, new_o, True)
+        
         d = new_o.archipack_section_target.add()
         d.source_name = src_name
         self.section_name = new_o.name
@@ -704,12 +716,11 @@ class ARCHIPACK_OT_section(ArchipackCreateTool, Operator):
         d = c.archipack_section.add()
 
         # Link object into scene
-        context.scene.objects.link(o)
-
+        self.link_object_to_scene(context, o)
+        
         # select and make active
-        o.select = True
-        context.scene.objects.active = o
-
+        self.select_object(context, o, True)
+        
         # Load preset into datablock
         self.load_preset(d)
 
@@ -741,9 +752,10 @@ class ARCHIPACK_OT_section(ArchipackCreateTool, Operator):
                     o.matrix_world = act.matrix_world.copy()
                 else:
                     o.location = bpy.context.scene.cursor_location
-                o.select = True
-                context.scene.objects.active = o
-
+                
+                # select and make active
+                self.select_object(context, o, True)
+        
                 # Start manipulate mode
                 self.manipulate()
             return {'FINISHED'}
@@ -773,11 +785,11 @@ class ARCHIPACK_OT_section_camera(ArchipackCreateTool, Operator):
 
         d.archipack_section_camera.add()
 
-        context.scene.objects.link(o)
-
-        o.select = True
-        context.scene.objects.active = o
-
+        # Link object into scene
+        self.link_object_to_scene(context, o)
+        
+        # select and make active
+        self.select_object(context, o, True)
         return o
 
     def delete(self, context, o):
@@ -797,16 +809,15 @@ class ARCHIPACK_OT_section_camera(ArchipackCreateTool, Operator):
             else:
                 o = self.create(context)
                 o.location = bpy.context.scene.cursor_location
-                o.select = True
-                context.scene.objects.active = o
-
+                # select and make active
+                self.select_object(context, o, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_section_update(Operator):
+class ARCHIPACK_OT_section_update(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.section_update"
     bl_label = "Update"
     bl_description = "Create / update Section"
@@ -826,9 +837,9 @@ class ARCHIPACK_OT_section_update(Operator):
                 o = context.scene.objects.get(d.source_name)
                 if o:
                     src = o
-                    src.select = True
-                    context.scene.objects.active = src
-
+                    # select and make active
+                    self.select_object(context, src, True)
+                    
             if archipack_section.filter(src):
                 d = archipack_section.datablock(src)
 
@@ -837,19 +848,20 @@ class ARCHIPACK_OT_section_update(Operator):
                 d = archipack_section_camera.datablock(src)
 
             if d:
-                src.select = True
-                context.scene.objects.active = src
+                self.select_object(context, src, True)
                 dst = d.update_section(context)
 
-            src.select = False
+            self.unselect_object(src)
             if dst and select_new:
-                dst.select = True
-                context.scene.objects.active = dst
+                # select and make active
+                self.select_object(context, dst, True)
+        
             else:
                 if dst:
-                    dst.select = False
-                act.select = True
-                context.scene.objects.active = act
+                    self.unselect_object(dst)
+                # select and make active
+                self.select_object(context, act, True)
+                
 
             return {'FINISHED'}
         else:
@@ -857,7 +869,7 @@ class ARCHIPACK_OT_section_update(Operator):
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_section_select(Operator):
+class ARCHIPACK_OT_section_select(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.section_select"
     bl_label = "Select section"
     bl_description = "Select section"
@@ -883,8 +895,10 @@ class ARCHIPACK_OT_section_select(Operator):
             o = context.scene.objects.get(obj_name)
             if o:
                 bpy.ops.object.select_all(action='DESELECT')
-                o.select = True
-                context.scene.objects.active = o
+                
+                # select and make active
+                self.select_object(context, o, True)
+        
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -950,8 +964,8 @@ class ARCHIPACK_OT_cross_section(ArchipackObjectsManager, Operator):
             act = context.active_object
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context, act)
-            o.select = True
-            context.scene.objects.active = o
+            # select and make active
+            self.select_object(context, o, True)            
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")

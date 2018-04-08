@@ -41,8 +41,14 @@ from .panel import Panel as DoorPanel
 from .archipack_handle import create_handle, door_handle_horizontal_01
 from .archipack_manipulator import Manipulable
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
-from .archipack_object import ArchipackObject, ArchipackCreateTool, ArchipackDrawTool
+from .archipack_object import (
+    ArchipackObject, 
+    ArchipackCreateTool, 
+    ArchipackDrawTool,
+    ArchipackObjectsManager
+    )
 from .archipack_gl import FeedbackPanel
+from .archipack_segments import OpeningGenerator
 from .archipack_keymaps import Keymaps
 from .archipack_dimension import DimensionProvider
 
@@ -620,7 +626,7 @@ class ARCHIPACK_PT_door_panel(Panel):
 # ------------------------------------------------------------------
 
 
-class ARCHIPACK_OT_door_panel(Operator):
+class ARCHIPACK_OT_door_panel(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.door_panel"
     bl_label = "Door model 1"
     bl_description = "Door model 1"
@@ -747,7 +753,9 @@ class ARCHIPACK_OT_door_panel(Operator):
         d.panels_x = self.panels_x
         d.panels_y = self.panels_y
         d.handle = self.handle
-        context.scene.objects.link(o)
+        # Link object into scene
+        self.link_object_to_scene(context, o)
+        
         o.lock_location[0] = True
         o.lock_location[1] = True
         o.lock_location[2] = True
@@ -756,8 +764,8 @@ class ARCHIPACK_OT_door_panel(Operator):
         o.lock_scale[0] = True
         o.lock_scale[1] = True
         o.lock_scale[2] = True
-        o.select = True
-        context.scene.objects.active = o
+        # select and make active
+        self.select_object(context, o, True)
         m = o.archipack_material.add()
         m.category = "door"
         m.material = self.material
@@ -771,15 +779,15 @@ class ARCHIPACK_OT_door_panel(Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            o.select = True
-            context.scene.objects.active = o
+            # select and make active
+            self.select_object(context, o, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
 
-class ARCHIPACK_OT_select_parent(Operator):
+class ARCHIPACK_OT_select_parent(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.select_parent"
     bl_label = "Edit parameters"
     bl_description = "Edit parameters located on parent"
@@ -793,10 +801,11 @@ class ARCHIPACK_OT_select_parent(Operator):
 
     def execute(self, context):
         if context.mode == "OBJECT":
-            if context.active_object is not None and context.active_object.parent is not None:
+            o = context.active_object
+            if o is not None and o.parent is not None:
                 bpy.ops.object.select_all(action="DESELECT")
-                context.active_object.parent.select = True
-                context.scene.objects.active = context.active_object.parent
+                # select and make active
+                self.select_object(context, o.parent, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -1118,7 +1127,10 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         v = Vector((0, 0, 0))
         size = Vector((self.x, self.z, self.y))
         return self.frame.uv(16, v, v, size, v, 0, 0, 0, 0, path_type='RECTANGLE')
-
+    
+    def get_generator(self, o=None):
+        return OpeningGenerator(self, o)
+    
     def setup_manipulators(self):
         if len(self.manipulators) == 3:
             return
@@ -1229,7 +1241,8 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         for i, child in enumerate(childs):
             if order[i] < 0:
                 p = bpy.data.objects.new("DoorPanel", child.data)
-                context.scene.objects.link(p)
+                # Link object into scene
+                self.link_object_to_scene(context, p)
                 p.lock_location[0] = True
                 p.lock_location[1] = True
                 p.lock_location[2] = True
@@ -1264,7 +1277,7 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         if l_hole is None:
             l_hole = bpy.data.objects.new("hole", hole.data)
             l_hole['archipack_hole'] = True
-            context.scene.objects.link(l_hole)
+            self.link_object_to_scene(context, l_hole)
             l_hole.parent = linked
             l_hole.matrix_world = linked.matrix_world.copy()
             l_hole.location = hole.location.copy()
@@ -1276,8 +1289,8 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
             synch childs nodes of linked objects
         """
         bpy.ops.object.select_all(action='DESELECT')
-        o.select = True
-        context.scene.objects.active = o
+        # select and make active
+        self.select_object(context, o, True)
         childs = self.get_childs_panels(context, o)
         hole = self.find_hole(o)
         bpy.ops.object.select_linked(type='OBDATA')
@@ -1351,8 +1364,8 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
                 child.matrix_world = o.matrix_world.copy()
             else:
                 child = childs[child_n - 1]
-                child.select = True
-                context.scene.objects.active = child
+                # select and make active
+                self.select_object(context, child, True)
                 props = archipack_door_panel.datablock(child)
                 if props is not None:
                     props.x = x
@@ -1430,7 +1443,8 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         if hole_obj is None:
             m = bpy.data.meshes.new("hole")
             hole_obj = bpy.data.objects.new("hole", m)
-            context.scene.objects.link(hole_obj)
+            # Link object into scene
+            self.link_object_to_scene(context, hole_obj)
             hole_obj['archipack_hole'] = True
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
@@ -1478,8 +1492,8 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         for co in coords:
             self._add_spline(curve, co)
         curve_obj = bpy.data.objects.new(name, curve)
-        context.scene.objects.link(curve_obj)
-        curve_obj.select = True
+        self.link_object_to_scene(context, curve_obj)
+        self.select_object(context, curve_obj)
         return curve_obj
 
     def as_2d(self, context, o):
@@ -1770,9 +1784,11 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
         d.panels_x = self.panels_x
         d.panels_y = self.panels_y
         d.handle = self.handle
-        context.scene.objects.link(o)
-        o.select = True
-        context.scene.objects.active = o
+        # Link object into scene
+        self.link_object_to_scene(context, o)
+        
+        # select and make active
+        self.select_object(context, o, True)
         self.add_material(o)
         self.load_preset(d)
         o.select = True
@@ -1801,8 +1817,8 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                 if linked != o:
                     archipack_door.datablock(linked).update(context)
         bpy.ops.object.select_all(action="DESELECT")
-        o.select = True
-        context.scene.objects.active = o
+        # select and make active
+        self.select_object(context, o, True)
 
     def unique(self, context):
         act = context.active_object
@@ -1810,12 +1826,12 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
         bpy.ops.object.select_all(action="DESELECT")
         for o in sel:
             if archipack_door.filter(o):
-                o.select = True
+                self.select_object(context, o)
                 for child in o.children:
                     if 'archipack_hole' in child or (child.data is not None and
                        'archipack_door_panel' in child.data):
                         child.hide_select = False
-                        child.select = True
+                        self.select_object(context, child)
         if len(context.selected_objects) > 0:
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True,
                 obdata=True, material=False, texture=False, animation=False)
@@ -1824,8 +1840,11 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                     child.hide_select = True
         bpy.ops.object.select_all(action="DESELECT")
         context.scene.objects.active = act
+        
+        # select and make active
+        self.select_object(context, act, True)
         for o in sel:
-            o.select = True
+            self.select_object(context, o)
 
     def execute(self, context):
         if context.mode == "OBJECT":
@@ -1833,8 +1852,8 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                 bpy.ops.object.select_all(action="DESELECT")
                 o = self.create(context)
                 o.location = bpy.context.scene.cursor_location
-                o.select = True
-                context.scene.objects.active = o
+                # select and make active
+                self.select_object(context, o, True)
                 self.manipulate()
             elif self.mode == 'DELETE':
                 self.delete(context)
@@ -1878,32 +1897,33 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
 
         if archipack_door.filter(o):
 
-            o.select = True
-            context.scene.objects.active = o
+            # select and make active
+            self.select_object(context, o, True)
 
             if event.shift:
                 bpy.ops.archipack.door(mode="UNIQUE")
 
             new_w = o.copy()
             new_w.data = o.data
-            context.scene.objects.link(new_w)
+            self.link_object_to_scene(context, new_w)
             # instance subs
             for child in o.children:
                 if "archipack_hole" not in child:
                     new_c = child.copy()
                     new_c.data = child.data
                     new_c.parent = new_w
-                    context.scene.objects.link(new_c)
+                    self.link_object_to_scene(context, new_c)
                     # dup handle if any
                     for c in child.children:
                         new_h = c.copy()
                         new_h.data = c.data
                         new_h.parent = new_c
-                        context.scene.objects.link(new_h)
+                        self.link_object_to_scene(context, new_h)
 
             o = new_w
-            o.select = True
-            context.scene.objects.active = o
+            
+            # select and make active
+            self.select_object(context, o, True)
 
         else:
             bpy.ops.archipack.door(auto_manipulate=False, filepath=self.filepath)
@@ -1912,9 +1932,8 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
         self.object_name = o.name
 
         bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
-        o.select = True
-        context.scene.objects.active = o
-
+        self.select_object(context, o, True)
+        
     def modal(self, context, event):
 
         context.area.tag_redraw()
@@ -1935,12 +1954,12 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
             to_hide.append(hole)
 
         for obj in to_hide:
-            obj.hide = True
+            self.hide_object(obj)
 
         res, tM, wall, width, y, z_offset = self.mouse_hover_wall(context, event)
 
         for obj in to_hide:
-            obj.hide = False
+            self.show_object(obj)
 
         if res and d is not None:
             o.matrix_world = tM
@@ -1962,14 +1981,15 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
 
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
-                    context.scene.objects.active = wall
-                    wall.select = True
+                    # select and make active
+                    self.select_object(context, wall, True)
                     if bpy.ops.archipack.single_boolean.poll():
                         bpy.ops.archipack.single_boolean()
-                    wall.select = False
+                    self.unselect_object(wall)
                     # o must be a door here
-                    if d is not None:
-                        context.scene.objects.active = o
+                    if d is not None:                        
+                        # select and make active
+                        self.select_object(context, o, True)
                         self.stack.append(o)
                         self.add_object(context, event)
                         context.active_object.matrix_world = tM
@@ -1984,9 +2004,10 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
                 ):
             if len(self.stack) > 0:
                 last = self.stack.pop()
+                self.select_object(context, last, True)
                 context.scene.objects.active = last
                 bpy.ops.archipack.door(mode="DELETE")
-                context.scene.objects.active = o
+                self.select_object(context, o, True)
             return {'RUNNING_MODAL'}
 
         if event.value == 'RELEASE':
@@ -2012,9 +2033,9 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
                 o = context.active_object
             context.scene.objects.active = None
             bpy.ops.object.select_all(action="DESELECT")
-            if o is not None:
-                o.select = True
-                context.scene.objects.active = o
+            
+            # select and make active
+            self.select_object(context, o, True)
             self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
@@ -2039,6 +2060,13 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
 # Define operator class to load / save presets
 # ------------------------------------------------------------------
 
+
+class ARCHIPACK_OT_door_preset_draw(PresetMenuOperator, Operator):
+    bl_description = "Choose a preset and draw doors over wall"
+    bl_idname = "archipack.door_preset_draw"
+    bl_label = "Door Presets"
+    preset_subdir = "archipack_door"
+    
 
 class ARCHIPACK_OT_door_preset_menu(PresetMenuOperator, Operator):
     bl_description = "Show Doors presets"
@@ -2067,6 +2095,7 @@ def register():
     bpy.utils.register_class(archipack_door)
     Mesh.archipack_door = CollectionProperty(type=archipack_door)
     bpy.utils.register_class(ARCHIPACK_OT_door_preset_menu)
+    bpy.utils.register_class(ARCHIPACK_OT_door_preset_draw)
     bpy.utils.register_class(ARCHIPACK_PT_door)
     bpy.utils.register_class(ARCHIPACK_OT_door)
     bpy.utils.register_class(ARCHIPACK_OT_door_preset)
@@ -2082,6 +2111,7 @@ def unregister():
     bpy.utils.unregister_class(archipack_door)
     del Mesh.archipack_door
     bpy.utils.unregister_class(ARCHIPACK_OT_door_preset_menu)
+    bpy.utils.unregister_class(ARCHIPACK_OT_door_preset_draw)
     bpy.utils.unregister_class(ARCHIPACK_PT_door)
     bpy.utils.unregister_class(ARCHIPACK_OT_door)
     bpy.utils.unregister_class(ARCHIPACK_OT_door_preset)

@@ -35,14 +35,17 @@ from bpy_extras import view3d_utils
 from math import pi
 from mathutils import Vector, Matrix
 from mathutils.geometry import (
-    intersect_line_plane, 
-    intersect_point_line, 
-    intersect_line_sphere
+    intersect_line_plane
     )
 from .archipack_manipulator import Manipulable
 # from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_gl import FeedbackPanel, GlPolygon, SquareHandle, GlLine, GlText
-from .archipack_object import ArchipackObject, ArchipackDrawTool
+from .archipack_object import (
+    ArchipackObject,
+    ArchipackDrawTool,
+    ArchipackObjectsManager
+    )
+from .archipack_segments import OpeningGenerator
 from .archipack_keymaps import Keymaps
 from .archipack_dimension import DimensionProvider
 xAxis = Vector((1, 0, 0))
@@ -100,7 +103,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
     flip = BoolProperty(
         description="Flag store object orientation in wall",
         default=False
-        )   
+        )
     auto_update = BoolProperty(
         default=True,
         update=update,
@@ -118,7 +121,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
           apply delta to child location
         """
         d = archipack_custom_part.datablock(o)
-        
+
         # child location relative to parent
         loc = d.pivot_location.copy()
 
@@ -133,7 +136,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
             pivot.y = dy
         else:
             pivot.y = -dy
-        
+
         # delta for parent part
         loc += pivot
 
@@ -192,7 +195,10 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
             else:
                 for i, w in weights:
                     m.vertices[i].co += delta
-
+    
+    def get_generator(self, o=None):
+        return OpeningGenerator(self, o)
+    
     def setup_manipulators(self):
         if len(self.manipulators) > 0:
             return
@@ -243,8 +249,7 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
             update location relative to parent
         """
         bpy.ops.object.select_all(action='DESELECT')
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
         bpy.ops.object.select_linked(type='OBDATA')
         for linked in context.selected_objects:
             if linked != o:
@@ -265,16 +270,16 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
         dy = 0.5 * (self.y - last_y)
         dz = self.z - last_z
         da = self.altitude - o.bound_box[0][2]
-                
+
         new_size = Vector((self.x, self.y, self.z))
         parts.append(o)
 
         itM = o.matrix_world.inverted()
-        
+
         if da != 0:
             for v in o.data.vertices:
                 v.co.z += da
-        
+
         for c in parts:
             if self.x != last_x:
                 self.resize(context, c, "right", Vector((dx, 0, 0)))
@@ -284,11 +289,11 @@ class archipack_custom(ArchipackObject, Manipulable, DimensionProvider, Property
                 self.resize(context, c, "back", Vector((0, -dy, 0)))
             elif self.z != last_z:
                 self.resize(context, c, "top", Vector((0, 0, dz)))
-            
+
             # relocate child
             if o.name != c.name and (dx != 0 or dy != 0 or da != 0):
                 self.relocate(itM, c, dx, dy, self.altitude)
-            
+
         self.last_size = new_size
 
         x, y = 0.5 * self.x, 0.5 * self.y
@@ -347,7 +352,7 @@ class ARCHIPACK_PT_custom_part(Panel):
         layout.operator("archipack.select_parent")
 
 
-class ARCHIPACK_OT_make_custom(Operator):
+class ARCHIPACK_OT_make_custom(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.make_custom"
     bl_label = "Make Custom object"
     bl_description = "Add custom parametric ability to selection"
@@ -457,7 +462,7 @@ class ARCHIPACK_OT_make_custom(Operator):
             else:
                 g = o.vertex_groups[group_name]
             self.weight(o, g, itM[i], soft[i], limit[i])
-    
+
     def clear_parent_inverse(self, o):
         """
           Set matrix_parent_inverse to identity
@@ -469,7 +474,7 @@ class ARCHIPACK_OT_make_custom(Operator):
         o.matrix_world = tM.copy()
         o.matrix_parent_inverse = Matrix()
         o.matrix_local = itM
-    
+
     def create(self, context):
 
         act = context.active_object
@@ -484,22 +489,22 @@ class ARCHIPACK_OT_make_custom(Operator):
         center = act.matrix_world * (0.5 * bound)
         altitude = act.bound_box[0][2]
         itM = (Matrix.Translation(Vector((0, 0, altitude))) * act.matrix_world).inverted()
-            
+
         d.auto_update = False
         d.last_size = act.dimensions.copy()
         d.x = act.dimensions.x
         d.y = act.dimensions.y
         d.z = act.dimensions.z
         d.altitude = altitude
-        
+
         sel = [o for o in context.selected_objects if o.type == 'MESH']
         names = [o.name for o in sel]
         sel.extend([c for c in act.children if c.name not in names and c.type == 'MESH'])
-        
+
         for o in sel:
-                
+
             self.add_vertex_groups(o, d, center)
-            
+
             if o.name != act.name:
                 if archipack_custom.filter(o):
                     o.data.archipack_custom.remove(0)
@@ -508,15 +513,15 @@ class ARCHIPACK_OT_make_custom(Operator):
                 dc = archipack_custom_part.datablock(o)
                 dc.pivot_location = itM * o.matrix_world.translation
                 self.clear_parent_inverse(o)
-            
+
         d.auto_update = True
         return act
-       
+
     def check_hover(self):
         self.min.check_hover(self.mouse_pos)
         self.max.check_hover(self.mouse_pos)
         self.z.check_hover(self.mouse_pos)
-    
+
     def mouse_release(self, context, event):
         self.active = False
         self.check_hover()
@@ -533,23 +538,23 @@ class ARCHIPACK_OT_make_custom(Operator):
             if self.min.active:
                 pos_3d = self.get_pos3d(context)
                 dp = pos_3d - self.origin
-                
+
                 self.x_min = -min(self.x_max, dp.x)
                 self.y_min = -min(self.y_max, dp.y)
-                
+
             if self.max.active:
                 pos_3d = self.get_pos3d(context)
                 dp = pos_3d - self.origin
                 self.x_max = max(-self.x_min, dp.x)
                 self.y_max = max(-self.y_min, dp.y)
-                
+
             if self.z.active:
                 pos_3d = self.get_pos3d(context, normal=Vector((1, 0, 0)))
                 dp = pos_3d - self.origin
                 self.z_max = dp.z
         else:
             self.check_hover()
-    
+
     def mouse_press(self, context, event):
         if self.min.hover:
             self.active = True
@@ -559,8 +564,8 @@ class ARCHIPACK_OT_make_custom(Operator):
             self.max.active = True
         elif self.z.hover:
             self.active = True
-            self.z.active = True  
-                
+            self.z.active = True
+
     def get_pos3d(self, context, normal=Vector((0, 0, 1))):
         """
             convert mouse pos to 3d point over plane defined by origin and normal
@@ -577,11 +582,11 @@ class ARCHIPACK_OT_make_custom(Operator):
             pt = intersect_line_plane(ray_origin_mouse, ray_origin_mouse + view_vector_mouse,
                 self.origin, view_vector_mouse, False)
         return pt
-    
+
     def modal(self, context, event):
-        
+
         context.area.tag_redraw()
-        
+
         if event.type == 'MOUSEMOVE':
             self.mouse_move(context, event)
 
@@ -589,21 +594,21 @@ class ARCHIPACK_OT_make_custom(Operator):
 
             if event.type == 'LEFTMOUSE':
                 self.mouse_press(context, event)
-                
+
             elif event.type in {'ESC', 'RIGHTMOUSE'}:
                 if self.active:
                     self.mouse_release(context, event)
                 self.create(context)
-                bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')        
+                bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
                 return {'FINISHED'}
-        
+
         elif event.value == 'RELEASE':
 
             if event.type == 'LEFTMOUSE':
                 self.mouse_release(context, event)
-            
+
         return {'PASS_THROUGH'}
-    
+
     def draw_handler(self, _self, context):
         p0 = self.origin + Vector((-self.x_min, -self.y_min, 0))
         p2 = self.origin + Vector((self.x_max, self.y_max, 0))
@@ -614,50 +619,50 @@ class ARCHIPACK_OT_make_custom(Operator):
         self.min.set_pos(context, p0, xAxis)
         self.max.set_pos(context, p2, xAxis)
         self.z.set_pos(context, pz, zAxis, normal=yAxis)
-        
+
         self.line_xmin.p = Vector((self.pmin.x, self.origin.y - self.y_min, self.pmin.z))
         self.line_xmax.p = Vector((self.pmin.x, self.origin.y + self.y_max, self.pmin.z))
         self.line_ymin.p = Vector((self.origin.x - self.x_min, self.pmin.y, self.pmin.z))
         self.line_ymax.p = Vector((self.origin.x + self.x_max, self.pmin.y, self.pmin.z))
         self.line_z.p = Vector((self.pmin.x, self.origin.y, self.origin.z + self.z_max))
-        
+
         cy = 0.5 * (self.y_max - self.y_min)
         cx = 0.5 * (self.x_max - self.x_min)
         self.text_xmin.set_pos(context, None, self.origin + Vector((-self.x_min - 0.1, cy, 0)), xAxis)
         self.text_xmax.set_pos(context, None, self.origin + Vector((self.x_max + 0.1, cy, 0)), xAxis)
         self.text_ymin.set_pos(context, None, self.origin + Vector((cx, -self.y_min - 0.1, 0)), xAxis)
         self.text_ymax.set_pos(context, None, self.origin + Vector((cx, self.y_max + 0.1, 0)), xAxis)
-        self.text_z.set_pos(context, None, self.origin + Vector((0, 0, self.z_max + 0.1)), xAxis, normal=yAxis)       
-        
+        self.text_z.set_pos(context, None, self.origin + Vector((0, 0, self.z_max + 0.1)), xAxis, normal=yAxis)
+
         self.line_xmin.draw(context)
         self.line_xmax.draw(context)
         self.line_ymin.draw(context)
         self.line_ymax.draw(context)
         self.line_z.draw(context)
-        
+
         self.text_xmin.draw(context)
         self.text_xmax.draw(context)
         self.text_ymin.draw(context)
         self.text_ymax.draw(context)
         self.text_z.draw(context)
-        
+
         self.rect.draw(context)
         self.min.draw(context)
         self.max.draw(context)
         self.z.draw(context)
-        
+
     def invoke(self, context, event):
         o = context.active_object
         p0 = Vector(o.bound_box[0])
         p1 = Vector(o.bound_box[7])
         bound = p0 + p1
-        
+
         self.x_min = 0.5 * o.dimensions.x
         self.x_max = 0.5 * o.dimensions.x
         self.y_min = 0.5 * o.dimensions.y
         self.y_max = 0.5 * o.dimensions.y
         self.z_max = 0.5 * o.dimensions.z
-        
+
         sensor_size = 10
         size = 0.05
         self.active = False
@@ -668,7 +673,7 @@ class ARCHIPACK_OT_make_custom(Operator):
         self.min = SquareHandle(sensor_size, size, draggable=True)
         self.max = SquareHandle(sensor_size, size, draggable=True)
         self.z = SquareHandle(sensor_size, size, draggable=True)
-        
+
         p0 = o.matrix_world * p0
         p2 = o.matrix_world * p1
         p1 = Vector((p2.x, p0.y, p0.z))
@@ -676,25 +681,25 @@ class ARCHIPACK_OT_make_custom(Operator):
         pz = self.origin + Vector((0, 0, self.z_max))
         pz0 = self.origin + Vector((-self.x_min, 0, self.z_max))
         pz1 = self.origin + Vector((self.x_max, 0, self.z_max))
-        
+
         self.line_xmin = GlLine(p0=p0, p1=p1)
         self.line_xmax = GlLine(p0=p3, p1=p2)
         self.line_ymin = GlLine(p0=p0, p1=p3)
         self.line_ymax = GlLine(p0=p1, p1=p2)
         self.line_z = GlLine(p0=pz0, p1=pz1)
-        
+
         self.line_xmin.colour_inactive = (1, 0, 0, 1)
         self.line_xmax.colour_inactive = (1, 0, 0, 1)
         self.line_ymin.colour_inactive = (0, 1, 0, 1)
         self.line_ymax.colour_inactive = (0, 1, 0, 1)
         self.line_z.colour_inactive = (0, 0, 1, 1)
-        
+
         self.text_xmin = GlText(label="Left", colour=(0, 1, 0, 1), font_size=16)
         self.text_xmax = GlText(label="Right", colour=(0, 1, 0, 1), font_size=16)
         self.text_ymin = GlText(label="Front", colour=(1, 0, 0, 1), font_size=16)
         self.text_ymax = GlText(label="Back", colour=(1, 0, 0, 1), font_size=16)
         self.text_z = GlText(label="Top", colour=(0, 0, 1, 1), font_size=16, z_axis=yAxis)
-        
+
         cy = 0.5 * (self.y_max - self.y_min)
         cx = 0.5 * (self.x_max - self.x_min)
         self.text_xmin.set_pos(context, None, self.origin + Vector((-self.x_min - 0.1, cy, 0)), xAxis)
@@ -702,29 +707,28 @@ class ARCHIPACK_OT_make_custom(Operator):
         self.text_ymin.set_pos(context, None, self.origin + Vector((cx, -self.y_min - 0.1, 0)), xAxis)
         self.text_ymax.set_pos(context, None, self.origin + Vector((cx, self.y_max + 0.1, 0)), xAxis)
         self.text_z.set_pos(context, None, self.origin + Vector((0, 0, self.z_max + 0.1)), xAxis, normal=yAxis)
-        
+
         self.min.set_pos(context, p0, xAxis)
         self.max.set_pos(context, p1, xAxis)
         self.z.set_pos(context, pz, zAxis, normal=yAxis)
         self.rect.set_pos([p0, p1, p2, p3])
-        
+
         args = (self, context)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_handler,
                 args, 'WINDOW', 'POST_PIXEL')
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
-        
+
     def execute(self, context):
         if context.mode == "OBJECT":
             o = self.create(context)
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-          
-            
+
+
 class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
     bl_idname = "archipack.custom_draw"
     bl_label = "Draw Custom"
@@ -756,27 +760,21 @@ class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
 
         if archipack_custom.filter(o):
 
-            o.select = True
-            context.scene.objects.active = o
-
-            # instance subs
-            o.select = False
+            self.select_object(context, o, True)
 
             # copy when shift pressed
             o = self.duplicate_object(context, o, not event.shift)
 
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
 
         self.object_name = o.name
 
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
 
     def modal(self, context, event):
 
         context.area.tag_redraw()
-        o = context.scene.objects.get(self.object_name)
+        o = self.get_scene_object(context, self.object_name)
 
         if o is None:
             return {'FINISHED'}
@@ -805,15 +803,15 @@ class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
 
-                    wall.select = True
-                    context.scene.objects.active = wall
+                    self.select_object(context, wall, True)
                     if bpy.ops.archipack.single_boolean.poll():
                         bpy.ops.archipack.single_boolean()
 
-                    wall.select = False
+                    self.unselect_object(wall)
+
                     # o must be a custom here
                     if d is not None:
-                        context.scene.objects.active = o
+                        self.select_object(context, o, True)
                         self.stack.append(o)
                         self.add_object(context, event)
                         context.active_object.matrix_world = tM
@@ -828,9 +826,9 @@ class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
                 ):
             if len(self.stack) > 0:
                 last = self.stack.pop()
-                context.scene.objects.active = last
+                self.select_object(context, last, True)
                 self.delete_object(context, last)
-                context.scene.objects.active = o
+                self.select_object(context, o, True)
             return {'RUNNING_MODAL'}
 
         if event.value == 'RELEASE':
@@ -855,9 +853,7 @@ class ARCHIPACK_OT_custom_draw(ArchipackDrawTool, Operator):
             o = context.active_object
             context.scene.objects.active = None
             bpy.ops.object.select_all(action="DESELECT")
-            if o is not None:
-                o.select = True
-                context.scene.objects.active = o
+            self.select_object(context, o, True)
             self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a custom", "Click & Drag over a wall", [

@@ -32,6 +32,7 @@ from bpy.types import (
 from bpy.props import (
     EnumProperty, BoolProperty
     )
+from .archipack_object import ArchipackObjectsManager
 
 
 # Store animated objects for current session
@@ -71,22 +72,21 @@ def archipack_animation_updater(dummy):
     if len(animated) > 0:
         context = bpy.context
         scene = context.scene
-        act = scene.objects.active
+        act = scene.active_object
         sel = context.selected_objects[:]
         for name in animated:
             o = scene.objects.get(name)
             if o and o.archipack_animation:
                 d = getattr(o.data, animated[name])[0]
-                o.select = True
-                scene.objects.active = o
+                ArchipackObjectsManager.select_object(None, context, o, True)
                 d.update(context)
-                o.select = False
+                ArchipackObjectsManager.unselect_object(None, o)
         for o in sel:
-            o.select = True
-        scene.objects.active = act
+            ArchipackObjectsManager.select_object(None, context, o)
+        ArchipackObjectsManager.select_object(None, context, act, True)
 
 
-class ARCHIPACK_OT_animation(Operator):
+class ARCHIPACK_OT_animation(ArchipackObjectsManager, Operator):
     bl_idname = "archipack.animation"
     bl_label = "Animation"
     bl_description = "Manage animation support for object parameters (Add / Remove / Clear)"
@@ -143,7 +143,7 @@ class ARCHIPACK_OT_animation(Operator):
             self.disable_animation(sel)
 
         elif self.mode == 'CLEAR':
-            sel = context.scene.objects
+            sel = self.get_scene_objects(context)
             self.disable_animation(sel)
             archipack_animation_onunload(None)
 

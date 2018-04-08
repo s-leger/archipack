@@ -64,6 +64,7 @@
 import bpy
 from bpy.types import Operator
 from mathutils import Vector, Matrix
+from .archipack_object import ArchipackObjectsManager
 import logging
 logger = logging.getLogger("archipack")
 
@@ -152,7 +153,7 @@ def snap_point(takeloc=None,
     return SnapStore.helper
 
 
-class ArchipackSnapBase():
+class ArchipackSnapBase(ArchipackObjectsManager):
     """
         Helper class for snap Operators
         store and restore context
@@ -203,9 +204,9 @@ class ArchipackSnapBase():
         context.space_data.pivot_point = SnapStore.pivot_point
         context.space_data.transform_orientation = SnapStore.trans_orientation
         for o in SnapStore.sel:
-            o.select = True
+            self.select_object(context, o)
         if SnapStore.act is not None:
-            context.scene.objects.active = SnapStore.act
+            self.select_object(context, SnapStore.act, True)
 
     def set_transform_orientation(self, context):
         """
@@ -224,8 +225,8 @@ class ArchipackSnapBase():
         """
         helper = bpy.data.objects.get('Archipack_snap_helper')
         if helper is not None:
-            if context.scene.objects.find('Archipack_snap_helper') < 0:
-                context.scene.objects.link(helper)
+            if self.get_scene_object(context, 'Archipack_snap_helper') is None:
+                self.link_object_to_scene(context, helper)
         else:
             bpy.ops.object.add(type='MESH')
             helper = context.active_object
@@ -235,8 +236,7 @@ class ArchipackSnapBase():
         # hide snap helper
         # helper.hide = True
         helper.matrix_world = SnapStore.helper_matrix
-        helper.select = True
-        context.scene.objects.active = helper
+        self.select_object(context, helper, True)
         SnapStore.helper = helper
 
     def destroy_helper(self, context):
@@ -245,7 +245,7 @@ class ArchipackSnapBase():
             currently only support OBJECT mode
         """
         if SnapStore.helper is not None:
-            context.scene.objects.unlink(SnapStore.helper)
+            self.unlink_object_from_scene(context, SnapStore.helper)
             SnapStore.helper = None
 
     @property

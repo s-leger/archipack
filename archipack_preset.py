@@ -172,7 +172,7 @@ class SeekBox(GlText, GlHandle):
 
 
 class PresetMenuItem():
-    
+
     def __init__(self, thumbsize, preset, image=None):
         name = bpy.path.display_name_from_filepath(preset)
         self.preset = preset
@@ -186,11 +186,11 @@ class PresetMenuItem():
             if key not in self.handle.label.label:
                 return False
         return True
-    
+
     def cleanup(self):
         self.image.gl_free()
         bpy.data.images.remove(self.image)
-    
+
     def set_pos(self, context, pos):
         self.handle.set_pos(context, pos)
 
@@ -218,7 +218,7 @@ class ThumbsMan():
         self.imageList = []
         self.file_list = []
         self.scan_files(category)
-        
+
     def make_file_list(self, category, presets_path, skip_dict):
         if os.path.exists(presets_path):
             for file_name in os.listdir(presets_path):
@@ -247,39 +247,38 @@ class ThumbsMan():
         presets_path = os.path.join(dir_path, sub_path)
         self.make_file_list(category, presets_path, skip_dict)
         self.file_list.sort()
-        
-    
+
         for image in bpy.data.images:
             if image.filepath_raw in self.imageList:
                 # image.user_clear()
                 bpy.data.images.remove(image, do_unlink=True)
         self.imageList.clear()
 
-               
+
 class PresetMenu(ThumbsMan):
 
     keyboard_type = {
             'BACK_SPACE', 'DEL',
             'LEFT_ARROW', 'RIGHT_ARROW'
             }
-    
+
     def __init__(self, context, category, thumbsize=Vector((150, 100)), format='.py'):
-        
+
         self.thumbsize = thumbsize
-        
+
         if USE_ICONMANAGER:
             self.menuItems = [
                 PresetMenuItem(self.thumbsize, full_path[:-4] + format, icon)
                 for full_path, label, icon in icons.menuitems(category)
                 ]
-        else:   
+        else:
             ThumbsMan.__init__(self, context, category, format)
             self.menuItems = []
             self.default_image = None
             self.load_default_image()
             for filepath in self.file_list:
                 self.make_menuitem(filepath)
-            
+
         self.margin = 50
         self.y_scroll = 0
         self.scroll_max = 1000
@@ -293,15 +292,15 @@ class PresetMenu(ThumbsMan):
 
         self.border.closed = True
         self.set_pos(context)
-    
+
     def clearImages(self):
         for item in self.menuItems:
             item.cleanup()
-            
+
     @property
     def is_empty(self):
         return len(self.menuItems) == 0
-    
+
     def load_default_image(self):
         img_idx = bpy.data.images.find("missing.png")
         if img_idx > -1:
@@ -324,7 +323,7 @@ class PresetMenu(ThumbsMan):
             image = bpy.data.images.load(filepath=filepath + '.png')
         if image is None:
             image = self.default_image
-        
+
         item = PresetMenuItem(self.thumbsize, filepath + self.format, image)
         self.menuItems.append(item)
 
@@ -411,13 +410,13 @@ class PresetMenu(ThumbsMan):
 
 
 class PresetMenuOperator():
-
+    bl_options = {'INTERNAL'}
     preset_operator = StringProperty(
         options={'SKIP_SAVE'},
         default="script.execute_preset"
     )
     cursor_location = None
-    
+
     def __init__(self):
         self.menu = None
         self._handle = None
@@ -504,10 +503,10 @@ class PresetMenuOperator():
             # call preset_operator
             # allow start drawing linked copy of active object
             o = context.active_object
-            
+
             # store cursor location as left click event in menu move it while pass_through
             self.cursor_location = context.scene.cursor_location.copy()
-            
+
             self.disable = False
 
             if (o and o.data and

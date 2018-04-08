@@ -249,7 +249,7 @@ class archipack_layout(ArchipackObject, Manipulable, PropertyGroup):
             text = bpy.data.curves.new(name, type='FONT')
             text.dimensions = '2D'
             t_o = bpy.data.objects.new(name, text)
-            context.scene.objects.link(t_o)
+            self.link_object_to_scene(context, t_o)
             t_o.parent = o
 
         t_o.location = location
@@ -362,11 +362,9 @@ class ARCHIPACK_OT_layout(ArchipackCreateTool, Operator):
         d = c.archipack_layout.add()
 
         # Link object into scene
-        context.scene.objects.link(o)
-
+        self.link_object_to_scene(context, o)
         # select and make active
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
 
         # Load preset into datablock
         self.load_preset(d)
@@ -383,8 +381,7 @@ class ARCHIPACK_OT_layout(ArchipackCreateTool, Operator):
             o = self.create(context)
             x, y, z = bpy.context.scene.cursor_location
             o.location = Vector((x, y, 0))
-            o.select = True
-            context.scene.objects.active = o
+            self.select_object(context, o, True)
 
             # Start manipulate mode
             self.manipulate()

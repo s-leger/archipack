@@ -27,15 +27,22 @@
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, atan2, sqrt, acos
 import bpy
+import copy
 # allow to draw parts with gl for debug puropses
 from .archipack_gl import GlBaseLine
 
-
+"""
 class Projection(GlBaseLine):
 
     def __init__(self):
         GlBaseLine.__init__(self)
-
+      
+"""
+class Projection():
+    
+    def __init__(self):
+        pass
+        
     def proj_xy(self, t, next=None):
         """
             length of projection of sections at crossing line / circle intersections
@@ -120,7 +127,8 @@ class Line(Projection):
 
     @property
     def copy(self):
-        return Line(self.p.copy(), self.v.copy())
+        return copy.deepcopy(self)
+    
 
     @property
     def p0(self):
@@ -179,11 +187,16 @@ class Line(Projection):
 
     @property
     def reversed(self):
-        return Line(self.p, -self.v)
+        s = self.copy
+        s.v = -self.v
+        return s
 
     @property
     def oposite(self):
-        return Line(self.p + self.v, -self.v)
+        s = self.copy
+        s.p += self.v
+        s.v = -self.v
+        return s
 
     @property
     def cross_z(self):
@@ -303,7 +316,9 @@ class Line(Projection):
             Return a new line
             offset > 0 on the right part
         """
-        return Line(self.p + offset * self.cross_z.normalized(), self.v)
+        s = self.copy
+        s.p += offset * self.cross_z.normalized()
+        return s
 
     def tangeant(self, t, da, radius):
         p = self.lerp(t)
@@ -337,12 +352,13 @@ class Line(Projection):
 
     def tangeant_unit_vector(self, t):
         return self.v.normalized()
-
+    
+    """
     def as_curve(self, context):
-        """
+        
             Draw Line with open gl in screen space
             aka: coords are in pixels
-        """
+        
         curve = bpy.data.curves.new('LINE', type='CURVE')
         curve.dimensions = '2D'
         spline = curve.splines.new('POLY')
@@ -356,7 +372,8 @@ class Line(Projection):
         curve_obj = bpy.data.objects.new('LINE', curve)
         context.scene.objects.link(curve_obj)
         curve_obj.select = True
-
+    """
+    
     def make_offset(self, offset, last=None):
         """
             Return offset between last and self.
@@ -479,7 +496,11 @@ class Arc(Circle):
         self.line = None
         self.a0 = a0
         self.da = da
-
+    
+    @property
+    def copy(self):
+        return copy.deepcopy(self)
+    
     @property
     def angle(self):
         """
@@ -571,7 +592,7 @@ class Arc(Circle):
         self.r2 = self.r * self.r
         dp = p0 - self.c
         self.a0 = atan2(dp.y, dp.x)
-
+    
     @property
     def length(self):
         """
@@ -586,7 +607,10 @@ class Arc(Circle):
             a0 -= 2 * pi
         if a0 < -pi:
             a0 += 2 * pi
-        return Arc(self.c, self.r, a0, -self.da)
+        s = self.copy
+        s.da = -self.da
+        s.a0 = a0
+        return s
 
     def normal(self, t=0):
         """
@@ -670,7 +694,9 @@ class Arc(Circle):
             radius = self.r + offset
         else:
             radius = self.r - offset
-        return Arc(self.c, radius, self.a0, self.da)
+        s = self.copy
+        s.radius = radius
+        return s
 
     def tangeant(self, t, length):
         """
@@ -734,7 +760,16 @@ class Arc(Circle):
         dp = p0 - self.c
         self.a0 = atan2(dp.y, dp.x)
         return self
-
+    
+    def scale(self, radius):
+        """
+            Scale keeping p0
+        """
+        p0 = self.p0
+        self.c = p0 + radius * (self.c - p0).normalized()
+        self.r = radius
+        self.r2 = self.r * self.r
+        
     # make offset for line / arc, arc / arc
     def make_offset(self, offset, last=None):
 
@@ -825,12 +860,13 @@ class Arc(Circle):
         n_pts = max(1, int(round(abs(self.da) / pi * 30, 0)))
         t_step = 1 / n_pts
         return [self.lerp(i * t_step).to_3d() for i in range(n_pts + 1)]
-
+    
+    """
     def as_curve(self, context):
-        """
+        
             Draw 2d arc with open gl in screen space
             aka: coords are in pixels
-        """
+        
         curve = bpy.data.curves.new('ARC', type='CURVE')
         curve.dimensions = '2D'
         spline = curve.splines.new('POLY')
@@ -842,9 +878,9 @@ class Arc(Circle):
             x, y = p
             spline.points[i].co = (x, y, 0, 1)
         curve_obj = bpy.data.objects.new('ARC', curve)
-        context.scene.objects.link(curve_obj)
-        curve_obj.select = True
-
+        self.link_object_to_scene(context, curve_obj)
+        self.select_object(context, curve_obj)
+    """
 
 class Line3d(Line):
     """

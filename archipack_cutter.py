@@ -25,29 +25,27 @@
 # Cutter / CutAble shared by roof, slab, and floor
 # ----------------------------------------------------------
 from mathutils import Vector, Matrix
-from mathutils.geometry import interpolate_bezier
-from math import cos, sin, pi, atan2
 import bmesh
 from random import uniform
 from bpy.props import (
-    FloatProperty, IntProperty, BoolProperty,
-    StringProperty, EnumProperty
+    FloatProperty, BoolProperty,
+    EnumProperty
     )
 from .archipack_2d import Line
 from .archipack_curveman import ArchipackUserDefinedPath
-from .archipack_segment import Segment, Generator
+from .archipack_segments import StraightSegment, Generator, ArchipackSegment
 
 
-class CutterSegment(Segment):
+class CutterSegment(StraightSegment):
 
-    def __init__(self, p, v, type='DEFAULT'):
-        Segment.__init__(self, p, v)
-        self.type = type
+    def __init__(self, p, v, side_type='DEFAULT'):
+        StraightSegment.__init__(self, p, v)
+        self.side_type = side_type
         self.is_hole = True
 
     @property
     def copy(self):
-        return CutterSegment(self.p.copy(), self.v.copy(), self.type)
+        return CutterSegment(self.p.copy(), self.v.copy(), self.side_type)
 
     def straight(self, length, t=1):
         s = self.copy
@@ -69,26 +67,34 @@ class CutterSegment(Segment):
 
 
 class CutterGenerator(Generator):
-
-    def __init__(self, d):
-        Generator.__init__(self, d)
+    """
+      Generator for cutter objects
+    """
+    def __init__(self, d, o=None):
+        Generator.__init__(self, d, o)
         self.operation = d.operation
-        
+
     def add_part(self, part):
 
         if len(self.segs) < 1:
-            s = None
+            last = None
         else:
-            s = self.segs[-1]
-
+            last = self.segs[-1]
+        
+        if hasattr(part, "side_type"):
+            side_type = part.side_type
+        else:
+            side_type = 'DEFAULT'
+        
         # start a new Cutter
-        if s is None:
-            v = part.length * Vector((cos(part.a0), sin(part.a0)))
-            s = CutterSegment(Vector((0, 0)), v, part.type)
+        if last is None:
+            p = self.location
+            v = (self.rot * Vector((part.length, 0, 0))).to_2d()
         else:
-            s = s.straight(part.length).rotate(part.a0)
-            s.type = part.type
-
+            p = last.p1
+            v = last.v.normalized() * part.length
+        
+        s = CutterSegment(p, v, side_type).rotate(part.a0)
         self.segs.append(s)
 
     def locate_manipulators(self):
@@ -97,7 +103,7 @@ class CutterGenerator(Generator):
         else:
             side = 1
         Generator.locate_manipulators(self, side=side)
-    
+
     def get_index(self, index):
         n_segs = len(self.segs)
         if index >= n_segs:
@@ -127,7 +133,7 @@ class CutterGenerator(Generator):
 
 class CutAblePolygon():
     """
-        Simple boolean operations
+        Simple boolean operations (mod 2 rule based)
         Cutable generator / polygon
         Object MUST have properties
         - segs
@@ -147,7 +153,7 @@ class CutAblePolygon():
             else:
                 if s.line is None:
                     segs.append(s)
-                else: 
+                else:
                     segs.append(s.line)
         self.segs = segs
 
@@ -325,7 +331,7 @@ class CutAblePolygon():
         # find if either a cutter or
         # cutter intersects
         # (at least one point of any must be inside other one)
-        
+
         # find if all points of the object are inside cutter
         # so there is no need to cut when mode is intersection
         if keep_inside:
@@ -337,7 +343,7 @@ class CutAblePolygon():
                     break
             if not one_outside:
                 return True
-                
+
         # find a point of this pitch inside cutter
         for i, s in enumerate(f_segs):
             res = self.inside(s.p0, c_segs)
@@ -361,7 +367,7 @@ class CutAblePolygon():
                 # swap cutter / pitch so we start from cutter
                 slice_res = self.get_intersections(cutter, self, start, store, False)
                 break
-        
+
         # no points found at all
         if start < 0:
             # print("no pt inside")
@@ -390,17 +396,19 @@ class CutAblePolygon():
 
 
 class CutAbleGenerator(Generator):
-    
-    def __init__(self, d):
-        Generator.__init__(self, d)
+    """
+     Generator for cutable objects
+    """
+    def __init__(self, d, o=None):
+        Generator.__init__(self, d, o)
         self.holes = []
         self.convex = True
         self.xsize = 0
-        
+
     def limits(self):
         x_size = [s.p0.x for s in self.segs]
         self.xsize = max(x_size) - min(x_size)
- 
+
     def bissect(self, bm,
             plane_co,
             plane_no,
@@ -433,8 +441,8 @@ class CutAbleGenerator(Generator):
 
                 for s in hole.segs:
                     if s.length > 0:
-                        if s.type in o_keys:
-                            of = offset[s.type]
+                        if s.side_type in o_keys:
+                            of = offset[s.side_type]
                         else:
                             of = offset['DEFAULT']
                         n = s.sized_normal(0, 1).v
@@ -446,8 +454,8 @@ class CutAbleGenerator(Generator):
                 segs = []
                 for s in hole.segs:
                     if s.length > 0:
-                        if s.type in o_keys:
-                            of = offset[s.type]
+                        if s.side_type in o_keys:
+                            of = offset[s.side_type]
                         else:
                             of = offset['DEFAULT']
                         new_s = s.make_offset(of, new_s)
@@ -466,6 +474,7 @@ class CutAbleGenerator(Generator):
                         self.bissect(bm, s.p0.to_3d(), n.to_3d(), clear_outer=False)
                 # use hole boundary
                 segs = hole.segs
+
             if len(segs) > 0:
                 # when hole segs are found clear parts inside hole
                 f_geom = [f for f in bm.faces
@@ -482,8 +491,8 @@ class CutAbleGenerator(Generator):
         if has_offset:
             for s in cutable.segs:
                 if s.length > 0:
-                    if s.type in o_keys:
-                        of = offset[s.type]
+                    if s.side_type in o_keys:
+                        of = offset[s.side_type]
                     else:
                         of = offset['DEFAULT']
                     n = s.sized_normal(0, 1).v
@@ -502,61 +511,28 @@ class CutAbleGenerator(Generator):
                 bmesh.ops.delete(bm, geom=f_geom, context=5)
 
 
-def update_hole(self, context):
-    # update parent's only when manipulated
-    self.update(context, update_parent=True)
-
-
-class ArchipackCutterPart():
+class ArchipackCutterPart(ArchipackSegment):
     """
         Cutter segment PropertyGroup
-
         Childs MUST implements
-        -find_in_selection
-        Childs MUST define
-        -type EnumProperty
+        -get_datablock
     """
-    length = FloatProperty(
-            name="Length",
-            min=0.001,
-            default=2.0,
-            update=update_hole
-            )
-    a0 = FloatProperty(
-            name="Angle",
-            min=-2 * pi,
-            max=2 * pi,
-            default=0,
-            subtype='ANGLE', unit='ROTATION',
-            update=update_hole
-            )
-    offset = FloatProperty(
-            name="Offset",
-            min=0,
-            default=0,
-            update=update_hole
-            )
-    # DimensionProvider        
-    uid = IntProperty(default=0)
-    
-    def find_in_selection(self, context):
-        raise NotImplementedError
 
-    def draw(self, layout, context, index):
-        box = layout.box()
-        box.prop(self, "type", text=str(index + 1))
-        box.prop(self, "length")
-        # box.prop(self, "offset")
-        box.prop(self, "a0")
-
-    def update(self, context, update_parent=False):
-        props = self.find_in_selection(context)
-        if props is not None:
-            props.update(context, update_parent=update_parent)
+    def update(self, context, update_parent=True):
+        idx, o, d = self.find_datablock_in_selection(context)
+        if d is not None:
+            d.update(context, update_parent=update_parent)
 
 
 def update_operation(self, context):
-    self.reverse(context, make_ccw=(self.operation == 'INTERSECTION'))
+    o = self.find_in_selection(context, self.auto_update)
+    if o is None:
+        return
+    g = self.get_generator()
+    pts = [seg.p0.to_3d() for seg in g.segs]
+    if self.is_cw(pts) != (self.operation == 'INTERSECTION'):
+        return
+    self.reverse(context, o)
 
 
 def update_path(self, context):
@@ -572,11 +548,7 @@ def update_manipulators(self, context):
 
 
 class ArchipackCutter(ArchipackUserDefinedPath):
-    n_parts = IntProperty(
-            name="Parts",
-            min=1,
-            default=1, update=update_manipulators
-            )
+
     z = FloatProperty(
             name="dumb z",
             description="Dumb z for manipulator placeholder",
@@ -596,142 +568,87 @@ class ArchipackCutter(ArchipackUserDefinedPath):
             default=True,
             update=update_manipulators
             )
-    # UI layout related
-    parts_expand = BoolProperty(
-            options={'SKIP_SAVE'},
-            default=False
-            )
     closed = BoolProperty(
-            description="keep closed to be wall snap manipulator compatible",
             options={'SKIP_SAVE'},
+            description="keep closed to be wall snap manipulator compatible",
             default=True
             )
+    always_closed = BoolProperty(
+            options={'SKIP_SAVE'},
+            name="Always closed geometry",
+            description="Flag indicate whenever geometry path is always closed",
+            default=True
+            )
+    offset = FloatProperty(
+            default=0,
+            name="Offset",
+            description="Lateral offset of cutter",
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
 
-    def draw(self, layout, context):
+    def draw(self, context, layout, draw_offset=False, draw_type=False):
         box = layout.box()
-        self.draw_user_path(box, context)
+        box.operator('archipack.manipulate', icon='HAND')
+        box.prop(self, 'operation', text="")
         box = layout.box()
-        row = box.row()
-        if self.parts_expand:
-            row.prop(self, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
-            box.prop(self, 'n_parts')
-            for i, part in enumerate(self.parts):
-                part.draw(layout, context, i)
-        else:
-            row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
-
-    def update_parts(self):
-        # print("update_parts")
-        # remove rows
-        # NOTE:
-        # n_parts+1
-        # as last one is end point of last segment or closing one
-        for i in range(len(self.parts), self.n_parts + 1, -1):
-            self.parts.remove(i - 1)
-
-        # add rows
-        for i in range(len(self.parts), self.n_parts + 1):
-            self.parts.add()
-        
-        for p in self.parts:
-            if p.uid == 0:
-                self.create_uid(p)
-                
-        self.setup_manipulators()
+        self.template_user_path(context, box)
+        if draw_offset:
+            box.prop(self, 'offset')
+        self.template_parts(context, layout, draw_type=draw_type)
 
     def update_parent(self, context):
         raise NotImplementedError
 
     def setup_manipulators(self):
-        for i in range(self.n_parts + 1):
-            p = self.parts[i]
-            n_manips = len(p.manipulators)
-            if n_manips < 1:
-                s = p.manipulators.add()
-                s.type_key = "ANGLE"
-                s.prop1_name = "a0"
-            if n_manips < 2:
-                s = p.manipulators.add()
-                s.type_key = "SIZE"
-                s.prop1_name = "length"
-            if n_manips < 3:
-                s = p.manipulators.add()
-                s.type_key = 'WALL_SNAP'
-                s.prop1_name = str(i)
-                s.prop2_name = 'z'
-            if n_manips < 4:
-                s = p.manipulators.add()
-                s.type_key = 'DUMB_STRING'
-                s.prop1_name = str(i + 1)
-            if n_manips < 5:
-                s = p.manipulators.add()
-                s.type_key = "SIZE"
-                s.prop1_name = "offset"
-            p.manipulators[2].prop1_name = str(i)
-            p.manipulators[3].prop1_name = str(i + 1)
+        self.setup_parts_manipulators('z')
 
-    def get_generator(self):
-        g = CutterGenerator(self)
-        for i, part in enumerate(self.parts):
+    def get_generator(self, o=None):
+        g = CutterGenerator(self, o)
+        for part in self.parts:
             g.add_part(part)
-        g.set_offset()
-        g.close()
+        g.set_offset(self.offset)
+        g.close(self.offset)
         return g
 
-    def ensure_direction(self):
+    def ensure_direction(self, o=None):
         # get segs ensure they are cw or ccw depending on operation
         # whatever the user do with points
-        g = self.get_generator()
+        g = self.get_generator(o)
         pts = [seg.p0.to_3d() for seg in g.segs]
         if self.is_cw(pts) != (self.operation == 'INTERSECTION'):
             return g
+        
         g.segs = [s.oposite for s in reversed(g.segs)]
+        
         return g
 
     def from_spline(self, context, wM, resolution, spline):
-        
+        o = self.find_in_selection(context, self.auto_update)
+        if o is None:
+            return
+
         pts = self.coords_from_spline(
-            spline, 
-            wM, 
-            resolution, 
-            ccw=(self.operation == 'INTERSECTION'), 
-            cw=(self.operation != 'INTERSECTION'), 
+            spline,
+            wM,
+            resolution,
+            ccw=(self.operation == 'INTERSECTION'),
+            cw=(self.operation != 'INTERSECTION'),
             close=True
             )
-        
+
+        if len(pts) < 3:
+            return
+
         # pretranslate
-        o = self.find_in_selection(context, self.auto_update)
         o.matrix_world = Matrix.Translation(pts[0].copy())
+        auto_update = self.auto_update
         self.auto_update = False
         self.from_points(pts)
-        self.auto_update = True
+        self.auto_update = auto_update
         self.update_parent(context, o)
-
-    def from_points(self, pts):
-
-        self.n_parts = len(pts) - 2
-
-        self.update_parts()
-
-        p0 = pts.pop(0)
-        a0 = 0
-        for i, p1 in enumerate(pts):
-            dp = p1 - p0
-            da = atan2(dp.y, dp.x) - a0
-            if da > pi:
-                da -= 2 * pi
-            if da < -pi:
-                da += 2 * pi
-            if i >= len(self.parts):
-                break
-            
-            p = self.parts[i]
-            p.length = dp.to_2d().length
-            p.dz = dp.z
-            p.a0 = da
-            a0 += da
-            p0 = p1
-
+    
+    """
     def reverse(self, context, make_ccw=False):
 
         o = self.find_in_selection(context, self.auto_update)
@@ -754,16 +671,11 @@ class ArchipackCutter(ArchipackUserDefinedPath):
 
         for i, type in enumerate(reversed(types)):
             self.parts[i].type = type
+    """
+    
+    def after_reverse(self, context, o):
         self.auto_update = True
         self.update_parent(context, o)
-
-    def update_path(self, context):
-        o = context.scene.objects.get(self.user_defined_path)
-        if o is not None and o.type == 'CURVE':
-            self.from_spline(context,
-                o.matrix_world,
-                self.user_defined_resolution,
-                o.data.splines[0])
 
     def make_surface(self, o, verts, edges):
         bm = bmesh.new()
@@ -776,7 +688,7 @@ class ArchipackCutter(ArchipackUserDefinedPath):
         bm.edges.ensure_lookup_table()
         bm.to_mesh(o.data)
         bm.free()
-    
+
     def get_coords(self):
         """
          return coordinates in object coordsys
@@ -785,8 +697,8 @@ class ArchipackCutter(ArchipackUserDefinedPath):
         verts = []
         g = self.get_generator()
         g.get_coords(verts)
-        return verts 
-        
+        return verts
+
     def update(self, context, manipulable_refresh=False, update_parent=False):
 
         o = self.find_in_selection(context, self.auto_update)
@@ -819,9 +731,9 @@ class ArchipackCutter(ArchipackUserDefinedPath):
         # update parent on direct edit
         if manipulable_refresh or update_parent:
             self.update_parent(context, o)
-        
+
         self.update_dimensions(context, o)
-        
+
         # restore context
         self.restore_context(context)
 
