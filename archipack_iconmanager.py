@@ -139,7 +139,7 @@ class IconsCollectionManager(dict):
             # so user is able to remove and override
             folders.append(os.path.join(
                 os.path.dirname(__file__),
-                "presets")
+                "presets"))
 
         for folder in folders:
             self.load(os.path.join(folder, category), category)
