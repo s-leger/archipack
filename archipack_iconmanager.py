@@ -123,7 +123,9 @@ class IconsCollectionManager(dict):
             files = [(os.path.join(folder, file), file) for file in os.listdir(folder)]
             print("load_presets", category, len(files), folder)
             self.add_files(files, category)
-
+        else:
+            print("load_presets folder not found:", category, folder)
+        
     def load_presets(self, category):
         """
          Load thumbs from archipack's preset dir,
@@ -136,9 +138,8 @@ class IconsCollectionManager(dict):
             # only load factory on startup
             # so user is able to remove and override
             folders.append(os.path.join(
-                os.path.dirname(os.path.realpath(__file__)),
-                "presets",
-                category))
+                os.path.dirname(__file__),
+                "presets")
 
         for folder in folders:
             self.load(os.path.join(folder, category), category)
