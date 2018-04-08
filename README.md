@@ -3,7 +3,7 @@
 Welcome to the ArchiPack repository.
 
 ## Video preview
-[![Preview](https://img.youtube.com/vi/OdXweTrZ6VY/0.jpg)](https://www.youtube.com/watch?v=OdXweTrZ6VY)
+[![Preview](https://img.youtube.com/vi/VtRJFbxFuFw/0.jpg)](https://www.youtube.com/watch?v=VtRJFbxFuFw)
 
 
 [Wiki Home](https://github.com/s-leger/archipack/wiki)   
