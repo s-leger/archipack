@@ -1055,6 +1055,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         # childs walls use projection of themself through seg_idx
         # how to handle wall's ends in the middle of nowhere -> only one closest
         # follow t dist rule also do this for slabs (balcony) !
+        
         if len(closest) > 1 or (seg_idx is not None and len(closest) > 0):
             closest.sort(key=lambda s: s[0])
             c = self.reloc_childs.add()
@@ -1066,7 +1067,15 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                 # use child segment (eg for wall projection)
                 c.d1, c.parent_name1, c.seg1 = 0, name, seg_idx
             else:
-                c.d1, c.parent_name1, c.seg1 = closest[1][1:4]
+                # try to exclude colinear segments
+                i = 1
+                p1, i1 = closest[0][2:4]
+                s0 = all_segs[p1][i1]
+                p2, i2 = closest[1][2:4]
+                while i < len(closest) and abs(all_segs[p2][i2].delta_angle(s0)) < 0.001:
+                    i += 1
+                    p2, i2 = closest[i][2:4]
+                c.d1, c.parent_name1, c.seg1 = closest[i][1:4]
             logger.debug("Multi {} c:{} p0:{} w0:{} p1:{} w1:{} d0:{} d1:{}".format(
                 name, c_idx, c.parent_name0, c.seg0, c.parent_name1, c.seg1, c.d0, c.d1
                 ))
@@ -1531,17 +1540,19 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                     s1 = generators[cd.parent_name1][2].segs[cd.seg1].offset(cd.d1)
                     # p in world coordsys
                     res, p, u, v = s0.intersect_ext(s1)
-                    
-                if cd.child_idx < n_segs:
-                    cg.segs[cd.child_idx].p0 = p
-                    if cd.child_idx > 0:
-                        cg.segs[cd.child_idx - 1].p1 = p
+                
+                # if intersection fails p = 0    
+                if p != 0:    
+                    if cd.child_idx < n_segs:
+                        cg.segs[cd.child_idx].p0 = p
+                        if cd.child_idx > 0:
+                            cg.segs[cd.child_idx - 1].p1 = p
+                        else:
+                            d.move_object(c, p.to_3d())
+                            # flag generator as dirty
+                            generators[name][4] = True
                     else:
-                        d.move_object(c, p.to_3d())
-                        # flag generator as dirty
-                        generators[name][4] = True
-                else:
-                    cg.segs[cd.child_idx - 1].p1 = p
+                        cg.segs[cd.child_idx - 1].p1 = p
 
             # update data from generator
             last = None
@@ -2443,10 +2454,10 @@ class ARCHIPACK_OT_wall2_from_slab(ArchipackObjectsManager, Operator):
         for part in wd.parts:
             p = d.parts.add()
             p.type = part.type
-            p.l = part.l
-            p.r = part.r
-            p.dangle = part.dangle
-            p.a = part.a
+            p.length = part.length
+            p.radius = part.radius
+            p.da = part.da
+            p.a0 = part.a0
         # select and make active
         self.select_object(context, o, True)
         

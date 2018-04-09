@@ -269,12 +269,15 @@ class Stair():
         t2, part, dz, shape = self.get_part(tr, "RIGHT")
         p1 = part.lerp(t2)
         v = (p1 - p0).normalized()
-        return Matrix([
+        tM = Matrix([
             [-v.y, v.x, 0, p0.x],
             [v.x, v.y, 0, p0.y],
             [0, 0, 1, 0],
             [0, 0, 0, 1]
-        ]).inverted()
+            ])
+        if v.x == 0 and v.y == 0:
+            return Matrix.Translation(p0.to_3d()).inverted()
+        return tM.inverted()
 
     def _make_nose(self, i, s, verts, faces, matids, uvs, nose_y):
         f = len(verts)
@@ -289,7 +292,7 @@ class Stair():
         # into uv space for horizontal parts of this step
         # so uv = (rM * vertex).to_2d()
         rM = self.get_proj_matrix(self, t, nose_y)
-
+        
         if self.z_mode == 'LINEAR':
             return rM
 

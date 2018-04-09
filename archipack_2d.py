@@ -695,7 +695,8 @@ class Arc(Circle):
         else:
             radius = self.r - offset
         s = self.copy
-        s.radius = radius
+        s.r = radius
+        s.r2 = radius ** 2
         return s
 
     def tangeant(self, t, length):

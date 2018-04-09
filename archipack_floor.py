@@ -1481,6 +1481,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             polys = [wall]
         for poly in polys:
             boundary = io._to_curve(poly.exterior, "{}-boundary".format(w.name), '2D')
+            boundary.location.z = w.matrix_world.translation.z - wd.z_offset
             bpy.ops.archipack.floor(auto_manipulate=False, filepath=self.filepath)
             o = context.active_object
             o.matrix_world = w.matrix_world.copy()
@@ -1488,7 +1489,6 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
                 o.parent = ref
             d = archipack_floor.datablock(o)
             d.auto_update = False
-            d.origin = wd.origin.copy()
             d.thickness = wd.z_offset
             d.user_defined_path = boundary.name
             self.delete_object(context, boundary)
@@ -1511,7 +1511,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             # select and make active
             self.select_object(context, o, True)
             d.auto_update = True
-            o.location.z -= wd.z_offset
+            
         return o
 
     def create(self, context):

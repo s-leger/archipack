@@ -197,11 +197,12 @@ class ARCHIPACK_PT_reference_point(Panel):
         if props is None:
             return
         layout = self.layout
-        if (o.location - props.location_2d).length < 0.01:
+        if (o.matrix_world.translation - props.location_2d).length < 0.01:
             layout.operator('archipack.move_to_3d')
             layout.operator('archipack.move_2d_reference_to_cursor')
         else:
             layout.operator('archipack.move_to_2d')
+            layout.operator('archipack.store_2d_reference')
         layout.prop(props, 'symbol_scale')
 
 
@@ -236,10 +237,9 @@ class ARCHIPACK_OT_reference_point(ArchipackObjectsManager, Operator):
 
     def create(self, context):
         x, y, z = context.scene.cursor_location
-        # bpy.ops.object.empty_add(type='ARROWS', radius=0.5, location=Vector((x, y, 0)))
         m = bpy.data.meshes.new(name="Reference")
         o = bpy.data.objects.new("Reference", m)
-        o.location = Vector((x, y, 0))
+        o.location = Vector((x, y, z))
         self.link_object_to_scene(context, o)
         d = o.archipack_reference_point.add()
         d.location_2d = Vector((x, y, 0))
@@ -276,7 +276,7 @@ class ARCHIPACK_OT_move_to_3d(Operator):
             props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
-            o.location = props.location_3d
+            o.matrix_world.translation = props.location_3d
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -354,8 +354,8 @@ class ARCHIPACK_OT_move_to_2d(Operator):
             props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
-            props.location_3d = o.location
-            o.location = props.location_2d
+            props.location_3d = o.matrix_world.translation
+            o.matrix_world.translation = props.location_2d
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
@@ -379,7 +379,7 @@ class ARCHIPACK_OT_store_2d_reference(Operator):
             props = archipack_reference_point.datablock(o)
             if props is None:
                 return {'CANCELLED'}
-            x, y, z = o.location
+            x, y, z = o.matrix_world.translation
             props.location_2d = Vector((x, y, 0))
             return {'FINISHED'}
         else:

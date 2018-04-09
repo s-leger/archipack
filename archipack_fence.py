@@ -35,7 +35,7 @@ from bpy.props import (
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
-from math import sin, cos, pi, acos, atan2
+from math import sin, cos, pi, acos
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
@@ -55,7 +55,7 @@ class Fence(Segment):
         self.t_end = 0
         self.dz = 0
         self.z0 = 0
-        
+
     @property
     def t_diff(self):
         return self.t_end - self.t_start
@@ -101,11 +101,11 @@ class FenceGenerator(Generator):
         self.user_defined_post = None
         self.user_defined_uvs = None
         self.user_defined_mat = None
-    
+
     @property
     def n_parts(self):
         return len(self.parts)
-    
+
     def add_part(self, part):
 
         last = None
@@ -150,7 +150,8 @@ class FenceGenerator(Generator):
         dist_0 = 0
         z = 0
         self.length = 0
-        n_parts = len(self.parts) - 1
+        # n_parts = len(self.parts) - 1
+        n_parts = len(self.segs) - 1
         for i, f in enumerate(self.segs):
             f.dist = self.length
             self.length += f.line.length
@@ -373,6 +374,8 @@ class FenceGenerator(Generator):
                 s += 1
 
     def make_post(self, x, y, z, altitude, x_offset, mat, verts, faces, matids, uvs):
+        # skip first port when closed
+        make_first_post = not self.closed
 
         for segment in self.segments:
             t_step = segment.t_step
@@ -388,7 +391,9 @@ class FenceGenerator(Generator):
                 n = f.line.normal(t)
                 post = (n, f.dz / f.line.length, f.z0 + f.dz * t)
                 # self.get_post(post, x, y, z, altitude, x_offset, mat, verts, faces, matids, uvs)
-                self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
+                if make_first_post:
+                    self.get_post(post, x, y, z, altitude, 0, mat, verts, faces, matids, uvs)
+                make_first_post = True
                 s += 1
 
             if segment.i_end + 1 == len(self.segs):
@@ -467,10 +472,11 @@ class FenceGenerator(Generator):
     def make_profile(self, profile, idmat,
             x_offset, z_offset, extend, closed, verts, faces, matids, uvs):
 
-        last = None
-        for seg in self.segs:
-            seg.p_line = seg.make_offset(x_offset, last)
-            last = seg.p_line
+        if self.closed:
+            extend = 0
+
+        self.set_offset(x_offset)
+        self.close(x_offset)
 
         n_fences = len(self.segs) - 1
 
@@ -482,45 +488,49 @@ class FenceGenerator(Generator):
         f = self.segs[0]
 
         # first step
-        if extend != 0 and f.p_line.length != 0:
-            t = -extend / self.segs[0].p_line.length
-            n = f.p_line.sized_normal(t, 1)
+        if extend != 0 and f.line.length != 0:
+            t = -extend / f.line.length
+            n = f.line.sized_normal(t, 1)
             # n.p = f.lerp(x_offset)
-            sections.append((n, f.dz / f.p_line.length, f.z0 + f.dz * t))
+            sections.append((n, f.dz / f.line.length, f.z0 + f.dz * t))
 
         # add first section
-        n = f.p_line.sized_normal(0, 1)
-        # n.p = f.lerp(x_offset)
-        sections.append((n, f.dz / f.p_line.length, f.z0))
+        if self.closed:
+            n = self.segs[-1].line.sized_normal(1, 1)
+        else:
+            n = f.line.sized_normal(0, 1)
+
+        sections.append((n, f.dz / f.line.length, f.z0))
 
         for s, f in enumerate(self.segs):
-            if f.p_line.length == 0:
+            if f.line.length == 0:
                 continue
             if type(f).__name__ == 'CurvedFence':
                 n_s = int(max(1, abs(f.da) * 30 / pi - 1))
                 for i in range(1, n_s + 1):
                     t = i / n_s
-                    n = f.p_line.sized_normal(t, 1)
+                    n = f.line.sized_normal(t, 1)
                     # n.p = f.lerp(x_offset)
-                    sections.append((n, f.dz / f.p_line.length, f.z0 + f.dz * t))
+                    sections.append((n, f.dz / f.line.length, f.z0 + f.dz * t))
             else:
-                n = f.p_line.sized_normal(1, 1)
+                n = f.line.sized_normal(1, 1)
                 # n.p = f.lerp(x_offset)
-                sections.append((n, f.dz / f.p_line.length, f.z0 + f.dz))
+                sections.append((n, f.dz / f.line.length, f.z0 + f.dz))
 
-        if extend != 0 and f.p_line.length != 0:
-            t = 1 + extend / self.segs[-1].p_line.length
-            n = f.p_line.sized_normal(t, 1)
-            # n.p = f.lerp(x_offset)
-            sections.append((n, f.dz / f.p_line.length, f.z0 + f.dz * t))
+        if extend != 0 and f.line.length != 0:
+            t = 1 + extend / f.line.length
+            n = f.line.sized_normal(t, 1)
+            sections.append((n, f.dz / f.line.length, f.z0 + f.dz * t))
 
         user_path_verts = len(sections)
+
         offset = len(verts)
         if user_path_verts > 0:
             user_path_uv_v = []
-            n, dz, z0 = sections[-1]
-            sections[-1] = (n, dz, z0)
+            # n, dz, z0 = sections[-1]
+            # sections[-1] = (n, dz, z0)
             n_sections = user_path_verts - 1
+
             n, dz, zl = sections[0]
             p0 = n.p
             v0 = n.v.normalized()
@@ -529,17 +539,26 @@ class FenceGenerator(Generator):
                 p1 = n.p
                 if s < n_sections:
                     v1 = sections[s + 1][0].v.normalized()
-                dir = (v0 + v1).normalized()
-                scale = min(10, 1 / cos(0.5 * acos(min(1, max(-1, v0 * v1)))))
-                for p in profile:
-                    # x, y = n.p + scale * (x_offset + p.x) * dir
-                    x, y = n.p + scale * p.x * dir
-                    z = zl + p.y + z_offset
-                    verts.append((x, y, z))
+
+                if not self.closed or s < n_sections:
+                    dir = (v0 + v1).normalized()
+                    scale = min(10, 1 / cos(0.5 * acos(min(1, max(-1, v0 * v1)))))
+                    for p in profile:
+                        # x, y = n.p + scale * (x_offset + p.x) * dir
+                        x, y = n.p + scale * p.x * dir
+                        z = zl + p.y + z_offset
+                        verts.append((x, y, z))
+
                 if s > 0:
                     user_path_uv_v.append((p1 - p0).length)
                 p0 = p1
                 v0 = v1
+
+            if self.closed:
+                user_path_verts -= 1
+                n, dz, zl = sections[0]
+                p1 = n.p
+                user_path_uv_v.append((p1 - p0).length)
 
             # build faces using Panel
             lofter = Lofter(
@@ -549,7 +568,7 @@ class FenceGenerator(Generator):
                 [p.x for p in profile],
                 [p.y for p in profile],
                 [idmat for i in range(len(profile))],
-                closed_path=False,
+                closed_path=self.closed,
                 user_path_uv_v=user_path_uv_v,
                 user_path_verts=user_path_verts
                 )
@@ -588,7 +607,7 @@ class archipack_fence_part(ArchipackSegment, PropertyGroup):
 
     def get_datablock(self, o):
         return archipack_fence.datablock(o)
-            
+
 
 class archipack_fence_rail(ArchipackProfile, PropertyGroup):
     profil_x = FloatProperty(
@@ -605,7 +624,7 @@ class archipack_fence_rail(ArchipackProfile, PropertyGroup):
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
-    
+
     offset = FloatProperty(
             name="Offset",
             default=0,
@@ -1100,14 +1119,14 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             default=False
             )
     closed = BoolProperty(
-            options={'SKIP_SAVE'},
-            default=False
+            default=False,
+            update=update_manipulators
             )
     always_closed = BoolProperty(
             options={'SKIP_SAVE'},
             default=False
             )
-    
+
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
@@ -1123,7 +1142,7 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             s.prop1_name = "height"
             s.normal = Vector((0, 1, 0))
         self.setup_parts_manipulators('dumb_z')
-        
+
     def update_parts(self):
 
         # remove rails materials
@@ -1134,19 +1153,7 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         for i in range(len(self.rails), self.rail_n):
             self.rails.add()
 
-        # remove parts
-        for i in range(len(self.parts), self.n_parts, -1):
-            self.parts.remove(i - 1)
-
-        # add parts
-        for i in range(len(self.parts), self.n_parts):
-            self.parts.add()
-
-        for p in self.parts:
-            if p.uid == 0:
-                self.create_uid(p)
-
-        self.setup_manipulators()
+        return ArchipackUserDefinedPath.update_parts(self)
 
     def from_spline(self, context, wM, resolution, spline):
 
@@ -1156,8 +1163,8 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             return
 
         pts = self.coords_from_spline(
-                spline, 
-                wM, 
+                spline,
+                wM,
                 resolution
                 )
 
@@ -1166,9 +1173,9 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         if self.user_defined_reverse:
             pts = list(reversed(pts))
-        
+
         o.matrix_world = Matrix.Translation(pts[0].copy())
-        
+
         auto_update = self.auto_update
         self.auto_update = False
         self.closed = spline.use_cyclic_u
@@ -1176,19 +1183,12 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             pts.pop()
         self.from_points(pts)
         self.auto_update = auto_update
-        
-        
+
     def get_generator(self, o=None):
         g = FenceGenerator(self, o)
         for part in self.parts:
             # type, radius, da, length
             g.add_part(part)
-
-        g.set_offset(self.x_offset)
-        # g.close(self.x_offset)
-        # param_t(da, part_length)
-        g.param_t(self.angle_limit, self.post_spacing)
-        g.locate_manipulators()
         return g
 
     def update(self, context, manipulable_refresh=False):
@@ -1210,6 +1210,14 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         uvs = []
 
         g = self.get_generator()
+
+        if not self.closed:
+            g.segs.pop()
+
+        g.set_offset(self.x_offset)
+        g.close(self.x_offset)
+        g.locate_manipulators()
+        g.param_t(self.angle_limit, self.post_spacing)
 
         # depth at bottom
         # self.manipulators[1].set_pts([(0, 0, 0), (0, 0, self.height), (1, 0, 0)])
@@ -1347,16 +1355,21 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         self.setup_manipulators()
 
+        n_parts = self.n_parts
+        if self.closed:
+            n_parts += 1
+
         for i, part in enumerate(self.parts):
-            if i >= self.n_parts:
-                break
+            if i < n_parts:
+                if i > 0:
+                    # start angle
+                    self.manip_stack.append(part.manipulators[0].setup(context, o, part))
 
-            if i > 0:
-                # start angle
-                self.manip_stack.append(part.manipulators[0].setup(context, o, part))
+                # length / radius + angle
+                self.manip_stack.append(part.manipulators[1].setup(context, o, part))
 
-            # length / radius + angle
-            self.manip_stack.append(part.manipulators[1].setup(context, o, part))
+                # index
+                self.manip_stack.append(part.manipulators[3].setup(context, o, self))
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
@@ -1396,12 +1409,12 @@ class ARCHIPACK_PT_fence(Panel):
         if prop.user_defined_path is not "":
             box.prop(prop, 'user_defined_spline')
             box.prop(prop, 'user_defined_reverse')
-            
+
         box.prop(prop, 'angle_limit')
         box.prop(prop, 'x_offset')
-            
+
         prop.template_parts(context, layout, draw_type=True)
-        
+
         box = layout.box()
         row = box.row(align=True)
         if prop.handrail_expand:
@@ -1527,7 +1540,7 @@ class ARCHIPACK_OT_fence(ArchipackCreateTool, Operator):
         d.manipulable_selectable = True
         # Link object into scene
         self.link_object_to_scene(context, o)
-        
+
         # select and make active
         self.select_object(context, o, True)
         self.load_preset(d)
@@ -1603,7 +1616,7 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
             o = self.create(context)
-            
+
             # select and make active
             self.select_object(context, o, True)
             # self.manipulate()
@@ -1629,7 +1642,7 @@ class ARCHIPACK_OT_fence_from_curve(ArchipackCreateTool, Operator):
                 # update here so fence location match spline vertex 1
                 d.user_defined_spline = spline_index
                 self.select_object(context, o)
-        
+
             # select and make active
             self.select_object(context, curve, True)
             curve.rotation_euler = rot
@@ -1652,7 +1665,7 @@ class ARCHIPACK_OT_fence_preset_create(PresetMenuOperator, Operator):
     bl_label = "Fence Styles"
     preset_subdir = "archipack_fence"
 
-    
+
 class ARCHIPACK_OT_fence_preset_menu(PresetMenuOperator, Operator):
     bl_description = "Show Fence Presets"
     bl_idname = "archipack.fence_preset_menu"

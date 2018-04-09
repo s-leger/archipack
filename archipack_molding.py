@@ -51,12 +51,12 @@ class MoldingGenerator(Generator):
 
     def make_profile(self, profile, idmat,
             x_offset, z_offset, extend, closed, verts, faces, matids, uvs):
-        
+
         if not self.closed:
             self.segs.pop()
-        
+
         n_moldings = len(self.segs) - 1
-        
+
         if n_moldings < 0:
             return
 
@@ -74,8 +74,8 @@ class MoldingGenerator(Generator):
 
         # n.p = f.lerp(x_offset)
         sections.append(n)
-        
-        for s, f in enumerate(self.segs):                           
+
+        for s, f in enumerate(self.segs):
             if f.line.length == 0:
                 continue
             n = f.line.sized_normal(1, 1)
@@ -206,7 +206,7 @@ class archipack_molding(
             )
     closed = BoolProperty(
             default=False,
-            update=update
+            update=update_manipulators
             )
     always_closed = BoolProperty(
             default=False,
@@ -368,24 +368,29 @@ class archipack_molding(
         o = context.active_object
 
         self.setup_manipulators()
-
+        
+        n_parts = self.n_parts
+        if self.closed:
+            n_parts += 1
+        
         for i, part in enumerate(self.parts):
-            if self.closed and i >= self.n_parts:
-                break
+            
+            if i < n_parts:
+                    
+                if i > 0:
+                    # start angle
+                    self.manip_stack.append(part.manipulators[0].setup(context, o, part))
 
-            if i > 0:
-                # start angle
-                self.manip_stack.append(part.manipulators[0].setup(context, o, part))
-
-            # length / radius + angle
-            self.manip_stack.append(part.manipulators[1].setup(context, o, part))
+                # length / radius + angle
+                self.manip_stack.append(part.manipulators[1].setup(context, o, part))
+                
+                # index
+                self.manip_stack.append(part.manipulators[3].setup(context, o, self))
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
 
-            # index
-            self.manip_stack.append(part.manipulators[3].setup(context, o, self))
-
+            
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
 
@@ -406,7 +411,7 @@ class ARCHIPACK_PT_molding(Panel):
         if prop is None:
             return
         layout = self.layout
-        
+
         # template with icon right on object
         # layout.template_icon_view(prop, "preset", show_labels=True, scale=10)
 
@@ -442,6 +447,7 @@ class ARCHIPACK_PT_molding(Panel):
                 box.prop(prop, 'profil_radius')
             if prop.profil == 'USER':
                 prop.draw_user_profile(context, box)
+
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -563,6 +569,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
 
         for i, line in enumerate(lines):
             boundary = io._to_curve(line, "{}-boundary".format(w.name), '2D')
+            boundary.location.z = w.matrix_world.translation.z
             bpy.ops.archipack.molding(auto_manipulate=False, filepath=self.filepath)
             o = context.active_object
             o.matrix_world = w.matrix_world.copy()

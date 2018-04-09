@@ -248,7 +248,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             o.location = p * o.parent.matrix_world.inverted()
         else:
             o.location = p
-        # update matrix_world by hand   
+        # update matrix_world by hand
         o.matrix_world.translation = p
         """
         # when parent move, must apply inverse on child !
@@ -259,7 +259,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             # find dp in world coordsys
             c.matrix_world.translation -= rot * dp
         """
-        
+
     def from_points(self, pts):
         """
          Make parts from points
@@ -289,24 +289,24 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
         """
          Override this method to synch childs when changes are done
         """
-        return 
-        
+        return
+
     def after_reverse(self, context, o):
         self.auto_update = True
-            
+
     def reverse(self, context, o):
-            
+
         g = self.get_generator(o)
-        
+
         # 2nd check for fences
         if not self.closed and len(g.segs) > self.n_parts:
             g.segs.pop()
 
         s_type = [p.type for p in self.parts]
         g_segs = [s.oposite for s in reversed(g.segs)]
-        
+
         self.auto_update = False
-        
+
         last = None
         for i, s in enumerate(g_segs):
             p = self.parts[i]
@@ -321,13 +321,13 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             else:
                 p.a0 = s.delta_angle(last)
             last = s
-        
+
         # location wont change when closed
         if not self.closed:
             self.move_object(o, g_segs[0].p0)
-        
+
         self.after_reverse(context, o)
-        
+
     def update_path(self, context):
         """
          Handle curve Io
@@ -431,7 +431,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
 
         self.setup_manipulators()
         self.auto_update = True
-    
+
     def before_remove_part(self, context, o, g):
         return
 
@@ -484,7 +484,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
         # fix snap manipulators index
         self.setup_manipulators()
         self.auto_update = True
-        
+
     def update_parts(self):
 
         # For some reason floors dosent follow the + 1 rule ??
@@ -551,7 +551,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             if not self.always_closed:
                 box.prop(self, "closed")
                 box.operator("archipack.path_reverse", icon='FILE_REFRESH')
-                
+
             n_parts = self.n_parts
             if self.closed or self.always_closed:
                 n_parts += 1
@@ -564,7 +564,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
         else:
             row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Segments", emboss=False)
 
-            
+
 class ARCHIPACK_OT_path_reverse(ArchipackGenericOperator, Operator):
     bl_idname = "archipack.path_reverse"
     bl_label = "Reverse"
@@ -583,7 +583,7 @@ class ARCHIPACK_OT_path_reverse(ArchipackGenericOperator, Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
-            
+
 
 class ArchipackProfileManager(ArchipackCurveManager):
     """
@@ -853,7 +853,7 @@ class ArchipackProfile(ArchipackProfileManager):
         layout.template_icon_view(self, "user_profile_filename", show_labels=True, scale=5)
         row = layout.row(align=True)
         if self.user_profile != "":
-            op = row.operator("archipack.profile_edit", text="", icon="EDITMODE_HLT")
+            op = row.operator("archipack.curve_edit", text="", icon="EDITMODE_HLT")
             op.curve_name = self.user_profile
             op.update_func_name = update_func_name
             row.operator("archipack.object_update", text="", icon="FILE_REFRESH")

@@ -4299,7 +4299,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, DimensionProv
             self.link_object_to_scene(context, new_o)
             new_o.parent = o
             new_o.matrix_world = o.matrix_world.copy()
-        
+
         self.select_object(context, new_o)
         d.auto_update = True
         self.unselect_object(new_o)
@@ -4750,7 +4750,7 @@ def update_hole(self, context):
     # update parent's roof only when manipulated
     self.update(context, update_parent=True)
 
-    
+
 def update_operation(self, context):
     o = self.find_in_selection(context, self.auto_update)
     if o is None:
@@ -4760,7 +4760,7 @@ def update_operation(self, context):
     if self.is_cw(pts) != (self.operation == 'INTERSECTION'):
         return
     self.reverse(context, o)
-    
+
 
 class archipack_roof_cutter_segment(ArchipackCutterPart, PropertyGroup):
     side_type = EnumProperty(
@@ -5062,7 +5062,7 @@ class ARCHIPACK_OT_roof(ArchipackCreateTool, Operator):
         d.manipulable_selectable = True
         # Link object into scene
         self.link_object_to_scene(context, o)
-        
+
         # select and make active
         self.select_object(context, o, True)
         self.add_material(o)
@@ -5146,10 +5146,10 @@ class ARCHIPACK_OT_roof_cutter(ArchipackCreateTool, Operator):
         d.manipulable_selectable = True
         # Link object into scene
         self.link_object_to_scene(context, o)
-        
+
         # select and make active
         self.select_object(context, o, True)
-        
+
         self.add_material(o)
         self.load_preset(d)
         update_operation(d, context)
@@ -5208,7 +5208,7 @@ class ARCHIPACK_OT_roof_from_curve(ArchipackObjectsManager, Operator):
         d.user_defined_path = curve.name
         # Link object into scene
         self.link_object_to_scene(context, o)
-        
+
         # select and make active
         self.select_object(context, o, True)
         d.update_path(context)
@@ -5320,15 +5320,16 @@ class ARCHIPACK_OT_roof_from_wall(ArchipackObjectsManager, Operator):
             self.show_object(wall.parent)
             wall.parent.hide_select = False
             self.select_object(context, wall.parent, True)
-        
+
         # select and make active
         self.select_object(context, wall)
         self.select_object(context, o)
         bpy.ops.archipack.parent_to_reference()
         # select and make active
         self.select_object(context, o, True)
+        z = wall.matrix_world.translation.z
         o.matrix_world = io.coordsys.world * tM * rM * Matrix.Translation(
-            Vector((-(self.roof_overflow + 0.5 * w), 0, 0)))
+            Vector((-(self.roof_overflow + 0.5 * w), 0, z)))
 
         d = o.data.archipack_roof[0]
         d.auto_update = False

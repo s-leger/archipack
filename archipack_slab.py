@@ -347,18 +347,25 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
          Store distance to segments, segment indexes
         """
         closest = []
-        for wall_idx, wall in enumerate(segs):
-            res, dist, t = wall.point_sur_segment(pt)
+        for idx, seg in enumerate(segs):
+            res, dist, t = seg.point_sur_segment(pt)
             abs_d = abs(dist)
-            closest.append((abs_d, -dist, wall_idx))
+            closest.append((abs_d, -dist, idx))
 
         if len(closest) > 1:
             closest.sort(key=lambda s: s[0])
+            # filter out colinear segment delta angle < 0.057 deg
+            s0 = segs[closest[0][2]]
+            i = 1
+            i2 = closest[1][2]
+            while i < len(closest) and abs(segs[i2].delta_angle(s0)) < 0.001:
+                i += 1
+                i2 = closest[i][2]
             c = self.reloc_childs.add()
             c.child_name = name
             c.child_idx = c_idx
             c.d0, c.wall_id0 = closest[0][1:3]
-            c.d1, c.wall_id1 = closest[1][1:3]
+            c.d1, c.wall_id1 = closest[i][1:3]
             print("{} c:{} w0:{} w1:{} d0:{} d1:{}".format(name, c_idx, c.wall_id0, c.wall_id1, c.d0, c.d1))
         else:
             print("skip", name, len(closest))
@@ -366,27 +373,24 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
     def setup_childs(self, context, o):
         """
             Store childs
-            call after a boolean oop
         """
-        # print("setup_childs")
         self.reloc_childs.clear()
-        witM = o.matrix_world.inverted()
-
-        for child in o.children:
-            cd = child.data
+        g = self.get_generator(o)
+        
+        for c in o.children:
+            cd = c.data
             if cd and "archipack_fence" in cd:
                 d = cd.archipack_fence[0]
                 if d is not None:
-                    tM = witM * c.matrix_world
-                    cg = d.get_generator(tM)
+                    cg = d.get_generator(c)
                     
                     for c_idx, seg in enumerate(cg.segs):
                         p = seg.p0
-                        self.add_relocate_child(child.name, c_idx, p, g.segs)
+                        self.add_relocate_child(c.name, c_idx, p, g.segs)
 
                     if not d.closed:
                         p = cg.segs[-1].p1
-                        self.add_relocate_child(child.name, len(cg.segs), p, g.segs)
+                        self.add_relocate_child(c.name, len(cg.segs), p, g.segs)
 
     def relocate_childs(self, context, o, g):
         """
@@ -406,9 +410,9 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
                 print("skip", name)
                 continue
             
-            itM = c.matrix_world.inverted() * tM 
+            itM = tM.inverted() * c.matrix_world
             # apply changes to generator
-            cg = d.get_generator(c)
+            cg = d.get_generator(itM)
             n_segs = len(cg.segs)
             for cd in child:
                 print("relocate {} c:{} w0:{} w1:{} d0:{} d1:{}".format(
@@ -422,26 +426,23 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
                 s1 = g.segs[cd.wall_id1].offset(cd.d1)
                 # p is in o coordsys
                 res, p, u, v = s0.intersect_ext(s1)
-                # p_loc is in world coordsys
-                p_loc = tM * p.to_3d()
-                if cd.child_idx < n_segs:
-                    cg.segs[cd.child_idx].p0 = p_loc.to_2d()
-                    if cd.child_idx > 0:
-                        cg.segs[cd.child_idx - 1].p1 = p_loc.to_2d()
+                if p != 0:
+                    if cd.child_idx < n_segs:
+                        cg.segs[cd.child_idx].p0 = p
+                        if cd.child_idx > 0:
+                            cg.segs[cd.child_idx - 1].p1 = p
+                        else:
+                            d.move_object(c, tM * p.to_3d())
                     else:
-                        d.move_object(c, p_loc)
-
-                elif cd.child_idx - 1 < n_segs:
-                    cg.segs[cd.child_idx - 1].p1 = p_loc.to_2d()
+                        cg.segs[cd.child_idx - 1].p1 = p
 
             # update data from generator
             last = None
             for i, seg in enumerate(cg.segs):
-                print("update seg", i)
                 p = d.parts[i]
                 if last is None:
                     # first a0 is absolute
-                    p.a0 = seg.a0
+                    p.a0 = cg.a0
                 else:
                     # a0 is delta between segs
                     p.a0 = seg.delta_angle(last)
@@ -624,9 +625,10 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
             return False
 
         o = context.active_object
-        # g = self.get_generator()
+        # 
         # setup childs manipulators
         self.setup_childs(context, o)
+        g = self.get_generator()
         self.manipulable_setup(context)
         self.manipulate_mode = True
 
