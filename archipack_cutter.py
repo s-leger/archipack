@@ -525,12 +525,12 @@ class ArchipackCutterPart(ArchipackSegment):
 
 
 def update_operation(self, context):
-    o = self.find_in_selection(context, self.auto_update)
-    if o is None:
-        return
     g = self.get_generator()
     pts = [seg.p0.to_3d() for seg in g.segs]
     if self.is_cw(pts) != (self.operation == 'INTERSECTION'):
+        return
+    o = self.find_in_selection(context)
+    if o is None:
         return
     self.reverse(context, o)
 
@@ -540,7 +540,7 @@ def update_path(self, context):
 
 
 def update(self, context):
-    self.update(context)
+    self.update(context, update_parent=True)
 
 
 def update_manipulators(self, context):
@@ -699,8 +699,11 @@ class ArchipackCutter(ArchipackUserDefinedPath):
         g.get_coords(verts)
         return verts
 
-    def update(self, context, manipulable_refresh=False, update_parent=False):
-
+    def update(self, context, manipulable_refresh=False, update_parent=True):
+        """
+         Does update parent make sense at all ?
+         as cutter changes must always update parent
+        """
         o = self.find_in_selection(context, self.auto_update)
 
         if o is None:

@@ -41,7 +41,8 @@ from .archipack_object import ArchipackCreateTool, ArchipackObject
 from .archipack_cutter import (
     CutAblePolygon, CutAbleGenerator,
     ArchipackCutter,
-    ArchipackCutterPart
+    ArchipackCutterPart,
+    update_operation
     )
 from .archipack_dimension import DimensionProvider
 from .archipack_curveman import ArchipackUserDefinedPath
@@ -1137,10 +1138,6 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         return True
 
 
-def update_operation(self, context):
-    self.reverse(context, make_ccw=(self.operation == 'INTERSECTION'))
-
-
 class archipack_floor_cutter_segment(ArchipackCutterPart, PropertyGroup):
     manipulators = CollectionProperty(type=archipack_manipulator)
 
@@ -1485,8 +1482,6 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             bpy.ops.archipack.floor(auto_manipulate=False, filepath=self.filepath)
             o = context.active_object
             o.matrix_world = w.matrix_world.copy()
-            if ref is not None:
-                o.parent = ref
             d = archipack_floor.datablock(o)
             d.auto_update = False
             d.thickness = wd.z_offset
@@ -1500,6 +1495,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
                 cd = archipack_floor_cutter.datablock(c)
                 cd.user_defined_path = ""
                 self.delete_object(context, curve)
+                self.unselect_object(c)
             for cutter in cutters:
                 if poly.intersects(cutter):
                     curve = io._to_curve(cutter, "{}-cut".format(o.name), '3D')
@@ -1508,10 +1504,14 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
                     cd = archipack_floor_cutter.datablock(c)
                     cd.user_defined_path = ""
                     self.delete_object(context, curve)
+                    self.unselect_object(c)
             # select and make active
             self.select_object(context, o, True)
             d.auto_update = True
             
+        self.select_object(context, w, True)
+        bpy.ops.archipack.add_reference_point()
+        self.unselect_object(w)   
         return o
 
     def create(self, context):

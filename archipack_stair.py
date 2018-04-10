@@ -46,6 +46,7 @@ from .archipack_object import (
     )
 from .archipack_polylines import Io
 from .archipack_dimension import DimensionProvider
+from .archipack_throttle import throttle
 
 
 class Stair():
@@ -458,7 +459,11 @@ class StraightStair(Stair, Line):
                 faces.append((f + 13, f + 14, f + 15, f + 16))
                 matids.append(self.idmat_step_front)
                 uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
-
+    
+    @property
+    def copy(self):
+        return Line(self.p.copy(), self.v.copy())
+        
     def get_length(self, side):
         return self.length
 
@@ -506,7 +511,11 @@ class CurvedStair(Stair, Arc):
         # left arc, tangeant at start and end
         self.l_arc, self.l_t0, self.l_t1, self.l_tc = self.set_offset(-left_offset, left_shape)
         self.r_arc, self.r_t0, self.r_t1, self.r_tc = self.set_offset(right_offset, right_shape)
-
+    
+    @property
+    def copy(self):
+        return Arc(self.c.copy(), self.r, self.a0, self.da)
+       
     def set_offset(self, offset, shape):
         arc = self.offset(offset)
         t0 = arc.tangeant(0, 1)
@@ -2393,7 +2402,11 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
 
         if o is None:
             return
-
+        
+        # throttle fence 
+        if len(self.parts) > 10: 
+            throttle.add(context, o, self, 0.1)
+        
         # clean up manipulators before any data model change
         if manipulable_refresh:
             self.manipulable_disable(context)
@@ -2467,120 +2480,122 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
         # Stair basis
         g.set_matids(id_materials)
         g.make_stair(self.height, self.step_depth, verts, faces, matids, uvs, nose_y=self.nose_y)
+        
+        if not throttle.is_active(o.name):
+        
+            # Ladder
+            offset_x = 0.5 * self.width - self.post_offset_x
+            post_spacing = self.post_spacing
+            if self.post_corners:
+                post_spacing = 10000
 
-        # Ladder
-        offset_x = 0.5 * self.width - self.post_offset_x
-        post_spacing = self.post_spacing
-        if self.post_corners:
-            post_spacing = 10000
+            if self.user_defined_post_enable:
+                # user defined posts
+                user_def_post = context.scene.objects.get(self.user_defined_post)
+                if user_def_post is not None and user_def_post.type == 'MESH':
+                    g.setup_user_defined_post(user_def_post, self.post_x, self.post_y, self.post_z)
 
-        if self.user_defined_post_enable:
-            # user defined posts
-            user_def_post = context.scene.objects.get(self.user_defined_post)
-            if user_def_post is not None and user_def_post.type == 'MESH':
-                g.setup_user_defined_post(user_def_post, self.post_x, self.post_y, self.post_z)
+            if self.left_post:
+                g.make_post(self.height, self.step_depth, 0.5 * self.post_x, 0.5 * self.post_y,
+                        self.post_z, self.post_alt, 'LEFT', post_spacing, self.post_corners,
+                        self.x_offset, offset_x, int(self.idmat_post), verts, faces, matids, uvs)
 
-        if self.left_post:
-            g.make_post(self.height, self.step_depth, 0.5 * self.post_x, 0.5 * self.post_y,
-                    self.post_z, self.post_alt, 'LEFT', post_spacing, self.post_corners,
-                    self.x_offset, offset_x, int(self.idmat_post), verts, faces, matids, uvs)
+            if self.right_post:
+                g.make_post(self.height, self.step_depth, 0.5 * self.post_x, 0.5 * self.post_y,
+                        self.post_z, self.post_alt, 'RIGHT', post_spacing, self.post_corners,
+                        self.x_offset, offset_x, int(self.idmat_post), verts, faces, matids, uvs)
 
-        if self.right_post:
-            g.make_post(self.height, self.step_depth, 0.5 * self.post_x, 0.5 * self.post_y,
-                    self.post_z, self.post_alt, 'RIGHT', post_spacing, self.post_corners,
-                    self.x_offset, offset_x, int(self.idmat_post), verts, faces, matids, uvs)
+            # reset user def posts
+            g.user_defined_post = None
 
-        # reset user def posts
-        g.user_defined_post = None
+            # user defined subs
+            if self.user_defined_subs_enable:
+                user_def_subs = context.scene.objects.get(self.user_defined_subs)
+                if user_def_subs is not None and user_def_subs.type == 'MESH':
+                    g.setup_user_defined_post(user_def_subs, self.subs_x, self.subs_y, self.subs_z)
 
-        # user defined subs
-        if self.user_defined_subs_enable:
-            user_def_subs = context.scene.objects.get(self.user_defined_subs)
-            if user_def_subs is not None and user_def_subs.type == 'MESH':
-                g.setup_user_defined_post(user_def_subs, self.subs_x, self.subs_y, self.subs_z)
+            if self.left_subs:
+                g.make_subs(self.height, self.step_depth, 0.5 * self.subs_x, 0.5 * self.subs_y,
+                        self.subs_z, 0.5 * self.post_y, self.subs_alt, self.subs_bottom, 'LEFT',
+                        self.handrail_slice_left, post_spacing, self.subs_spacing, self.post_corners,
+                        self.x_offset, offset_x, -self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
 
-        if self.left_subs:
-            g.make_subs(self.height, self.step_depth, 0.5 * self.subs_x, 0.5 * self.subs_y,
-                    self.subs_z, 0.5 * self.post_y, self.subs_alt, self.subs_bottom, 'LEFT',
-                    self.handrail_slice_left, post_spacing, self.subs_spacing, self.post_corners,
-                    self.x_offset, offset_x, -self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
+            if self.right_subs:
+                g.make_subs(self.height, self.step_depth, 0.5 * self.subs_x, 0.5 * self.subs_y,
+                        self.subs_z, 0.5 * self.post_y, self.subs_alt, self.subs_bottom, 'RIGHT',
+                        self.handrail_slice_right, post_spacing, self.subs_spacing, self.post_corners,
+                        self.x_offset, offset_x, self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
 
-        if self.right_subs:
-            g.make_subs(self.height, self.step_depth, 0.5 * self.subs_x, 0.5 * self.subs_y,
-                    self.subs_z, 0.5 * self.post_y, self.subs_alt, self.subs_bottom, 'RIGHT',
-                    self.handrail_slice_right, post_spacing, self.subs_spacing, self.post_corners,
-                    self.x_offset, offset_x, self.subs_offset_x, int(self.idmat_subs), verts, faces, matids, uvs)
+            g.user_defined_post = None
 
-        g.user_defined_post = None
+            if self.left_panel:
+                g.make_panels(self.height, self.step_depth, 0.5 * self.panel_x, self.panel_z, 0.5 * self.post_y,
+                        self.panel_alt, 'LEFT', post_spacing, self.panel_dist, self.post_corners,
+                        self.x_offset, offset_x, -self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
-        if self.left_panel:
-            g.make_panels(self.height, self.step_depth, 0.5 * self.panel_x, self.panel_z, 0.5 * self.post_y,
-                    self.panel_alt, 'LEFT', post_spacing, self.panel_dist, self.post_corners,
-                    self.x_offset, offset_x, -self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
+            if self.right_panel:
+                g.make_panels(self.height, self.step_depth, 0.5 * self.panel_x, self.panel_z, 0.5 * self.post_y,
+                        self.panel_alt, 'RIGHT', post_spacing, self.panel_dist, self.post_corners,
+                        self.x_offset, offset_x, self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
 
-        if self.right_panel:
-            g.make_panels(self.height, self.step_depth, 0.5 * self.panel_x, self.panel_z, 0.5 * self.post_y,
-                    self.panel_alt, 'RIGHT', post_spacing, self.panel_dist, self.post_corners,
-                    self.x_offset, offset_x, self.panel_offset_x, int(self.idmat_panel), verts, faces, matids, uvs)
+            if self.right_rail:
+                for i in range(self.rail_n):
+                    id_materials = [int(self.rail_mat[i].index) for j in range(6)]
+                    g.set_matids(id_materials)
+                    g.make_part(self.height, self.step_depth, self.rail_x[i], self.rail_z[i],
+                            self.x_offset, offset_x + self.rail_offset[i],
+                            self.rail_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
 
-        if self.right_rail:
-            for i in range(self.rail_n):
-                id_materials = [int(self.rail_mat[i].index) for j in range(6)]
-                g.set_matids(id_materials)
-                g.make_part(self.height, self.step_depth, self.rail_x[i], self.rail_z[i],
-                        self.x_offset, offset_x + self.rail_offset[i],
-                        self.rail_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
+            if self.left_rail:
+                for i in range(self.rail_n):
+                    id_materials = [int(self.rail_mat[i].index) for j in range(6)]
+                    g.set_matids(id_materials)
+                    g.make_part(self.height, self.step_depth, self.rail_x[i], self.rail_z[i],
+                            self.x_offset, -offset_x - self.rail_offset[i],
+                            self.rail_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
 
-        if self.left_rail:
-            for i in range(self.rail_n):
-                id_materials = [int(self.rail_mat[i].index) for j in range(6)]
-                g.set_matids(id_materials)
-                g.make_part(self.height, self.step_depth, self.rail_x[i], self.rail_z[i],
-                        self.x_offset, -offset_x - self.rail_offset[i],
-                        self.rail_alt[i], 'LINEAR', 'CLOSED', verts, faces, matids, uvs)
+            if self.handrail_profil == 'COMPLEX':
+                sx = self.handrail_x
+                sy = self.handrail_y
+                handrail = [Vector((sx * x, sy * y)) for x, y in [
+                (-0.28, 1.83), (-0.355, 1.77), (-0.415, 1.695), (-0.46, 1.605), (-0.49, 1.51), (-0.5, 1.415),
+                (-0.49, 1.315), (-0.46, 1.225), (-0.415, 1.135), (-0.355, 1.06), (-0.28, 1.0), (-0.255, 0.925),
+                (-0.33, 0.855), (-0.5, 0.855), (-0.5, 0.0), (0.5, 0.0), (0.5, 0.855), (0.33, 0.855), (0.255, 0.925),
+                (0.28, 1.0), (0.355, 1.06), (0.415, 1.135), (0.46, 1.225), (0.49, 1.315), (0.5, 1.415),
+                (0.49, 1.51), (0.46, 1.605), (0.415, 1.695), (0.355, 1.77), (0.28, 1.83), (0.19, 1.875),
+                (0.1, 1.905), (0.0, 1.915), (-0.095, 1.905), (-0.19, 1.875)]]
 
-        if self.handrail_profil == 'COMPLEX':
-            sx = self.handrail_x
-            sy = self.handrail_y
-            handrail = [Vector((sx * x, sy * y)) for x, y in [
-            (-0.28, 1.83), (-0.355, 1.77), (-0.415, 1.695), (-0.46, 1.605), (-0.49, 1.51), (-0.5, 1.415),
-            (-0.49, 1.315), (-0.46, 1.225), (-0.415, 1.135), (-0.355, 1.06), (-0.28, 1.0), (-0.255, 0.925),
-            (-0.33, 0.855), (-0.5, 0.855), (-0.5, 0.0), (0.5, 0.0), (0.5, 0.855), (0.33, 0.855), (0.255, 0.925),
-            (0.28, 1.0), (0.355, 1.06), (0.415, 1.135), (0.46, 1.225), (0.49, 1.315), (0.5, 1.415),
-            (0.49, 1.51), (0.46, 1.605), (0.415, 1.695), (0.355, 1.77), (0.28, 1.83), (0.19, 1.875),
-            (0.1, 1.905), (0.0, 1.915), (-0.095, 1.905), (-0.19, 1.875)]]
+            elif self.handrail_profil == 'SQUARE':
+                x = 0.5 * self.handrail_x
+                y = self.handrail_y
+                handrail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
+            elif self.handrail_profil == 'CIRCLE':
+                r = self.handrail_radius
+                handrail = [Vector((r * sin(0.1 * -a * pi), r * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
 
-        elif self.handrail_profil == 'SQUARE':
-            x = 0.5 * self.handrail_x
-            y = self.handrail_y
-            handrail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
-        elif self.handrail_profil == 'CIRCLE':
-            r = self.handrail_radius
-            handrail = [Vector((r * sin(0.1 * -a * pi), r * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
+            if self.right_handrail:
+                g.make_profile(handrail, int(self.idmat_handrail), "RIGHT", self.handrail_slice_right,
+                    self.height, self.step_depth, self.x_offset + offset_x + self.handrail_offset,
+                    self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
 
-        if self.right_handrail:
-            g.make_profile(handrail, int(self.idmat_handrail), "RIGHT", self.handrail_slice_right,
-                self.height, self.step_depth, self.x_offset + offset_x + self.handrail_offset,
-                self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
+            if self.left_handrail:
+                g.make_profile(handrail, int(self.idmat_handrail), "LEFT", self.handrail_slice_left,
+                    self.height, self.step_depth, -self.x_offset + offset_x + self.handrail_offset,
+                    self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
 
-        if self.left_handrail:
-            g.make_profile(handrail, int(self.idmat_handrail), "LEFT", self.handrail_slice_left,
-                self.height, self.step_depth, -self.x_offset + offset_x + self.handrail_offset,
-                self.handrail_alt, self.handrail_extend, verts, faces, matids, uvs)
+            w = 0.5 * self.string_x
+            h = self.string_z
+            string = [Vector((-w, 0)), Vector((w, 0)), Vector((w, h)), Vector((-w, h))]
 
-        w = 0.5 * self.string_x
-        h = self.string_z
-        string = [Vector((-w, 0)), Vector((w, 0)), Vector((w, h)), Vector((-w, h))]
+            if self.right_string:
+                g.make_profile(string, int(self.idmat_string), "RIGHT", False, self.height, self.step_depth,
+                    self.x_offset + 0.5 * self.width + self.string_offset,
+                    self.string_alt, 0, verts, faces, matids, uvs)
 
-        if self.right_string:
-            g.make_profile(string, int(self.idmat_string), "RIGHT", False, self.height, self.step_depth,
-                self.x_offset + 0.5 * self.width + self.string_offset,
-                self.string_alt, 0, verts, faces, matids, uvs)
-
-        if self.left_string:
-            g.make_profile(string, int(self.idmat_string), "LEFT", False, self.height, self.step_depth,
-                -self.x_offset + 0.5 * self.width + self.string_offset,
-                self.string_alt, 0, verts, faces, matids, uvs)
+            if self.left_string:
+                g.make_profile(string, int(self.idmat_string), "LEFT", False, self.height, self.step_depth,
+                    -self.x_offset + 0.5 * self.width + self.string_offset,
+                    self.string_alt, 0, verts, faces, matids, uvs)
 
         bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
         

@@ -429,7 +429,7 @@ class Manipulator(ArchipackObjectsManager):
             where True means the event was handled here so stack return RUNNING_MODAL
             and False means let the event bubble on stack
         """
-        # print("Manipulator modal:%s %s" % (event.value, event.type))
+        
 
         if event.type == 'MOUSEMOVE':
             return self.mouse_move(context, event)
@@ -440,6 +440,7 @@ class Manipulator(ArchipackObjectsManager):
                 active = self.mouse_press(context, event)
                 if active:
                     self.feedback.enable()
+                
                 return active
 
             elif self.keymap.check(event, self.keymap.undo):
@@ -495,7 +496,8 @@ class Manipulator(ArchipackObjectsManager):
                     self.keyboard_input_active = False
                     self.feedback.disable()
                     return ret
-
+        
+        # print("Manipulator.modal event:", event.type, event.value)
         return False
 
     def mouse_position(self, event):
@@ -1164,7 +1166,8 @@ class SizeManipulator(Manipulator):
             self.original_location = self.o.matrix_world.translation.copy()
             self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
                 ('CTRL', 'Snap'),
-                ('SHIFT', 'Round'),
+                ('ALT', 'Round'),
+                ('SHIFT', 'Small steps'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
             left, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
@@ -1326,7 +1329,8 @@ class DualSnapSizeManipulator(Manipulator):
             self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
                 ('CTRL', 'Snap'),
-                ('SHIFT', 'Round'),
+                ('ALT', 'Round'),
+                ('SHIFT', 'Small steps'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
             left, right, side, dz = self.manipulator.get_pts(self.o.matrix_world)
@@ -1904,7 +1908,8 @@ class AngleManipulator(Manipulator):
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Angle", "Drag to modify angle", [
-                ('SHIFT', 'Round value'),
+                ('SHIFT', 'Round 1 degree'),
+                ('CTRL+SHIFT', 'Round 5 degrees'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
             self.handle_right.active = True
@@ -1975,7 +1980,10 @@ class AngleManipulator(Manipulator):
             if da < -pi:
                 da = -pi
             if event.shift:
-                da = round(da / pi * 180, 0) / 180 * pi
+                if event.ctrl:
+                    da = round(da / pi * 36, 0) / 36 * pi
+                else:
+                    da = round(da / pi * 180, 0) / 180 * pi
             self.set_value(context, self.datablock, self.manipulator.prop1_name, da)
 
     def draw_callback(self, _self, context, render=False):
@@ -2044,16 +2052,19 @@ class DualAngleManipulator(Manipulator):
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Angle", "Drag to modify angle", [
-                ('SHIFT', 'Round value'),
+                ('SHIFT', 'Round 1 degree'),
+                ('CTRL+SHIFT', 'Round 5 degrees'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
-
+                       
         if self.handle_right.hover:
+            # print("DualAngleManipulator mouse_press handle_right.active")
             self.direction = 'RIGHT'
             self.handle_right.active = True
             return True
 
         if self.handle_left.hover:
+            # print("DualAngleManipulator mouse_press handle_left.active")
             self.direction = 'LEFT'
             self.handle_left.active = True
             return True
@@ -2135,7 +2146,10 @@ class DualAngleManipulator(Manipulator):
             if da < -pi:
                 da = -pi
             if event.shift:
-                da = round(da / pi * 180, 0) / 180 * pi
+                if event.ctrl:
+                    da = round(da / pi * 36, 0) / 36 * pi
+                else:
+                    da = round(da / pi * 180, 0) / 180 * pi
 
             self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
             self.set_value(context, self.datablock, self.manipulator.prop1_name, da)
@@ -2251,7 +2265,8 @@ class ArcAngleManipulator(Manipulator):
             self.active = True
             self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
             self.feedback.instructions(context, "Angle (degree)", "Drag to modify angle", [
-                ('SHIFT', 'Round value'),
+                ('SHIFT', 'Round 1 degree'),
+                ('CTRL+SHIFT', 'Round 5 degrees'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
             self.handle_right.active = True
@@ -2348,7 +2363,10 @@ class ArcAngleManipulator(Manipulator):
                     da += 2 * pi
 
             if event.shift:
-                da = round(da / pi * 180, 0) / 180 * pi
+                if event.ctrl:
+                    da = round(da / pi * 36, 0) / 36 * pi
+                else:
+                    da = round(da / pi * 180, 0) / 180 * pi
             self.set_value(context, self.datablock, self.manipulator.prop1_name, da)
 
     def draw_callback(self, _self, context, render=False):
@@ -2627,7 +2645,7 @@ class CallOperatorManipulator(Manipulator):
             params = {}
             # try:
             params = json.loads(self.manipulator.prop2_name)
-            print("params", self.manipulator.prop2_name, params)
+            # print("params", self.manipulator.prop2_name, params)
             # except:
             #     pass
             # try:
@@ -3125,6 +3143,7 @@ class Manipulable():
 
             if manipulator is not None:
                 if manipulator.modal(context, event):
+                    # print("Manipulable modal: %s" % (type(manipulator).__name__))
                     self.manipulable_manipulate(context, event, manipulator)
                     return {'RUNNING_MODAL'}
 

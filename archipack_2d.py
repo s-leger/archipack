@@ -499,6 +499,7 @@ class Arc(Circle):
     
     @property
     def copy(self):
+        # deepcopy allow copy of any kind of subclass but is damn slow
         return copy.deepcopy(self)
     
     @property

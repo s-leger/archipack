@@ -45,7 +45,8 @@ from .archipack_object import (
 from .archipack_cutter import (
     CutAblePolygon, CutAbleGenerator,
     ArchipackCutter,
-    ArchipackCutterPart
+    ArchipackCutterPart,
+    update_operation
     )
 from .archipack_dimension import DimensionProvider
 from .archipack_curveman import ArchipackUserDefinedPath
@@ -642,10 +643,6 @@ def update_hole(self, context):
     self.update(context, update_parent=True)
 
 
-def update_operation(self, context):
-    self.reverse(context, make_ccw=(self.operation == 'INTERSECTION'))
-
-
 class archipack_slab_cutter_segment(ArchipackCutterPart, PropertyGroup):
     manipulators = CollectionProperty(type=archipack_manipulator)
 
@@ -913,6 +910,10 @@ class ARCHIPACK_OT_slab_from_wall(ArchipackObjectsManager, Operator):
                 ]) * wall.matrix_world
             bpy.ops.object.select_all(action='DESELECT')
             # parenting childs to wall reference point
+            self.select_object(context, o)   
+            self.select_object(context, wall, True)
+            bpy.ops.archipack.add_reference_point()
+            """
             if wall.parent is None:
                 x, y, z = wall.bound_box[0]
                 context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
@@ -925,6 +926,7 @@ class ARCHIPACK_OT_slab_from_wall(ArchipackObjectsManager, Operator):
             self.select_object(context, wall)
             self.select_object(context, o)   
             bpy.ops.archipack.parent_to_reference()
+            """
             self.unselect_object(wall)
             self.unselect_object(wall.parent)
         return o

@@ -260,7 +260,7 @@ class ArchipackSectionManager(ArchipackObjectsManager):
         sel.extend([
             c for c in context.scene.objects
             if c.type == 'MESH' and
-            not self.is_hidden(c) and
+            self.is_visible(c) and
             not c.hide_render and
             c.name != o.name and
             not archipack_section_target.filter(c) and

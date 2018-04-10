@@ -303,6 +303,7 @@ class ArchipackBoolManager(ArchipackObjectsManager):
 
         bpy.ops.object.select_all(action='DESELECT')
         # parenting childs to wall reference point
+        """
         if wall.parent is None:
             x, y, z = wall.bound_box[0]
             context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
@@ -313,8 +314,8 @@ class ArchipackBoolManager(ArchipackObjectsManager):
             self.show_object(wall.parent)
             wall.parent.hide_select = False
             self.select_object(context, wall.parent, True)
-
-        self.select_object(context, wall)
+        """
+        self.select_object(context, wall, True)
         for o in childs:
             # parent archipack_custom
             if o.parent and o.data and "archipack_custom_part" in o.data:
@@ -323,9 +324,11 @@ class ArchipackBoolManager(ArchipackObjectsManager):
             else:
                 o.hide_select = False
                 self.select_object(context, o)
-
-        if bpy.ops.archipack.parent_to_reference.poll():
-            bpy.ops.archipack.parent_to_reference()
+        
+        bpy.ops.archipack.add_reference_point()
+        
+        # if bpy.ops.archipack.parent_to_reference.poll():
+        #    bpy.ops.archipack.parent_to_reference()
 
         for o in childs:
             if "archipack_hole" in o or "archipack_hybridhole" in o:
@@ -368,23 +371,12 @@ class ArchipackBoolManager(ArchipackObjectsManager):
         self.union(hole_obj, hole)
 
         bpy.ops.object.select_all(action='DESELECT')
-
-        # parenting childs to wall reference point
-        if wall.parent is None:
-            x, y, z = wall.bound_box[0]
-            context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
-            # fix issue #9
-            self.select_object(context, wall, True)
-            bpy.ops.archipack.reference_point()
-        else:
-            self.show_object(wall.parent)
-            wall.parent.hide_select = False
-            self.select_object(context, wall.parent, True)
-
+        
+        self.select_object(context, wall, True)
         self.select_object(context, hole_obj)
-        self.select_object(context, wall)
         self.select_object(context, o)
-        bpy.ops.archipack.parent_to_reference()
+        bpy.ops.archipack.add_reference_point()
+        
         self.select_object(context, wall, True)
 
         if "archipack_wall2" in wall.data:
@@ -452,15 +444,14 @@ class ARCHIPACK_OT_auto_boolean(ArchipackObjectsManager, Operator):
         if context.mode == "OBJECT":
             bpy.ops.archipack.disable_manipulate()
             manager = ArchipackBoolManager()
-            active = context.active_objects
+            active = context.active_object
             walls = [wall for wall in context.selected_objects if manager.filter_wall(wall)]
             bpy.ops.object.select_all(action='DESELECT')
             for wall in walls:
                 manager.autoboolean(context, wall)
                 bpy.ops.object.select_all(action='DESELECT')
                 self.select_object(context, wall, True)
-                if bpy.ops.archipack.wall2_manipulate.poll():
-                    bpy.ops.archipack.wall2_manipulate('EXEC_DEFAULT')
+                
             # reselect walls
             bpy.ops.object.select_all(action='DESELECT')
             for wall in walls:

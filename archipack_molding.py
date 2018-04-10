@@ -523,7 +523,7 @@ class ARCHIPACK_OT_molding_from_curve(ArchipackCreateTool, Operator):
             sel.append(o)
 
         for obj in sel:
-            self.select_object(context, o)
+            self.select_object(context, obj)
 
         return o
 
@@ -573,8 +573,6 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             bpy.ops.archipack.molding(auto_manipulate=False, filepath=self.filepath)
             o = context.active_object
             o.matrix_world = w.matrix_world.copy()
-            if ref is not None:
-                o.parent = ref
             d = archipack_molding.datablock(o)
             d.auto_update = False
             d.user_defined_path = boundary.name
@@ -583,9 +581,12 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             self.delete_object(context, boundary)
             d.user_defined_path = ""
             sel.append(o)
-
+            
+        self.select_object(context, w, True)
         for obj in sel:
             self.select_object(context, obj)
+        bpy.ops.archipack.add_reference_point()
+        self.unselect_object(w)
         return o
 
     def create(self, context):

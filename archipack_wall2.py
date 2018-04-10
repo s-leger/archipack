@@ -400,6 +400,7 @@ def update_t_part(self, context):
                     ])
                     break
             self.select_object(context, parent, True)
+            
             if link_to_parent and bpy.ops.archipack.parent_to_reference.poll():
                 bpy.ops.archipack.parent_to_reference('INVOKE_DEFAULT')
 
@@ -1918,22 +1919,6 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         for c in p.children:
             if c.data is not None and "archipack_roof" in c.data:
                 return c, c.data.archipack_roof[0]
-        """
-        o.hide = True
-        for seg in g.segs:
-            p = tM * seg.p0.to_3d()
-            p.z = 0.01
-            # prevent self intersect
-            res, pos, normal, face_index, r, matrix_world = context.scene.ray_cast(
-                p,
-                up)
-            # print("res:%s" % res)
-            if res and r.data is not None and "archipack_roof" in r.data:
-                o.hide = False
-                return r, r.data.archipack_roof[0]
-
-        o.hide = False
-        """
         return None, None
 
     def get_childs_geoms(self, context, o, wd, objs, t_childs, process_tchilds):
@@ -2336,7 +2321,7 @@ class ARCHIPACK_PT_wall2(Panel):
 class ARCHIPACK_OT_wall2(ArchipackCreateTool, Operator):
     bl_idname = "archipack.wall2"
     bl_label = "Wall"
-    bl_description = "Create a Wall at 3D cursor's position"
+    bl_description = "Delete wall and childs"
     bl_category = 'Archipack'
 
     mode = EnumProperty(
@@ -2471,23 +2456,10 @@ class ARCHIPACK_OT_wall2_from_slab(ArchipackObjectsManager, Operator):
                 [0, 0, 0, 1],
                 ]) * slab.matrix_world
         bpy.ops.object.select_all(action='DESELECT')
-
-        # parenting childs to wall reference point
-        if o.parent is None:
-            x, y, z = o.bound_box[0]
-            context.scene.cursor_location = o.matrix_world * Vector((x, y, z))
-            # fix issue #9
-            # select and make active
-            self.select_object(context, o, True)
-            bpy.ops.archipack.reference_point()
-        else:                
-            # select and make active
-            self.select_object(context, o.parent, True)
-        
-        # select
-        self.select_object(context, o)
         self.select_object(context, slab)
-        bpy.ops.archipack.parent_to_reference()
+        self.select_object(context, o, True)
+        bpy.ops.archipack.add_reference_point()
+
         self.unselect_object(slab)
         self.unselect_object(o.parent)
         

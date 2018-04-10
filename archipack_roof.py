@@ -729,7 +729,12 @@ class RoofPolygon(CutAblePolygon):
             res, d, t = self.fake_axis.point_sur_segment(s.p0)
             param_t.append(t)
             dist.append(d)
-
+            
+        # distance from 0,0, to align covering 
+        res, d, t = self.fake_axis.point_sur_segment(Vector((0, 0)))    
+        self.distance_from_origin = self.fake_axis.length * t
+        self.t_from_origin = t
+        
         if len(param_t) > 0:
             self.tmin = min(param_t)
             self.tmax = max(param_t)
@@ -1564,7 +1569,8 @@ class RoofGenerator(CutAbleGenerator):
             offset = - d.tile_offset / 100
         else:
             offset = 0
-
+        
+        
         if d.tile_model == 'BRAAS2':
             t_pts = [Vector(p) for p in [
                 (0.06, -1.0, 1.0), (0.19, -1.0, 0.5), (0.31, -1.0, 0.5), (0.44, -1.0, 1.0),
@@ -1663,17 +1669,22 @@ class RoofGenerator(CutAbleGenerator):
         for i, pan in enumerate(self.pans):
 
             seg = pan.fake_axis
+            
+            # t param so covering align to a grid from origin
+            d_abs = (pan.t_from_origin - pan.tmax) * seg.length
+            align_t = (d_abs % dx) / seg.length    
+            
             # compute base matrix top left of face
             vx = pan.vx
             vy = pan.vy
             vz = pan.vz
 
-            x0, y0 = seg.lerp(pan.tmax)
+            x0, y0 = seg.lerp(pan.tmax + align_t)
             z0 = self.z + d.tile_altitude
             ysize_2d = (d.tile_border + pan.ysize)
             space_x = pan.xsize + 2 * d.tile_side
             space_y = ysize_2d * sqrt(1 + pan.slope * pan.slope)
-            n_x = 1 + int(space_x / dx)
+            n_x = 2 + int(space_x / dx)
             n_y = 1 + int(space_y / dy)
 
             if d.tile_fit_x:
@@ -5308,7 +5319,10 @@ class ARCHIPACK_OT_roof_from_wall(ArchipackObjectsManager, Operator):
 
         bpy.ops.archipack.roof(auto_manipulate=False)
         o = context.active_object
-
+        
+        self.select_object(context, wall, True)
+        bpy.ops.archipack.add_reference_point()
+        """
         if wall.parent is None:
             x, y, z = wall.bound_box[0]
             context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
@@ -5325,6 +5339,7 @@ class ARCHIPACK_OT_roof_from_wall(ArchipackObjectsManager, Operator):
         self.select_object(context, wall)
         self.select_object(context, o)
         bpy.ops.archipack.parent_to_reference()
+        """
         # select and make active
         self.select_object(context, o, True)
         z = wall.matrix_world.translation.z
@@ -5345,10 +5360,11 @@ class ARCHIPACK_OT_roof_from_wall(ArchipackObjectsManager, Operator):
             cutter = context.active_object
             cutter.data.archipack_roof_cutter[0].operation = 'INTERSECTION'
             cutter.data.archipack_roof_cutter[0].user_defined_path = result.name
-            rd = result.data
-            self.unlink_object_from_scene(context, result)
-            context.scene.objects.unlink(result)
-            bpy.data.curves.remove(rd)
+            self.delete_object(result)
+            # rd = result.data
+            # self.unlink_object_from_scene(context, result)
+            # context.scene.objects.unlink(result)
+            # bpy.data.curves.remove(rd)
 
         # select and make active
         self.select_object(context, o, True)

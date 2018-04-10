@@ -198,11 +198,13 @@ class ArchipackSnapBase(ArchipackObjectsManager):
 
         self.destroy_helper(context)
         # Restore original context
-        context.tool_settings.use_snap = SnapStore.use_snap
-        context.tool_settings.snap_element = SnapStore.snap_element
-        context.tool_settings.snap_target = SnapStore.snap_target
-        context.space_data.pivot_point = SnapStore.pivot_point
-        context.space_data.transform_orientation = SnapStore.trans_orientation
+        if hasattr(context, "tool_settings"):
+            context.tool_settings.use_snap = SnapStore.use_snap
+            context.tool_settings.snap_element = SnapStore.snap_element
+            context.tool_settings.snap_target = SnapStore.snap_target
+        if hasattr(context, "space_data"):
+            context.space_data.pivot_point = SnapStore.pivot_point
+            context.space_data.transform_orientation = SnapStore.trans_orientation
         for o in SnapStore.sel:
             self.select_object(context, o)
         if SnapStore.act is not None:
