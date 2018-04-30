@@ -34,6 +34,7 @@ from .archipack_gl import (
     ThumbHandle, Screen, GlRect,
     GlPolyline, GlPolygon, GlText, GlHandle
 )
+from .archipack_object import ArchipackObjectsManager
 preset_paths = bpy.utils.script_paths("presets")
 addons_paths = bpy.utils.script_paths("addons")
 # Global disallow multiple instance of operator
@@ -409,7 +410,7 @@ class PresetMenu(ThumbsMan):
         self.set_pos(context)
 
 
-class PresetMenuOperator():
+class PresetMenuOperator(ArchipackObjectsManager):
     bl_options = {'INTERNAL'}
     preset_operator = StringProperty(
         options={'SKIP_SAVE'},
@@ -462,7 +463,7 @@ class PresetMenuOperator():
                         act = context.active_object
                         sel = context.selected_objects
                         for o in sel:
-                            context.scene.objects.active = o
+                            self.select_object(context, o, True)
                             d = None
                             if o.data and self.preset_subdir in o.data:
                                 d = getattr(o.data, self.preset_subdir)[0]
@@ -471,10 +472,11 @@ class PresetMenuOperator():
                             if d is not None:
                                 d.auto_update = False
                                 # print("Archipack execute_preset loading auto_update:%s" % d.auto_update)
-                                op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
+                                bpy.ops.script.python_file_run(filepath=preset)
+                                # op('INVOKE_DEFAULT', filepath=preset, menu_idname=self.bl_idname)
                                 # print("Archipack execute_preset loaded  auto_update: %s" % d.auto_update)
                                 d.auto_update = True
-                        context.scene.objects.active = act
+                        self.select_object(context, act, True)
                     else:
                         # call draw operator
                         if op.poll():
@@ -529,7 +531,7 @@ class PresetMenuOperator():
             if running is not None and hasattr(running, "disable"):
                 # disable running operator if any
                 running.disable = True
-                
+
             running = self
 
             if self.menu.is_empty:

@@ -45,7 +45,7 @@ res.pixels = im.icon_pixels_float[:]
 
 class IconsCollectionManager(dict):
     """
-     Global icons management for archipack
+     Global icons management for archipack ui and presets
      Handle icons for ui
      Icons for presets:
       - Icons for gl menuitems
@@ -125,7 +125,7 @@ class IconsCollectionManager(dict):
             self.add_files(files, category)
         else:
             print("load_presets folder not found:", category, folder)
-        
+
     def load_presets(self, category):
         """
          Load thumbs from archipack's preset dir,

@@ -40,8 +40,12 @@ from .archipack_object import ArchipackCreateTool, ArchipackObject
 from .archipack_cutter import (
     CutAblePolygon, CutAbleGenerator,
     ArchipackCutter,
-    ArchipackCutterPart
+    ArchipackCutterPart,
+    update_operation
     )
+from .archipack_dimension import DimensionProvider
+from .archipack_curveman import ArchipackUserDefinedPath
+from .archipack_segments import ArchipackSegment
 from .archipack_gl import GlText
 from .archipack_polylines import Io, Qtree, Envelope
 import logging
@@ -1019,11 +1023,8 @@ class CurvedFloor(Floor, Arc):
 
 class FloorGenerator(CutAblePolygon, CutAbleGenerator):
 
-    def __init__(self, parts):
-        self.parts = parts
-        self.segs = []
-        self.holes = []
-        self.convex = True
+    def __init__(self, d, o=None):
+        CutAbleGenerator.__init__(self, d, o)
         self.xsize = 0
         # return values
         self.iter = 0
@@ -1054,72 +1055,6 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         self.segs.append(s)
         self.last_type = part.type
 
-    def set_offset(self, offset):
-        last = None
-        for i, seg in enumerate(self.segs):
-            seg.set_offset(offset + self.parts[i].offset, last)
-            last = seg.line
-
-    def close(self, offset):
-        # Make last segment implicit closing one
-        part = self.parts[-1]
-        w = self.segs[-1]
-        dp = self.segs[0].p0 - self.segs[-1].p0
-        if "C_" in part.type:
-            dw = (w.p1 - w.p0)
-            w.r = part.radius / dw.length * dp.length
-            # angle pt - p0        - angle p0 p1
-            da = atan2(dp.y, dp.x) - atan2(dw.y, dw.x)
-            a0 = w.a0 + da
-            if a0 > pi:
-                a0 -= 2 * pi
-            if a0 < -pi:
-                a0 += 2 * pi
-            w.a0 = a0
-        else:
-            w.v = dp
-
-        if len(self.segs) > 1:
-            w.line = w.make_offset(offset + self.parts[-1].offset, self.segs[-2].line)
-
-        p1 = self.segs[0].line.p1
-        self.segs[0].line = self.segs[0].make_offset(offset + self.parts[0].offset, w.line)
-        self.segs[0].line.p1 = p1
-
-    def locate_manipulators(self):
-        """
-            setup manipulators
-        """
-        for i, f in enumerate(self.segs):
-
-            manipulators = self.parts[i].manipulators
-            p0 = f.p0.to_3d()
-            p1 = f.p1.to_3d()
-            # angle from last to current segment
-            if i > 0:
-                v0 = self.segs[i - 1].straight(-1, 1).v.to_3d()
-                v1 = f.straight(1, 0).v.to_3d()
-                manipulators[0].set_pts([p0, v0, v1])
-
-            if type(f).__name__ == "StraightFloor":
-                # segment length
-                manipulators[1].type_key = 'SIZE'
-                manipulators[1].prop1_name = "length"
-                manipulators[1].set_pts([p0, p1, (1, 0, 0)])
-            else:
-                # segment radius + angle
-                v0 = (f.p0 - f.c).to_3d()
-                v1 = (f.p1 - f.c).to_3d()
-                manipulators[1].type_key = 'ARC_ANGLE_RADIUS'
-                manipulators[1].prop1_name = "da"
-                manipulators[1].prop2_name = "radius"
-                manipulators[1].set_pts([f.c.to_3d(), v0, v1])
-
-            # snap manipulator, dont change index !
-            manipulators[2].set_pts([p0, p1, (1, 0, 0)])
-            # dumb segment id
-            manipulators[3].set_pts([p0, p1, (1, 0, 0)])
-
     def get_verts(self, verts):
         for s in self.segs:
             if "Curved" in type(s).__name__:
@@ -1134,35 +1069,6 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
                 x, y = floor.line.lerp(i / 32)
                 verts.append((x, y, 0))
             """
-
-    def rotate(self, idx_from, a):
-        """
-            apply rotation to all following segs
-        """
-        self.segs[idx_from].rotate(a)
-        ca = cos(a)
-        sa = sin(a)
-        rM = Matrix([
-            [ca, -sa],
-            [sa, ca]
-            ])
-        # rotation center
-        p0 = self.segs[idx_from].p0
-        for i in range(idx_from + 1, len(self.segs)):
-            seg = self.segs[i]
-            # rotate seg
-            seg.rotate(a)
-            # rotate delta from rotation center to segment start
-            dp = rM * (seg.p0 - p0)
-            seg.translate(dp)
-
-    def translate(self, idx_from, dp):
-        """
-            apply translation to all following segs
-        """
-        self.segs[idx_from].p1 += dp
-        for i in range(idx_from + 1, len(self.segs)):
-            self.segs[i].translate(dp)
 
     def draw(self, context):
         """
@@ -1187,21 +1093,22 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         self.ymin = min(y_size)
         self.ymax = max(y_size)
         self.ysize = self.ymax - self.ymin
-
-    def cut(self, context, o):
+    
+    def cut(self, context, o, d):
         """
             either external or holes cuts
         """
-        self.limits()
         self.as_lines()
+        self.limits()
         self.is_convex()
         for b in o.children:
             d = archipack_floor_heating_cutter.datablock(b)
             if d is not None:
-                g = d.ensure_direction()
-                g.change_coordsys(b.matrix_world, o.matrix_world)
+                tM = o.matrix_world.inverted() * b.matrix_world
+                g = d.ensure_direction(tM)
+                # g.change_coordsys(b.matrix_world, o.matrix_world)
                 self.slice(g)
-
+    
     def _add_spline(self, curve, closed, coords):
         spline = curve.splines.new('POLY')
         spline.use_endpoint_u = False
@@ -1366,77 +1273,6 @@ def update(self, context):
     self.update(context)
 
 
-def update_type(self, context):
-
-    d = self.find_in_selection(context)
-
-    if d is not None and d.auto_update:
-
-        d.auto_update = False
-        # find part index
-        idx = 0
-        for i, part in enumerate(d.parts):
-            if part == self:
-                idx = i
-                break
-
-        part = d.parts[idx]
-        a0 = 0
-        if idx > 0:
-            g = d.get_generator()
-            w0 = g.segs[idx - 1]
-            a0 = w0.straight(1).angle
-            if "C_" in self.type:
-                w = w0.straight_floor_heating(part.a0, part.length)
-            else:
-                w = w0.curved_floor_heating(part.a0, part.da, part.radius)
-        else:
-            if "C_" in self.type:
-                p = Vector((0, 0))
-                v = self.length * Vector((cos(self.a0), sin(self.a0)))
-                w = StraightFloor(p, v)
-                a0 = pi / 2
-            else:
-                c = -self.radius * Vector((cos(self.a0), sin(self.a0)))
-                w = CurvedFloor(c, self.radius, self.a0, pi)
-
-        # w0 - w - w1
-        if idx + 1 == d.n_parts:
-            dp = - w.p0
-        else:
-            dp = w.p1 - w.p0
-
-        if "C_" in self.type:
-            part.radius = 0.5 * dp.length
-            part.da = pi
-            a0 = atan2(dp.y, dp.x) - pi / 2 - a0
-        else:
-            part.length = dp.length
-            a0 = atan2(dp.y, dp.x) - a0
-
-        if a0 > pi:
-            a0 -= 2 * pi
-        if a0 < -pi:
-            a0 += 2 * pi
-        part.a0 = a0
-
-        if idx + 1 < d.n_parts:
-            # adjust rotation of next part
-            part1 = d.parts[idx + 1]
-            if "C_" in part.type:
-                a0 = part1.a0 - pi / 2
-            else:
-                a0 = part1.a0 + w.straight(1).angle - atan2(dp.y, dp.x)
-
-            if a0 > pi:
-                a0 -= 2 * pi
-            if a0 < -pi:
-                a0 += 2 * pi
-            part1.a0 = a0
-
-        d.auto_update = True
-
-
 def update_manipulators(self, context):
     self.update(context, manipulable_refresh=True)
 
@@ -1445,111 +1281,17 @@ def update_path(self, context):
     self.update_path(context)
 
 
-class archipack_floor_heating_part(PropertyGroup):
-
-    """
-        A single manipulable polyline like segment
-        polyline like segment line or arc based
-    """
-    type = EnumProperty(
-            items=(
-                ('S_SEG', 'Straight', '', 0),
-                ('C_SEG', 'Curved', '', 1),
-                ),
-            default='S_SEG',
-            update=update_type
-            )
-    length = FloatProperty(
-            name="Length",
-            min=0.01,
-            default=2.0,
-            update=update
-            )
-    radius = FloatProperty(
-            name="Radius",
-            min=0.5,
-            default=0.7,
-            update=update
-            )
-    da = FloatProperty(
-            name="Angle",
-            min=-pi,
-            max=pi,
-            default=pi / 2,
-            subtype='ANGLE', unit='ROTATION',
-            update=update
-            )
-    a0 = FloatProperty(
-            name="Start angle",
-            min=-2 * pi,
-            max=2 * pi,
-            default=0,
-            subtype='ANGLE', unit='ROTATION',
-            update=update
-            )
-    offset = FloatProperty(
-            name="Offset",
-            description="Side offset of segment",
-            default=0,
-            unit='LENGTH', subtype='DISTANCE',
-            update=update
-            )
+class archipack_floor_heating_part(ArchipackSegment, PropertyGroup):
     manipulators = CollectionProperty(type=archipack_manipulator)
 
-    def find_in_selection(self, context):
-        """
-            find witch selected object this instance belongs to
-            provide support for "copy to selected"
-        """
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            props = archipack_floor_heating.datablock(o)
-            if props:
-                for part in props.parts:
-                    if part == self:
-                        return props
-        return None
-
-    def update(self, context, manipulable_refresh=False):
-        props = self.find_in_selection(context)
-        if props is not None:
-            props.update(context, manipulable_refresh)
-
-    def draw(self, context, layout, index):
-        box = layout.box()
-        # box.prop(self, "type", text=str(index + 1))
-        box.label(text="#" + str(index + 1))
-        if self.type in ['C_SEG']:
-            box.prop(self, "radius")
-            box.prop(self, "da")
-        else:
-            box.prop(self, "length")
-        box.prop(self, "a0")
+    def get_datablock(self, o):
+        return archipack_floor_heating.datablock(o)
 
 
-class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
-    n_parts = IntProperty(
-            name="Parts",
-            min=1,
-            default=1, update=update_manipulators
-            )
+class archipack_floor_heating(ArchipackObject, ArchipackUserDefinedPath, Manipulable, DimensionProvider, PropertyGroup):
+    
     parts = CollectionProperty(type=archipack_floor_heating_part)
-    user_defined_path = StringProperty(
-            name="User defined",
-            update=update_path
-            )
-    user_defined_resolution = IntProperty(
-            name="Resolution",
-            min=1,
-            max=128,
-            default=12, update=update_path
-            )
-
-    # UI layout related
-    parts_expand = BoolProperty(
-            options={'SKIP_SAVE'},
-            default=False
-            )
+    
     max_iter = IntProperty(
             name='Max iter',
             description='Maximum iteration',
@@ -1605,6 +1347,10 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             options={'SKIP_SAVE'},
             default=True
             )
+    always_closed = BoolProperty(
+            default=True,
+            options={'SKIP_SAVE'}
+            )
     z = FloatProperty(
             name="dumb z",
             description="Dumb z for manipulator placeholder",
@@ -1625,8 +1371,8 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             update=update
             )
             
-    def get_generator(self):
-        g = FloorGenerator(self.parts)
+    def get_generator(self, o=None):
+        g = FloorGenerator(self, o)
         for part in self.parts:
             # type, radius, da, length
             g.add_part(part)
@@ -1635,124 +1381,35 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
 
         g.close(self.x_offset)
         g.locate_manipulators()
-        for i, seg in enumerate(g.segs):
-            g.segs[i] = seg.line
-
+        
         return g
 
-    def update_parts(self, o):
-
-        for i in range(len(self.parts), self.n_parts, -1):
-            self.parts.remove(i - 1)
-
-        # add rows
-        for i in range(len(self.parts), self.n_parts):
-            self.parts.add()
-
-        self.setup_manipulators()
-
-        g = self.get_generator()
-
-        return g
-
-    def is_cw(self, pts):
-        p0 = pts[0]
-        d = 0
-        for p in pts[1:]:
-            d += (p.x * p0.y - p.y * p0.x)
-            p0 = p
-        return d > 0
-
-    def interpolate_bezier(self, pts, wM, p0, p1, resolution):
-        # straight segment, worth testing here
-        # since this can lower points count by a resolution factor
-        # use normalized to handle non linear t
-        if (resolution == 0 or 
-                (p0.handle_right_type == 'VECTOR' and 
-                p1.handle_left_type == 'VECTOR')):
-            pts.append(wM * p0.co.to_3d())
-        else:
-            v = (p1.co - p0.co).normalized()
-            d1 = (p0.handle_right - p0.co).normalized()
-            d2 = (p1.co - p1.handle_left).normalized()
-            if d1 == v and d2 == v:
-                pts.append(wM * p0.co.to_3d())
-            else:
-                seg = interpolate_bezier(wM * p0.co,
-                    wM * p0.handle_right,
-                    wM * p1.handle_left,
-                    wM * p1.co,
-                    resolution + 1)
-                for i in range(resolution):
-                    pts.append(seg[i].to_3d())
-
+    
     def from_spline(self, context, wM, resolution, spline):
-        pts = []
-        if spline.type == 'POLY':
-            pts = [wM * p.co.to_3d() for p in spline.points]
-            if spline.use_cyclic_u:
-                pts.append(pts[0])
-        elif spline.type == 'BEZIER':
-            points = spline.bezier_points
-            for i in range(1, len(points)):
-                p0 = points[i - 1]
-                p1 = points[i]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-            if spline.use_cyclic_u:
-                p0 = points[-1]
-                p1 = points[0]
-                self.interpolate_bezier(pts, wM, p0, p1, resolution)
-                pts.append(pts[0])
-            else:
-                pts.append(wM * points[-1].co)
+        
+        o = self.find_in_selection(context)
+
+        if o is None:
+            return
+
+        pts = self.coords_from_spline(
+            spline,
+            wM,
+            resolution,
+            ccw=True,
+            close=True
+            )
+
+        if len(pts) < 3:
+            return
 
         # pretranslate
-        o = self.find_in_selection(context, self.auto_update)
-        o.matrix_world = self.from_points(pts)
-
-    def from_points(self, pts):
-
-        if self.is_cw(pts):
-            pts = list(reversed(pts))
-
+        o.matrix_world = Matrix.Translation(pts[0].copy())
+        auto_update = self.auto_update
         self.auto_update = False
-
-        self.n_parts = len(pts) - 1
-
-        self.update_parts(None)
-
-        p0 = pts.pop(0)
-        tM = Matrix.Translation(p0.copy())
-        a0 = 0
-        for i, p1 in enumerate(pts):
-            dp = p1 - p0
-            da = atan2(dp.y, dp.x) - a0
-            if da > pi:
-                da -= 2 * pi
-            if da < -pi:
-                da += 2 * pi
-            if i >= len(self.parts):
-                break
-            p = self.parts[i]
-            p.length = dp.to_2d().length
-            p.dz = dp.z
-            p.a0 = da
-            a0 += da
-            p0 = p1
-
-        self.closed = True
-        self.auto_update = True
-        return tM
-        
-    def update_path(self, context):
-        user_def_path = context.scene.objects.get(self.user_defined_path)
-        if user_def_path is not None and user_def_path.type == 'CURVE':
-            self.from_spline(
-                context,
-                user_def_path.matrix_world,
-                self.user_defined_resolution,
-                user_def_path.data.splines[0])
-
+        self.from_points(pts)
+        self.auto_update = auto_update
+    
     def add_manipulator(self, name, pt1, pt2, pt3):
         m = self.manipulators.add()
         m.prop1_name = name
@@ -1771,31 +1428,7 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
             s.prop1_name = "z"
             s.normal = Vector((0, 1, 0))
 
-        for i in range(self.n_parts):
-            p = self.parts[i]
-            n_manips = len(p.manipulators)
-            if n_manips < 1:
-                s = p.manipulators.add()
-                s.type_key = "ANGLE"
-                s.prop1_name = "a0"
-            p.manipulators[0].type_key = 'ANGLE'
-            if n_manips < 2:
-                s = p.manipulators.add()
-                s.type_key = "SIZE"
-                s.prop1_name = "length"
-            if n_manips < 3:
-                s = p.manipulators.add()
-                s.type_key = 'WALL_SNAP'
-                s.prop1_name = str(i)
-                s.prop2_name = 'z'
-            if n_manips < 4:
-                s = p.manipulators.add()
-                s.type_key = 'DUMB_STRING'
-                s.prop1_name = str(i + 1)
-            p.manipulators[2].prop1_name = str(i)
-            p.manipulators[3].prop1_name = str(i + 1)
-
-        self.parts[-1].manipulators[0].type_key = 'DUMB_ANGLE'
+        self.setup_parts_manipulators('z')
 
     def text(self, context, value, type, precision=2):
 
@@ -1826,10 +1459,14 @@ class archipack_floor_heating(ArchipackObject, Manipulable, PropertyGroup):
         # clean up manipulators before any data model change
         if manipulable_refresh:
             self.manipulable_disable(context)
-
-        g = self.update_parts(o)
-
-        g.cut(context, o)
+        
+        self.update_parts()
+        g = self.get_generator()
+        
+        for i, seg in enumerate(g.segs):
+            g.segs[i] = seg.line
+            
+        g.cut(context, o, self)
         g.floor_heating(context, o, self)
 
         # enable manipulators rebuild
@@ -1896,40 +1533,14 @@ def update_hole(self, context):
     self.update(context, update_parent=True)
 
 
-def update_operation(self, context):
-    self.reverse(context, make_ccw=(self.operation == 'INTERSECTION'))
-
-
 class archipack_floor_heating_cutter_segment(ArchipackCutterPart, PropertyGroup):
     manipulators = CollectionProperty(type=archipack_manipulator)
-    type = EnumProperty(
-        name="Type",
-        items=(
-            ('DEFAULT', 'Side', 'Side with rake', 0),
-            ),
-        default='DEFAULT',
-        update=update_hole
-        )
 
-    def find_in_selection(self, context):
-        selected = [o for o in context.selected_objects]
-        for o in selected:
-            d = archipack_floor_heating_cutter.datablock(o)
-            if d:
-                for part in d.parts:
-                    if part == self:
-                        return d
-        return None
-
-    def draw(self, layout, context, index):
-        box = layout.box()
-        box.label(text="Part:" + str(index + 1))
-        # box.prop(self, "type", text=str(index + 1))
-        box.prop(self, "length")
-        box.prop(self, "a0")
+    def get_datablock(self, o):
+        return archipack_floor_heating_cutter.datablock(o)
 
 
-class archipack_floor_heating_cutter(ArchipackCutter, ArchipackObject, Manipulable, PropertyGroup):
+class archipack_floor_heating_cutter(ArchipackCutter, ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
     parts = CollectionProperty(type=archipack_floor_heating_cutter_segment)
 
     def update_points(self, context, o, pts, update_parent=False):
@@ -2045,11 +1656,10 @@ class ARCHIPACK_PT_floor_heating_cutter(Panel):
         if prop is None:
             return
         layout = self.layout
-        scene = context.scene
         box = layout.box()
         box.operator('archipack.manipulate', icon='HAND')
         box.prop(prop, 'operation', text="")
-        prop.draw(layout, context)
+        prop.draw(context, layout)
 
 
 # ------------------------------------------------------------------
@@ -2088,7 +1698,10 @@ class ARCHIPACK_OT_floor_heating(ArchipackCreateTool, Operator):
         p.length = y
         p = d.parts.add()
         p.a0 = angle_90
-        p.length = x
+        p.length = x 
+        p = d.parts.add()
+        p.a0 = angle_90
+        p.length = y
         d.n_parts = 4
         context.scene.objects.link(o)
         o.select = True

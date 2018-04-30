@@ -38,7 +38,7 @@ from mathutils import Vector, Matrix
 from math import pi
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_object import (
-    ArchipackCreateTool, 
+    ArchipackCreateTool,
     ArchipackObject,
     ArchipackObjectsManager
     )
@@ -278,7 +278,7 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
                 c.wall_id0 += 1
             if c.wall_id1 > where:
                 c.wall_id1 += 1
-                
+
     def insert_balcony(self, context, where):
 
         self.manipulable_disable(context)
@@ -315,7 +315,7 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
                 c.wall_id0 += 4
             if c.wall_id1 > where:
                 c.wall_id1 += 4
-                
+
         self.auto_update = True
 
         g = self.get_generator()
@@ -323,7 +323,7 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
         bpy.ops.archipack.fence(auto_manipulate=False)
         c = context.active_object
         c.location.z = o.matrix_world.translation.z
-        
+
         self.select_object(context, c)
 
         d = c.data.archipack_fence[0]
@@ -377,14 +377,14 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
         """
         self.reloc_childs.clear()
         g = self.get_generator(o)
-        
+
         for c in o.children:
             cd = c.data
             if cd and "archipack_fence" in cd:
                 d = cd.archipack_fence[0]
                 if d is not None:
                     cg = d.get_generator(c)
-                    
+
                     for c_idx, seg in enumerate(cg.segs):
                         p = seg.p0
                         self.add_relocate_child(c.name, c_idx, p, g.segs)
@@ -410,7 +410,7 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
             if c is None:
                 print("skip", name)
                 continue
-            
+
             itM = tM.inverted() * c.matrix_world
             # apply changes to generator
             cg = d.get_generator(itM)
@@ -425,8 +425,15 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
                     cd.d1))
                 s0 = g.segs[cd.wall_id0].offset(cd.d0)
                 s1 = g.segs[cd.wall_id1].offset(cd.d1)
+                
                 # p is in o coordsys
-                res, p, u, v = s0.intersect_ext(s1)
+                if "C_" in self.parts[cd.wall_id0].type:
+                    res, p, u, v = s0.intersect_arc(s1)
+                elif "C_" in self.parts[cd.wall_id1].type:
+                    res, p, v, u = s1.intersect_arc(s0)
+                else:
+                    res, p, u, v = s0.intersect_ext(s1)
+                    
                 if p != 0:
                     if cd.child_idx < n_segs:
                         cg.segs[cd.child_idx].p0 = p
@@ -626,10 +633,11 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
             return False
 
         o = context.active_object
-        # 
+        #
         # setup childs manipulators
         self.setup_childs(context, o)
-        g = self.get_generator()
+        # generator does update manipulators location
+        self.get_generator()
         self.manipulable_setup(context)
         self.manipulate_mode = True
 
@@ -639,7 +647,7 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
 
 
 def update_hole(self, context):
-    # update parent's roof only when manipulated
+    # update parent only when manipulated
     self.update(context, update_parent=True)
 
 
@@ -775,10 +783,10 @@ class ARCHIPACK_OT_slab(ArchipackCreateTool, Operator):
         d.manipulable_selectable = True
         # Link object into scene
         self.link_object_to_scene(context, o)
-        
+
         # select and make active
         self.select_object(context, o, True)
-        
+
         self.load_preset(d)
         self.add_material(o)
         return o
@@ -876,57 +884,50 @@ class ARCHIPACK_OT_slab_from_wall(ArchipackObjectsManager, Operator):
         o = context.active_object
         d = archipack_slab.datablock(o)
         d.auto_update = False
-        d.origin = wd.origin.copy()
+        # use wall generator
+        # so slab match wall's outside
+        g = wd.get_generator()
+        pts = [s.p0 for s in g.segs]
+        if wd.is_cw(pts):
+            offset = wd.left_offset
+        else:
+            offset = wd.left_offset + wd.width
+        g.set_offset(offset)
+        g.close(offset)
         d.parts.clear()
         d.n_parts = wd.n_parts + 1
-        for part in wd.parts:
+        a0 = g.a0
+        last = None
+        for i, part in enumerate(wd.parts):
+            seg = g.segs[i].line
             p = d.parts.add()
             p.type = part.type
-            p.length = part.length
-            p.radius = part.radius
-            p.da = part.da
-            p.a0 = part.a0
-
-        side = 1
-        if wd.flip:
-            side = -1
-        d.x_offset = side * 0.5 * (1 + wd.x_offset) * wd.width
+            if last is not None:
+                a0 = seg.delta_angle(last)
+            last = seg
+            p.a0 = a0
+            if "S_" in part.type:
+                p.length = seg.length
+            else:
+                p.radius = seg.r
+                p.da = seg.da
 
         d.auto_update = True
+        x, y = g.segs[0].line.p0
         # pretranslate
         if self.ceiling:
-            o.matrix_world = Matrix([
-                [1, 0, 0, 0],
-                [0, 1, 0, 0],
-                [0, 0, 1, wd.z - wd.z_offset + d.z],
-                [0, 0, 0, 1],
-                ]) * wall.matrix_world
+            o.matrix_world = Matrix.Translation(
+                Vector((x, y, wd.z - wd.z_offset + d.z))
+                ) * wall.matrix_world
         else:
-            o.matrix_world = Matrix([
-                [1, 0, 0, 0],
-                [0, 1, 0, 0],
-                [0, 0, 1, -wd.z_offset],
-                [0, 0, 0, 1],
-                ]) * wall.matrix_world
+            o.matrix_world = Matrix.Translation(
+                Vector((x, y, -wd.z_offset))
+                ) * wall.matrix_world
             bpy.ops.object.select_all(action='DESELECT')
             # parenting childs to wall reference point
-            self.select_object(context, o)   
+            self.select_object(context, o)
             self.select_object(context, wall, True)
             bpy.ops.archipack.add_reference_point()
-            """
-            if wall.parent is None:
-                x, y, z = wall.bound_box[0]
-                context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
-                # fix issue #9
-                self.select_object(context, wall, True)
-                if bpy.ops.archipack.reference_point.poll():
-                    bpy.ops.archipack.reference_point()
-            else:
-                self.select_object(context, wall.parent, True)
-            self.select_object(context, wall)
-            self.select_object(context, o)   
-            bpy.ops.archipack.parent_to_reference()
-            """
             self.unselect_object(wall)
             self.unselect_object(wall.parent)
         return o

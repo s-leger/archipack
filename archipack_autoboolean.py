@@ -176,10 +176,10 @@ class ArchipackBoolManager(ArchipackObjectsManager):
         """
         h = bpy.data.meshes.new("AutoBoolean")
         hole_obj = bpy.data.objects.new("AutoBoolean", h)
-
+        hole_obj['archipack_hybridhole'] = True
+        
         self.link_object_to_scene(context, hole_obj)
 
-        hole_obj['archipack_hybridhole'] = True
         if wall.parent is not None:
             hole_obj.parent = wall.parent
         hole_obj.matrix_world = wall.matrix_world.copy()

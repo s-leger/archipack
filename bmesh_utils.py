@@ -24,8 +24,12 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
+import time
+import logging
+logger = logging.getLogger("archipack_bmesh")
 import bpy
 import bmesh
+from .archipack_object import ArchipackObjectsManager
 
 
 class BmeshEdit():
@@ -41,11 +45,10 @@ class BmeshEdit():
         """
             private, start bmesh editing of active object
         """
-        o.select = True
-        context.scene.objects.active = o
+        ArchipackObjectsManager.select_object(None, context, o, True)
         bpy.ops.object.mode_set(mode='EDIT')
         bm = bmesh.from_edit_mesh(o.data)
-        BmeshEdit.ensure_bmesh(bm)
+        # BmeshEdit.ensure_bmesh(bm)
         return bm
     
     @staticmethod
@@ -109,8 +112,9 @@ class BmeshEdit():
 
     @staticmethod
     def _matids(bm, matids):
+        _faces = bm.faces
         for i, matid in enumerate(matids):
-            bm.faces[i].material_index = matid
+            _faces[i].material_index = matid
 
     @staticmethod
     def _uvs(bm, uvs):
@@ -142,35 +146,47 @@ class BmeshEdit():
             matids=None, uvs=None, weld=False,
             clean=False, auto_smooth=True, temporary=False):
         
+        tim = time.time()
+        
         if o is not None:
             # ensure object is visible 
             # otherwhise it is not editable
-            vis_state = o.hide
-            o.hide = False
-        
+            vis_state = ArchipackObjectsManager.is_visible(None, o)
+            ArchipackObjectsManager.show_object(None, o)
+            
         if temporary:
             bm = bmesh.new()
         else:
             bm = BmeshEdit._start(context, o)
             bm.clear()
             
-        BmeshEdit.ensure_bmesh(bm)
+        logger.debug("BmeshEdit.buildmesh() %s :%.2f seconds", o.name, time.time() - tim)
+        
+        # BmeshEdit.ensure_bmesh(bm)
+        _verts = bm.verts
+        _faces = bm.faces
+        _new_vert = _verts.new
+        _new_face = _faces.new
         
         for v in verts:
-            bm.verts.new(v)
-        bm.verts.ensure_lookup_table()
-        bm.verts.index_update()
+            _new_vert(v)
+        
+        _verts.ensure_lookup_table()
+        _verts.index_update()
+        logger.debug("BmeshEdit.buildmesh() verts :%.2f seconds", time.time() - tim)
         
         for f in faces:
-            bm.faces.new([bm.verts[i] for i in f])
-        bm.edges.ensure_lookup_table()
-        bm.faces.ensure_lookup_table()
-        bm.faces.index_update()
+            _new_face([_verts[i] for i in f])
         
+        # bm.edges.ensure_lookup_table()
+        _faces.ensure_lookup_table()
+        _faces.index_update()
+        logger.debug("BmeshEdit.buildmesh() faces :%.2f seconds", time.time() - tim)
         
         if matids is not None:
             BmeshEdit._matids(bm, matids)
-
+            logger.debug("BmeshEdit.buildmesh() _matids :%.2f seconds", time.time() - tim)
+        
         if uvs is not None:
             BmeshEdit._uvs(bm, uvs)
 
@@ -179,20 +195,30 @@ class BmeshEdit():
 
         if weld:
             bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001)
+        
         BmeshEdit._end(bm, o)
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
+        logger.debug("BmeshEdit.buildmesh() _end :%.2f seconds", time.time() - tim)
+        
         if auto_smooth:
-            bpy.ops.mesh.faces_shade_smooth()
+            # bpy.ops.mesh.faces_shade_smooth()
+            bpy.ops.object.shade_smooth()
             o.data.use_auto_smooth = True
         else:
-            bpy.ops.mesh.faces_shade_flat()
+            bpy.ops.object.shade_flat()
+            # bpy.ops.mesh.faces_shade_flat()
+            
         if clean:
-            bpy.ops.mesh.delete_loose()
-        bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
         
-        if o is not None:
-            o.hide = vis_state
+            bpy.ops.mesh.delete_loose()
+        
+            bpy.ops.object.mode_set(mode='OBJECT')
+        
+        logger.debug("BmeshEdit.buildmesh() mesh ops :%.2f seconds", time.time() - tim)
+        
+        if o is not None and not vis_state:
+            ArchipackObjectsManager.hide_object(None, o)
                
     @staticmethod
     def addmesh(context, o, verts, faces, matids=None, uvs=None, weld=False, clean=False, auto_smooth=True):

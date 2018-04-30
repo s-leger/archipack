@@ -26,6 +26,7 @@
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
+major, minor, rev = bpy.app.version
 # noinspection PyUnresolvedReferences
 from bpy.props import BoolProperty, StringProperty, EnumProperty
 from mathutils import Vector, Matrix
@@ -33,9 +34,16 @@ from mathutils.geometry import (
     intersect_line_plane
     )
 from bpy_extras import view3d_utils
+from .archipack_iconmanager import icons
+# Abstraction layers for 2.7 and 2.8x series objects to scene management
+if major == 2 and minor > 79:
+    from .archipack_abstraction import ArchipackObjectsManager_28 as ArchipackObjectsManager
+else:
+    from .archipack_abstraction import ArchipackObjectsManager_27 as ArchipackObjectsManager
+
+
 import logging
 logger = logging.getLogger("archipack")
-from .archipack_iconmanager import icons
 
 
 def get_enum(self, context):
@@ -44,149 +52,6 @@ def get_enum(self, context):
 
 def preset_operator(self, context):
     bpy.ops.script.python_file_run(filepath="{}.py".format(self.preset[:-4]))
-
-
-class ArchipackObjectsManager():
-    """
-      Provide objects and datablock utility
-      Support meshes curves and lamps
-      - recursive delete objects and datablocks
-      - recursive clone linked
-      - recursive copy
-     
-     @TODO: 
-     Provide abstraction layer for blender 2.8 series
-      
-    """
-    def get_scene_object(self, context, name):
-        return context.scene.objects.get(name)
-        
-    def get_scene_objects(self, context):
-        return context.scene.objects
-        
-    def select_object(self, context, o, active=False):
-        """
-         Select object and optionnaly make active
-        """
-        if o is not None:
-            # o.select_set(action='SELECT')
-            o.select = True
-            if active:
-                context.scene.objects.active = o
-    
-    def unselect_object(self, o):
-        # o.select_set(action='DESELECT')
-        o.select = False
-    
-    def link_object_to_scene(self, context, o):
-        context.scene.objects.link(o)
-    
-    def unlink_object_from_scene(self, context, o):
-        context.scene.objects.unlink(o)
-    
-    def is_visible(self, o):
-        # o.visible_get()
-        return o.hide == False
-    
-    def is_selected(self, o):
-        # o.select_get()
-        return o.select
-        
-    def hide_object(self, o):
-        o.hide = True
-        
-    def show_object(self, o):
-        o.hide = False
-    
-    def _cleanup_datablock(self, d, typ):
-        if d and d.users < 1:
-            if typ == 'MESH':
-                bpy.data.meshes.remove(d)
-            elif typ == 'CURVE':
-                bpy.data.curves.remove(d)
-            elif typ == 'LAMP':
-                bpy.data.lamps.remove(d)
-
-    def _delete_object(self, context, o):
-        d = o.data
-        typ = o.type
-        self.unlink_object_from_scene(context, o)
-        bpy.data.objects.remove(o)
-        self._cleanup_datablock(d, typ)
-
-    def _delete_childs(self, context, o):
-        for child in o.children:
-            self._delete_childs(context, child)
-        self._delete_object(context, o)
-
-    def delete_object(self, context, o):
-        """
-          Recursively delete object and childs
-          Cleanup datablock when needed
-          @o: object to delete
-        """
-        if o is not None:
-            self._delete_childs(context, o)
-
-    def _duplicate_object(self, context, o, linked):
-        new_o = o.copy()
-        if o.data:
-            if linked:
-                new_o.data = o.data
-            else:
-                new_o.data = o.data.copy()
-        self.link_object_to_scene(new_o)
-        return new_o
-
-    def _duplicate_childs(self, context, o, linked):
-        p = self._duplicate_object(context, o, linked)
-        for child in o.children:
-            c = self._duplicate_childs(context, child, linked)
-            c.parent = p
-            # c.location = child.location.copy()
-            c.matrix_local = child.matrix_local.copy()
-            c.matrix_parent_inverse = child.matrix_parent_inverse.copy()
-        return p
-
-    def duplicate_object(self, context, o, linked):
-        """
-          Recursively duplicate object and childs
-          @o: object to duplicate
-          @linked : boolean linked duplicate
-          return parent on success
-        """
-        if o is not None:
-            return self._duplicate_childs(context, o, linked)
-        return None
-
-    def _link_object(self, src, o):
-        if src.data:
-            d = o.data
-            typ = o.type
-            o.data = src.data
-            self._cleanup_datablock(d, typ)
-
-    def _link_child(self, src, o):
-        self._link_object(src, o)
-        if len(src.children) == len(o.children):
-            for i, child in enumerate(src.children):
-                self._link_child(child, o.children[i])
-
-    def link_object(self, src, o):
-        """
-         Recursievely link datablock
-         @src: object source
-         @o: object destination
-         src and o parent child relationship must match
-        """
-        if src is not None:
-            self._link_child(src, o)
-
-    def get_topmost_parent(self, o):
-        if o.parent:
-            return self.get_topmost_parent(o.parent)
-        else:
-            return o
 
 
 class ArchipackGenericOperator(ArchipackObjectsManager):
@@ -496,7 +361,8 @@ class ArchipackDrawTool(ArchipackObjectsManager):
             convert mouse pos to 3d point over plane defined by origin and normal
         """
         is_perspective, orig, vec = self.region_2d_to_orig_and_vect(context, event)
-        res, pos, normal, face_index, object, matrix_world = context.scene.ray_cast(
+        res, pos, normal, face_index, object, matrix_world = self.scene_ray_cast(
+            context,
             orig,
             vec)
         return res, pos, normal, face_index, object, matrix_world

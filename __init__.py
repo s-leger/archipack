@@ -108,13 +108,12 @@ else:
 import bpy
 # noinspection PyUnresolvedReferences
 from bpy.types import (
-    Panel, WindowManager, PropertyGroup,
-    AddonPreferences, Menu
+    Panel, AddonPreferences, Menu
     )
 from bpy.props import (
-    EnumProperty, PointerProperty,
     StringProperty, BoolProperty,
-    IntProperty, FloatProperty, FloatVectorProperty
+    IntProperty, FloatProperty,
+    FloatVectorProperty
     )
 
 
@@ -136,16 +135,16 @@ def update_panel(self, context):
     except:
         pass
     prefs = context.user_preferences.addons[__name__].preferences
-    TOOLS_PT_Archipack_PolyLib.bl_category = prefs.tools_category
-    bpy.utils.register_class(TOOLS_PT_Archipack_PolyLib)
-    TOOLS_PT_Archipack_Tools.bl_category = prefs.tools_category
-    bpy.utils.register_class(TOOLS_PT_Archipack_Tools)
     TOOLS_PT_Archipack_Create.bl_category = prefs.create_category
     bpy.utils.register_class(TOOLS_PT_Archipack_Create)
     TOOLS_PT_Archipack_Create_2d.bl_category = prefs.create_category
     bpy.utils.register_class(TOOLS_PT_Archipack_Create_2d)
     TOOLS_PT_Archipack_Create_Custom.bl_category = prefs.create_category
     bpy.utils.register_class(TOOLS_PT_Archipack_Create_Custom)
+    TOOLS_PT_Archipack_Tools.bl_category = prefs.tools_category
+    bpy.utils.register_class(TOOLS_PT_Archipack_Tools)
+    TOOLS_PT_Archipack_PolyLib.bl_category = prefs.tools_category
+    bpy.utils.register_class(TOOLS_PT_Archipack_PolyLib)
     TOOLS_PT_Archipack_About.bl_category = prefs.create_category
     bpy.utils.register_class(TOOLS_PT_Archipack_About)
 
@@ -316,6 +315,7 @@ class Archipack_Pref(AddonPreferences):
             description="Enable experimental features (may be unstable)",
             default=False
             )
+
     # addon updater preferences
     auto_check_update = BoolProperty(
             name="Auto-check for Update",
@@ -542,8 +542,8 @@ class TOOLS_PT_Archipack_PolyLib(Panel):
             box.operator("archipack.polylib_boolean", text="Union").opCode = 'UNION'
             box.operator("archipack.polylib_boolean", text="SymDifference").opCode = 'SYMDIFFERENCE'
             box.prop(params, "boolean_bezier_resolution")
-        
-       
+
+
 class TOOLS_PT_Archipack_Tools(Panel):
     bl_label = "Tools"
     bl_idname = "TOOLS_PT_Archipack_Tools"
@@ -559,9 +559,8 @@ class TOOLS_PT_Archipack_Tools(Panel):
 
     def draw(self, context):
         prefs = context.user_preferences.addons[__name__].preferences
-        wm = context.window_manager
         layout = self.layout
-        
+
         box = layout.box()
         box.label("Auto boolean")
         box.operator("archipack.auto_boolean", text="AutoBoolean", icon='AUTO')
@@ -576,11 +575,6 @@ class TOOLS_PT_Archipack_Tools(Panel):
         row.operator("archipack.kill_archipack", text="selected", icon="ERROR").selected_only = True
         row.operator("archipack.kill_archipack", text="all", icon="ERROR").selected_only = False
 
-        box = layout.box()
-        box.label("Rendering")
-        box.prop(wm.archipack, 'render_type', text="")
-        box.operator("archipack.render", icon='RENDER_STILL')
-
         if prefs.experimental_features:
             box = layout.box()
             box.label("Animation support")
@@ -588,7 +582,7 @@ class TOOLS_PT_Archipack_Tools(Panel):
             row.operator("archipack.animation", text="Add", icon='ZOOMIN').mode = 'ENABLE'
             row.operator("archipack.animation", text="Remove", icon='ZOOMOUT').mode = 'DISABLE'
             row.operator("archipack.animation", text="Clear", icon='X').mode = 'CLEAR'
-        
+
         """
         box = layout.box()
         box.label("Generate preset thumbs")
@@ -603,14 +597,14 @@ class TOOLS_PT_Archipack_About(Panel):
     bl_region_type = "TOOLS"
     bl_category = "Create"
     bl_context = "objectmode"
-    
+
     def draw(self, context):
         layout = self.layout
         box = layout
         box.label(text="Archipack {}".format(__version__))
         box.label(text="by Stephen Leger")
-    
-    
+
+
 class TOOLS_PT_Archipack_Create(Panel):
     bl_label = "Add Objects"
     bl_idname = "TOOLS_PT_Archipack_Create"
@@ -633,11 +627,11 @@ class TOOLS_PT_Archipack_Create(Panel):
         box = layout.box()
         box.prop(prefs, "throttle_enable", icon="MOD_MULTIRES")
         box.prop(prefs, "throttle_delay")
-        
+
         box = layout
         row = box.row(align=True)
-        row.operator("archipack.wall2_draw", 
-                    text="Wall", 
+        row.operator("archipack.wall2_draw",
+                    text="Wall",
                     icon_value=icons["wall"].icon_id
                     )
         row.operator("archipack.wall2_from_curve", text="", icon='CURVE_DATA')
@@ -733,8 +727,8 @@ class TOOLS_PT_Archipack_Create(Panel):
                     )
 
         addon_updater_ops.update_notice_box_ui(self, context)
-        
-        
+
+
 class TOOLS_PT_Archipack_Create_2d(Panel):
     bl_label = "Add 2d Objects"
     bl_idname = "TOOLS_PT_Archipack_Create_2d"
@@ -750,10 +744,10 @@ class TOOLS_PT_Archipack_Create_2d(Panel):
     def draw(self, context):
         global icon_man
         prefs = context.user_preferences.addons[__name__].preferences
-        
+
         icons = icon_man["main"]
         layout = self.layout
-        
+
         box = layout
         box.operator("archipack.dimension_auto",
                     icon_value=icons["dimension_auto"].icon_id
@@ -774,8 +768,8 @@ class TOOLS_PT_Archipack_Create_2d(Panel):
             box.label(text="Experimental features")
             box.operator("archipack.floor_heating")
             box.operator("archipack.dimension")
-            
-            
+
+
 class TOOLS_PT_Archipack_Create_Custom(Panel):
     bl_label = "Custom Objects"
     bl_idname = "TOOLS_PT_Archipack_Create_Custom"
@@ -791,16 +785,16 @@ class TOOLS_PT_Archipack_Create_Custom(Panel):
     def draw(self, context):
         global icon_man
         prefs = context.user_preferences.addons[__name__].preferences
-        
-        icons = icon_man["main"]
-        layout = self.layout           
+
+        # icons = icon_man["main"]
+        layout = self.layout
         box = layout
         box.operator("archipack.wall", text="Custom wall")
 
         row = box.row(align=True)
         row.operator("archipack.custom_hole", text="Custom hole").remove = False
         row.operator("archipack.custom_hole", text="", icon='X').remove = True
-        
+
         if prefs.experimental_features:
             box = layout
             row = box.row(align=True)
@@ -900,25 +894,6 @@ def menu_func(self, context):
         draw_menu(self, context)
 
 
-# ----------------------------------------------------
-# Datablock to store global addon variables
-# ----------------------------------------------------
-
-
-class archipack_data(PropertyGroup):
-    render_type = EnumProperty(
-        items=(
-            ('1', "Draw over", "Draw over last rendered image"),
-            ('2', "OpenGL", ""),
-            ('3', "Animation OpenGL", ""),
-            ('4', "Image", "Render image and draw over"),
-            ('5', "Animation", "Draw on each frame")
-            ),
-        name="Render type",
-        description="Render method"
-        )
-
-
 def register():
     global icon_man
 
@@ -932,26 +907,27 @@ def register():
     icon_man = glob["archipack_iconmanager"].icons
     icon_man.load(os.path.join(os.path.dirname(__file__), "icons"), 'main')
 
-    bpy.utils.register_class(archipack_data)
-    WindowManager.archipack = PointerProperty(type=archipack_data)
-    
     bpy.utils.register_class(Archipack_Pref)
     update_panel(None, bpy.context)
-    
+
     bpy.utils.register_class(ARCHIPACK_MT_create_menu)
     bpy.types.INFO_MT_mesh_add.append(menu_func)
 
     addon_updater_ops.register(bl_info)
-    
-    # alt+M 
-    wm = bpy.context.window_manager
-    kc = wm.keyconfigs.addon
-    if kc:
-        km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
-        #Change here the Type of Event for your own shortcut, default ALT+M
-        kmi = km.keymap_items.new('archipack.manipulate', 'M', 'PRESS', alt = True) #ctrl = True, shift = True)              
 
-    
+    # alt+M
+    try:
+        wm = bpy.context.window_manager
+        kc = wm.keyconfigs.addon
+        if kc:
+            km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
+            # Change here the Type of Event for your own shortcut, default ALT+M
+            km.keymap_items.new('archipack.manipulate', 'M', 'PRESS', alt=True)
+            # ctrl = True, shift = True)
+    except:
+        pass
+
+
 def unregister():
     bpy.types.INFO_MT_mesh_add.remove(menu_func)
     bpy.utils.unregister_class(ARCHIPACK_MT_create_menu)
@@ -970,21 +946,21 @@ def unregister():
         if hasattr(module, "unregister"):
             module.unregister()
 
-    bpy.utils.unregister_class(archipack_data)
-    del WindowManager.archipack
-
     addon_updater_ops.unregister()
-    
-    # alt+M 
-    wm = bpy.context.window_manager
-    kc = wm.keyconfigs.addon
-    if kc:
-        km = kc.keymaps['3D View']
-        for kmi in km.keymap_items:
-            if kmi.idname == 'archipack.manipulate':
-                km.keymap_items.remove(kmi)
-                break 
-    
+
+    # alt+M
+    try:
+        wm = bpy.context.window_manager
+        kc = wm.keyconfigs.addon
+        if kc:
+            km = kc.keymaps['3D View']
+            for kmi in km.keymap_items:
+                if kmi.idname == 'archipack.manipulate':
+                    km.keymap_items.remove(kmi)
+                    break
+    except:
+        pass
+
 
 if __name__ == "__main__":
     register()

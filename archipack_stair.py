@@ -2813,31 +2813,25 @@ class ARCHIPACK_PT_stair(Panel):
         row.operator("archipack.stair_preset_menu", text=bpy.types.ARCHIPACK_OT_stair_preset_menu.bl_label)
         row.operator("archipack.stair_preset", text="", icon='ZOOMIN')
         row.operator("archipack.stair_preset", text="", icon='ZOOMOUT').remove_active = True
+        
         box = layout.box()
         box.prop(prop, 'presets', text="")
         box.prop(prop, 'width')
         box.prop(prop, 'height')
         box.prop(prop, 'bottom_z')
         box.prop(prop, 'x_offset')
+        
         box = layout.box()
-        box.label(text="Create curves")
-        row = box.row(align=True)
-        row.operator("archipack.stair_to_curve", text="Symbol").mode = 'SYMBOL'
-        op = row.operator("archipack.stair_to_curve", text="Fence")
-        op.mode = 'FENCE'
-        op.min_space = prop.height
-        op = row.operator("archipack.stair_to_curve", text="Hole")
-        op.mode = 'HOLE'
-        op.min_space = prop.height
-        # box.prop(prop, 'z_mode')
-        box = layout.box()
+        row = box.row(align=False)
+        icon = "TRIA_RIGHT"
         if prop.parts_expand:
-            box.prop(prop, 'parts_expand', icon="TRIA_DOWN", text="Parts", icon_only=True, emboss=False)
-        else:
-            box.prop(prop, 'parts_expand', icon="TRIA_RIGHT", text="Parts", icon_only=True, emboss=False)
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'parts_expand', icon=icon, text="Parts", icon_only=True, emboss=True)
+        if prop.presets == 'STAIR_USER':
+            row.prop(prop, 'n_parts')
+            
         if prop.parts_expand:
-            if prop.presets == 'STAIR_USER':
-                box.prop(prop, 'n_parts')
             if prop.presets != 'STAIR_USER':
                 row = box.row(align=True)
                 row.prop(prop, "left_shape", text="")
@@ -2852,24 +2846,26 @@ class ARCHIPACK_PT_stair(Panel):
                     part.draw(layout, context, i, prop.presets == 'STAIR_USER')
 
         box = layout.box()
-        row = box.row()
+        icon = "TRIA_RIGHT"
         if prop.steps_expand:
-            row.prop(prop, 'steps_expand', icon="TRIA_DOWN", icon_only=True, text="Steps", emboss=False)
+            icon = "TRIA_DOWN"
+            
+        box.prop(prop, 'steps_expand', icon=icon, text="Steps", icon_only=True, emboss=True)
+        
+        if prop.steps_expand:
             box.prop(prop, 'steps_type')
             box.prop(prop, 'step_depth')
             box.prop(prop, 'nose_type')
             box.prop(prop, 'nose_z')
             box.prop(prop, 'nose_y')
-        else:
-            row.prop(prop, 'steps_expand', icon="TRIA_RIGHT", icon_only=True, text="Steps", emboss=False)
-
+        
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.handrail_expand:
-            row.prop(prop, 'handrail_expand', icon="TRIA_DOWN", icon_only=True, text="Handrail", emboss=False)
-        else:
-            row.prop(prop, 'handrail_expand', icon="TRIA_RIGHT", icon_only=True, text="Handrail", emboss=False)
-
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'handrail_expand', icon=icon, text="Handrail", icon_only=True, emboss=True)
         row.prop(prop, 'left_handrail')
         row.prop(prop, 'right_handrail')
 
@@ -2889,12 +2885,14 @@ class ARCHIPACK_PT_stair(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.string_expand:
-            row.prop(prop, 'string_expand', icon="TRIA_DOWN", icon_only=True, text="String", emboss=False)
-        else:
-            row.prop(prop, 'string_expand', icon="TRIA_RIGHT", icon_only=True, text="String", emboss=False)
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'string_expand', icon=icon, text="String", icon_only=True, emboss=True)
         row.prop(prop, 'left_string')
         row.prop(prop, 'right_string')
+        
         if prop.string_expand:
             box.prop(prop, 'string_x')
             box.prop(prop, 'string_z')
@@ -2903,12 +2901,14 @@ class ARCHIPACK_PT_stair(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.post_expand:
-            row.prop(prop, 'post_expand', icon="TRIA_DOWN", icon_only=True, text="Post", emboss=False)
-        else:
-            row.prop(prop, 'post_expand', icon="TRIA_RIGHT", icon_only=True, text="Post", emboss=False)
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'post_expand', icon=icon, text="Post", icon_only=True, emboss=True)
         row.prop(prop, 'left_post')
         row.prop(prop, 'right_post')
+        
         if prop.post_expand:
             box.prop(prop, 'post_corners')
             if not prop.post_corners:
@@ -2924,13 +2924,14 @@ class ARCHIPACK_PT_stair(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.subs_expand:
-            row.prop(prop, 'subs_expand', icon="TRIA_DOWN", icon_only=True, text="Subs", emboss=False)
-        else:
-            row.prop(prop, 'subs_expand', icon="TRIA_RIGHT", icon_only=True, text="Subs", emboss=False)
-
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'subs_expand', icon=icon, text="Subs", icon_only=True, emboss=True)
         row.prop(prop, 'left_subs')
         row.prop(prop, 'right_subs')
+        
         if prop.subs_expand:
             box.prop(prop, 'subs_spacing')
             box.prop(prop, 'subs_x')
@@ -2945,12 +2946,14 @@ class ARCHIPACK_PT_stair(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.panel_expand:
-            row.prop(prop, 'panel_expand', icon="TRIA_DOWN", icon_only=True, text="Panels", emboss=False)
-        else:
-            row.prop(prop, 'panel_expand', icon="TRIA_RIGHT", icon_only=True, text="Panels", emboss=False)
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'panel_expand', icon=icon, text="Panels", icon_only=True, emboss=True)
         row.prop(prop, 'left_panel')
         row.prop(prop, 'right_panel')
+        
         if prop.panel_expand:
             box.prop(prop, 'panel_dist')
             box.prop(prop, 'panel_x')
@@ -2960,12 +2963,14 @@ class ARCHIPACK_PT_stair(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.rail_expand:
-            row.prop(prop, 'rail_expand', icon="TRIA_DOWN", icon_only=True, text="Rails", emboss=False)
-        else:
-            row.prop(prop, 'rail_expand', icon="TRIA_RIGHT", icon_only=True, text="Rails", emboss=False)
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'rail_expand', icon=icon, text="Rails", icon_only=True, emboss=True)
         row.prop(prop, 'left_rail')
         row.prop(prop, 'right_rail')
+        
         if prop.rail_expand:
             box.prop(prop, 'rail_n')
             for i in range(prop.rail_n):
@@ -2978,10 +2983,13 @@ class ARCHIPACK_PT_stair(Panel):
                 box.prop(prop.rail_mat[i], 'index', text="")
 
         box = layout.box()
-        row = box.row()
-
+        icon = "TRIA_RIGHT"
         if prop.idmats_expand:
-            row.prop(prop, 'idmats_expand', icon="TRIA_DOWN", icon_only=True, text="Materials", emboss=False)
+            icon = "TRIA_DOWN"
+            
+        box.prop(prop, 'idmats_expand', icon=icon, text="Materials", icon_only=True, emboss=True)
+        
+        if prop.idmats_expand:
             box.prop(prop, 'idmat_top')
             box.prop(prop, 'idmat_side')
             box.prop(prop, 'idmat_bottom')
@@ -2993,9 +3001,19 @@ class ARCHIPACK_PT_stair(Panel):
             box.prop(prop, 'idmat_post')
             box.prop(prop, 'idmat_subs')
             box.prop(prop, 'idmat_string')
-        else:
-            row.prop(prop, 'idmats_expand', icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
-
+        
+        box = layout.box()
+        box.label(text="Create curves")
+        row = box.row(align=True)
+        row.operator("archipack.stair_to_curve", text="Symbol").mode = 'SYMBOL'
+        op = row.operator("archipack.stair_to_curve", text="Fence")
+        op.mode = 'FENCE'
+        op.min_space = prop.height
+        op = row.operator("archipack.stair_to_curve", text="Hole")
+        op.mode = 'HOLE'
+        op.min_space = prop.height
+        # box.prop(prop, 'z_mode')
+        
 
 # ------------------------------------------------------------------
 # Define operator class to create object
@@ -3076,7 +3094,7 @@ class ARCHIPACK_OT_stair_to_curve(ArchipackObjectsManager, Operator):
             res = io._to_curve(geom, "{}-{}".format(o.name, self.mode.lower()), '3D')
             if self.mode in {'FENCE', 'HOLE'}:
                 res.location.z = d.height
-            self.select_object(context, res)
+            self.select_object(context, res, True)
             return {'FINISHED'}
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")

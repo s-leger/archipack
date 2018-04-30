@@ -124,12 +124,14 @@ class Line(Projection):
             self.p = Vector((0, 0))
             self.v = Vector((0, 0))
         self.line = None
-
+    
+    def __str__(self):
+        return "a0:{} length:{}".format(self.a0, self.length)
+    
     @property
     def copy(self):
         return copy.deepcopy(self)
     
-
     @property
     def p0(self):
         return self.p
@@ -284,7 +286,7 @@ class Line(Projection):
         c2 = self.cross_z
         u = (c * dp) / d
         v = (c2 * dp) / d
-        return u > 0 and v > 0 and u < 1 and v < 1, self.lerp(u), u, v
+        return 0 < u < 1 and 0 < v < 1, self.lerp(u), u, v
 
     def point_sur_segment(self, pt):
         """ _point_sur_segment
@@ -385,23 +387,10 @@ class Line(Projection):
             return line
 
         if hasattr(last, "r"):
-            res, d, t = line.point_sur_segment(last.c)
-            c = (last.r * last.r) - (d * d)
-            # print("t:%s" % t)
-            if c <= 0:
-                # no intersection !
-                p0 = line.lerp(t)
-            else:
-                # center is past start of line
-                if t > 0:
-                    p0 = line.lerp(t) - line.v.normalized() * sqrt(c)
-                else:
-                    p0 = line.lerp(t) + line.v.normalized() * sqrt(c)
-            # compute da of arc
-            u = last.p0 - last.c
-            v = p0 - last.c
-            da = self.signed_angle(u, v)
-            # da is ccw
+            
+            res, p0, t, u = last.intersect_arc(line, side='END', enlarge=True)
+
+            da = t * last.da
             if last.ccw:
                 # da is cw
                 if da < 0:
@@ -443,15 +432,14 @@ class Circle(Projection):
     def __init__(self, c, radius):
         Projection.__init__(self)
         self.r = radius
-        self.r2 = radius * radius
         self.c = c
 
     def intersect(self, line):
         v = line.p - self.c
-        A = line.v * line.v
+        A = line.v ** 2
         B = 2 * v * line.v
-        C = v * v - self.r2
-        d = B * B - 4 * A * C
+        C = v ** 2 - self.r ** 2
+        d = B ** 2 - 4 * A * C
         if A <= 0.0000001 or d < 0:
             # dosent intersect, find closest point of line
             res, d, t = line.point_sur_segment(self.c)
@@ -496,6 +484,9 @@ class Arc(Circle):
         self.line = None
         self.a0 = a0
         self.da = da
+    
+    def __str__(self):
+        return "a0:{} r:{} da:{}".format(self.a0, self.r, self.da)
     
     @property
     def copy(self):
@@ -573,7 +564,6 @@ class Arc(Circle):
         scale, rM = self.scale_rot_matrix(u, v)
         self.c = self.p1 + rM * (self.c - self.p1)
         self.r *= scale
-        self.r2 = self.r * self.r
         dp = p0 - self.c
         self.a0 = atan2(dp.y, dp.x)
 
@@ -590,7 +580,6 @@ class Arc(Circle):
         scale, rM = self.scale_rot_matrix(u, v)
         self.c = p0 + rM * (self.c - p0)
         self.r *= scale
-        self.r2 = self.r * self.r
         dp = p0 - self.c
         self.a0 = atan2(dp.y, dp.x)
     
@@ -642,7 +631,7 @@ class Arc(Circle):
             t parameter [0, 1] where 0 is start of arc and 1 is end
         """
         a = self.a0 + t * self.da
-        return self.c + Vector((self.r * cos(a), self.r * sin(a)))
+        return self.c + self.r * Vector((cos(a), sin(a)))
 
     def steps(self, length):
         """
@@ -650,15 +639,63 @@ class Arc(Circle):
         """
         steps = max(1, round(self.length / length, 0))
         return 1.0 / steps, int(steps)
-
+        
+    def intersect_arc(self, line, side='START', enlarge=False):
+        v = line.p - self.c
+        A = line.v * line.v
+        B = 2 * v * line.v
+        C = v * v - self.r ** 2
+        d = B * B - 4 * A * C
+        if A <= 0.0000001 or d < 0:
+            # dosent intersect, find closest point of line
+            res, d, t = line.point_sur_segment(self.c)
+            p0 = line.lerp(t)
+            res, d, u = self.point_sur_segment(p0)
+            # print("no intersection", u, t)
+            return False, p0, u, t
+        elif d == 0:
+            # intersect once either on top or bottom
+            t = -B / 2 * A
+            p0 = line.lerp(t)
+            res, d, u = self.point_sur_segment(p0)
+            # print("single intersection", u, t)
+            return res, p0, u, t
+        else:
+            AA = 2 * A
+            dsq = sqrt(d)
+            t0 = (-B + dsq) / AA
+            t1 = (-B - dsq) / AA
+            p0 = line.lerp(t0)
+            res0, d1, u = self.point_sur_segment(p0)
+            p1 = line.lerp(t1)
+            res1, d2, v = self.point_sur_segment(p1)
+            # line intersect twice, get closest from side
+            # print("two intersections 2 valid", u, v, t0, t1)    
+            if side == 'START':
+                # closest t from 0
+                if abs(u) < abs(v):
+                    return True, p0, u, t0
+                else:
+                    return True, p1, v, t1
+            elif side == 'END':
+                # closest t from 1
+                if abs(u - 1) < abs(v - 1): 
+                    return True, p0, u, t0
+                else:
+                    return True, p1, v, t1
+            return False, p0, u, t0
+            
     def intersect_ext(self, line):
         """
             same as intersect, but return param t on both lines
+        """
+        res, p, u, v = self.intersect_arc(line)
         """
         res, p, v = self.intersect(line)
         v0 = self.p0 - self.c
         v1 = p - self.c
         u = self.signed_angle(v0, v1) / self.da
+        """
         return res and u > 0 and v > 0 and u < 1 and v < 1, p, u, v
 
     # this is for wall
@@ -697,7 +734,6 @@ class Arc(Circle):
             radius = self.r - offset
         s = self.copy
         s.r = radius
-        s.r2 = radius ** 2
         return s
 
     def tangeant(self, t, length):
@@ -738,13 +774,28 @@ class Arc(Circle):
             Point pt lie on arc ?
             return
             True when pt lie on segment
-            t [0, 1] where it lie (normalized between start and end)
+            t [0-, 1+] where it lie (normalized between start and end)
             d distance from arc
         """
         dp = pt - self.c
-        d = dp.length - self.r
-        a = atan2(dp.y, dp.x)
-        t = (a - self.a0) / self.da
+        d = self.r - dp.length 
+        if self.da == 0:
+            t = 0
+        else:
+            da = atan2(dp.y, dp.x) - self.a0
+            if self.da >= 0:
+                # da in range [-90 | 270] ([0 | 180] +-90)
+                if da < -pi / 2:
+                    da += 2 * pi
+                if da > 1.5 * pi:
+                    da -= 2 * pi
+            else:
+                # da in range [-270 | 90] ([0 | -180] +-90)
+                if da > pi / 2:
+                    da -= 2 * pi
+                if da < -1.5 * pi:
+                    da += 2 * pi
+            t = da / self.da
         return t > 0 and t < 1, d, t
 
     def rotate(self, a):
@@ -763,6 +814,27 @@ class Arc(Circle):
         self.a0 = atan2(dp.y, dp.x)
         return self
     
+    def rotate_p1(self, a):
+        """
+            Rotate center so we rotate ccw arround p1
+        """
+        ca = cos(a)
+        sa = sin(a)
+        rM = Matrix([
+            [ca, -sa],
+            [sa, ca]
+            ])
+        p1 = self.p1
+        self.c = p1 + rM * (self.c - p1)
+        # p0 does rotate
+        a0 = self.a0 + a
+        if a0 > pi:
+            a0 -= 2 * pi
+        if a0 < -pi:
+            a0 += 2 * pi
+        self.a0 = a0
+        return self
+
     def scale(self, radius):
         """
             Scale keeping p0
@@ -770,7 +842,6 @@ class Arc(Circle):
         p0 = self.p0
         self.c = p0 + radius * (self.c - p0).normalized()
         self.r = radius
-        self.r2 = self.r * self.r
         
     # make offset for line / arc, arc / arc
     def make_offset(self, offset, last=None):
@@ -783,6 +854,10 @@ class Arc(Circle):
         if hasattr(last, "v"):
             # intersect line / arc
             # 1 line -> 2 arc
+            
+            res, p0, t, u = line.intersect_arc(last, side='START', enlarge=True)
+                
+            """
             res, d, t = last.point_sur_segment(line.c)
             c = line.r2 - (d * d)
             if c <= 0:
@@ -797,13 +872,14 @@ class Arc(Circle):
                 else:
                     # line take precedence
                     p0 = last.lerp(t) + last.v.normalized() * sqrt(c)
-
             # compute a0 and da of arc
             u = p0 - line.c
             v = line.p1 - line.c
             line.a0 = atan2(u.y, u.x)
             da = self.signed_angle(u, v)
             # da is ccw
+            """
+            da = line.da * (1 - t)
             if self.ccw:
                 # da is cw
                 if da < 0:
@@ -812,7 +888,10 @@ class Arc(Circle):
             elif da > 0:
                 # da is ccw
                 da = 2 * pi - da
+            line.a0 = line.a0 + line.da * t
             line.da = da
+            
+            # print("line - arc", t, line.a0, line.da)
             last.p1 = p0
         else:
             # intersect arc / arc x1 = self x0 = last
@@ -832,9 +911,9 @@ class Arc(Circle):
                 p0 = dc * -last.r / r + self.c
             else:
                 # 2 solutions
-                a = (last.r2 - line.r2 + dist * dist) / (2.0 * dist)
+                a = (last.r ** 2 - line.r ** 2 + dist ** 2) / (2.0 * dist)
                 v2 = last.c + dc * a / dist
-                h = sqrt(last.r2 - a * a)
+                h = sqrt(last.r ** 2 - a ** 2)
                 r = Vector((-dc.y, dc.x)) * (h / dist)
                 p0 = v2 + r
                 res, d1, t = tmp.point_sur_segment(p0)
@@ -884,6 +963,7 @@ class Arc(Circle):
         self.select_object(context, curve_obj)
     """
 
+    
 class Line3d(Line):
     """
         3d Line

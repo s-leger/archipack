@@ -123,6 +123,7 @@ class ArchipackActiveManip:
         self.manipulable = None
         # .datablock() class method
         self.datablock = None
+        self.active = False
 
     @property
     def dirty(self):
@@ -275,6 +276,10 @@ class Manipulator(ArchipackObjectsManager):
         self.datablock = datablock
         self.manipulator = manipulator
 
+        # hold dict of property names and options
+        self.props = self.from_json(self.manipulator.prop1_name)
+        self.opts = self.from_json(self.manipulator.prop2_name)
+
         self.snap_callback = snap_callback
         self.origin = self.o.matrix_world.translation.copy()
         self.mouse_pos = Vector((0, 0))
@@ -304,6 +309,15 @@ class Manipulator(ArchipackObjectsManager):
             logger.debug("draw_handler_remove done")
         else:
             logger.debug("Manipulator.exit() handle not found %s", (type(self).__name__))
+
+    def from_json(self, json_str):
+        params = {}
+        try:
+            params = json.loads(json_str)
+        except:
+            logger.debug("cant parse %s", json_str)
+            pass
+        return params
 
     # Mouse event handlers, MUST be overriden
     def mouse_press(self, context, event):
@@ -429,9 +443,10 @@ class Manipulator(ArchipackObjectsManager):
             where True means the event was handled here so stack return RUNNING_MODAL
             and False means let the event bubble on stack
         """
-        
 
-        if event.type == 'MOUSEMOVE':
+        # print("Manipulator.modal event:", event.type, event.value)
+
+        if event.type == 'MOUSEMOVE' or event.type == 'INBETWEEN_MOUSEMOVE':
             return self.mouse_move(context, event)
 
         elif event.value == 'PRESS':
@@ -440,7 +455,7 @@ class Manipulator(ArchipackObjectsManager):
                 active = self.mouse_press(context, event)
                 if active:
                     self.feedback.enable()
-                
+
                 return active
 
             elif self.keymap.check(event, self.keymap.undo):
@@ -496,8 +511,7 @@ class Manipulator(ArchipackObjectsManager):
                     self.keyboard_input_active = False
                     self.feedback.disable()
                     return ret
-        
-        # print("Manipulator.modal event:", event.type, event.value)
+
         return False
 
     def mouse_position(self, event):
@@ -793,10 +807,10 @@ class WallSnapManipulator(Manipulator):
 
             # update properties from generator
             idx = 0
-            
+
             # flag: when object move must update generator before relocate
             dirty = False
-            
+
             for p0, p1, selected in gl_pts3d:
 
                 if selected:
@@ -845,12 +859,7 @@ class WallSnapManipulator(Manipulator):
                 idx += 1
 
             self.mouse_release(context, event)
-            
-            # explicit relocate
-            if dirty:
-                g = d.get_generator()
-            
-            d.relocate_childs(context, self.o, g)
+            d.relocate_childs(context, self.o)
             d.update(context)
 
         if state == 'CANCEL':
@@ -1326,7 +1335,7 @@ class DualSnapSizeManipulator(Manipulator):
         global gl_pts3d
         if self.handle_right.hover or self.handle_left.hover:
             self.active = True
-            self.original_size = self.get_value(self.datablock, self.manipulator.prop1_name)
+            self.original_size = self.get_value(self.datablock, self.props['length'])
             self.feedback.instructions(context, "Size", "Drag or Keyboard to modify size", [
                 ('CTRL', 'Snap'),
                 ('ALT', 'Round'),
@@ -1400,12 +1409,12 @@ class DualSnapSizeManipulator(Manipulator):
     def cancel(self, context, event):
         if self.active:
             self.mouse_release(context, event)
-            self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
-            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_size)
+            self.set_value(context, self.datablock, self.props['dir'], self.direction)
+            self.set_value(context, self.datablock, self.props['length'], self.original_size)
 
     def keyboard_done(self, context, event, value):
-        self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
-        self.set_value(context, self.datablock, self.manipulator.prop1_name, value)
+        self.set_value(context, self.datablock, self.props['dir'], self.direction)
+        self.set_value(context, self.datablock, self.props['length'], value)
         self.label.active = False
         return True
 
@@ -1425,8 +1434,8 @@ class DualSnapSizeManipulator(Manipulator):
             length = (self.line_2.p - pt).length
         if event.alt:
             length = round(length, 1)
-        self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
-        self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
+        self.set_value(context, self.datablock, self.props['dir'], self.direction)
+        self.set_value(context, self.datablock, self.props['length'], length)
 
     def draw_callback(self, _self, context, render=False):
         """
@@ -1492,8 +1501,8 @@ class DualSnapSizeManipulator(Manipulator):
     def sp_update(self, context, p0, p1):
         logger.debug("DualSnapSizeManipulator.sp_update")
         length = (p0 - p1).length
-        self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
-        self.set_value(context, self.datablock, self.manipulator.prop1_name, length)
+        self.set_value(context, self.datablock, self.props['dir'], self.direction)
+        self.set_value(context, self.datablock, self.props['length'], length)
         logger.debug("DualSnapSizeManipulator.sp_update done")
 
 
@@ -2050,13 +2059,13 @@ class DualAngleManipulator(Manipulator):
     def mouse_press(self, context, event):
         if self.handle_right.hover or self.handle_left.hover:
             self.active = True
-            self.original_angle = self.get_value(self.datablock, self.manipulator.prop1_name)
+            self.original_angle = self.get_value(self.datablock, self.props['angle'])
             self.feedback.instructions(context, "Angle", "Drag to modify angle", [
                 ('SHIFT', 'Round 1 degree'),
                 ('CTRL+SHIFT', 'Round 5 degrees'),
                 ('RIGHTCLICK or ESC', 'cancel')
                 ])
-                       
+
         if self.handle_right.hover:
             # print("DualAngleManipulator mouse_press handle_right.active")
             self.direction = 'RIGHT'
@@ -2076,7 +2085,7 @@ class DualAngleManipulator(Manipulator):
                 ('RIGHTCLICK or ESC', 'cancel')])
             self.value_type = 'ROTATION'
             self.label_a.active = True
-            self.label_value = self.get_value(self.datablock, self.manipulator.prop1_name)
+            self.label_value = self.get_value(self.datablock, self.props['angle'])
             self.keyboard_input_active = True
             return True
 
@@ -2100,8 +2109,8 @@ class DualAngleManipulator(Manipulator):
         return False
 
     def keyboard_done(self, context, event, value):
-        self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
-        self.set_value(context, self.datablock, self.manipulator.prop1_name, value)
+        self.set_value(context, self.datablock, self.props['dir'], self.direction)
+        self.set_value(context, self.datablock, self.props['angle'], value)
         self.label_a.active = False
         return True
 
@@ -2112,8 +2121,8 @@ class DualAngleManipulator(Manipulator):
     def cancel(self, context, event):
         if self.active:
             self.mouse_release(context, event)
-            self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
-            self.set_value(context, self.datablock, self.manipulator.prop1_name, self.original_angle)
+            self.set_value(context, self.datablock, self.props['dir'], self.direction)
+            self.set_value(context, self.datablock, self.props['angle'], self.original_angle)
 
     def update(self, context, event):
         pt = self.get_pos3d(context)
@@ -2151,8 +2160,8 @@ class DualAngleManipulator(Manipulator):
                 else:
                     da = round(da / pi * 180, 0) / 180 * pi
 
-            self.set_value(context, self.datablock, self.manipulator.prop2_name, self.direction)
-            self.set_value(context, self.datablock, self.manipulator.prop1_name, da)
+            self.set_value(context, self.datablock, self.props['dir'], self.direction)
+            self.set_value(context, self.datablock, self.props['angle'], da)
 
     def draw_callback(self, _self, context, render=False):
         c, left, right, normal = self.manipulator.get_pts(self.o.matrix_world)
@@ -2169,12 +2178,15 @@ class DualAngleManipulator(Manipulator):
         self.line_1.v = right
         self.line_1.v = self.line_1.cross.normalized()
         self.arc.a0 = self.line_0.angle
-        self.arc.da = self.get_value(self.datablock, self.manipulator.prop1_name)
+        self.arc.da = self.get_value(self.datablock, self.props['angle'])
         self.arc.r = 1.0
+        dir = 1
+        if self.opts['flip'] is True:
+            dir = -1
         self.handle_right.set_pos(context, self.line_1.lerp(1),
-                                  self.line_1.sized_normal(1, -1 if self.arc.da > 0 else 1).v)
+                                  self.line_1.sized_normal(1, -dir).v)
         self.handle_left.set_pos(context, self.line_0.lerp(1),
-                                  self.line_0.sized_normal(1, 1 if self.arc.da > 0 else -1).v)
+                                  self.line_0.sized_normal(1, dir).v)
         self.handle_center.set_pos(context, self.arc.c, -self.line_0.v)
         label_value = self.arc.da
         if self.keyboard_input_active:
@@ -2642,12 +2654,8 @@ class CallOperatorManipulator(Manipulator):
     def mouse_press(self, context, event):
         if self.handle.hover:
             po = self.manipulator.prop1_name.split(".")
-            params = {}
-            # try:
-            params = json.loads(self.manipulator.prop2_name)
-            # print("params", self.manipulator.prop2_name, params)
-            # except:
-            #     pass
+            params = self.from_json(self.manipulator.prop2_name)
+
             # try:
             op = getattr(getattr(bpy.ops, po[0]), po[1])
             if op.poll():
@@ -2894,14 +2902,23 @@ class ARCHIPACK_OT_manipulate_modal(Operator):
 
         # exit when another object is active ??
         # might not work when manipulating eg a window through a wall
-
         if check_stack(key):
             self.exit_selectmode(context, key)
             remove_manipulable(key)
             # print("modal exit by check_stack(%s)" % (key))
             return {'FINISHED'}
 
+        # disable handler when another manipulator is active
+        for k, manip in manips.items():
+            if manip.active and k != key:
+                return {'PASS_THROUGH'}
+
         res = manips[key].manipulable.manipulable_modal(context, event)
+
+        # flag as active to disallow other manipulators modal handler
+        manips[key].active = 'RUNNING_MODAL' in res
+
+        # print("archipack.manipulate_modal()", key, res, manips[key].active)
 
         if 'FINISHED' in res:
             self.exit_selectmode(context, key)
@@ -3130,6 +3147,10 @@ class Manipulable():
             if event.type in {'A'} and event.value == 'RELEASE':
                 return {'RUNNING_MODAL'}
         """
+        # let timer and none events pass through to allow changes on ui
+        if event.type == 'TIMER' or event.type == 'NONE':
+            # print(event.type)
+            return {'PASS_THROUGH'}
 
         for manipulator in self.manip_stack:
             # manipulator should return false on left mouse release
@@ -3150,65 +3171,71 @@ class Manipulable():
         # print("Manipulable %s %s" % (event.type, event.value))
 
         # Manipulators are not active so check for selection
-        if event.type == 'LEFTMOUSE':
+        if self.manipulable_selectable:
 
-            # either we are starting select mode
-            # user press on area not over maniuplator
-            # Prevent 3 mouse emultation to select when alt pressed
-            if self.manipulable_selectable and event.value == 'PRESS' and not event.alt:
-                self.select_mode = True
-                self.manipulable_area.enable()
-                self.manipulable_start_point = Vector((event.mouse_region_x, event.mouse_region_y))
+            # print("Manipulable %s %s" % (event.type, event.value))
+
+            if event.type == 'LEFTMOUSE':
+
+                # either we are starting select mode
+                # user press on area not over maniuplator
+                # Prevent 3 mouse emultation to select when alt pressed
+                if event.value == 'PRESS' and not event.alt:
+                    self.select_mode = True
+                    self.manipulable_area.enable()
+                    self.manipulable_start_point = Vector((event.mouse_region_x, event.mouse_region_y))
+                    self.manipulable_area.set_location(
+                        context,
+                        self.manipulable_start_point,
+                        self.manipulable_start_point)
+                    # add a select draw handler
+                    args = (self, context)
+                    self.manipulable_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
+                        self.manipulable_draw_callback,
+                        args,
+                        'WINDOW',
+                        'POST_PIXEL')
+                    # don't keep focus
+                    # as this prevent click over ui
+                    # return {'RUNNING_MODAL'}
+
+                elif event.value == 'RELEASE':
+                    if self.select_mode:
+                        # confirm selection
+
+                        self.manipulable_exit_selectmode(context)
+
+                        # keep focus
+                        # return {'RUNNING_MODAL'}
+
+                    else:
+                        # allow manipulator action on release
+                        for manipulator in self.manip_stack:
+                            if manipulator is not None and manipulator.selectable:
+                                manipulator.selected = False
+                        self.manipulable_release(context)
+
+            elif self.select_mode and event.type == 'MOUSEMOVE' and event.value == 'PRESS':
+                # update select area size
+                self.manipulable_end_point = Vector((event.mouse_region_x, event.mouse_region_y))
                 self.manipulable_area.set_location(
                     context,
                     self.manipulable_start_point,
-                    self.manipulable_start_point)
-                # add a select draw handler
-                args = (self, context)
-                self.manipulable_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
-                    self.manipulable_draw_callback,
-                    args,
-                    'WINDOW',
-                    'POST_PIXEL')
-                # don't keep focus
-                # as this prevent click over ui
-                # return {'RUNNING_MODAL'}
-
-            elif event.value == 'RELEASE':
-                if self.select_mode:
-                    # confirm selection
-
-                    self.manipulable_exit_selectmode(context)
-
-                    # keep focus
-                    # return {'RUNNING_MODAL'}
-
+                    self.manipulable_end_point)
+                if event.shift:
+                    # deselect
+                    for i, manipulator in enumerate(self.manip_stack):
+                        if manipulator is not None and manipulator.selected:
+                            manipulator.deselect(self.manipulable_area)
                 else:
-                    # allow manipulator action on release
-                    for manipulator in self.manip_stack:
+                    # select / more
+                    for i, manipulator in enumerate(self.manip_stack):
                         if manipulator is not None and manipulator.selectable:
-                            manipulator.selected = False
-                    self.manipulable_release(context)
+                            manipulator.select(self.manipulable_area)
 
-        elif self.select_mode and event.type == 'MOUSEMOVE' and event.value == 'PRESS':
-            # update select area size
-            self.manipulable_end_point = Vector((event.mouse_region_x, event.mouse_region_y))
-            self.manipulable_area.set_location(
-                context,
-                self.manipulable_start_point,
-                self.manipulable_end_point)
-            if event.shift:
-                # deselect
-                for i, manipulator in enumerate(self.manip_stack):
-                    if manipulator is not None and manipulator.selectable:
-                        manipulator.deselect(self.manipulable_area)
-            else:
-                # select / more
-                for i, manipulator in enumerate(self.manip_stack):
-                    if manipulator is not None and manipulator.selectable:
-                        manipulator.select(self.manipulable_area)
-            # keep focus to prevent left select mouse to actually move object
-            return {'RUNNING_MODAL'}
+                # keep focus to prevent left select mouse to actually move object
+                if context.user_preferences.inputs.select_mouse == 'LEFT':
+                    return {'RUNNING_MODAL'}
 
         # event.alt here to prevent 3 button mouse emulation exit while zooming
         if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS' and not event.alt:

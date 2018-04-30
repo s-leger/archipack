@@ -195,7 +195,7 @@ class FenceGenerator(Generator):
         segment = FenceSegment(t_start, f.t_end, n_fences, t_fence, i_start, len(self.segs) - 1)
         self.segments.append(segment)
 
-    def setup_user_defined_post(self, o, post_x, post_y, post_z, post_rotation):
+    def setup_user_defined_post(self, o, post_x, post_y, post_z, post_rotation, use_matid, matid):
         self.user_defined_post = o
         x = o.bound_box[6][0] - o.bound_box[0][0]
         y = o.bound_box[6][1] - o.bound_box[0][1]
@@ -220,8 +220,13 @@ class FenceGenerator(Generator):
             self.user_defined_uvs = [[uv_layer[li].uv for li in p.loop_indices] for p in m.polygons]
         else:
             self.user_defined_uvs = [[(0, 0) for i in p.vertices] for p in m.polygons]
+        
         # material ids
-        self.user_defined_mat = [p.material_index for p in m.polygons]
+        if use_matid:
+            self.user_defined_mat = [p.material_index for p in m.polygons]
+        else:
+            self.user_defined_mat = [matid for p in m.polygons]
+        
         ca = cos(post_rotation)
         sa = sin(post_rotation)
         self.user_rM = Matrix([
@@ -244,9 +249,9 @@ class FenceGenerator(Generator):
             if 'Slope' in g:
                 co.z += co.y * slope
             verts.append(tM * co)
-        matids += self.user_defined_mat
-        faces += [tuple([i + f for i in p.vertices]) for p in m.polygons]
-        uvs += self.user_defined_uvs
+        matids.extend(self.user_defined_mat)
+        faces.extend([tuple([i + f for i in p.vertices]) for p in m.polygons])
+        uvs.extend(self.user_defined_uvs)
 
     def get_post(self, post, post_x, post_y, post_z, post_alt, sub_offset_x,
             id_mat, verts, faces, matids, uvs):
@@ -428,7 +433,7 @@ class FenceGenerator(Generator):
                 while i < segment.i_end:
                     f = self.segs[i]
                     if f.t_end < t_end:
-                        if type(f).__name__ == 'CurvedFence':
+                        if type(f).__name__ == 'CurvedSegment':
                             # cant end after segment
                             t0 = max(0, (t_cur - f.t_start) / f.t_diff)
                             t1 = min(1, (t_end - f.t_start) / f.t_diff)
@@ -449,7 +454,7 @@ class FenceGenerator(Generator):
 
                 f = self.segs[i]
                 # last section
-                if type(f).__name__ == 'CurvedFence':
+                if type(f).__name__ == 'CurvedSegment':
                     # cant start before segment
                     t0 = max(0, (t_cur - f.t_start) / f.t_diff)
                     t1 = min(1, (t_end - f.t_start) / f.t_diff)
@@ -505,7 +510,7 @@ class FenceGenerator(Generator):
         for s, f in enumerate(self.segs):
             if f.line.length == 0:
                 continue
-            if type(f).__name__ == 'CurvedFence':
+            if type(f).__name__ == 'CurvedSegment':
                 n_s = int(max(1, abs(f.da) * 30 / pi - 1))
                 for i in range(1, n_s + 1):
                     t = i / n_s
@@ -667,10 +672,12 @@ class archipack_fence_rail(ArchipackProfile, PropertyGroup):
         default=True
         )
 
-    def refresh_profile_size(self, x, y):
+    def refresh_profile_size(self, context, x, y):
         self.profil_x = x
         self.profil_y = y
-
+        self.auto_update = True
+        self.update(context)
+        
     def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -1088,7 +1095,18 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             default='0',
             update=update
             )
-
+    use_subs_material = BoolProperty(
+            name="Use material",
+            description="Use material indexes of object",
+            update=update,
+            default=False)
+           
+    use_post_material = BoolProperty(
+            name="Use material",
+            description="Use material indexes of object",
+            update=update,
+            default=False)
+            
     # UI layout related
     parts_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -1189,6 +1207,9 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         for part in self.parts:
             # type, radius, da, length
             g.add_part(part)
+        g.set_offset(self.x_offset)
+        g.close(self.x_offset)
+        g.locate_manipulators()
         return g
 
     def update(self, context, manipulable_refresh=False):
@@ -1210,13 +1231,10 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         uvs = []
 
         g = self.get_generator()
-
+        
         if not self.closed:
             g.segs.pop()
 
-        g.set_offset(self.x_offset)
-        g.close(self.x_offset)
-        g.locate_manipulators()
         g.param_t(self.angle_limit, self.post_spacing)
 
         # depth at bottom
@@ -1226,7 +1244,9 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             # user defined posts
             user_def_post = context.scene.objects.get(self.user_defined_post)
             if user_def_post is not None and user_def_post.type == 'MESH':
-                g.setup_user_defined_post(user_def_post, self.post_x, self.post_y, self.post_z, self.post_rotation)
+                g.setup_user_defined_post(user_def_post, 
+                    self.post_x, self.post_y, self.post_z, self.post_rotation,
+                    self.use_post_material, int(self.idmat_post))
 
         if self.post:
             g.make_post(0.5 * self.post_x, 0.5 * self.post_y, self.post_z,
@@ -1240,7 +1260,9 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         if self.user_defined_subs_enable:
             user_def_subs = context.scene.objects.get(self.user_defined_subs)
             if user_def_subs is not None and user_def_subs.type == 'MESH':
-                g.setup_user_defined_post(user_def_subs, self.subs_x, self.subs_y, self.subs_z, self.subs_rotation)
+                g.setup_user_defined_post(user_def_subs, 
+                    self.subs_x, self.subs_y, self.subs_z, self.subs_rotation,
+                    self.use_subs_material, int(self.idmat_subs))
 
         if self.subs:
             g.make_subs(0.5 * self.subs_x, 0.5 * self.subs_y, self.subs_z,
@@ -1405,23 +1427,25 @@ class ARCHIPACK_PT_fence(Panel):
         row.operator("archipack.fence_preset", text="", icon='ZOOMOUT').remove_active = True
 
         box = layout.box()
-        prop.template_user_path(context, box)
-        if prop.user_defined_path is not "":
-            box.prop(prop, 'user_defined_spline')
-            box.prop(prop, 'user_defined_reverse')
+        expand = prop.template_user_path(context, box)
+        if expand:
+            if prop.user_defined_path is not "":
+                box.prop(prop, 'user_defined_reverse')
 
-        box.prop(prop, 'angle_limit')
+            box.prop(prop, 'angle_limit')
+        
+        box = layout.box()
         box.prop(prop, 'x_offset')
 
         prop.template_parts(context, layout, draw_type=True)
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.handrail_expand:
-            row.prop(prop, 'handrail_expand', icon="TRIA_DOWN", icon_only=True, text="Handrail", emboss=False)
-        else:
-            row.prop(prop, 'handrail_expand', icon="TRIA_RIGHT", icon_only=True, text="Handrail", emboss=False)
-
+            icon = "TRIA_DOWN"
+        
+        row.prop(prop, 'handrail_expand', icon=icon, icon_only=True, text="Handrail", emboss=True)
         row.prop(prop, 'handrail')
 
         if prop.handrail_expand:
@@ -1439,11 +1463,13 @@ class ARCHIPACK_PT_fence(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.post_expand:
-            row.prop(prop, 'post_expand', icon="TRIA_DOWN", icon_only=True, text="Post", emboss=False)
-        else:
-            row.prop(prop, 'post_expand', icon="TRIA_RIGHT", icon_only=True, text="Post", emboss=False)
+            icon = "TRIA_DOWN"
+        
+        row.prop(prop, 'post_expand', icon=icon, icon_only=True, text="Post", emboss=True) 
         row.prop(prop, 'post')
+        
         if prop.post_expand:
             box.prop(prop, 'post_spacing')
             box.prop(prop, 'post_x')
@@ -1456,15 +1482,17 @@ class ARCHIPACK_PT_fence(Panel):
             row.prop_search(prop, "user_defined_post", scene, "objects", text="")
             if prop.user_defined_post:
                 box.prop(prop, 'post_rotation')
-
+                box.prop(prop, 'use_post_material')
+        
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.subs_expand:
-            row.prop(prop, 'subs_expand', icon="TRIA_DOWN", icon_only=True, text="Subs", emboss=False)
-        else:
-            row.prop(prop, 'subs_expand', icon="TRIA_RIGHT", icon_only=True, text="Subs", emboss=False)
-
+            icon = "TRIA_DOWN"
+        
+        row.prop(prop, 'subs_expand', icon=icon, icon_only=True, text="Subs", emboss=True) 
         row.prop(prop, 'subs')
+        
         if prop.subs_expand:
             box.prop(prop, 'subs_spacing')
             box.prop(prop, 'subs_x')
@@ -1478,14 +1506,17 @@ class ARCHIPACK_PT_fence(Panel):
             row.prop_search(prop, "user_defined_subs", scene, "objects", text="")
             if prop.user_defined_subs:
                 box.prop(prop, 'subs_rotation')
-
+                box.prop(prop, 'use_subs_material')
+        
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.panel_expand:
-            row.prop(prop, 'panel_expand', icon="TRIA_DOWN", icon_only=True, text="Panels", emboss=False)
-        else:
-            row.prop(prop, 'panel_expand', icon="TRIA_RIGHT", icon_only=True, text="Panels", emboss=False)
+            icon = "TRIA_DOWN"
+        
+        row.prop(prop, 'panel_expand', icon=icon, icon_only=True, text="Panels", emboss=True) 
         row.prop(prop, 'panel')
+        
         if prop.panel_expand:
             box.prop(prop, 'panel_dist')
             box.prop(prop, 'panel_x')
@@ -1495,11 +1526,13 @@ class ARCHIPACK_PT_fence(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.rail_expand:
-            row.prop(prop, 'rail_expand', icon="TRIA_DOWN", icon_only=True, text="Rails", emboss=False)
-        else:
-            row.prop(prop, 'rail_expand', icon="TRIA_RIGHT", icon_only=True, text="Rails", emboss=False)
+            icon = "TRIA_DOWN"
+        
+        row.prop(prop, 'rail_expand', icon=icon, icon_only=True, text="Rails", emboss=True) 
         row.prop(prop, 'rail')
+        
         if prop.rail_expand:
             box.prop(prop, 'rail_n')
             for i in range(prop.rail_n):
@@ -1509,16 +1542,18 @@ class ARCHIPACK_PT_fence(Panel):
 
         box = layout.box()
         row = box.row()
-
+        icon = "TRIA_RIGHT"
         if prop.idmats_expand:
-            row.prop(prop, 'idmats_expand', icon="TRIA_DOWN", icon_only=True, text="Materials", emboss=False)
+            icon = "TRIA_DOWN"
+        
+        row.prop(prop, 'idmats_expand', icon=icon, icon_only=True, text="Material index", emboss=True) 
+        
+        if prop.idmats_expand:
             box.prop(prop, 'idmat_handrail')
             box.prop(prop, 'idmat_panel')
             box.prop(prop, 'idmat_post')
             box.prop(prop, 'idmat_subs')
-        else:
-            row.prop(prop, 'idmats_expand', icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
-
+        
 
 # ------------------------------------------------------------------
 # Define operator class to create object

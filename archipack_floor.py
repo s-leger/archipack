@@ -23,7 +23,6 @@
 # ----------------------------------------------------------
 # Author: Jacob Morris - Stephen Leger (s-leger)
 # ----------------------------------------------------------
-
 import bpy
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
@@ -663,11 +662,13 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
 
 
 def update(self, context):
-    self.update(context)
+    if self.auto_update:
+        self.update(context)
 
 
 def update_manipulators(self, context):
-    self.update(context, manipulable_refresh=True)
+    if self.auto_update:
+        self.update(context, manipulable_refresh=True)
 
 
 def update_path(self, context):
@@ -1071,9 +1072,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             self.manipulable_disable(context)
 
         self.update_parts()
-
         g = self.get_generator()
-
         for i, seg in enumerate(g.segs):
             g.segs[i] = seg.line
 
@@ -1130,6 +1129,8 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             self.manipulable_disable(context)
             return False
 
+        # locate manipulators
+        self.get_generator()
         self.manipulable_setup(context)
         self.manipulate_mode = True
 
@@ -1159,16 +1160,15 @@ class archipack_floor_cutter(ArchipackCutter, ArchipackObject, Manipulable, Dime
             self.update_parent(context, o)
 
     def update_parent(self, context, o):
-
-        d = archipack_floor.datablock(o.parent)
-        if d is not None:
-            o.parent.select = True
-            context.scene.objects.active = o.parent
-            d.update(context)
-        o.parent.select = False
-        context.scene.objects.active = o
-
-
+        if o is not None:
+            d = archipack_floor.datablock(o.parent)
+            if d is not None:
+                self.select_object(context, o.parent, True)
+                d.update(context)
+                self.unselect_object(o.parent)
+            self.select_object(context, o, True)
+        
+        
 # ------------------------------------------------------------------
 # Define panel class to show object parameters in ui panel (N)
 # ------------------------------------------------------------------
@@ -1214,21 +1214,12 @@ class ARCHIPACK_PT_floor(Panel):
         box.operator('archipack.floor_cutter').parent = o.name
 
         box = layout.box()
-        props.template_user_path(context, box)
+        expand = props.template_user_path(context, box)
+        if expand:
+            box.prop(props, 'x_offset')
 
-        box.prop(props, 'x_offset')
         props.template_parts(context, layout)
-        """
-        box = layout.box()
-        row = box.row()
-        if props.parts_expand:
-            row.prop(props, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Parts", emboss=False)
-            box.prop(props, 'n_parts')
-            for i, part in enumerate(props.parts):
-                part.draw(context, layout, i)
-        else:
-            row.prop(props, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Parts", emboss=False)
-        """
+
         layout.separator()
         box = layout.box()
         box.prop(props, 'pattern', text="")
@@ -1476,11 +1467,13 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             polys = wall.geoms
         else:
             polys = [wall]
+        sel = []
         for poly in polys:
             boundary = io._to_curve(poly.exterior, "{}-boundary".format(w.name), '2D')
             boundary.location.z = w.matrix_world.translation.z - wd.z_offset
             bpy.ops.archipack.floor(auto_manipulate=False, filepath=self.filepath)
             o = context.active_object
+            sel.append(o)
             o.matrix_world = w.matrix_world.copy()
             d = archipack_floor.datablock(o)
             d.auto_update = False
@@ -1508,10 +1501,12 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             # select and make active
             self.select_object(context, o, True)
             d.auto_update = True
-            
+
+        for obj in sel:
+            self.select_object(context, obj)
         self.select_object(context, w, True)
         bpy.ops.archipack.add_reference_point()
-        self.unselect_object(w)   
+        self.unselect_object(w)
         return o
 
     def create(self, context):
@@ -1528,7 +1523,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             # same behiavour as molding from wall
             # wich require moldings to be selected to be editable
             bpy.ops.object.select_all(action="DESELECT")
-            o = self.create(context)                
+            o = self.create(context)
             # select and make active
             self.select_object(context, o, True)
             # if self.auto_manipulate:
@@ -1587,7 +1582,7 @@ class ARCHIPACK_OT_floor_cutter(ArchipackCreateTool, Operator):
         d.manipulable_selectable = True
         # Link object into scene
         self.link_object_to_scene(context, o)
-        
+
         # select and make active
         self.select_object(context, o, True)
         self.load_preset(d)
@@ -1603,7 +1598,7 @@ class ARCHIPACK_OT_floor_cutter(ArchipackCreateTool, Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
-            o = self.create(context)            
+            o = self.create(context)
             # select and make active
             self.select_object(context, o, True)
             self.manipulate()

@@ -107,7 +107,7 @@ class Gl():
         render_scale = scene.render.resolution_percentage / 100
         render_size = (int(scene.render.resolution_x * render_scale),
                        int(scene.render.resolution_y * render_scale))
-        return Vector(round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1]))
+        return Vector((round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1])))
 
     def _end(self):
 

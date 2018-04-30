@@ -1443,9 +1443,9 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         if hole_obj is None:
             m = bpy.data.meshes.new("hole")
             hole_obj = bpy.data.objects.new("hole", m)
+            hole_obj['archipack_hole'] = True
             # Link object into scene
             self.link_object_to_scene(context, hole_obj)
-            hole_obj['archipack_hole'] = True
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
 

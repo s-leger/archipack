@@ -259,7 +259,26 @@ class archipack_dimension(ArchipackObject, Manipulable, PropertyGroup):
             default="TOP_CENTER",
             update=update
             )
-
+    unit_mode = EnumProperty(
+            name="Unit",
+            items=(
+                ('AUTO', 'Auto', 'Use scene units'),
+                ('METER', 'Meter', 'Meter'),
+                ('CENTIMETER', 'Centimeter', 'Centimeter'),
+                ('MILIMETER', 'Milimeter', 'Milimeter'),
+                ('FEET', 'Feet', 'Feet'),
+                ('INCH', 'Inch', 'Inch'),
+                ('NONE', 'None', 'No unit')
+                ),
+            default="AUTO",
+            update=update
+            )
+    precision = IntProperty(
+            name="Precision",
+            min=0,
+            default=2,
+            update=update
+            )
     auto_update = BoolProperty(
             # Wont save auto_update state in any case
             options={'SKIP_SAVE'},
@@ -267,7 +286,7 @@ class archipack_dimension(ArchipackObject, Manipulable, PropertyGroup):
             update=update
             )
 
-    def text(self, context, value, precision=2):
+    def text(self, context, value):
 
         dimension = 1
 
@@ -278,7 +297,7 @@ class archipack_dimension(ArchipackObject, Manipulable, PropertyGroup):
 
         # Either 'ANGLE' or 'SIZE'
         unit_type = self.type
-        unit_mode = 'METER'
+        unit_mode = self.unit_mode
 
         if self.type in {'AREA', 'VOLUME', 'ALTITUDE'}:
             unit_type = 'SIZE'
@@ -289,7 +308,7 @@ class archipack_dimension(ArchipackObject, Manipulable, PropertyGroup):
         label = GlText(
             label="",
             value=value,
-            precision=precision,
+            precision=self.precision,
             unit_mode=unit_mode,
             unit_type=unit_type,
             dimension=dimension
@@ -520,6 +539,8 @@ class ARCHIPACK_PT_dimension(Panel):
 
         box = layout.box()
         box.prop(props, 'type')
+        box.prop(props, 'unit_mode')
+        box.prop(props, 'precision')
         box.prop(props, 'distance')
         if props.type == 'SIZE':
             box.prop(props, 'size')
@@ -819,10 +840,29 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             default="TOP_CENTER",
             update=update
             )
-
+    unit_mode = EnumProperty(
+            name="Unit",
+            items=(
+                ('AUTO', 'Auto', 'Use scene units'),
+                ('METER', 'Meter', 'Meter'),
+                ('CENTIMETER', 'Centimeter', 'Centimeter'),
+                ('MILIMETER', 'Milimeter', 'Milimeter'),
+                ('FEET', 'Feet', 'Feet'),
+                ('INCH', 'Inch', 'Inch'),
+                ('NONE', 'None', 'No unit')
+                ),
+            default="AUTO",
+            update=update
+            )
+    precision = IntProperty(
+            name="Precision",
+            min=0,
+            default=2,
+            update=update
+            )
     sources = CollectionProperty(
-        type=archipack_dimension_source
-        )
+            type=archipack_dimension_source
+            )
     auto_update = BoolProperty(
             # Wont save auto_update state in any case
             options={'SKIP_SAVE'},
@@ -831,9 +871,9 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             )
 
     parent_uid = IntProperty(
-        description="Unique index of part in parent",
-        default=0
-        )
+            description="Unique index of part in parent",
+            default=0
+            )
 
     # source selection manipulators
     source_selector = CollectionProperty(type=archipack_manipulator)
@@ -853,7 +893,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
     def remove_source(self, index):
         self.sources.remove(index)
 
-    def text(self, context, value, precision=2):
+    def text(self, context, value):
 
         dimension = 1
 
@@ -864,7 +904,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
 
         # Either 'ANGLE' or 'SIZE'
         unit_type = self.type
-        unit_mode = 'METER'
+        unit_mode = self.unit_mode
 
         if self.type in {'AREA', 'VOLUME', 'ALTITUDE'}:
             unit_type = 'SIZE'
@@ -875,7 +915,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
         label = GlText(
             label="",
             value=value,
-            precision=precision,
+            precision=self.precision,
             unit_mode=unit_mode,
             unit_type=unit_type,
             dimension=dimension
@@ -1342,6 +1382,8 @@ class ARCHIPACK_PT_dimension_auto(Panel):
 
         box = layout.box()
         box.prop(props, 'type')
+        box.prop(props, 'unit_mode')
+        box.prop(props, 'precision')
         box.prop(props, 'distance')
         box.prop(props, 'flip_side')
         box.prop(props, 'sum_bar')

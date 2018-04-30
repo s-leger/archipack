@@ -62,12 +62,13 @@ def get_enum(self, context):
 
 def preset_operator(self, context):
     if self.auto_update:
+        act = context.active_object
+        sel = context.selected_objects
+        print("preset_operator:", act.name)
 
         self.user_profile_savename = bpy.path.display_name(self.user_profile_filename)
         self.load_profile(context, update=True)
 
-        act = context.active_object
-        sel = context.selected_objects
         cls = self.__class__.__name__
         x, y, z = self.user_profile_dimension
         for o in sel:
@@ -83,9 +84,9 @@ def preset_operator(self, context):
                     d.user_profile_filename = self.user_profile_filename
                     # profile curve object name
                     d.user_profile = self.user_profile
-                    d.refresh_profile_size(x, y)
+                    d.refresh_profile_size(context, x, y)
                     d.auto_update = True
-                    d.update(context)
+
         ArchipackObjectsManager.select_object(self, context, act, True)
 
     return None
@@ -231,7 +232,15 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             default=1,
             update=update_manipulators
             )
+
     parts_expand = BoolProperty(
+            description="Expand Segments panel",
+            options={'SKIP_SAVE'},
+            default=False
+            )
+    user_defined_path_expand = BoolProperty(
+            description="Expand from curve panel",
+            name="Expand",
             options={'SKIP_SAVE'},
             default=False
             )
@@ -242,7 +251,6 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
          p is new x, y location in world coordsys
         """
         p = Vector((p.x, p.y, o.matrix_world.translation.z))
-        dp = o.matrix_world.inverted() * p
         # p is in o coordsys
         if o.parent:
             o.location = p * o.parent.matrix_world.inverted()
@@ -250,15 +258,6 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             o.location = p
         # update matrix_world by hand
         o.matrix_world.translation = p
-        """
-        # when parent move, must apply inverse on child !
-        loc, rot, scale = o.matrix_world.decompose()
-        for c in o.children:
-            # dp in in o coordsys = child location coordsys
-            c.location -= dp
-            # find dp in world coordsys
-            c.matrix_world.translation -= rot * dp
-        """
 
     def from_points(self, pts):
         """
@@ -279,13 +278,14 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             if da < -pi:
                 da += 2 * pi
             p = self.parts[i]
+            p.type = "S_SEG"
             p.length = dp.to_2d().length
             p.dz = dp.z
             p.a0 = da
             a0 += da
             p0 = p1
 
-    def relocate_childs(self, context, o, g):
+    def relocate_childs(self, context, o):
         """
          Override this method to synch childs when changes are done
         """
@@ -302,7 +302,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
         if not self.closed and len(g.segs) > self.n_parts:
             g.segs.pop()
 
-        s_type = [p.type for p in self.parts]
+        s_type = list(reversed([p.type for p in self.parts]))
         g_segs = [s.oposite for s in reversed(g.segs)]
 
         self.auto_update = False
@@ -521,33 +521,47 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
         """
          Draw from curve in ui
         """
-        layout.label(text="From curve")
-        row = layout.row(align=True)
-        if self.user_defined_path != "":
-            op = row.operator("archipack.curve_edit", text="", icon="EDITMODE_HLT")
-            op.curve_name = self.user_defined_path
-            op.update_func_name = "update_path"
-            row.operator(
-                "archipack.object_update",
-                text="",
-                icon='FILE_REFRESH'
-                ).update_func_name = "update_path"
-        row.prop_search(self, "user_defined_path", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
+        icon = "TRIA_RIGHT"
+        if self.user_defined_path_expand:
+            icon = "TRIA_DOWN"
 
-        if self.user_defined_path != "":
-            layout.prop(self, 'user_defined_resolution')
+        row = layout.row(align=True)
+        row.prop(self, 'user_defined_path_expand', icon=icon, text="From curve", icon_only=True, emboss=True)
+
+        if self.user_defined_path_expand:
+            row = layout.row(align=True)
+            if self.user_defined_path != "":
+                op = row.operator("archipack.curve_edit", text="", icon="EDITMODE_HLT")
+                op.curve_name = self.user_defined_path
+                op.update_func_name = "update_path"
+                row.operator(
+                    "archipack.object_update",
+                    text="",
+                    icon='FILE_REFRESH'
+                    ).update_func_name = "update_path"
+            row.prop_search(self, "user_defined_path", context.scene, "objects", text="", icon='OUTLINER_OB_CURVE')
+
+            if self.user_defined_path != "":
+                layout.prop(self, 'user_defined_spline')
+                layout.prop(self, 'user_defined_resolution')
+
+        return self.user_defined_path_expand
 
     def template_parts(self, context, layout, draw_type=False):
         """
          Draw parts in ui
         """
         box = layout.box()
-        row = box.row(align=True)
+        row = box.row(align=False)
+
+        icon = "TRIA_RIGHT"
+        if self.parts_expand:
+            icon = "TRIA_DOWN"
+
+        row.prop(self, 'parts_expand', icon=icon, text="Segs", icon_only=True, emboss=True)
+        row.prop(self, "n_parts", text="")
 
         if self.parts_expand:
-            row.prop(self, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Segments", emboss=False)
-
-            row.prop(self, "n_parts", text="")
             if not self.always_closed:
                 box.prop(self, "closed")
                 box.operator("archipack.path_reverse", icon='FILE_REFRESH')
@@ -560,9 +574,6 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
                 if i < n_parts:
                     box = layout.box()
                     part.draw(context, box, i, draw_type=draw_type)
-
-        else:
-            row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Segments", emboss=False)
 
 
 class ARCHIPACK_OT_path_reverse(ArchipackGenericOperator, Operator):
@@ -757,17 +768,18 @@ class ArchipackProfileManager(ArchipackCurveManager):
 
 
 def update(self, context):
-    o = ArchipackObjectsManager.get_scene_object(self, context, self.user_profile)
-    if o and o.type == 'CURVE':
-        self.auto_update = False
-        sx, sy = self._curve_bound_box(o.data)
-        self.user_profile_dimension.x = sx
-        self.user_profile_dimension.y = sy
-        self.refresh_profile_size(sx, sy)
-        self.auto_update = True
-        self.update(context)
-    else:
-        self.user_profile = ""
+    if self.auto_update:
+        o = ArchipackObjectsManager.get_scene_object(self, context, self.user_profile)
+        if o and o.type == 'CURVE':
+            self.auto_update = False
+            sx, sy = self._curve_bound_box(o.data)
+            self.user_profile_dimension.x = sx
+            self.user_profile_dimension.y = sy
+            self.refresh_profile_size(sx, sy)
+            self.auto_update = True
+            self.update(context)
+        else:
+            self.user_profile = ""
 
 
 class ArchipackProfile(ArchipackProfileManager):
@@ -775,26 +787,25 @@ class ArchipackProfile(ArchipackProfileManager):
       Propertygroup to manage user profiles
     """
     user_profile_filename = EnumProperty(
-        name="Profiles",
-        description="Available profiles presets",
-        default=None,
-        items=get_enum,
-        update=preset_operator
-        )
-    user_profile = StringProperty(
-        default="",
-        description="Use curve as profile",
-        name="Profile",
-        update=update
-        )
-    user_profile_dimension = FloatVectorProperty(subtype='XYZ')
-
+            name="Profiles",
+            description="Available profiles presets",
+            default=None,
+            items=get_enum,
+            update=preset_operator
+            )
     user_profile_savename = StringProperty(
-        options={'SKIP_SAVE'},
-        default="",
-        description="Profile filename without extension",
-        name="Save"
-        )
+            options={'SKIP_SAVE'},
+            default="",
+            description="Profile filename without extension",
+            name="Save"
+            )
+    user_profile = StringProperty(
+            name="Profile",
+            description="Use curve as profile",
+            default="",
+            update=update
+            )
+    user_profile_dimension = FloatVectorProperty(subtype='XYZ')
     profile_expand = BoolProperty(
         options={'SKIP_SAVE'},
         default=False,
@@ -802,7 +813,7 @@ class ArchipackProfile(ArchipackProfileManager):
         name="Expand"
         )
 
-    def refresh_profile_size(self, x, y):
+    def refresh_profile_size(self, context, x, y):
         """
          Todo: override this method
          to update profile size ui
@@ -830,13 +841,13 @@ class ArchipackProfile(ArchipackProfileManager):
                 o.data = curve
                 if d.users < 1:
                     bpy.data.curves.remove(d)
+
             self.auto_update = False
             self.user_profile_dimension = Vector((x, y, 0))
             self.user_profile = o.name
-            self.refresh_profile_size(x, y)
+            # Sub objects must update parent using this call
+            self.refresh_profile_size(context, x, y)
             self.auto_update = True
-            if update:
-                self.update(context)
         return o
 
     def update_profile(self, context):

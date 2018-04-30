@@ -729,12 +729,12 @@ class RoofPolygon(CutAblePolygon):
             res, d, t = self.fake_axis.point_sur_segment(s.p0)
             param_t.append(t)
             dist.append(d)
-            
-        # distance from 0,0, to align covering 
-        res, d, t = self.fake_axis.point_sur_segment(Vector((0, 0)))    
+
+        # distance from 0,0, to align covering
+        res, d, t = self.fake_axis.point_sur_segment(Vector((0, 0)))
         self.distance_from_origin = self.fake_axis.length * t
         self.t_from_origin = t
-        
+
         if len(param_t) > 0:
             self.tmin = min(param_t)
             self.tmax = max(param_t)
@@ -1569,8 +1569,7 @@ class RoofGenerator(CutAbleGenerator):
             offset = - d.tile_offset / 100
         else:
             offset = 0
-        
-        
+
         if d.tile_model == 'BRAAS2':
             t_pts = [Vector(p) for p in [
                 (0.06, -1.0, 1.0), (0.19, -1.0, 0.5), (0.31, -1.0, 0.5), (0.44, -1.0, 1.0),
@@ -1669,11 +1668,11 @@ class RoofGenerator(CutAbleGenerator):
         for i, pan in enumerate(self.pans):
 
             seg = pan.fake_axis
-            
+
             # t param so covering align to a grid from origin
             d_abs = (pan.t_from_origin - pan.tmax) * seg.length
-            align_t = (d_abs % dx) / seg.length    
-            
+            align_t = (d_abs % dx) / seg.length
+
             # compute base matrix top left of face
             vx = pan.vx
             vy = pan.vy
@@ -4747,14 +4746,17 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, DimensionProv
 
     def draw(self, context, layout):
         box = layout.box()
-        row = box.row(align=True)
+        row = box.row(align=False)
+        icon = "TRIA_RIGHT"
         if self.parts_expand:
-            row.prop(self, 'parts_expand', icon="TRIA_DOWN", icon_only=True, text="Segments", emboss=False)
-            row.prop(self, 'n_parts', text="")
+            icon = "TRIA_DOWN"
+
+        row.prop(self, 'parts_expand', icon=icon, icon_only=True, text="Segs", emboss=True)
+        row.prop(self, 'n_parts', text="")
+
+        if self.parts_expand:
             for i, part in enumerate(self.parts):
                 part.draw(context, layout, i)
-        else:
-            row.prop(self, 'parts_expand', icon="TRIA_RIGHT", icon_only=True, text="Segments", emboss=False)
 
 
 def update_hole(self, context):
@@ -4793,8 +4795,8 @@ class archipack_roof_cutter_segment(ArchipackCutterPart, PropertyGroup):
     def draw(self, context, layout, index, draw_type=True):
         box = layout.box()
         box.prop(self, "side_type", text=str(index + 1))
-        box.prop(self, "length")
-        box.prop(self, "a0")
+        box.prop(self, "l_ui")
+        box.prop(self, "a_ui")
 
 
 class archipack_roof_cutter(ArchipackCutter, ArchipackObject, Manipulable, DimensionProvider, PropertyGroup):
@@ -4821,12 +4823,10 @@ class archipack_roof_cutter(ArchipackCutter, ArchipackObject, Manipulable, Dimen
     def update_parent(self, context, o):
         d = archipack_roof.datablock(o.parent)
         if d is not None:
-            o.parent.select = True
-            context.scene.objects.active = o.parent
+            self.select_object(context, o.parent, True)
             d.update(context, update_childs=False, update_hole=False)
-
-        o.parent.select = False
-        context.scene.objects.active = o
+        self.unselect_object(o.parent)
+        self.select_object(context, o, True)
 
 
 class ARCHIPACK_PT_roof_cutter(Panel):
@@ -4885,9 +4885,9 @@ class ARCHIPACK_PT_roof(Panel):
         row.operator("archipack.roof_preset_menu", text=bpy.types.ARCHIPACK_OT_roof_preset_menu.bl_label)
         row.operator("archipack.roof_preset", text="", icon='ZOOMIN')
         row.operator("archipack.roof_preset", text="", icon='ZOOMOUT').remove_active = True
+        layout.operator('archipack.roof_cutter').parent = o.name
         box = layout.box()
         box.prop_search(prop, "t_parent", scene, "objects", text="Parent", icon='OBJECT_DATA')
-        layout.operator('archipack.roof_cutter').parent = o.name
         p, d = prop.find_parent(context)
         if d is not None:
             box.prop(prop, 't_part')
@@ -4911,11 +4911,13 @@ class ARCHIPACK_PT_roof(Panel):
         # tiles
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.tile_expand:
-            row.prop(prop, 'tile_expand', icon="TRIA_DOWN", text="Covering", icon_only=True, emboss=False)
-        else:
-            row.prop(prop, 'tile_expand', icon="TRIA_RIGHT", text="Covering", icon_only=True, emboss=False)
+            icon = "TRIA_DOWN"
+
+        row.prop(prop, 'tile_expand', icon=icon, icon_only=True, text="Covering", emboss=True)
         row.prop(prop, 'tile_enable')
+
         if prop.tile_expand:
             box.prop(prop, 'tile_model', text="")
 
@@ -4954,11 +4956,13 @@ class ARCHIPACK_PT_roof(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.hip_expand:
-            row.prop(prop, 'hip_expand', icon="TRIA_DOWN", text="Hip", icon_only=True, emboss=False)
-        else:
-            row.prop(prop, 'hip_expand', icon="TRIA_RIGHT", text="Hip", icon_only=True, emboss=False)
+            icon = "TRIA_DOWN"
+
+        row.prop(prop, 'hip_expand', icon=icon, icon_only=True, text="Hip", emboss=True)
         row.prop(prop, 'hip_enable')
+
         if prop.hip_expand:
             box.prop(prop, 'hip_model', text="")
             box.prop(prop, 'hip_size_x')
@@ -4972,11 +4976,12 @@ class ARCHIPACK_PT_roof(Panel):
 
         box = layout.box()
         row = box.row(align=True)
-
+        icon = "TRIA_RIGHT"
         if prop.beam_expand:
-            row.prop(prop, 'beam_expand', icon="TRIA_DOWN", text="Beam", icon_only=True, emboss=False)
-        else:
-            row.prop(prop, 'beam_expand', icon="TRIA_RIGHT", text="Beam", icon_only=True, emboss=False)
+            icon = "TRIA_DOWN"
+
+        row.prop(prop, 'beam_expand', icon=icon, icon_only=True, text="Beam", emboss=True)
+
         if prop.beam_expand:
             box.prop(prop, 'beam_enable')
             if prop.beam_enable:
@@ -5001,11 +5006,13 @@ class ARCHIPACK_PT_roof(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.gutter_expand:
-            row.prop(prop, 'gutter_expand', icon="TRIA_DOWN", text="Gutter", icon_only=True, emboss=False)
-        else:
-            row.prop(prop, 'gutter_expand', icon="TRIA_RIGHT", text="Gutter", icon_only=True, emboss=False)
+            icon = "TRIA_DOWN"
+
+        row.prop(prop, 'gutter_expand', icon=icon, icon_only=True, text="Gutter", emboss=True)
         row.prop(prop, 'gutter_enable')
+
         if prop.gutter_expand:
             box.prop(prop, 'gutter_alt')
             box.prop(prop, 'gutter_width')
@@ -5015,11 +5022,13 @@ class ARCHIPACK_PT_roof(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.fascia_expand:
-            row.prop(prop, 'fascia_expand', icon="TRIA_DOWN", text="Fascia", icon_only=True, emboss=False)
-        else:
-            row.prop(prop, 'fascia_expand', icon="TRIA_RIGHT", text="Fascia", icon_only=True, emboss=False)
+            icon = "TRIA_DOWN"
+
+        row.prop(prop, 'fascia_expand', icon=icon, icon_only=True, text="Fascia", emboss=True)
         row.prop(prop, 'fascia_enable')
+
         if prop.fascia_expand:
             box.prop(prop, 'fascia_altitude')
             box.prop(prop, 'fascia_width')
@@ -5028,11 +5037,13 @@ class ARCHIPACK_PT_roof(Panel):
 
         box = layout.box()
         row = box.row(align=True)
+        icon = "TRIA_RIGHT"
         if prop.bargeboard_expand:
-            row.prop(prop, 'bargeboard_expand', icon="TRIA_DOWN", text="Bargeboard", icon_only=True, emboss=False)
-        else:
-            row.prop(prop, 'bargeboard_expand', icon="TRIA_RIGHT", text="Bargeboard", icon_only=True, emboss=False)
+            icon = "TRIA_DOWN"
+
+        row.prop(prop, 'bargeboard_expand', icon=icon, icon_only=True, text="Bargeboard", emboss=True)
         row.prop(prop, 'bargeboard_enable')
+
         if prop.bargeboard_expand:
             box.prop(prop, 'bargeboard_altitude')
             box.prop(prop, 'bargeboard_width')
@@ -5317,29 +5328,12 @@ class ARCHIPACK_OT_roof_from_wall(ArchipackObjectsManager, Operator):
             height = wd.z + 0.25 * min(w, h)
             rM = Matrix()
 
-        bpy.ops.archipack.roof(auto_manipulate=False)
+        bpy.ops.archipack.roof(auto_manipulate=True)
         o = context.active_object
-        
+
         self.select_object(context, wall, True)
         bpy.ops.archipack.add_reference_point()
-        """
-        if wall.parent is None:
-            x, y, z = wall.bound_box[0]
-            context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
-            # fix issue #9
-            # select and make active
-            self.select_object(context, wall, True)
-            bpy.ops.archipack.reference_point()
-        else:
-            self.show_object(wall.parent)
-            wall.parent.hide_select = False
-            self.select_object(context, wall.parent, True)
 
-        # select and make active
-        self.select_object(context, wall)
-        self.select_object(context, o)
-        bpy.ops.archipack.parent_to_reference()
-        """
         # select and make active
         self.select_object(context, o, True)
         z = wall.matrix_world.translation.z
@@ -5360,7 +5354,7 @@ class ARCHIPACK_OT_roof_from_wall(ArchipackObjectsManager, Operator):
             cutter = context.active_object
             cutter.data.archipack_roof_cutter[0].operation = 'INTERSECTION'
             cutter.data.archipack_roof_cutter[0].user_defined_path = result.name
-            self.delete_object(result)
+            self.delete_object(context, result)
             # rd = result.data
             # self.unlink_object_from_scene(context, result)
             # context.scene.objects.unlink(result)

@@ -237,10 +237,10 @@ class ARCHIPACK_OT_add_reference_point(ArchipackObjectsManager, Operator):
         m = bpy.data.meshes.new(name="Reference")
         o = bpy.data.objects.new("Reference", m)
         o.location = loc
-        self.link_object_to_scene(context, o)
         d = o.archipack_reference_point.add()
         d.location_2d = Vector((x, y, 0))
         d.location_3d = location_3d
+        self.link_object_to_scene(context, o)
         self.select_object(context, o, True)
         d.update(context)
         self.unselect_object(o)

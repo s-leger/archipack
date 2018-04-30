@@ -66,7 +66,7 @@ from bpy.types import Operator
 from mathutils import Vector, Matrix
 from .archipack_object import ArchipackObjectsManager
 import logging
-logger = logging.getLogger("archipack")
+logger = logging.getLogger("archipack_snap")
 
 
 def dumb_callback(context, event, state, sp):

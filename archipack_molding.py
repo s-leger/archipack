@@ -29,7 +29,7 @@ import bpy
 # noinspection PyUnresolvedReferences
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
-    FloatProperty, BoolProperty, IntProperty, CollectionProperty,
+    FloatProperty, BoolProperty, CollectionProperty,
     StringProperty, EnumProperty
     )
 from .bmesh_utils import BmeshEdit as bmed
@@ -134,10 +134,6 @@ def update_manipulators(self, context):
     self.update(context, manipulable_refresh=True)
 
 
-def update_path(self, context):
-    self.update_path(context)
-
-
 class archipack_molding_part(ArchipackSegment, PropertyGroup):
     manipulators = CollectionProperty(type=archipack_manipulator)
 
@@ -154,18 +150,6 @@ class archipack_molding(
         PropertyGroup):
 
     parts = CollectionProperty(type=archipack_molding_part)
-
-    user_path_reverse = BoolProperty(
-            name="Reverse",
-            default=False,
-            update=update_path
-            )
-    user_defined_spline = IntProperty(
-            name="Spline index",
-            min=0,
-            default=0,
-            update=update_path
-            )
 
     x_offset = FloatProperty(
             name="Offset",
@@ -246,7 +230,7 @@ class archipack_molding(
         if len(pts) < 2:
             return
 
-        if self.user_path_reverse:
+        if self.user_defined_reverse:
             pts = list(reversed(pts))
 
         o.matrix_world = Matrix.Translation(pts[0].copy())
@@ -261,7 +245,7 @@ class archipack_molding(
         self.from_points(pts)
         self.auto_update = auto_update
 
-    def refresh_profile_size(self, x, y):
+    def refresh_profile_size(self, context, x, y):
         self.profil_x = x
         self.profil_y = y
 
@@ -347,7 +331,7 @@ class archipack_molding(
             g.make_profile(molding, 0, self.x_offset,
                 0, 0, True, verts, faces, matids, uvs)
 
-        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=True, clean=True)
+        bmed.buildmesh(context, o, verts, faces, matids=matids, uvs=uvs, weld=False, clean=False)
 
         # enable manipulators rebuild
         if manipulable_refresh:
@@ -368,29 +352,28 @@ class archipack_molding(
         o = context.active_object
 
         self.setup_manipulators()
-        
+
         n_parts = self.n_parts
         if self.closed:
             n_parts += 1
-        
+
         for i, part in enumerate(self.parts):
-            
+
             if i < n_parts:
-                    
+
                 if i > 0:
                     # start angle
                     self.manip_stack.append(part.manipulators[0].setup(context, o, part))
 
                 # length / radius + angle
                 self.manip_stack.append(part.manipulators[1].setup(context, o, part))
-                
+
                 # index
                 self.manip_stack.append(part.manipulators[3].setup(context, o, self))
 
             # snap point
             self.manip_stack.append(part.manipulators[2].setup(context, o, self))
 
-            
         for m in self.manipulators:
             self.manip_stack.append(m.setup(context, o, self))
 
@@ -424,22 +407,25 @@ class ARCHIPACK_PT_molding(Panel):
         row.operator("archipack.molding_preset", text="", icon='ZOOMIN')
         row.operator("archipack.molding_preset", text="", icon='ZOOMOUT').remove_active = True
         box = layout.box()
-        prop.template_user_path(context, box)
-        if prop.user_defined_path is not "":
-            box.prop(prop, 'user_defined_spline')
-            box.prop(prop, 'user_path_reverse')
+        expand = prop.template_user_path(context, box)
+        if expand:
+            if prop.user_defined_path is not "":
+                box.prop(prop, 'user_defined_reverse')
 
+        box = layout.box()
         box.prop(prop, 'x_offset')
+
         prop.template_parts(context, layout, draw_type=False)
 
         box = layout.box()
-        row = box.row(align=True)
-
+        row = box.row(align=False)
+        icon = "TRIA_RIGHT"
         if prop.profile_expand:
-            row.prop(prop, 'profile_expand', icon="TRIA_DOWN", icon_only=True, text="", emboss=False)
-        else:
-            row.prop(prop, 'profile_expand', icon="TRIA_RIGHT", icon_only=True, text="", emboss=False)
-        row.prop(prop, 'profil')
+            icon = "TRIA_DOWN"
+
+        row.prop(prop, 'profile_expand', icon=icon, icon_only=True, text="Profil", emboss=True)
+        row.prop(prop, 'profil', text="")
+
         if prop.profile_expand:
             box.prop(prop, 'profil_x')
             box.prop(prop, 'profil_y')
@@ -557,7 +543,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
         """
         # wall is either a single or collection of polygons
         io, wall, childs = wd.as_geom(context, w, 'FLOOR_MOLDINGS', [], [], [])
-        ref = w.parent
+
         # find slab holes if any
         o = None
         sel = []
@@ -581,7 +567,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             self.delete_object(context, boundary)
             d.user_defined_path = ""
             sel.append(o)
-            
+
         self.select_object(context, w, True)
         for obj in sel:
             self.select_object(context, obj)

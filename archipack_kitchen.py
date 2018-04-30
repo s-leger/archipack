@@ -1871,11 +1871,12 @@ class archipack_kitchen_cabinet(ArchipackObject, PropertyGroup):
     def draw(self, box, num, prop):
 
         row = box.row(align=True)
-
+        
+        icon = "TRIA_RIGHT"
         if self.expand:
-            row.prop(self, "expand", icon="TRIA_DOWN", icon_only=True, text="Cab " + str(num + 1), emboss=False)
-        else:
-            row.prop(self, "expand", icon="TRIA_RIGHT", icon_only=True, text="Cab " + str(num + 1), emboss=False)
+            icon = "TRIA_DOWN"
+        
+        row.prop(self, "expand", icon=icon, icon_only=True, text="Cab {}".format(num + 1), emboss=True)
         row.prop(self, 'cab_location', text="")
         row.prop(self, 'type', text="")
         row.operator("archipack.kitchen_insert", icon="ZOOMIN", text="").index = num
@@ -3917,9 +3918,17 @@ class ARCHIPACK_PT_kitchen(Panel):
         row.operator("archipack.kitchen_preset", text="", icon='ZOOMOUT').remove_active = True
 
         box = layout.box()
+        row = box.row(align=False)
+        icon = "TRIA_RIGHT"
         if prop.expand:
-            box.prop(prop, "expand", icon="TRIA_DOWN", icon_only=True, text="Kitchen", emboss=False)
-
+            icon = "TRIA_DOWN"
+            
+        row.prop(prop, 'expand', icon=icon, text="Kitchen", icon_only=True, emboss=True)
+        # Cabinet number
+        row.prop(prop, 'cabinet_num')
+        
+        if prop.expand:
+            
             row = box.row()
             row.prop(prop, 'z_mode', text="")
             if prop.z_mode == '1':
@@ -4004,12 +4013,6 @@ class ARCHIPACK_PT_kitchen(Panel):
             box = layout.box()
             row = box.row()
 
-        else:
-            row = box.row()
-            row.prop(prop, "expand", icon="TRIA_RIGHT", icon_only=True, text="Kitchen", emboss=False)
-
-        # Cabinet number
-        row.prop(prop, 'cabinet_num')
         # Add menu for cabinets
         for i, cab in enumerate(prop.cabinets):
             box = layout.box()

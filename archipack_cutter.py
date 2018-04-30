@@ -648,31 +648,6 @@ class ArchipackCutter(ArchipackUserDefinedPath):
         self.auto_update = auto_update
         self.update_parent(context, o)
     
-    """
-    def reverse(self, context, make_ccw=False):
-
-        o = self.find_in_selection(context, self.auto_update)
-
-        g = self.get_generator()
-
-        pts = [seg.p0.to_3d() for seg in g.segs]
-
-        if self.is_cw(pts) != make_ccw:
-            return
-
-        types = [p.type for p in self.parts]
-
-        pts.append(pts[0])
-
-        pts = list(reversed(pts))
-        self.auto_update = False
-
-        self.from_points(pts)
-
-        for i, type in enumerate(reversed(types)):
-            self.parts[i].type = type
-    """
-    
     def after_reverse(self, context, o):
         self.auto_update = True
         self.update_parent(context, o)

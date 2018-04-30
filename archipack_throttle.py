@@ -46,11 +46,11 @@ class ThrottleObject(ArchipackObjectsManager):
         self.datablock = d
         self.timeout = time.time() + duration
         self.waiting = True
-        
+
     def update(self, context, name, now):
         if now < self.timeout:
             return False
-        
+
         o = self.get_scene_object(context, name)
         act = context.active_object
         try:
@@ -62,24 +62,24 @@ class ThrottleObject(ArchipackObjectsManager):
                 getattr(d, self.update_func)(context)
                 if not selected:
                     self.unselect_object(o)
-                
+
         except:
             pass
-        self.select_object(context, act, True)    
+        self.select_object(context, act, True)
         return True
-       
+
 
 class ThrottleHandler():
     """
      Throtteling core
      Provide throtteling update ability for complex objects
      Run throttle modal and update objects when needed
-     
+
      @TODO:
      allow different delay on per object basis
      exit modal when stack is empty
      modal MUST prevent undo
-     
+
      Objects throttling implementation:
 
      from .archipack_throttle import throttle
@@ -101,16 +101,16 @@ class ThrottleHandler():
 
         addon_name = __name__.split('.')[0]
         prefs = context.user_preferences.addons[addon_name].preferences
-        
+
         if not prefs.throttle_enable:
             self.clear()
             return
-        
+
         if duration < 0:
             duration = prefs.throttle_delay
-        
+
         start = False
-        
+
         if len(self.stack) < 1 and not self._active:
             start = True
             self._active = True
@@ -119,30 +119,29 @@ class ThrottleHandler():
             self.stack[o.name] = ThrottleObject(d, duration, update_func)
         else:
             self.stack[o.name].timeout = time.time() + duration
-        
+
         if start:
             bpy.ops.archipack.throttle_update('INVOKE_DEFAULT')
-            
+
     def is_active(self, name):
-        return (self._active and 
-                name in self.stack and 
+        return (self._active and
+                name in self.stack and
                 self.stack[name].waiting)
-    
+
     def update(self, context):
-        
+
         now = time.time()
-        to_remove = []
-        
+
         stack = list(self.stack.items())
         for name, u in stack:
             if u.update(context, name, now):
                 if name in self.stack:
                     del self.stack[name]
-                
+
         if len(self.stack) < 1:
             self._active = False
             return True
-            
+
         return False
 
     def clear(self):

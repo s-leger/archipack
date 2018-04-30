@@ -25,6 +25,7 @@
 #
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
+import time
 import bpy
 import os
 # noinspection PyUnresolvedReferences
@@ -36,6 +37,7 @@ from bpy.props import (
     EnumProperty, CollectionProperty,
     StringProperty
     )
+from .archipack_object import ArchipackObjectsManager
 
 
 setman = None
@@ -179,16 +181,16 @@ class MatlibsManager():
             pass
 
     def apply(self, context, slot_index, name, link=False):
-
+        
         o = context.active_object
-        o.select = True
-
+        
         # material with same name exist in scene
         mat = self.from_data(name)
-
+        
         # mat not in scene: try to load from lib
+        break_link = False
         if mat is None:
-            # print("mat %s not found in scene, loading" % (name))
+            break_link = True
             # Lazy build matlibs list
             if len(self.matlibs) < 1:
                 self.load_list(context)
@@ -206,11 +208,11 @@ class MatlibsManager():
             o.material_slots[slot_index].material = None
             o.material_slots[slot_index].material = mat
             o.active_material_index = slot_index
-
-        if not link:
+        
+        if break_link and not link:
             # break link
             bpy.ops.object.make_local(type="SELECT_OBDATA_MATERIAL")
-
+                
 
 class MaterialSetManager():
     """
@@ -366,7 +368,7 @@ def update(self, context):
     self.update(context)
 
 
-class archipack_material(PropertyGroup):
+class archipack_material(ArchipackObjectsManager, PropertyGroup):
 
     category = StringProperty(
         name="Category",
@@ -390,7 +392,6 @@ class archipack_material(PropertyGroup):
 
     def update(self, context):
         global setman
-
         if setman is None:
             setman = MaterialSetManager()
 
@@ -416,14 +417,14 @@ class archipack_material(PropertyGroup):
             return False
 
         for ob in sel:
-            context.scene.objects.active = ob
+            self.select_object(context, ob, True)
+            n_slots = len(ob.material_slots)
             for slot_index, mat_name in enumerate(mats):
-                if slot_index >= len(ob.material_slots):
+                if slot_index >= n_slots:
                     bpy.ops.object.material_slot_add()
                 self.apply_material(context, slot_index, mat_name)
-
-        context.scene.objects.active = o
-
+                
+        self.select_object(context, o, True)
         return True
 
 
@@ -437,7 +438,7 @@ class ARCHIPACK_PT_material(Panel):
     @classmethod
     def poll(cls, context):
         o =  context.active_object
-        return o is not None and o.select and 'archipack_material' in o
+        return o is not None and o in context.selected_objects and 'archipack_material' in o
 
     def draw(self, context):
         layout = self.layout
@@ -481,7 +482,8 @@ class ARCHIPACK_OT_material(Operator):
         m.category = self.category
         try:
             m.material = self.material
-            res = m.update(context)
+            res = True
+            # m.update(context)
         except:
             res = False
             pass

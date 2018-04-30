@@ -29,6 +29,7 @@ from mathutils import Vector, Matrix
 from bpy_extras.io_utils import ExportHelper
 from bpy.types import BezierSplinePoint, Operator
 from .archipack_autoboolean import ArchipackBoolManager
+from .archipack_object import ArchipackObjectsManager
 
 
 XML_HEADER = """<?xml version="1.0" standalone="no"?>
@@ -75,6 +76,8 @@ MOVE_COMMAND = 'M{},{} '
 LINE_COMMAND = 'L{},{} '
 CURVE_COMMAND = 'C{},{} {},{} {},{} '
 JOIN_COMMAND = 'Z '
+
+objman = ArchipackObjectsManager()
 
 
 class SvgGroup:
@@ -166,13 +169,6 @@ class SVGStyle:
         self.fill = fill
 
 
-def remove_curve(context, curve):
-    d = curve.data
-    context.scene.objects.unlink(curve)
-    bpy.data.objects.remove(curve, do_unlink=True)
-    bpy.data.curves.remove(d)
-
-
 def SVG_blenderCurve(itM, curve, style, components, as_group=True):
     """
       when as_group is true, add components and
@@ -218,7 +214,7 @@ def SVG_wall_childs(context, itM, wall, scale, styles, openings, dimensions):
             symbol = d.as_2d(context, c)
             # add window in her own group, let separate curves so panels fill override frame
             openings.append(SVG_blenderCurve(itM, symbol, styles['openings'], [], as_group=True))
-            remove_curve(context, symbol)
+            objman.delete_object(context, symbol)
             # window / door dimensions
             for child in c.children:
                 d = child.data
@@ -241,21 +237,20 @@ def SVG_wall(context, itM, wall, scale, styles):
     dimensions = []
     parts = []
     bpy.ops.object.select_all(action="DESELECT")
-    wall.select = True
-    context.scene.objects.active = wall
+    objman.select_object(context, wall, True)
     bpy.ops.archipack.wall2_to_curve(mode='SYMBOL')
     w = context.active_object
     f = [o for o in context.selected_objects if o.name != w.name]
 
     # wall plain parts
     SVG_blenderCurve(itM, w, styles['wall'], parts, as_group=False)
-    remove_curve(context, w)
+    objman.delete_object(context, w)
 
     # wall fill under windows
     if len(f) > 0:
         f = f[0]
         SVG_blenderCurve(itM, f, styles['hole'], parts, as_group=False)
-        remove_curve(context, f)
+        objman.delete_object(context, f)
 
     # windows / doors
     SVG_wall_childs(context, itM, wall, scale, styles, openings, dimensions)
@@ -433,13 +428,13 @@ class ARCHIPACK_OP_ExportSvg(Operator, ExportHelper):
                 svg_lines.append(SvgText(tM, curve, s, style.stroke))
 
         for stair in stairs:
-            stair.select = True
-            context.scene.objects.active = stair
+            objman.select_object(context, stair, True)
             bpy.ops.archipack.stair_to_curve(mode="SYMBOL")
             curve = context.active_object
             svg_lines.append(SVG_blenderCurve(itM, curve, styles['openings'], [], as_group=False))
-            remove_curve(context, curve)
-            stair.select = False
+            objman.delete_object(context, curve)
+            objman.unselect_object(stair)
+            
 
         # Open the file for writing
         with open(self.filepath, 'w') as f:
@@ -449,8 +444,7 @@ class ARCHIPACK_OP_ExportSvg(Operator, ExportHelper):
             for wall in svg_walls:
                 wall.output(f)
             f.write(XML_END)
-        layout.select = True
-        context.scene.objects.active = layout
+        objman.select_object(context, layout, True)
         return result
 
 

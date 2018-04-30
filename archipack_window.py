@@ -2259,9 +2259,9 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         if hole_obj is None:
             m = bpy.data.meshes.new("hole")
             hole_obj = bpy.data.objects.new("hole", m)
+            hole_obj['archipack_hole'] = True
             # Link object into scene
             self.link_object_to_scene(context, hole_obj)
-            hole_obj['archipack_hole'] = True
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
 
@@ -2470,14 +2470,14 @@ class ARCHIPACK_PT_window(Panel):
             elif prop.window_shape == 'QUADRI':
                 box.prop(prop, 'angle_y')
 
-        row = layout.row(align=True)
+        box = layout.box()
+        icon = "TRIA_RIGHT"
         if prop.display_detail:
-            row.prop(prop, "display_detail", icon="TRIA_DOWN", icon_only=True, text="Components", emboss=False)
-        else:
-            row.prop(prop, "display_detail", icon="TRIA_RIGHT", icon_only=True, text="Components", emboss=False)
-
+            icon = "TRIA_DOWN"
+        
+        box.prop(prop, 'display_detail', icon=icon, icon_only=True, text="Components", emboss=True)
+        
         if prop.display_detail:
-            box = layout.box()
             box.prop(prop, 'enable_glass')
             box = layout.box()
             box.label("Window frame")
@@ -2538,16 +2538,19 @@ class ARCHIPACK_PT_window(Panel):
                     box.prop(prop, 'shutter_hinge')
 
         if prop.window_shape != 'CIRCLE':
-            row = layout.row()
+            box = layout.box()
+            row = box.row(align=False)
+            
+            icon = "TRIA_RIGHT"
             if prop.display_panels:
-                row.prop(prop, "display_panels", icon="TRIA_DOWN", icon_only=True, text="Rows", emboss=False)
-            else:
-                row.prop(prop, "display_panels", icon="TRIA_RIGHT", icon_only=True, text="Rows", emboss=False)
-
+                icon = "TRIA_DOWN"
+            row.prop(prop, 'display_panels', icon=icon, icon_only=True, text="Rows", emboss=True)
+            
+            if prop.window_type != 'RAIL':
+                row.prop(prop, 'n_rows')
+            
             if prop.display_panels:
                 if prop.window_type != 'RAIL':
-                    row = layout.row()
-                    row.prop(prop, 'n_rows')
                     last_row = prop.n_rows - 1
                     for i, row in enumerate(prop.rows):
                         box = layout.box()
@@ -2557,14 +2560,12 @@ class ARCHIPACK_PT_window(Panel):
                     box = layout.box()
                     row = prop.rows[0]
                     row.draw(box, context, True)
-
-        row = layout.row(align=True)
+        box = layout.box()
+        icon = "TRIA_RIGHT"
         if prop.display_materials:
-            row.prop(prop, "display_materials", icon="TRIA_DOWN", icon_only=True, text="Materials", emboss=False)
-        else:
-            row.prop(prop, "display_materials", icon="TRIA_RIGHT", icon_only=True, text="Materials", emboss=False)
+            icon = "TRIA_DOWN"
+        box.prop(prop, 'display_materials', icon=icon, icon_only=True, text="Materials", emboss=True)
         if prop.display_materials:
-            box = layout.box()
             box.label("Hole")
             box.prop(prop, 'hole_inside_mat')
             box.prop(prop, 'hole_outside_mat')
