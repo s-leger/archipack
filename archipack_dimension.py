@@ -142,19 +142,13 @@ class DimensionProvider():
             d.update(context)
             self.unselect_object(o)
 
-    def _get_topmost_parent(self, o):
-        if o.parent:
-            return self._get_topmost_parent(o.parent)
-        else:
-            return o
-
     def _update_child_dimensions(self, context, o):
         self._update_dimensions(context, o)
         for c in o.children:
             self._update_child_dimensions(context, c)
 
     def update_dimensions(self, context, o):
-        p = self._get_topmost_parent(o)
+        p = self.get_topmost_parent(o)    
         self._update_child_dimensions(context, p)
         self.select_object(context, o, True)
 

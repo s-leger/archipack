@@ -23,6 +23,7 @@
 # ----------------------------------------------------------
 # Author: Jacob Morris - Stephen Leger (s-leger)
 # ----------------------------------------------------------
+import time
 import bpy
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
@@ -47,7 +48,8 @@ from .archipack_dimension import DimensionProvider
 from .archipack_curveman import ArchipackUserDefinedPath
 from .archipack_segments import ArchipackSegment
 from .archipack_throttle import throttle
-
+import logging
+logger = logging.getLogger("archipack_floor")
 
 # ------------------------------------------------------------------
 # Define property class to store object parameters and update mesh
@@ -1064,14 +1066,21 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         if o is None:
             return
-
-        throttle.add(context, o, self, 0.1)
-
+            
+        tim = time.time()
+        
         # clean up manipulators before any data model change
         if manipulable_refresh:
             self.manipulable_disable(context)
 
         self.update_parts()
+        
+        if len(self.parts) < 3:
+            self.restore_context(context)
+            return
+            
+        throttle.add(context, o, self, 0.1)
+    
         g = self.get_generator()
         for i, seg in enumerate(g.segs):
             g.segs[i] = seg.line
@@ -1084,7 +1093,8 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
-
+        
+        logger.debug("Floor.update() %s :%.4f seconds", o.name, time.time() - tim)
         # restore context
         self.restore_context(context)
 
@@ -1440,15 +1450,29 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
     def poll(self, context):
         o = context.active_object
         return o is not None and o.data is not None and 'archipack_wall2' in o.data
-
+    
+    def create(self, context):
+        m = bpy.data.meshes.new("Floor")
+        o = bpy.data.objects.new("Floor", m)
+        d = m.archipack_floor.add()
+        d.manipulable_selectable = True
+        d.auto_update = False
+        self.link_object_to_scene(context, o)
+        self.select_object(context, o, True)
+        bpy.ops.script.python_file_run(filepath=self.filepath)
+        # Link object into scene
+        # select and make active
+        return o
+        
     def floor_from_wall(self, context, w, wd):
         """
          Create flooring from surrounding wall
          Use slab cutters, windows and doors, T childs walls
         """
+        tim = time.time()
         # wall is either a single or collection of polygons
         io, wall, childs = wd.as_geom(context, w, 'FLOORS', [], [], [])
-        ref = None
+        
         # find slab holes if any
         cutters = []
         if w.parent:
@@ -1468,19 +1492,34 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
         else:
             polys = [wall]
         sel = []
+        logger.debug("floor_from_wall() curves :%.4f seconds", time.time() - tim)
+        
+        # load and compile preset once for all
+        # f = open(self.filepath)
+        # py = compile(f.read(), self.filepath, 'exec')
+        
         for poly in polys:
+            
             boundary = io._to_curve(poly.exterior, "{}-boundary".format(w.name), '2D')
             boundary.location.z = w.matrix_world.translation.z - wd.z_offset
-            bpy.ops.archipack.floor(auto_manipulate=False, filepath=self.filepath)
-            o = context.active_object
+            logger.debug("floor_from_wall() boundary :%.4f seconds", time.time() - tim)
+            o = self.create(context)
+            # exec(py)
+            # bpy.ops.archipack.floor(auto_manipulate=False, filepath=self.filepath)
+            # o = context.active_object
             sel.append(o)
             o.matrix_world = w.matrix_world.copy()
             d = archipack_floor.datablock(o)
             d.auto_update = False
             d.thickness = wd.z_offset
+            logger.debug("floor_from_wall() create :%.4f seconds", time.time() - tim)
             d.user_defined_path = boundary.name
+            logger.debug("floor_from_wall() user_defined_path :%.4f seconds", time.time() - tim)
             self.delete_object(context, boundary)
+            logger.debug("floor_from_wall() delete_object :%.4f seconds", time.time() - tim)
             d.user_defined_path = ""
+            logger.debug("floor_from_wall() floor :%.4f seconds", time.time() - tim)
+        
             for hole in poly.interiors:
                 curve = io._to_curve(hole, "{}-cut".format(o.name), '3D')
                 bpy.ops.archipack.floor_cutter(auto_manipulate=False, parent=o.name, curve=curve.name)
@@ -1498,23 +1537,22 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
                     cd.user_defined_path = ""
                     self.delete_object(context, curve)
                     self.unselect_object(c)
+            logger.debug("floor_from_wall() cutters :%.4f seconds", time.time() - tim)
+        
             # select and make active
             self.select_object(context, o, True)
             d.auto_update = True
-
+            self.unselect_object(o)
+            logger.debug("floor_from_wall() %s :%.4f seconds", o.name, time.time() - tim)
+        
         for obj in sel:
             self.select_object(context, obj)
+            
         self.select_object(context, w, True)
         bpy.ops.archipack.add_reference_point()
         self.unselect_object(w)
         return o
-
-    def create(self, context):
-        wall = context.active_object
-        wd = wall.data.archipack_wall2[0]
-        o = self.floor_from_wall(context, wall, wd)
-        return o
-
+    
     # -----------------------------------------------------
     # Execute
     # -----------------------------------------------------
@@ -1523,7 +1561,9 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             # same behiavour as molding from wall
             # wich require moldings to be selected to be editable
             bpy.ops.object.select_all(action="DESELECT")
-            o = self.create(context)
+            wall = context.active_object
+            wd = wall.data.archipack_wall2[0]
+            o = self.floor_from_wall(context, wall, wd)
             # select and make active
             self.select_object(context, o, True)
             # if self.auto_manipulate:

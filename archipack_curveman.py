@@ -833,7 +833,7 @@ class ArchipackProfile(ArchipackProfileManager):
             if o is None:
                 o = bpy.data.objects.new(curve.name, curve)
                 o.show_name = True
-                ArchipackObjectsManager.link_object_to_scene(self, context, o)
+                ArchipackObjectsManager.link_object_to_scene(self, context, o, layer_name="2d")
                 self.user_profile_savename = o.name
             else:
                 d = o.data
@@ -845,7 +845,7 @@ class ArchipackProfile(ArchipackProfileManager):
             self.auto_update = False
             self.user_profile_dimension = Vector((x, y, 0))
             self.user_profile = o.name
-            # Sub objects must update parent using this call
+            # Sub objects without auto_update must update parent using this call
             self.refresh_profile_size(context, x, y)
             self.auto_update = True
         return o

@@ -567,6 +567,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             self.delete_object(context, boundary)
             d.user_defined_path = ""
             sel.append(o)
+            self.unselect_object(o)
 
         self.select_object(context, w, True)
         for obj in sel:

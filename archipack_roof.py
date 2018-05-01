@@ -3276,14 +3276,7 @@ class RoofGenerator(CutAbleGenerator):
         # wg in roof coordsys
         # wg.change_coordsys(wall.matrix_world, o.matrix_world)
 
-        if inside:
-            # fit inside
-            offset = -0.5 * (1 - wd.x_offset) * wd.width
-        else:
-            # fit outside
-            offset = 0
-
-        wg.set_offset(offset)
+        # wg.set_offset(0)
 
         wall_t = [[] for w in wg.segs]
 
@@ -5355,18 +5348,18 @@ class ARCHIPACK_OT_roof_from_wall(ArchipackObjectsManager, Operator):
             cutter.data.archipack_roof_cutter[0].operation = 'INTERSECTION'
             cutter.data.archipack_roof_cutter[0].user_defined_path = result.name
             self.delete_object(context, result)
-            # rd = result.data
-            # self.unlink_object_from_scene(context, result)
-            # context.scene.objects.unlink(result)
-            # bpy.data.curves.remove(rd)
-
+            
         # select and make active
         self.select_object(context, o, True)
         d.auto_update = True
+        
         # select and make active
-        self.select_object(context, wall, True)
-        wall.data.archipack_wall2[0].fit_roof = True
-        self.unselect_object(wall)
+        walls = self.get_objects_by_class_name(o, "archipack_wall2")
+        for wall in walls:
+            self.select_object(context, wall, True)
+            wall.data.archipack_wall2[0].fit_roof = True
+            self.unselect_object(wall)
+        
         return o
 
     def invoke(self, context, event):

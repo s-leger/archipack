@@ -151,7 +151,7 @@ class ArchipackLayerManager_27():
          layer_name: string use this layer_name instead of class one
          default_layer: add to default layer for all entity
          Dont add into default layer as select by layer using layer manager wont work
-         
+         This does trigger a DAG zero... report
         """
         index = self.get_layer_index(context, o, layer_name)
         layers = {}
@@ -303,8 +303,32 @@ class ArchipackObjectsManagerBase():
             return self.get_topmost_parent(o.parent)
         else:
             return o
-
-
+    
+    def get_reference_point(self, o):
+        if o.parent:
+            return self.get_reference_point(o.parent)
+        elif "archipack_reference_point" in o:
+            return o
+        else:
+            return None
+    
+    def filter_by_class_name(self, o, cls):
+        return o.data and cls in o.data
+    
+    def _get_objects_by_class_name(self, o, cls, res):
+        if self.filter_by_class_name(o, cls):
+            res.append(o)
+        for c in o.children:
+            self._get_objects_by_class_name(c, cls, res)
+        
+    def get_objects_by_class_name(self, o, cls):
+        res = []
+        ref = self.get_reference_point(o)
+        if ref is not None:
+            self._get_objects_by_class_name(ref, cls, res)
+        return res
+      
+      
 class ArchipackObjectsManager_27(ArchipackLayerManager_27, ArchipackObjectsManagerBase):
     """
       Provide objects and datablock utility
@@ -396,8 +420,8 @@ class ArchipackObjectsManager_28(ArchipackLayerManager_28, ArchipackObjectsManag
     def unselect_object(self, o):
         o.select_set(action='DESELECT')
 
-    def link_object_to_scene(self, context, o):
-        context.scene_collection.objects.link(o, layer_name=None, default_layer=False)
+    def link_object_to_scene(self, context, o, layer_name=None, default_layer=False):
+        context.scene_collection.objects.link(o)
         self.add_to_layer(context, o, layer_name, default_layer)
         
     def unlink_object_from_scene(self, context, o):

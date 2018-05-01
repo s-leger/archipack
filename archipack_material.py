@@ -186,7 +186,6 @@ class MatlibsManager():
         
         # material with same name exist in scene
         mat = self.from_data(name)
-        
         # mat not in scene: try to load from lib
         break_link = False
         if mat is None:
@@ -199,21 +198,21 @@ class MatlibsManager():
                 mat = lib.get_mat(name, link)
                 if mat is not None:
                     break
-
+            
         # nothing found, build a default mat
         if mat is None:
             mat = bpy.data.materials.new(name)
 
         if slot_index < len(o.material_slots):
-            o.material_slots[slot_index].material = None
+            # o.material_slots[slot_index].material = None
             o.material_slots[slot_index].material = mat
-            o.active_material_index = slot_index
-        
+            
         if break_link and not link:
             # break link
+            o.active_material_index = slot_index
             bpy.ops.object.make_local(type="SELECT_OBDATA_MATERIAL")
-                
-
+        
+        
 class MaterialSetManager():
     """
         Manage material sets for objects
@@ -384,17 +383,17 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
 
     def apply_material(self, context, slot_index, name):
         global libman
-
+        
         if libman is None:
             libman = MatlibsManager()
 
         libman.apply(context, slot_index, name, link=False)
-
+        
     def update(self, context):
         global setman
         if setman is None:
             setman = MaterialSetManager()
-
+        
         o = context.active_object
         sel = [
             c for c in o.children
@@ -412,7 +411,7 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
         sel.append(o)
 
         mats = setman.get_materials(self.category, self.material)
-
+        
         if mats is None:
             return False
 
@@ -421,10 +420,12 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
             n_slots = len(ob.material_slots)
             for slot_index, mat_name in enumerate(mats):
                 if slot_index >= n_slots:
-                    bpy.ops.object.material_slot_add()
+                    # Low level way to add material 20x faster than op
+                    ob.data.materials.append(None)
                 self.apply_material(context, slot_index, mat_name)
                 
         self.select_object(context, o, True)
+        
         return True
 
 
@@ -471,7 +472,6 @@ class ARCHIPACK_OT_material(Operator):
         return context.active_object is not None
 
     def execute(self, context):
-
         o = context.active_object
 
         if 'archipack_material' in o:
@@ -487,7 +487,7 @@ class ARCHIPACK_OT_material(Operator):
         except:
             res = False
             pass
-
+        
         if res:
             # print("ARCHIPACK_OT_material.apply {} {}".format(self.category, self.material))
             return {'FINISHED'}

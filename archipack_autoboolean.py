@@ -386,8 +386,7 @@ class ArchipackBoolManager(ArchipackObjectsManager):
                 # update manipulators
                 d.update(context, manipulable_refresh=True)
             else:
-                g = d.get_generator()
-                d.relocate_childs(context, wall, g)
+                d.relocate_childs(context, wall)
 
         if hole_obj is not None:
             self.prepare_hole(context, hole_obj)

@@ -273,17 +273,20 @@ class WallGenerator(Generator):
     def get_coords(self, offset, z, d, verts):
         self.set_offset(offset)
         self.close(offset)
-        nb_segs = len(self.segs) - 1
-        if d.closed:
-            nb_segs += 1
+        _segs = self.segs
+        nb_segs = self.n_parts
         f = len(verts)
 
-        for i, wall in enumerate(self.segs):
+        for i, wall in enumerate(_segs):
             wall.param_t(d.step_angle)
             if i < nb_segs:
-                for j in range(wall.n_step + 1):
+                for j in range(wall.n_step):
                     wall.get_coord(j, verts, z)
-
+        
+        if not d.closed:
+            wall = _segs[-2]
+            wall.get_coord(wall.n_step, verts, z)
+            
         # fix precision issues by extending ends
         # on open walls
         if d.extend % 2 == 1:
@@ -1149,16 +1152,16 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             modif = o.modifiers.new('Wall', 'SOLIDIFY')
             modif.use_quality_normals = True
             modif.use_even_offset = True
+            modif.offset = 1
 
         modif.material_offset_rim = rim
         modif.material_offset = matoffset
         modif.thickness = self.width
-        modif.offset = 1
-
+        
         logger.debug("Wall2.relocate() 7 modifier :%.2f seconds", time.time() - tim)
         # self.x_offset
 
-        # self.apply_modifier(o, modif)
+        self.apply_modifier(o, modif)
 
         self.fit_roof_modifier(o, roof, rd, apply=True)
 

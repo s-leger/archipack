@@ -35,9 +35,10 @@ from bpy.props import (
 from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
-from math import sin, cos, pi, floor, acos
+from math import sin, cos, pi, floor, acos, atan2, degrees
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
+from .archipack_gl import GlText
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
 from .archipack_object import (
     ArchipackCreateTool, 
@@ -317,20 +318,20 @@ class Stair():
              self.idmat_top,
              self.idmat_step_side])
 
-        faces += [(f + j, f + j + 1, f + j + offset + 1, f + j + offset) for j in range(start, end)]
+        faces.extend([(f + j, f + j + 1, f + j + offset + 1, f + j + offset) for j in range(start, end)])
 
         u = nose_y
         v = (p1 - p0).length
         w = verts[f + 2][2] - verts[f + 3][2]
         s = int((end - start) / 2)
 
-        uvs += [[(u, verts[f + j][2]), (u, verts[f + j + 1][2]),
-            (0, verts[f + j + 1][2]), (0, verts[f + j][2])] for j in range(start, start + s)]
+        uvs.extend([[(u, verts[f + j][2]), (u, verts[f + j + 1][2]),
+            (0, verts[f + j + 1][2]), (0, verts[f + j][2])] for j in range(start, start + s)])
 
         uvs.append([(0, 0), (0, v), (u, v), (u, 0)])
 
-        uvs += [[(u, verts[f + j][2]), (u, verts[f + j + 1][2]),
-            (0, verts[f + j + 1][2]), (0, verts[f + j][2])] for j in range(start + s + 1, end)]
+        uvs.extend([[(u, verts[f + j][2]), (u, verts[f + j + 1][2]),
+            (0, verts[f + j + 1][2]), (0, verts[f + j][2])] for j in range(start + s + 1, end)])
 
         if 'STRAIGHT' in self.nose_type or 'OPEN' in self.steps_type:
             # face bottom
@@ -421,7 +422,7 @@ class Stair():
 
         self.project_uv(rM, uvs, verts, [f + end, f + start, f + offset + start, f + offset + end])
 
-        faces += [(f + j, f + j + 1, f + j + offset + 1, f + j + offset) for j in range(start, end)]
+        faces.extend([(f + j, f + j + 1, f + j + offset + 1, f + j + offset) for j in range(start, end)])
         faces.append((f + end, f + start, f + offset + start, f + offset + end))
 
 
@@ -810,13 +811,14 @@ class StraightLanding(StraightStair):
 
         p = self.r_line.lerp(t1)
         self.p3d_right(verts, p, j, t1, self.next_type != 'LANDING')
+        
+        if self.z_mode != '2D':
+            self.make_faces(f, rM, verts, faces, matids, uvs)
 
-        self.make_faces(f, rM, verts, faces, matids, uvs)
-
-        if "OPEN" in self.steps_type and self.next_type != 'LANDING':
-            faces.append((f + 13, f + 14, f + 15, f + 16))
-            matids.append(self.idmat_step_front)
-            uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
+            if "OPEN" in self.steps_type and self.next_type != 'LANDING':
+                faces.append((f + 13, f + 14, f + 15, f + 16))
+                matids.append(self.idmat_step_front)
+                uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
 
     def straight_landing(self, length):
         return Stair.straight_landing(self, length, last_type='LANDING')
@@ -901,12 +903,14 @@ class CurvedLanding(CurvedStair):
             f = self._make_edge(self.t_step, i, 0, f, rM, verts, faces, matids, uvs)
 
         self._make_step(self.t_step, i + 1, 0, verts, i == self.n_step - 1 and 'LANDING' not in self.next_type)
-        self.make_faces(f, rM, verts, faces, matids, uvs)
+        
+        if self.z_mode != '2D':
+            self.make_faces(f, rM, verts, faces, matids, uvs)
 
-        if "OPEN" in self.steps_type and 'LANDING' not in self.next_type:
-            faces.append((f + 13, f + 14, f + 15, f + 16))
-            matids.append(self.idmat_step_front)
-            uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
+            if "OPEN" in self.steps_type and 'LANDING' not in self.next_type:
+                faces.append((f + 13, f + 14, f + 15, f + 16))
+                matids.append(self.idmat_step_front)
+                uvs.append([(0, 0), (0, 1), (1, 1), (1, 0)])
 
     def straight_landing(self, length):
         return Stair.straight_landing(self, length, last_type='LANDING')
@@ -1011,7 +1015,18 @@ class StairGenerator():
         for stair in self.stairs:
             stair.set_height(step_height, z)
             z = stair.top
-
+    
+    @property
+    def steps_space(self):
+        """
+         Length of stair space at axis
+        """
+        space = 0
+        for s, stair in enumerate(self.stairs):
+            if 'Landing' not in type(stair).__name__:
+                space += stair.length
+        return space
+        
     def make_stair(self, height, step_depth, verts, faces, matids, uvs, nose_y=0):
         n_steps = self.n_steps(step_depth)
         self.set_height(height / n_steps)
@@ -1041,7 +1056,7 @@ class StairGenerator():
                     manipulator.prop1_name = 'length'
                 
             stair.measure_point(self.d, part.uid)
-                
+            
             for i in range(stair.n_step):
                 stair.make_step(i, verts, faces, matids, uvs, nose_y=nose_y)
                 if s < len(self.stairs) - 1 and self.steps_type != 'OPEN' and \
@@ -1755,16 +1770,31 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
     n_parts = IntProperty(
             name="Parts",
             min=1,
-            max=32,
+            max=512,
             default=1, update=update_manipulators
             )
+    step_height = StringProperty(
+            default=""
+            )
+    step_pitch = StringProperty(
+            default=""
+            )
+    step_count = StringProperty(
+            default=""
+            )
+    step_going = StringProperty(
+            default=""
+            )
+    
     step_depth = FloatProperty(
+            description="Desired going (max)",
             name="Going",
             min=0.2,
             default=0.25,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
+    
     width = FloatProperty(
             name="Width",
             min=0.01,
@@ -2480,6 +2510,31 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
         # Stair basis
         g.set_matids(id_materials)
         g.make_stair(self.height, self.step_depth, verts, faces, matids, uvs, nose_y=self.nose_y)
+        n_steps = g.n_steps(self.step_depth)
+        going = g.steps_space / n_steps
+        height = self.height / n_steps
+        h_label = GlText(
+            label="Rise: ",
+            value=height,
+            precision=1,
+            unit_mode='AUTO',
+            unit_type='SIZE',
+            dimension=1
+            )
+        h_label._text = h_label.add_units(context)
+        g_label = GlText(
+            label="Going: ",
+            value=going,
+            precision=1,
+            unit_mode='AUTO',
+            unit_type='SIZE',
+            dimension=1
+            )
+        g_label._text = g_label.add_units(context)
+        self.step_going = g_label.text
+        self.step_height = h_label.text
+        self.step_count = "Steps: {}".format(n_steps)
+        self.step_pitch = "Pitch: {}°".format(round(degrees(atan2(height, going)), 1))
         
         if not throttle.is_active(o.name):
         
@@ -2695,7 +2750,6 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
                     # skip only a part of this stair
                 skip_space -= stair.height
         # Boundary
-
         boundary = []
         boundary.append(verts[-2])
         boundary.extend(list(reversed(
@@ -2725,7 +2779,7 @@ class archipack_stair(ArchipackObject, Manipulable, DimensionProvider, PropertyG
             return io, geom
 
         lines.append(geom)
-
+        
         # Steps
         coords = [[verts[f], verts[f + 1]] for i, f in enumerate(faces) if i > 0]
         coords.pop()
@@ -2855,6 +2909,10 @@ class ARCHIPACK_PT_stair(Panel):
         if prop.steps_expand:
             box.prop(prop, 'steps_type')
             box.prop(prop, 'step_depth')
+            box.label(text=prop.step_count)
+            box.label(text=prop.step_height)
+            box.label(text=prop.step_going)
+            box.label(text=prop.step_pitch)
             box.prop(prop, 'nose_type')
             box.prop(prop, 'nose_z')
             box.prop(prop, 'nose_y')

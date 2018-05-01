@@ -436,9 +436,9 @@ class Circle(Projection):
 
     def intersect(self, line):
         v = line.p - self.c
-        A = line.v ** 2
+        A = line.v * line.v
         B = 2 * v * line.v
-        C = v ** 2 - self.r ** 2
+        C = v * v - self.r ** 2
         d = B ** 2 - 4 * A * C
         if A <= 0.0000001 or d < 0:
             # dosent intersect, find closest point of line
