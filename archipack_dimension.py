@@ -1072,7 +1072,7 @@ class archipack_dimension_auto(ArchipackObject, Manipulable, PropertyGroup):
             text.dimensions = '2D'
             t_o = bpy.data.objects.new(o.name, text)
             # Link object into scene
-            self.link_object_to_scene(context, t_o)
+            self.link_object_to_scene(context, t_o, layer_name="dimension_auto")
         
             t_o.parent = o
             m = t_o.archipack_material.add()
@@ -1471,19 +1471,13 @@ class ARCHIPACK_OT_dimension_auto_update(ArchipackObjectsManager, Operator):
             d.update(context)
             self.unselect_object(o)
 
-    def _get_topmost_parent(self, o):
-        if o.parent:
-            return self._get_topmost_parent(o.parent)
-        else:
-            return o
-
     def _update_child_dimensions(self, context, o):
         self._update_dimensions(context, o)
         for c in o.children:
             self._update_child_dimensions(context, c)
 
     def update_dimensions(self, context, o):
-        p = self._get_topmost_parent(o)
+        p = self.get_topmost_parent(o)
         self._update_child_dimensions(context, p)
 
     def execute(self, context):

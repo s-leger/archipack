@@ -808,9 +808,6 @@ class WallSnapManipulator(Manipulator):
             # update properties from generator
             idx = 0
 
-            # flag: when object move must update generator before relocate
-            dirty = False
-
             for p0, p1, selected in gl_pts3d:
 
                 if selected:
@@ -843,7 +840,6 @@ class WallSnapManipulator(Manipulator):
                             d.move_object(self.o, self.o.matrix_world.translation + sp.delta)
                             # self.o.location += sp.delta
                             # self.o.matrix_world.translation += sp.delta
-                            dirty = True
                         else:
                             d.origin += sp.delta
 

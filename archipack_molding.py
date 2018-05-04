@@ -24,6 +24,7 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
+import time
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
@@ -42,6 +43,8 @@ from .archipack_object import ArchipackCreateTool, ArchipackObject
 from .archipack_dimension import DimensionProvider
 from .archipack_curveman import ArchipackProfile, ArchipackUserDefinedPath
 from .archipack_segments import ArchipackSegment, Generator
+import logging
+logger = logging.getLogger("archipack")
 
 
 class MoldingGenerator(Generator):
@@ -127,7 +130,8 @@ class MoldingGenerator(Generator):
 
 
 def update(self, context):
-    self.update(context)
+    if self.auto_update:
+        self.update(context)
 
 
 def update_manipulators(self, context):
@@ -255,7 +259,6 @@ class archipack_molding(
             g.add_part(part)
         g.set_offset(self.x_offset)
         g.close(self.x_offset)
-        g.locate_manipulators()
         return g
 
     def update(self, context, manipulable_refresh=False):
@@ -277,6 +280,7 @@ class archipack_molding(
         uvs = []
 
         g = self.get_generator()
+        g.locate_manipulators()
 
         # reset user def posts
 
@@ -529,20 +533,37 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
     bl_label = "->Floor"
     bl_description = "Create molding from a wall"
     bl_category = 'Archipack'
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER'}
 
     @classmethod
     def poll(self, context):
         o = context.active_object
         return o is not None and o.data is not None and 'archipack_wall2' in o.data
 
+    def create(self, context):
+        tim = time.time()
+        m = bpy.data.meshes.new("Molding")
+        o = bpy.data.objects.new("Molding", m)
+        d = m.archipack_molding.add()
+        # make manipulators selectable
+        d.manipulable_selectable = True
+        d.auto_update = False
+        self.link_object_to_scene(context, o)
+        logger.debug("create link_object_to_scene() :%.4f seconds", time.time() - tim)
+        self.select_object(context, o, True)
+        bpy.ops.script.python_file_run(filepath=self.filepath)
+        logger.debug("create python_file_run() :%.4f seconds", time.time() - tim)
+        return o
+
     def molding_from_wall(self, context, w, wd):
         """
          Create flooring from surrounding wall
          Use slab cutters, windows and doors, T childs walls
         """
+        tim = time.time()
         # wall is either a single or collection of polygons
         io, wall, childs = wd.as_geom(context, w, 'FLOOR_MOLDINGS', [], [], [])
+        logger.debug("molding_from_wall wd.as_geom :%.4f seconds", time.time() - tim)
 
         # find slab holes if any
         o = None
@@ -556,14 +577,15 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
         for i, line in enumerate(lines):
             boundary = io._to_curve(line, "{}-boundary".format(w.name), '2D')
             boundary.location.z = w.matrix_world.translation.z
-            bpy.ops.archipack.molding(auto_manipulate=False, filepath=self.filepath)
-            o = context.active_object
+            logger.debug("molding_from_wall boundary :%.4f seconds", time.time() - tim)
+            o = self.create(context)
+            logger.debug("molding_from_wall create :%.4f seconds", time.time() - tim)
             o.matrix_world = w.matrix_world.copy()
             d = archipack_molding.datablock(o)
-            d.auto_update = False
             d.user_defined_path = boundary.name
             d.user_defined_spline = i
             d.auto_update = True
+            logger.debug("molding_from_wall update :%.4f seconds", time.time() - tim)
             self.delete_object(context, boundary)
             d.user_defined_path = ""
             sel.append(o)
@@ -574,12 +596,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
             self.select_object(context, obj)
         bpy.ops.archipack.add_reference_point()
         self.unselect_object(w)
-        return o
-
-    def create(self, context):
-        wall = context.active_object
-        wd = wall.data.archipack_wall2[0]
-        o = self.molding_from_wall(context, wall, wd)
+        logger.debug("molding_from_wall() :%.4f seconds", time.time() - tim)
         return o
 
     # -----------------------------------------------------
@@ -588,7 +605,9 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
     def execute(self, context):
         if context.mode == "OBJECT":
             bpy.ops.object.select_all(action="DESELECT")
-            o = self.create(context)
+            wall = context.active_object
+            wd = wall.data.archipack_wall2[0]
+            o = self.molding_from_wall(context, wall, wd)
             self.select_object(context, o, True)
             # if self.auto_manipulate:
             #    bpy.ops.archipack.manipulate('INVOKE_DEFAULT')

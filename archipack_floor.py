@@ -971,7 +971,6 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             g.add_part(part)
         g.set_offset(self.x_offset)
         g.close(self.x_offset)
-        g.locate_manipulators()
         return g
 
     @staticmethod
@@ -1066,22 +1065,24 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         if o is None:
             return
-            
+
         tim = time.time()
-        
+
         # clean up manipulators before any data model change
         if manipulable_refresh:
             self.manipulable_disable(context)
 
         self.update_parts()
-        
+
         if len(self.parts) < 3:
             self.restore_context(context)
             return
-            
+
         throttle.add(context, o, self, 0.1)
-    
+
         g = self.get_generator()
+        g.locate_manipulators()
+
         for i, seg in enumerate(g.segs):
             g.segs[i] = seg.line
 
@@ -1093,7 +1094,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         # enable manipulators rebuild
         if manipulable_refresh:
             self.manipulable_refresh = True
-        
+
         logger.debug("Floor.update() %s :%.4f seconds", o.name, time.time() - tim)
         # restore context
         self.restore_context(context)
@@ -1177,8 +1178,8 @@ class archipack_floor_cutter(ArchipackCutter, ArchipackObject, Manipulable, Dime
                 d.update(context)
                 self.unselect_object(o.parent)
             self.select_object(context, o, True)
-        
-        
+
+
 # ------------------------------------------------------------------
 # Define panel class to show object parameters in ui panel (N)
 # ------------------------------------------------------------------
@@ -1450,7 +1451,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
     def poll(self, context):
         o = context.active_object
         return o is not None and o.data is not None and 'archipack_wall2' in o.data
-    
+
     def create(self, context):
         m = bpy.data.meshes.new("Floor")
         o = bpy.data.objects.new("Floor", m)
@@ -1463,7 +1464,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
         # Link object into scene
         # select and make active
         return o
-        
+
     def floor_from_wall(self, context, w, wd):
         """
          Create flooring from surrounding wall
@@ -1472,7 +1473,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
         tim = time.time()
         # wall is either a single or collection of polygons
         io, wall, childs = wd.as_geom(context, w, 'FLOORS', [], [], [])
-        
+
         # find slab holes if any
         cutters = []
         if w.parent:
@@ -1493,13 +1494,13 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             polys = [wall]
         sel = []
         logger.debug("floor_from_wall() curves :%.4f seconds", time.time() - tim)
-        
+
         # load and compile preset once for all
         # f = open(self.filepath)
         # py = compile(f.read(), self.filepath, 'exec')
-        
+
         for poly in polys:
-            
+
             boundary = io._to_curve(poly.exterior, "{}-boundary".format(w.name), '2D')
             boundary.location.z = w.matrix_world.translation.z - wd.z_offset
             logger.debug("floor_from_wall() boundary :%.4f seconds", time.time() - tim)
@@ -1519,7 +1520,7 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
             logger.debug("floor_from_wall() delete_object :%.4f seconds", time.time() - tim)
             d.user_defined_path = ""
             logger.debug("floor_from_wall() floor :%.4f seconds", time.time() - tim)
-        
+
             for hole in poly.interiors:
                 curve = io._to_curve(hole, "{}-cut".format(o.name), '3D')
                 bpy.ops.archipack.floor_cutter(auto_manipulate=False, parent=o.name, curve=curve.name)
@@ -1538,21 +1539,21 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
                     self.delete_object(context, curve)
                     self.unselect_object(c)
             logger.debug("floor_from_wall() cutters :%.4f seconds", time.time() - tim)
-        
+
             # select and make active
             self.select_object(context, o, True)
             d.auto_update = True
             self.unselect_object(o)
             logger.debug("floor_from_wall() %s :%.4f seconds", o.name, time.time() - tim)
-        
+
         for obj in sel:
             self.select_object(context, obj)
-            
+
         self.select_object(context, w, True)
         bpy.ops.archipack.add_reference_point()
         self.unselect_object(w)
         return o
-    
+
     # -----------------------------------------------------
     # Execute
     # -----------------------------------------------------

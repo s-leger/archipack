@@ -24,6 +24,7 @@
 # Author: Stephen Leger (s-leger)
 #
 # ----------------------------------------------------------
+import time
 # noinspection PyUnresolvedReferences
 import bpy
 # noinspection PyUnresolvedReferences
@@ -51,6 +52,37 @@ from .archipack_cutter import (
 from .archipack_dimension import DimensionProvider
 from .archipack_curveman import ArchipackUserDefinedPath
 from .archipack_segments import ArchipackSegment
+from .archipack_polylines import CoordSys, Qtree
+import logging
+logger = logging.getLogger("archipack")
+
+
+class Q_tree(Qtree):
+    """
+     A quadtree to minimize relocate intersections
+    """
+    def getbounds(self, seg, extend=0):
+        x0, y0 = seg.p0.x, seg.p0.y
+        x1, y1 = seg.p1.x, seg.p1.y
+        return (min(x0, x1),
+            min(y0, y1),
+            max(x0, x1),
+            max(y0, y1))
+
+    def intersects(self, pt, extend):
+        x, y = pt.x, pt.y
+        bounds = (x - extend,
+            y - extend,
+            x + extend,
+            y + extend)
+        selection = list(self._intersect(bounds))
+        count = len(selection)
+        return count, sorted(selection)
+
+    def insert(self, seg):
+        idx = self.ngeoms
+        self._geoms.append(seg)
+        self._insert(idx, self.getbounds(seg))
 
 
 class SlabGenerator(CutAblePolygon, CutAbleGenerator):
@@ -169,27 +201,39 @@ class archipack_slab_material(PropertyGroup):
 
 
 class archipack_slab_relocate_child(PropertyGroup):
-    child_name = StringProperty()
+    child_name = StringProperty(
+        description="Name of child object"
+        )
     child_idx = IntProperty(
         default=-1,
-        description="Index of linked child part (startpoint)"
+        description="Index of linked child part (startpoint) when -1 set object location"
         )
-    wall_id0 = IntProperty(
-        description="Index of wall part"
+    seg0 = IntProperty(
+        description="Index of parent segment 0 the point is bound to"
         )
-    wall_id1 = IntProperty(
-        description="Index of wall part"
+    seg1 = IntProperty(
+        description="Index of parent segment 1 the point is bound to"
         )
-    d0 = FloatProperty()
-    d1 = FloatProperty()
+    d0 = FloatProperty(
+        description="Distance from parent segment 0 the point is bound to"
+        )
+    d1 = FloatProperty(
+        description="Distance from parent segment 1 the point is bound to"
+        )
+    t = FloatProperty(
+        description="Distance from start of closest segment normalized"
+        )
+
+    def filter_child(self, o):
+        d = None
+        if o and o.data and "archipack_fence" in o.data:
+                d = o.data.archipack_fence[0]
+        return d
 
     def get_child(self, context):
         d = None
         o = context.scene.objects.get(self.child_name)
-        if o is not None and o.data is not None:
-            cd = o.data
-            if 'archipack_fence' in cd:
-                d = cd.archipack_fence[0]
+        d = self.filter_child(o)
         return o, d
 
 
@@ -255,7 +299,6 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
             g.add_part(part)
         g.set_offset(self.x_offset)
         g.close(self.x_offset)
-        g.locate_manipulators()
         # here segs are without offset
         # seg.line contains offset
         return g
@@ -333,137 +376,288 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
         c.location = Vector((0, 0, 0))
         c.parent = o
         c.location = g.segs[where + 1].p0.to_3d()
+        maxdist = 1e32
+        coordsys = CoordSys([o])
+        tree = Q_tree(coordsys)
+        segs = [seg.line for seg in g.segs]
 
-        self.add_relocate_child(c.name, 0, g.segs[where + 1].p0, g.segs)
-        self.add_relocate_child(c.name, 1, g.segs[where + 2].p0, g.segs)
-        self.add_relocate_child(c.name, 2, g.segs[where + 3].p0, g.segs)
-        self.add_relocate_child(c.name, 3, g.segs[where + 4].p0, g.segs)
+        # collect own walls segs
+        # Init Tree for openings
+        for i, seg in enumerate(segs):
+            tree.insert(seg)
+
+        self.add_relocate_child(tree, c.name, 0, segs[where + 1].p0, segs, maxdist)
+        self.add_relocate_child(tree, c.name, 1, segs[where + 2].p0, segs, maxdist)
+        self.add_relocate_child(tree, c.name, 2, segs[where + 3].p0, segs, maxdist)
+        self.add_relocate_child(tree, c.name, 3, segs[where + 4].p0, segs, maxdist)
         # c.matrix_world.translation = g.segs[where + 1].p1.to_3d()
         self.select_object(context, o, True)
-        self.relocate_childs(context, o, g)
+        self.relocate_childs(context, o)
 
-    def add_relocate_child(self, name, c_idx, pt, segs):
-        """
-         Find 2 closest segments
-         Store distance to segments, segment indexes
-        """
-        closest = []
-        for idx, seg in enumerate(segs):
-            res, dist, t = seg.point_sur_segment(pt)
-            abs_d = abs(dist)
-            closest.append((abs_d, -dist, idx))
+    def _find_relocate_childs(self, o, childs):
+        d = archipack_slab_relocate_child.filter_child(self, o)
+        if d:
+            childs[o.name] = (o, d)
 
-        if len(closest) > 1:
-            closest.sort(key=lambda s: s[0])
-            # filter out colinear segment delta angle < 0.057 deg
-            s0 = segs[closest[0][2]]
-            i = 1
-            i2 = closest[1][2]
-            while i < len(closest) and abs(segs[i2].delta_angle(s0)) < 0.001:
-                i += 1
-                i2 = closest[i][2]
-            c = self.reloc_childs.add()
-            c.child_name = name
-            c.child_idx = c_idx
-            c.d0, c.wall_id0 = closest[0][1:3]
-            c.d1, c.wall_id1 = closest[i][1:3]
-            print("{} c:{} w0:{} w1:{} d0:{} d1:{}".format(name, c_idx, c.wall_id0, c.wall_id1, c.d0, c.d1))
-        else:
-            print("skip", name, len(closest))
+    def find_relocate_childs(self, o):
+        # find childs and sort by kind
+        childs = {}
+        for c in o.children:
+            self._find_relocate_childs(c, childs)
+        return childs
+
+    def add_generator(self, name, c, d, generators, tM=None, force=False):
+        if name != "" and c and (name not in generators or force):
+            if tM is None:
+                tM = c.matrix_world
+
+            g = d.get_generator(tM)
+
+            generators[name] = [
+                c,
+                d,
+                g,
+                tM.inverted(),
+                False
+                ]
 
     def setup_childs(self, context, o):
         """
             Store childs
+            create manipulators
+            call after a boolean oop
+
+            Unlike other routines,
+            generators use world coordsys
         """
+
+        # logger.debug("Setup_childs %s", o.name)
+
+        tim = time.time()
         self.reloc_childs.clear()
+
+        if o.parent is None:
+            return 0
+
+        childs = self.find_relocate_childs(o)
+
+        # retrieve objects to init quadtree
+        objs = [o]
+        for name, child in childs.items():
+            c, cd = child
+            objs.append(c)
+
+        # init a quadtree to minimize intersections tests on setup
+        coordsys = CoordSys(objs)
+        tree = Q_tree(coordsys)
+
         g = self.get_generator(o)
 
-        for c in o.children:
-            cd = c.data
-            if cd and "archipack_fence" in cd:
-                d = cd.archipack_fence[0]
-                if d is not None:
-                    cg = d.get_generator(c)
+        segs = [seg.line for seg in g.segs]
 
-                    for c_idx, seg in enumerate(cg.segs):
-                        p = seg.p0
-                        self.add_relocate_child(c.name, c_idx, p, g.segs)
+        # Init Tree for openings
+        for i, seg in enumerate(segs):
+            tree.insert(seg)
 
-                    if not d.closed:
-                        p = cg.segs[-1].p1
-                        self.add_relocate_child(c.name, len(cg.segs), p, g.segs)
+        # curved segments are not supported
+        for p in self.parts:
+            if p.type == "C_SEG":
+                return
 
-    def relocate_childs(self, context, o, g):
+        maxdist = 1.0
+        if len(childs) > 0:
+            # Explicit rule for slab, using wall segs only with larger dist
+            # might use same rule for roof boundary cutters
+            for name, child in childs.items():
+                c, cd = child
+                cd.setup_manipulators()
+                cg = cd.get_generator(c)
+                for c_idx, seg in enumerate(cg.segs):
+                    # point in world coordsys
+                    p = seg.p0
+                    self.add_relocate_child(
+                            tree,
+                            c.name,
+                            c_idx,
+                            p,
+                            segs,
+                            maxdist)
+
+        logger.debug("Setup childs end %s %.4f seconds\n", o.name, (time.time() - tim))
+
+    def add_relocate_child(
+            self,
+            tree,
+            name,
+            c_idx,
+            pt,
+            all_segs,
+            maxdist):
         """
-            Move and resize childs after edition
+         Find 2 closest segments
+         Store distance to segments, segment indexes
+         maxdist: distance of point from segment in front / back
+         seg_idx: index of parent segment to project on closest
+                  allow inner walls projection over outside
+         allow_single: walls inside volume might have only isolated segment
+                  this option enable link to isolated seg using a t and distance rule
         """
+        closest = []
+
+        count, selection = tree.intersects(pt, maxdist)
+
+        # logger.debug("tree.intersects(%s) :%.4f seconds",  count, (time.time() - tim))
+
+        for parent_idx in selection:
+            seg = tree._geoms[parent_idx]
+            res, dist, t = seg.point_sur_segment(pt)
+            abs_d = abs(dist)
+            t_max = maxdist / seg.length
+
+            # squared dist taking account of point location over segment
+            d2 = dist ** 2
+            if t > 1:
+                d2 += ((t - 1) * seg.length) ** 2
+            elif t < 0:
+                d2 += (t * seg.length) ** 2
+
+            if abs_d < maxdist and -t_max < t < 1 + t_max:
+                # logger.debug("%s %s %s %s", name, parent_name, d2, dist ** 2)
+                closest.append((d2, -dist, parent_idx, t))
+
+        # get 2 closest segments
+        # childs walls use projection of themself through seg_idx
+
+        if len(closest) > 1:
+            closest.sort(key=lambda s: s[0])
+            c = self.reloc_childs.add()
+            c.child_name = name
+            c.child_idx = c_idx
+            d, d1, i1, t1 = closest[0][0:4]
+            # try to exclude colinear segments
+            i = 1
+            s0 = all_segs[i1]
+            d2, i2 = closest[1][1:3]
+            n_closest = len(closest) - 1
+            a = abs(all_segs[i2].delta_angle(s0))
+            while i < n_closest and (a > 3.1405 or a < 0.001):
+                if closest[i][0] < d:
+                    d, d1, i1, t1 = closest[i][0:4]
+                    s0 = all_segs[i1]
+                i += 1
+                d2, i2 = closest[i][1:3]
+                a = abs(all_segs[i2].delta_angle(s0))
+
+            c.d0, c.seg0, c.t = d1, i1, t1
+            c.d1, c.seg1 = d2, i2
+
+    def post_relocate(self, context):
+        o = self.find_in_selection(context)
+        if o is not None:
+            logger.debug("post_relocate %s", o.name)
+            self.relocate_childs(context, o)
+
+    def relocate_childs(self, context, o):
+        """
+            Move and resize childs after wall edition
+            childs here are either doors or windows
+            Unlike other routines,
+            generators use world coordsys
+            T childs walls only update doors and windows
+        """
+        tim = time.time()
+
+        logger.debug("Relocate_childs %s", o.name)
+        g = self.get_generator(o)
+
         tM = o.matrix_world
+        loc, rot, scale = tM.decompose()
+
+        # Generators: object, datablock, generator, mat world inverse, dirty flag
+        generators = {}
+
         # build a dict for each child
         soft = {}
-        for c in self.reloc_childs:
-            if c.child_name not in soft:
-                soft[c.child_name] = []
-            soft[c.child_name].append(c)
 
-        for name, child in soft.items():
-            c, d = child[0].get_child(context)
-            if c is None:
-                print("skip", name)
-                continue
+        # process childs in the right order
+        child_names = []
+        for child in self.reloc_childs:
+            child_name = child.child_name
+            if child_name not in soft:
+                c, d = child.get_child(context)
+                if c is None:
+                    continue
+                child_names.append(child_name)
+                soft[child_name] = []
+                self.add_generator(child_name, c, d, generators)
 
-            itM = tM.inverted() * c.matrix_world
+            soft[child_name].append(child)
+
+        logger.debug("Relocate_childs generators() :%.4f seconds", time.time() - tim)
+
+        n_changes = 0
+
+        for name in child_names:
+            child = soft[name]
+            # logger.debug("Relocate_childs start :%.2f seconds", time.time() - tim)
+            # logger.debug("Relocate_childs %s child:%s", o.name, name)
+            c, d, cg, itM, dirty = generators[name]
+
             # apply changes to generator
-            cg = d.get_generator(itM)
             n_segs = len(cg.segs)
+            changed = False
             for cd in child:
-                print("relocate {} c:{} w0:{} w1:{} d0:{} d1:{}".format(
-                    name,
-                    cd.child_idx,
-                    cd.wall_id0,
-                    cd.wall_id1,
-                    cd.d0,
-                    cd.d1))
-                s0 = g.segs[cd.wall_id0].offset(cd.d0)
-                s1 = g.segs[cd.wall_id1].offset(cd.d1)
-                
-                # p is in o coordsys
-                if "C_" in self.parts[cd.wall_id0].type:
-                    res, p, u, v = s0.intersect_arc(s1)
-                elif "C_" in self.parts[cd.wall_id1].type:
-                    res, p, v, u = s1.intersect_arc(s0)
-                else:
-                    res, p, u, v = s0.intersect_ext(s1)
-                    
+
+                # find closest segments: use offset of main wall for t childs
+                s0 = g.segs[cd.seg0].line.offset(cd.d0)
+                s1 = g.segs[cd.seg1].line.offset(cd.d1)
+                # p in world coordsys
+                res, p, u, v = s0.intersect_ext(s1)
+
+                # if intersection fails p = 0
                 if p != 0:
                     if cd.child_idx < n_segs:
+                        if (cg.segs[cd.child_idx].p0 - p).length > 0.001:
+                            n_changes += 1
+                            changed = True
                         cg.segs[cd.child_idx].p0 = p
                         if cd.child_idx > 0:
                             cg.segs[cd.child_idx - 1].p1 = p
                         else:
-                            d.move_object(c, tM * p.to_3d())
+                            d.move_object(c, p.to_3d())
+                            # flag generator as dirty
+                            generators[name][4] = True
                     else:
+                        if (cg.segs[cd.child_idx - 1].p1 - p).length > 0.001:
+                            n_changes += 1
+                            changed = True
                         cg.segs[cd.child_idx - 1].p1 = p
 
-            # update data from generator
-            last = None
-            for i, seg in enumerate(cg.segs):
-                p = d.parts[i]
-                if last is None:
-                    # first a0 is absolute
-                    p.a0 = cg.a0
-                else:
-                    # a0 is delta between segs
-                    p.a0 = seg.delta_angle(last)
-                if "C_" in p.type:
-                    p.da = seg.da
-                    p.radius = seg.r
-                else:
-                    p.length = seg.length
-                last = seg
+            if changed:
+                # update data from generator
+                last = None
+                for i, seg in enumerate(cg.segs):
 
-            self.select_object(context, c, True)
-            d.update(context)
-            self.unselect_object(c)
+                    p = d.parts[i]
+                    if last is None:
+                        # first a0 is absolute
+                        p.a0 = cg.a0
+                    else:
+                        # a0 is delta between segs
+                        p.a0 = seg.delta_angle(last)
+                    if "C_" in p.type:
+                        p.da = seg.da
+                        p.radius = seg.r
+                    else:
+                        p.length = seg.length
+                    last = seg
+                # logger.debug("Relocate_childs change :%.2f seconds", time.time() - tim)
+                self.select_object(context, c, True)
+                d.update(context)
+                # logger.debug("Relocate_childs update :%.2f seconds", time.time() - tim)
+                self.unselect_object(c)
+
+        logger.debug("Relocate_childs(%s of %s) :%.4f seconds", n_changes, len(self.reloc_childs), time.time() - tim)
 
         self.select_object(context, o, True)
 
@@ -549,12 +743,13 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
 
         changed = self.update_parts()
         g = self.get_generator()
+        g.locate_manipulators()
 
         if changed or update_childs:
             self.setup_childs(context, o)
 
         # relocate before cutting segs
-        self.relocate_childs(context, o, g)
+        self.relocate_childs(context, o)
 
         self.select_object(context, o, True)
 
@@ -569,9 +764,9 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
             modif.use_even_offset = True
             modif.material_offset_rim = 2
             modif.material_offset = 1
+            modif.offset = 1.0
 
         modif.thickness = self.z
-        modif.offset = 1.0
         o.data.use_auto_smooth = True
         bpy.ops.object.shade_smooth()
 

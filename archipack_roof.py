@@ -1687,7 +1687,7 @@ class RoofGenerator(CutAbleGenerator):
             n_y = 1 + int(space_y / dy)
 
             if d.tile_fit_x:
-                dx = space_x / n_x
+                dx = space_x / (n_x - 1)
 
             if d.tile_fit_y:
                 dy = space_y / n_y

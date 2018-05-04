@@ -785,6 +785,7 @@ def update(self, context):
 class ArchipackProfile(ArchipackProfileManager):
     """
       Propertygroup to manage user profiles
+      Must inherit ArchipackObjectsManager
     """
     user_profile_filename = EnumProperty(
             name="Profiles",
@@ -827,13 +828,13 @@ class ArchipackProfile(ArchipackProfileManager):
     def load_profile(self, context, update=False):
         if self.user_profile_filename is None:
             return None
-        o = ArchipackObjectsManager.get_scene_object(self, context, self.user_profile)
+        o = self.get_scene_object(context, self.user_profile)
         curve, x, y = self.load_curve(self.user_profile_filename)
         if curve:
             if o is None:
                 o = bpy.data.objects.new(curve.name, curve)
                 o.show_name = True
-                ArchipackObjectsManager.link_object_to_scene(self, context, o, layer_name="2d")
+                self.link_object_to_scene(context, o, layer_name="profile")
                 self.user_profile_savename = o.name
             else:
                 d = o.data
@@ -853,7 +854,7 @@ class ArchipackProfile(ArchipackProfileManager):
     def update_profile(self, context):
         if self.user_profile == "":
             return
-        o = ArchipackObjectsManager.get_scene_object(self, context, self.user_profile)
+        o = self.get_scene_object(context, self.user_profile)
         if o is None:
             o = self.load_profile(context)
         return o

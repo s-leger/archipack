@@ -268,21 +268,21 @@ class Generator():
         """
         _segs = self.segs
         _parts = self.parts
-        
+
         n_parts = self.d.n_parts
         if self.closed:
             n_parts += 1
-            
+
         # for i, f in enumerate(_segs):
         #    part = _parts[i]
         for i, part in enumerate(_parts):
             manipulators = part.manipulators
             f = _segs[i]
-        
+
             p0 = f.p0.to_3d()
             p1 = f.p1.to_3d()
-            
-            if i < n_parts:   
+
+            if i < n_parts:
                 # angle from last to current segment
                 if i > 0:
                     v0 = _segs[i - 1].straight(-side, 1).v.to_3d()
@@ -306,16 +306,16 @@ class Generator():
                     manipulators[1].prop1_name = "da_ui"
                     manipulators[1].prop2_name = "r_ui"
                     manipulators[1].set_pts([f.c.to_3d(), v0, v1])
-                
+
                 # snap manipulator, dont change index !
                 manipulators[2].set_pts([p0, p1, (side, 0, 0)])
-                
+
                 # dumb segment id
                 manipulators[3].set_pts([p0, p1, (side, 0, 0)])
-            
+
             else:
                 manipulators[2].set_pts([p0, _segs[i - 1].p0.to_3d(), (side, 0, 0)])
-                
+
             """
             # offset (currently not in use)
             manipulators[4].set_pts([

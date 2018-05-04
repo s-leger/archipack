@@ -39,7 +39,7 @@ from math import sin, cos, pi, acos
 from .archipack_manipulator import Manipulable, archipack_manipulator
 from .archipack_2d import Line, Arc
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
-from .archipack_object import ArchipackCreateTool, ArchipackObject
+from .archipack_object import ArchipackCreateTool, ArchipackObject, ArchipackObjectsManager
 from .archipack_dimension import DimensionProvider
 from .archipack_curveman import ArchipackProfile, ArchipackUserDefinedPath
 from .archipack_segments import ArchipackSegment, Segment, Generator
@@ -220,13 +220,13 @@ class FenceGenerator(Generator):
             self.user_defined_uvs = [[uv_layer[li].uv for li in p.loop_indices] for p in m.polygons]
         else:
             self.user_defined_uvs = [[(0, 0) for i in p.vertices] for p in m.polygons]
-        
+
         # material ids
         if use_matid:
             self.user_defined_mat = [p.material_index for p in m.polygons]
         else:
             self.user_defined_mat = [matid for p in m.polygons]
-        
+
         ca = cos(post_rotation)
         sa = sin(post_rotation)
         self.user_rM = Matrix([
@@ -614,7 +614,7 @@ class archipack_fence_part(ArchipackSegment, PropertyGroup):
         return archipack_fence.datablock(o)
 
 
-class archipack_fence_rail(ArchipackProfile, PropertyGroup):
+class archipack_fence_rail(ArchipackObjectsManager, ArchipackProfile, PropertyGroup):
     profil_x = FloatProperty(
             name="Width",
             min=0.001,
@@ -677,7 +677,7 @@ class archipack_fence_rail(ArchipackProfile, PropertyGroup):
         self.profil_y = y
         self.auto_update = True
         self.update(context)
-        
+
     def find_datablock_in_selection(self, context):
         """
             find witch selected object this instance belongs to
@@ -1100,13 +1100,13 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             description="Use material indexes of object",
             update=update,
             default=False)
-           
+
     use_post_material = BoolProperty(
             name="Use material",
             description="Use material indexes of object",
             update=update,
             default=False)
-            
+
     # UI layout related
     parts_expand = BoolProperty(
             options={'SKIP_SAVE'},
@@ -1209,7 +1209,6 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             g.add_part(part)
         g.set_offset(self.x_offset)
         g.close(self.x_offset)
-        g.locate_manipulators()
         return g
 
     def update(self, context, manipulable_refresh=False):
@@ -1231,7 +1230,8 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         uvs = []
 
         g = self.get_generator()
-        
+        g.locate_manipulators()
+
         if not self.closed:
             g.segs.pop()
 
@@ -1244,7 +1244,7 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             # user defined posts
             user_def_post = context.scene.objects.get(self.user_defined_post)
             if user_def_post is not None and user_def_post.type == 'MESH':
-                g.setup_user_defined_post(user_def_post, 
+                g.setup_user_defined_post(user_def_post,
                     self.post_x, self.post_y, self.post_z, self.post_rotation,
                     self.use_post_material, int(self.idmat_post))
 
@@ -1260,7 +1260,7 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         if self.user_defined_subs_enable:
             user_def_subs = context.scene.objects.get(self.user_defined_subs)
             if user_def_subs is not None and user_def_subs.type == 'MESH':
-                g.setup_user_defined_post(user_def_subs, 
+                g.setup_user_defined_post(user_def_subs,
                     self.subs_x, self.subs_y, self.subs_z, self.subs_rotation,
                     self.use_subs_material, int(self.idmat_subs))
 
@@ -1285,7 +1285,7 @@ class archipack_fence(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
                 if rd.profil == 'SQUARE':
                     rail = [Vector((-x, y)), Vector((-x, 0)), Vector((x, 0)), Vector((x, y))]
-                elif rd.profil == 'ROUND':
+                elif rd.profil == 'CIRCLE':
                     rail = [Vector((x * sin(0.1 * -a * pi), x * (0.5 + cos(0.1 * -a * pi)))) for a in range(0, 20)]
 
                 elif rd.profil == 'SAFETY':
@@ -1433,7 +1433,7 @@ class ARCHIPACK_PT_fence(Panel):
                 box.prop(prop, 'user_defined_reverse')
 
             box.prop(prop, 'angle_limit')
-        
+
         box = layout.box()
         box.prop(prop, 'x_offset')
 
@@ -1444,7 +1444,7 @@ class ARCHIPACK_PT_fence(Panel):
         icon = "TRIA_RIGHT"
         if prop.handrail_expand:
             icon = "TRIA_DOWN"
-        
+
         row.prop(prop, 'handrail_expand', icon=icon, icon_only=True, text="Handrail", emboss=True)
         row.prop(prop, 'handrail')
 
@@ -1466,10 +1466,10 @@ class ARCHIPACK_PT_fence(Panel):
         icon = "TRIA_RIGHT"
         if prop.post_expand:
             icon = "TRIA_DOWN"
-        
-        row.prop(prop, 'post_expand', icon=icon, icon_only=True, text="Post", emboss=True) 
+
+        row.prop(prop, 'post_expand', icon=icon, icon_only=True, text="Post", emboss=True)
         row.prop(prop, 'post')
-        
+
         if prop.post_expand:
             box.prop(prop, 'post_spacing')
             box.prop(prop, 'post_x')
@@ -1483,16 +1483,16 @@ class ARCHIPACK_PT_fence(Panel):
             if prop.user_defined_post:
                 box.prop(prop, 'post_rotation')
                 box.prop(prop, 'use_post_material')
-        
+
         box = layout.box()
         row = box.row(align=True)
         icon = "TRIA_RIGHT"
         if prop.subs_expand:
             icon = "TRIA_DOWN"
-        
-        row.prop(prop, 'subs_expand', icon=icon, icon_only=True, text="Subs", emboss=True) 
+
+        row.prop(prop, 'subs_expand', icon=icon, icon_only=True, text="Subs", emboss=True)
         row.prop(prop, 'subs')
-        
+
         if prop.subs_expand:
             box.prop(prop, 'subs_spacing')
             box.prop(prop, 'subs_x')
@@ -1507,16 +1507,16 @@ class ARCHIPACK_PT_fence(Panel):
             if prop.user_defined_subs:
                 box.prop(prop, 'subs_rotation')
                 box.prop(prop, 'use_subs_material')
-        
+
         box = layout.box()
         row = box.row(align=True)
         icon = "TRIA_RIGHT"
         if prop.panel_expand:
             icon = "TRIA_DOWN"
-        
-        row.prop(prop, 'panel_expand', icon=icon, icon_only=True, text="Panels", emboss=True) 
+
+        row.prop(prop, 'panel_expand', icon=icon, icon_only=True, text="Panels", emboss=True)
         row.prop(prop, 'panel')
-        
+
         if prop.panel_expand:
             box.prop(prop, 'panel_dist')
             box.prop(prop, 'panel_x')
@@ -1529,10 +1529,10 @@ class ARCHIPACK_PT_fence(Panel):
         icon = "TRIA_RIGHT"
         if prop.rail_expand:
             icon = "TRIA_DOWN"
-        
-        row.prop(prop, 'rail_expand', icon=icon, icon_only=True, text="Rails", emboss=True) 
+
+        row.prop(prop, 'rail_expand', icon=icon, icon_only=True, text="Rails", emboss=True)
         row.prop(prop, 'rail')
-        
+
         if prop.rail_expand:
             box.prop(prop, 'rail_n')
             for i in range(prop.rail_n):
@@ -1545,15 +1545,15 @@ class ARCHIPACK_PT_fence(Panel):
         icon = "TRIA_RIGHT"
         if prop.idmats_expand:
             icon = "TRIA_DOWN"
-        
-        row.prop(prop, 'idmats_expand', icon=icon, icon_only=True, text="Material index", emboss=True) 
-        
+
+        row.prop(prop, 'idmats_expand', icon=icon, icon_only=True, text="Material index", emboss=True)
+
         if prop.idmats_expand:
             box.prop(prop, 'idmat_handrail')
             box.prop(prop, 'idmat_panel')
             box.prop(prop, 'idmat_post')
             box.prop(prop, 'idmat_subs')
-        
+
 
 # ------------------------------------------------------------------
 # Define operator class to create object

@@ -80,12 +80,12 @@ class CutterGenerator(Generator):
             last = None
         else:
             last = self.segs[-1]
-        
+
         if hasattr(part, "side_type"):
             side_type = part.side_type
         else:
             side_type = 'DEFAULT'
-        
+
         # start a new Cutter
         if last is None:
             p = self.location
@@ -93,7 +93,7 @@ class CutterGenerator(Generator):
         else:
             p = last.p1
             v = last.v.normalized() * part.length
-        
+
         s = CutterSegment(p, v, side_type).rotate(part.a0)
         self.segs.append(s)
 
@@ -618,9 +618,9 @@ class ArchipackCutter(ArchipackUserDefinedPath):
         pts = [seg.p0.to_3d() for seg in g.segs]
         if self.is_cw(pts) != (self.operation == 'INTERSECTION'):
             return g
-        
+
         g.segs = [s.oposite for s in reversed(g.segs)]
-        
+
         return g
 
     def from_spline(self, context, wM, resolution, spline):
@@ -647,7 +647,7 @@ class ArchipackCutter(ArchipackUserDefinedPath):
         self.from_points(pts)
         self.auto_update = auto_update
         self.update_parent(context, o)
-    
+
     def after_reverse(self, context, o):
         self.auto_update = True
         self.update_parent(context, o)

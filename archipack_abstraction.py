@@ -26,6 +26,9 @@
 # ----------------------------------------------------------
 # noinspection PyUnresolvedReferences
 import bpy
+import time
+import logging
+logger = logging.getLogger("archipack")
 
 """
  Map between object classes name and layer index in 2.7 series
@@ -57,6 +60,7 @@ layer_map = {
     "custom_part":15,
     "roof":16,
     "roof_cutter":16,
+    "profile":17,
     "dimension_auto":18,
     "section":18,
     "layout":18,
@@ -97,6 +101,7 @@ layer_names = {
     "dimension_auto":"2d",
     "section":"2d",
     "layout":"2d",
+    "profile":"Profile",
     "hole":"Holes",
     "hybridhole":"Holes",
     "custom_hole":"Holes"
@@ -154,21 +159,27 @@ class ArchipackLayerManager_27():
          This does trigger a DAG zero... report
         """
         index = self.get_layer_index(context, o, layer_name)
+        tim = time.time()
         layers = {}
         if 20 > index > -1:
             layers[index] = True
             # ensure layer is visible
-            context.scene.layers[index] = True
+            if not context.scene.layers[index]:
+                # does trigger DAG zero...
+                context.scene.layers[index] = True
         
         if default_layer:
             index = self.layer_by_name(context, "All")
             if 20 > index > -1:
                 layers[index] = True
-                # context.scene.layers[index] = True
+                if not context.scene.layers[index]:
+                    # does trigger DAG zero...
+                    context.scene.layers[index] = True
                 
         put_on_layers = lambda x: tuple((i in x) for i in range(20))
         o.layers[:] = put_on_layers(layers)        
- 
+        logger.debug("add_to_layer() :%.4f seconds", time.time() - tim)
+        
  
 class ArchipackLayerManager_28():
     
@@ -363,7 +374,9 @@ class ArchipackObjectsManager_27(ArchipackLayerManager_27, ArchipackObjectsManag
         o.select = False
 
     def link_object_to_scene(self, context, o, layer_name=None, default_layer=False):
+        tim = time.time()
         context.scene.objects.link(o)
+        logger.debug("context.scene.objects.link(o) :%.4f seconds", time.time() - tim)
         self.add_to_layer(context, o, layer_name, default_layer)
         
     def unlink_object_from_scene(self, context, o):

@@ -38,6 +38,8 @@ from bpy.props import (
     StringProperty
     )
 from .archipack_object import ArchipackObjectsManager
+import logging
+logger = logging.getLogger("archipack")
 
 
 setman = None
@@ -180,9 +182,7 @@ class MatlibsManager():
             print("Archipack: Unable to load default material library, please check path in addon prefs")
             pass
 
-    def apply(self, context, slot_index, name, link=False):
-        
-        o = context.active_object
+    def apply(self, context, o, slot_index, name, link=False):
         
         # material with same name exist in scene
         mat = self.from_data(name)
@@ -203,14 +203,14 @@ class MatlibsManager():
         if mat is None:
             mat = bpy.data.materials.new(name)
 
-        if slot_index < len(o.material_slots):
-            # o.material_slots[slot_index].material = None
-            o.material_slots[slot_index].material = mat
+        # o.material_slots[slot_index].material = None
+        o.material_slots[slot_index].material = mat
             
         if break_link and not link:
             # break link
             o.active_material_index = slot_index
             bpy.ops.object.make_local(type="SELECT_OBDATA_MATERIAL")
+            
         
         
 class MaterialSetManager():
@@ -381,13 +381,13 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
         update=update
         )
 
-    def apply_material(self, context, slot_index, name):
+    def apply_material(self, context, o, slot_index, name):
         global libman
         
         if libman is None:
             libman = MatlibsManager()
 
-        libman.apply(context, slot_index, name, link=False)
+        libman.apply(context, o, slot_index, name, link=False)
         
     def update(self, context):
         global setman
@@ -422,7 +422,8 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
                 if slot_index >= n_slots:
                     # Low level way to add material 20x faster than op
                     ob.data.materials.append(None)
-                self.apply_material(context, slot_index, mat_name)
+                self.apply_material(context, ob, slot_index, mat_name)
+                self.select_object(context, ob, True)
                 
         self.select_object(context, o, True)
         
@@ -473,7 +474,7 @@ class ARCHIPACK_OT_material(Operator):
 
     def execute(self, context):
         o = context.active_object
-
+        tim = time.time()
         if 'archipack_material' in o:
             m = o.archipack_material[0]
         else:
@@ -487,7 +488,7 @@ class ARCHIPACK_OT_material(Operator):
         except:
             res = False
             pass
-        
+        logger.debug("ARCHIPACK_OT_material.execute() :%.4f seconds", time.time() - tim)
         if res:
             # print("ARCHIPACK_OT_material.apply {} {}".format(self.category, self.material))
             return {'FINISHED'}
