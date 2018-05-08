@@ -877,11 +877,18 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             description='frame width', update=update,
             )
     frame_overflow = FloatProperty(
-            name='Overflow',
+            name='Overflow lateral',
             min=0,
             default=0.06, precision=2, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
+            )
+    overflow_out = FloatProperty(
+            name='Finishing thickness',
+            min=0,
+            default=0, precision=2, step=1,
+            unit='LENGTH', subtype='DISTANCE',
+            description='Thickness of outside wall finishing', update=update,
             )
     panel_x = FloatProperty(
             name='Width',
@@ -1182,7 +1189,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         x2 = x0 + 0.5 * self.frame_x
         y0 = 0.5 * self.y - self.offset
         y2 = y0 + 0.5 * self.frame_y
-
+        
         if self.window_type == 'FLAT':
             y1 = y0 + self.frame_y
             return WindowPanel(
@@ -1242,6 +1249,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         #    outside_mat, inside_mat = inside_mat, outside_mat
 
         y_outside = -y_inside           # inside wall
+        y_outside -= self.overflow_out
         if self.frame_overflow > 0 or (
                 (self.out_frame and self.out_frame_offset > 0) or
                 self.out_tablet_enable):
@@ -1306,7 +1314,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         # x1 x2  x0
         y2 = -0.5 * self.y
         y0 = 0.5 * self.y - self.offset
-        y1 = y2 - self.out_frame_y2
+        y1 = y2 - self.out_frame_y2 - self.overflow_out
         x0 = 0.001   # -min(self.frame_x - 0.001, self.out_frame_offset)
         x1 = x0 - self.out_frame_x
         x2 = x0 - self.out_frame_y
@@ -1344,7 +1352,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         # |_| y1
         # x0 x2 x1
         y0 = 0.5 * self.y - self.offset
-        y1 = -0.5 * self.y - self.out_tablet_y
+        y1 = -0.5 * self.y - self.out_tablet_y - self.overflow_out
         y2 = y0 - 0.01
         y3 = y2 - 0.04
         x2 = 0.001
@@ -1920,9 +1928,10 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         childs = self.get_childs_shutters(context, o, left_side)
         n_childs = len(childs)
 
-        location_y = -0.5 * self.y - 0.25 * self.shutter_depth
+        location_y = -0.5 * self.y - 0.25 * self.shutter_depth - self.overflow_out
         if self.out_frame:
             location_y -= self.out_frame_y2
+        
         # Note: radius is slightly wrong: not taking overflow in account
         center, origin, size, radius = self.get_radius(self.x, self.z)
         offset = Vector((0.05, 0))
@@ -2264,7 +2273,10 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             self.link_object_to_scene(context, hole_obj)
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-
+        else:
+            # must ensure the hole layer is visible
+            self.add_to_layer(context, hole_obj)
+            
         hole = self.hole
         center, origin, size, radius = self.get_radius(self._x, self._z)
         x0 = 0
@@ -2457,7 +2469,8 @@ class ARCHIPACK_PT_window(Panel):
                 box.label(text="Insufficient height", icon='ERROR')
         box.prop(prop, 'altitude')
         box.prop(prop, 'offset')
-
+        box.prop(prop, 'overflow_out')
+            
         if prop.window_type == 'FLAT':
             box = layout.box()
             box.prop(prop, 'window_shape')
@@ -2835,6 +2848,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
         o = self.get_scene_object(context, self.object_name)
 
         if o is None:
+            self.restore_walls(context)
             return {'FINISHED'}
 
         d = archipack_window.datablock(o)
@@ -2860,7 +2874,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
             o.matrix_world = tM.copy()
             if d.y != width:
                 d.y = width
-
+                
         if event.value == 'PRESS':
 
             if event.type in {'C'}:
@@ -2868,6 +2882,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
                 self.feedback.disable()
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
                 bpy.ops.archipack.window_preset_menu('INVOKE_DEFAULT', preset_operator="archipack.window_draw")
+                self.restore_walls(context)
                 return {'FINISHED'}
 
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
@@ -2905,6 +2920,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
                 bpy.ops.archipack.window(mode='DELETE')
                 self.feedback.disable()
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+                self.restore_walls(context)
                 return {'FINISHED'}
 
         return {'PASS_THROUGH'}

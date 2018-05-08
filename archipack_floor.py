@@ -97,24 +97,29 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
                 self.slice(g)
 
     def floor(self, context, o, d, active):
-
+        """
+         active: throttle mode enabled
+        """
         verts, faces, matids, uvs = [], [], [], []
 
         if d.bevel:
             bevel = d.bevel_amount
         else:
             bevel = 0
-
+        
+        # mesh for realtime
+        realtime =  active or d.pattern == "realtime"
+        
+        thickness = d.thickness
+        bottom = 0
+        
         if d.add_grout:
             thickness = min(d.thickness - d.mortar_depth, d.thickness - 0.0001)
             bottom = min(d.thickness - (d.mortar_depth + bevel), d.thickness - 0.0001)
-        else:
-            thickness = d.thickness
-            bottom = 0
-
+        
         self.top = d.thickness
-
-        if not active:
+        
+        if not realtime:
             self.generate_pattern(d, verts, faces, matids, uvs)
             bm = bmed.buildmesh(
                     context, o, verts, faces, matids=matids, uvs=uvs,
@@ -169,10 +174,14 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
             bmed.emptymesh(context, o)
 
         # Grout
-        if active or d.add_grout:
+        if realtime or d.add_grout:
             verts = []
             self.get_verts(verts)
-            #
+            
+            if realtime:
+                for v in verts:
+                    v.z = self.top
+                    
             bm = bmesh.new()
             for v in verts:
                 bm.verts.new(v)
@@ -194,9 +203,12 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
                         delimit=1)
 
             bm.verts.ensure_lookup_table()
-
+            bm.faces.ensure_lookup_table()
+            
             geom = bm.faces[:]
-            bmesh.ops.solidify(bm, geom=geom, thickness=thickness)
+            # realtime might use extrude instead ? 
+            if not realtime:
+                bmesh.ops.solidify(bm, geom=geom, thickness=thickness)
             bmed.bmesh_join(context, o, [bm], normal_update=True)
 
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -711,7 +723,8 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                     ("hopscotch", "Hopscotch", ""),
                     ("stepping_stone", "Stepping Stone", ""),
                     ("hexagon", "Hexagon", ""),
-                    ("windmill", "Windmill", "")),
+                    ("windmill", "Windmill", ""),
+                    ("realtime", "Realtime", "Realtime optimized simple mesh")),
             default="boards",
             update=update
             )
@@ -973,20 +986,6 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         g.close(self.x_offset)
         return g
 
-    @staticmethod
-    def create_uv_seams(bm):
-        handled = set()
-        for edge in bm.edges:
-            if edge.verts[0].co.z == 0 and edge.verts[1].co.z == 0:  # bottom
-                # make sure both vertices on the edge haven't been handled, this forces one edge to not be made a seam
-                # leaving the bottom face still attached
-                if not (edge.verts[0].index in handled and edge.verts[1].index in handled):
-                    edge.seam = True
-                    handled.add(edge.verts[0].index)
-                    handled.add(edge.verts[1].index)
-            elif edge.verts[0].co.z != edge.verts[1].co.z:  # not horizontal, so they are vertical seams
-                edge.seam = True
-
     def from_spline(self, context, wM, resolution, spline):
 
         o = self.find_in_selection(context)
@@ -1210,7 +1209,7 @@ class ARCHIPACK_PT_floor(Panel):
         row.operator("archipack.floor", text="Delete", icon='ERROR').mode = 'DELETE'
         box = layout.box()
         row = box.row(align=True)
-
+        not_realtime = props.pattern != "realtime"
         # Presets operators
         row.operator("archipack.floor_preset_menu",
                      text=bpy.types.ARCHIPACK_OT_floor_preset_menu.bl_label)
@@ -1228,80 +1227,84 @@ class ARCHIPACK_PT_floor(Panel):
         expand = props.template_user_path(context, box)
         if expand:
             box.prop(props, 'x_offset')
-
+        
         props.template_parts(context, layout)
 
         layout.separator()
         box = layout.box()
         box.prop(props, 'pattern', text="")
-        box.prop(props, 'rotation')
+        
+        if not_realtime:
+            box.prop(props, 'rotation')
+        
         # thickness
         box.separator()
         box.prop(props, 'thickness')
-        box.prop(props, 'vary_thickness', icon='RNDCURVE')
-        if props.vary_thickness:
-            box.prop(props, 'thickness_variance')
-        box.separator()
-        box.prop(props, 'solidify', icon='MOD_SOLIDIFY')
-        box.separator()
-        if props.pattern == 'boards':
-            box.prop(props, 'board_length')
-            box.prop(props, 'vary_length', icon='RNDCURVE')
-            if props.vary_length:
-                box.prop(props, 'length_variance')
-                box.prop(props, 'max_boards')
+        if not_realtime:
+            box.prop(props, 'vary_thickness', icon='RNDCURVE')
+            if props.vary_thickness:
+                box.prop(props, 'thickness_variance')
             box.separator()
-
-            # width
-            box.prop(props, 'board_width')
-            # vary width
-            box.prop(props, 'vary_width', icon='RNDCURVE')
-            if props.vary_width:
-                box.prop(props, 'width_variance')
+            box.prop(props, 'solidify', icon='MOD_SOLIDIFY')
             box.separator()
-            box.prop(props, 'length_spacing')
-            box.prop(props, 'width_spacing')
+            if props.pattern == 'boards':
+                box.prop(props, 'board_length')
+                box.prop(props, 'vary_length', icon='RNDCURVE')
+                if props.vary_length:
+                    box.prop(props, 'length_variance')
+                    box.prop(props, 'max_boards')
+                box.separator()
 
-        elif props.pattern in {'square_parquet', 'herringbone_parquet', 'herringbone'}:
-            box.prop(props, 'short_board_length')
+                # width
+                box.prop(props, 'board_width')
+                # vary width
+                box.prop(props, 'vary_width', icon='RNDCURVE')
+                if props.vary_width:
+                    box.prop(props, 'width_variance')
+                box.separator()
+                box.prop(props, 'length_spacing')
+                box.prop(props, 'width_spacing')
 
-            if props.pattern != "square_parquet":
-                box.prop(props, "board_width")
-            box.prop(props, "spacing")
+            elif props.pattern in {'square_parquet', 'herringbone_parquet', 'herringbone'}:
+                box.prop(props, 'short_board_length')
 
-            if props.pattern == 'square_parquet':
-                box.prop(props, 'boards_in_group')
-        elif props.pattern in {'regular_tile', 'hopscotch', 'stepping_stone', 'hexagon', 'windmill'}:
-            # width and length and mortar
-            if props.pattern != "hexagon":
-                box.prop(props, "tile_length")
-            box.prop(props, "tile_width")
-            box.prop(props, "spacing")
+                if props.pattern != "square_parquet":
+                    box.prop(props, "board_width")
+                box.prop(props, "spacing")
 
-        if props.pattern in {"regular_tile", "boards"}:
+                if props.pattern == 'square_parquet':
+                    box.prop(props, 'boards_in_group')
+            elif props.pattern in {'regular_tile', 'hopscotch', 'stepping_stone', 'hexagon', 'windmill'}:
+                # width and length and mortar
+                if props.pattern != "hexagon":
+                    box.prop(props, "tile_length")
+                box.prop(props, "tile_width")
+                box.prop(props, "spacing")
+
+            if props.pattern in {"regular_tile", "boards"}:
+                box.separator()
+                box.prop(props, "random_offset", icon="RNDCURVE")
+                if props.random_offset:
+                    box.prop(props, "offset_variance")
+                else:
+                    box.prop(props, "offset")
+
+            # grout
             box.separator()
-            box.prop(props, "random_offset", icon="RNDCURVE")
-            if props.random_offset:
-                box.prop(props, "offset_variance")
-            else:
-                box.prop(props, "offset")
+            box.prop(props, 'add_grout', icon='MESH_GRID')
+            if props.add_grout:
+                box.prop(props, 'mortar_depth')
 
-        # grout
-        box.separator()
-        box.prop(props, 'add_grout', icon='MESH_GRID')
-        if props.add_grout:
-            box.prop(props, 'mortar_depth')
+            # bevel
+            box.separator()
+            box.prop(props, 'bevel', icon='MOD_BEVEL')
+            if props.bevel:
+                box.prop(props, 'bevel_amount')
 
-        # bevel
-        box.separator()
-        box.prop(props, 'bevel', icon='MOD_BEVEL')
-        if props.bevel:
-            box.prop(props, 'bevel_amount')
-
-        box.separator()
-        box.prop(props, "vary_materials", icon="MATERIAL")
-        if props.vary_materials:
-            box.prop(props, "matid")
+            box.separator()
+            box.prop(props, "vary_materials", icon="MATERIAL")
+            if props.vary_materials:
+                box.prop(props, "matid")
 
 
 class ARCHIPACK_PT_floor_cutter(Panel):

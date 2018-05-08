@@ -1448,7 +1448,10 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
             self.link_object_to_scene(context, hole_obj)
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-
+        else:
+            # must ensure the hole layer is visible
+            self.add_to_layer(context, hole_obj)
+            
         hole_obj.data.materials.clear()
         for mat in o.data.materials:
             hole_obj.data.materials.append(mat)
@@ -1832,6 +1835,8 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                        'archipack_door_panel' in child.data):
                         child.hide_select = False
                         self.select_object(context, child)
+                        for c in child.children:
+                            self.select_object(context, c)
         if len(context.selected_objects) > 0:
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True,
                 obdata=True, material=False, texture=False, animation=False)
@@ -1939,6 +1944,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
         context.area.tag_redraw()
         o = context.scene.objects.get(self.object_name)
         if o is None:
+            self.restore_walls(context)
             return {'FINISHED'}
 
         d = archipack_door.datablock(o)
@@ -1977,6 +1983,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
                 bpy.ops.archipack.door_preset_menu(
                     'INVOKE_DEFAULT',
                     preset_operator="archipack.door_draw")
+                self.restore_walls(context)
                 return {'FINISHED'}
 
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
@@ -2016,6 +2023,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
                 bpy.ops.archipack.door(mode='DELETE')
                 self.feedback.disable()
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+                self.restore_walls(context)
                 return {'FINISHED'}
 
         return {'PASS_THROUGH'}

@@ -27,7 +27,7 @@
 import time
 import bpy
 import bmesh
-from math import sin, cos, pi, atan2
+from math import sin, cos, pi, atan2, tan
 from mathutils import Vector, Matrix
 from bpy.types import Operator, PropertyGroup, Mesh, Panel
 from bpy.props import (
@@ -201,22 +201,22 @@ class WallGenerator(Generator):
         if 'C_' in part.type:
             if s is None:
                 c = self.location - (self.rot * (part.radius * Vector((cos(part.a0), sin(part.a0), 0)))).to_2d()
-                s = CurvedWall(c, part.radius, part.a0, part.da, d.z, z, t, d.flip, part.material_index)
+                s = CurvedWall(c, part.radius, part.a0, part.da, d.z, z, t, d.flip, part.material_index - 1)
             else:
                 n = s.normal(1).rotate(part.a0).scale(part.radius)
                 if part.da < 0:
                     n.v = -n.v
                 a0 = n.angle
                 c = n.p - n.v
-                s = CurvedWall(c, part.radius, a0, part.da, d.z, z, t, d.flip, part.material_index)
+                s = CurvedWall(c, part.radius, a0, part.da, d.z, z, t, d.flip, part.material_index - 1)
         else:
             if s is None:
                 p = self.location
                 v = (self.rot * Vector((part.length, 0, 0))).to_2d()
-                s = StraightWall(p, v, d.z, z, t, d.flip, part.material_index).rotate(part.a0)
+                s = StraightWall(p, v, d.z, z, t, d.flip, part.material_index - 1).rotate(part.a0)
             else:
                 r = s.straight(part.length).rotate(part.a0)
-                s = StraightWall(r.p, r.v, d.z, z, t, d.flip, part.material_index)
+                s = StraightWall(r.p, r.v, d.z, z, t, d.flip, part.material_index - 1)
 
         self.segs.append(s)
         self.last_type = part.type
@@ -565,9 +565,9 @@ class archipack_wall2_part(ArchipackSegment, PropertyGroup):
             )
     material_index = IntProperty(
             name="Material index",
-            min=0,
-            max=4,
-            default=0,
+            min=1,
+            max=10,
+            default=1,
             update=update_mat
             )
     manipulators = CollectionProperty(type=archipack_manipulator)
@@ -742,6 +742,166 @@ def get_base_line(self):
         return 0
 
 
+class archipack_wall2_finish(PropertyGroup):
+    location_index = IntProperty(
+            name="Location",
+            description="Add finish over segments with this material index",
+            min=1,
+            max=11,
+            default=1,
+            update=update
+            )
+    material_index = IntProperty(
+            name="Material",
+            description="Material index of finish",
+            min=1,
+            default=1,
+            update=update
+            )
+    altitude = FloatProperty(
+            name="Altitude",
+            description="Altitude from bottom of wall",
+            default=0,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    z = FloatProperty(
+            name="Height",
+            description="Height of finish",
+            min=0.01,
+            default=20,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    rotation = FloatProperty(
+            name="Rotation",
+            description="Rotate pattern",
+            default=0,
+            min=-pi/4,
+            max=pi/4,
+            subtype='ANGLE', unit='ROTATION',
+            update=update
+            )
+    pattern_type = EnumProperty(
+        name="Pattern",
+        items=(
+            ('V_BOARD', "Vertical board", "Vertical board"),
+            ('H_BOARD', "Horizontal board", "Horizontal board"),
+            ('TILES', "Tiles", "Ceramic tiles")
+            ),
+        default='H_BOARD',
+        update=update
+        )
+    side = EnumProperty(
+        name="Side",
+        items=(
+            ('INSIDE', "Inside", "Inside"),
+            ('OUTSIDE', "Outside", "Outside")
+            ),
+        default='OUTSIDE',
+        update=update
+        )
+    tile_x = FloatProperty(
+            name="Width",
+            description="Tile width",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )   
+    tile_y = FloatProperty(
+            name="Height",
+            description="Tile height",
+            default=0.15,
+            min=0.01,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    tile_z = FloatProperty(
+            name="Thickness",
+            description="Tile thickness",
+            default=0.005,
+            min=0.001,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    tile_space = FloatProperty(
+            name="Mortar",
+            description="Mortar width",
+            default=0.002,
+            min=0.0001,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    board_x = FloatProperty(
+            name="Width",
+            description="Pattern width",
+            min=0.01,
+            default=0.15,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )   
+    board_z = FloatProperty(
+            name="Thickness",
+            description="Pattern thickness",
+            default=0.02,
+            min=0.001,
+            unit='LENGTH', subtype='DISTANCE',
+            update=update
+            )
+    expand = BoolProperty(
+        default=False,
+        options={'SKIP_SAVE'}
+        )
+            
+    def draw(self, context, layout, index):
+        row = layout.row(align=True)
+        icon = "TRIA_RIGHT"
+        if self.expand:
+            icon = "TRIA_DOWN"
+        row.prop(self, 'expand', icon=icon, text="{}".format(index + 1), icon_only=True, emboss=True)
+        row.prop(self, 'side', text="")
+        row.prop(self, 'location_index')
+        row.operator("archipack.wall2_remove_finish", icon="ZOOMOUT", text="").index = index
+        
+        if self.expand:
+            layout.prop(self, 'altitude')
+            layout.prop(self, 'z')
+            # rotation still dosent work
+            # layout.prop(self, 'rotation')
+            row = layout.row(align=True)
+            row.prop(self, 'pattern_type', text="")
+            row.prop(self, 'material_index')
+            if self.pattern_type == 'TILES':
+                layout.prop(self, 'tile_x')
+                layout.prop(self, 'tile_y')
+                layout.prop(self, 'tile_z')
+                layout.prop(self, 'tile_space')
+            else:
+                layout.prop(self, 'board_x')
+                layout.prop(self, 'board_z')
+        
+    def find_datablock_in_selection(self, context):
+        """
+         Return selected object this instance belongs to
+         provide support for "copy to selected"
+        """
+        selected = context.selected_objects[:]
+        for o in selected:
+            d = archipack_wall2.datablock(o)
+            if d:
+                for idx, part in enumerate(d.finish):
+                    if part == self:
+                        return o, d
+        return None, None
+
+    def update(self, context, manipulable_refresh=False, relocate_childs=False):
+
+        o, d = self.find_datablock_in_selection(context)
+        if d is not None:
+            d.update(context, manipulable_refresh, relocate_childs=relocate_childs)
+
+
 class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, DimensionProvider, PropertyGroup):
     parts = CollectionProperty(type=archipack_wall2_part)
     step_angle = FloatProperty(
@@ -856,12 +1016,10 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             default=True,
             update=update_manipulators
             )
-    realtime = BoolProperty(
-            # DEPRICATED
-            options={'SKIP_SAVE'},
+    auto_synch = BoolProperty(
             default=True,
-            name="Real Time",
-            description="Relocate childs in realtime"
+            name="Auto synchro",
+            description="Synchronize objects"
             )
     dimensions = BoolProperty(
             default=False,
@@ -878,7 +1036,18 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         options={'SKIP_SAVE'},
         type=archipack_wall2_relocate_child
         )
-
+    finish = CollectionProperty(type=archipack_wall2_finish)
+    finish_expand = BoolProperty(
+            name="Finishings",
+            default=False,
+            options={'SKIP_SAVE'}
+            )
+    finish_enable = BoolProperty(
+            name="Finishings",
+            description="Enable finishings",
+            default=True,
+            update=update
+            )
     t_part = StringProperty(
             name="Parent wall",
             description="This part will follow parent when set",
@@ -1087,13 +1256,15 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         matoffset = 1
         matinside = 0
-        rim = 10
-
+        rim = 21
+        
+        """
         if self.inside_wall:
-            matoffset = 0
+            matoffset = 2
             matinside = 1
-            rim = 0
-
+            # rim = 0
+        """
+        
         if self.flip:
             matids = [2 * matid + 1 for matid in matids]
             matoffset = -matoffset
@@ -1139,7 +1310,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         # if self.realtime:
         # update child location and size
-        if relocate_childs:
+        if relocate_childs and self.auto_synch:
             self.relocate_childs(context, o)
 
         # store gl points
@@ -1188,10 +1359,385 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         self.fit_roof_modifier(o, roof, rd, apply=True)
 
+        if len(self.finish) > 0 and self.finish_enable:
+            
+            throttle.add(context, o, self, 1.0)
+            
+            if not throttle.is_active(o.name):
+            
+                # finish
+                bm = bmed._start(context, o)
+                bm.verts.index_update()
+                bm.faces.index_update()
+
+                patterns = []
+                for finish in self.finish:
+                    self.build_finish(context, o, finish, bm, patterns)
+
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bm.free()
+
+                bmed.bmesh_join(context, o, patterns, normal_update=True)
+
+            """
+            bm = bmed._start(context, o)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001)
+            bmed._end(bm, o)
+            """
+            
         if manipulable_refresh:
             self.manipulable_refresh = True
 
         self.restore_context(context)
+
+    # Finish
+    def vertical_boards(self, profil, sx, sy, minx, maxx, miny, maxy, offset, profil_z, verts, faces):
+        n_y = 1 + int(sx / profil_z)
+        # start at 0,0
+        verts.append(Vector((minx, miny, offset)))
+        verts.append(Vector((minx, maxy, offset)))
+        faces.append((0, 1, 3, 2))
+        f = 2
+        for i in range(n_y):
+            x0 = minx + i * profil_z
+            for co in profil:
+                verts.append(Vector((x0 + co.z, miny, co.y)))
+                verts.append(Vector((x0 + co.z, maxy, co.y)))
+                faces.append((f, f + 1, f + 3, f + 2))
+                f += 2
+
+        x0 = minx + n_y * profil_z
+        verts.append(Vector((x0, miny, offset)))
+        verts.append(Vector((x0, maxy, offset)))
+        faces.append((f, f + 1, 1, 0))
+
+    def horizontal_boards(self, profil, sx, sy, minx, maxx, miny, maxy, offset, profil_z, verts, faces):
+        n_z = 1 + int(sy / profil_z)
+        # start at 0,0
+        verts.append(Vector((minx, miny, offset)))
+        verts.append(Vector((maxx, miny, offset)))
+        faces.append((0, 2, 3, 1))
+        f = 2
+        for i in range(n_z):
+            z0 = miny + i * profil_z
+            for co in profil:
+                z = min(maxy, z0 + co.z)
+                verts.append(Vector((minx, z, co.y)))
+                verts.append(Vector((maxx, z, co.y)))
+                faces.append((f, f + 2, f + 3, f + 1))
+                f += 2
+
+        z0 = min(maxy, miny + n_z * profil_z)
+        verts.append(Vector((minx, z0, offset)))
+        verts.append(Vector((maxx, z0, offset)))
+        faces.append((f, 0, 1, f + 1))
+
+    def ceiling(self, sx, sy, minx, maxx, miny, maxy, offset, finish, verts, faces, matids):
+        n_y = 1 + int(sy / finish.tile_y)
+        n_x = 1 + int(sx / finish.tile_x)
+
+        # start at 0,0
+        #
+        #
+        #   x_x_______x_x   x_______x x
+        #   x x_______x x   x_______x x
+        #   | |       | |   |       | |
+        #   x x_______x x   x_______x x
+        #   x_x_______x_x
+        #     x0     x1 x2
+        #
+
+        # half join
+        h = 0.5 * finish.tile_space
+        # ceiling
+        x1 = finish.tile_x - 2 * h
+        x2 = finish.tile_x - h
+        y = 0
+        z0 = finish.tile_z + offset
+
+        y = miny
+        dx = finish.tile_x
+        dy = [h, finish.tile_y - h, finish.tile_y]
+        
+        verts.append(Vector((minx, y, z0)))
+        for j in range(n_x):
+            x0 = minx + h + j * dx
+            verts.append(Vector((x0, y, z0)))
+            verts.append(Vector((x0 + x1, y, z0)))
+            verts.append(Vector((x0 + x2, y, z0)))
+
+        f = 0
+        fx = 1 + n_x * 3    
+        for i in range(n_y):
+            y0 = miny + i * finish.tile_y
+            for k in range(3):
+                y = y0 + dy[k]
+                # 1st col 
+                mat = 1
+                if k == 1:
+                    mat = 0
+                verts.append(Vector((minx, y, z0)))
+                if k > 0 and y > maxy:
+                    if k == 1:
+                        y = maxy - h
+                    else:
+                        y = maxy    
+                for j in range(n_x):
+                    x0 = minx + h + j * dx
+                    verts.append(Vector((x0, y, z0)))
+                    verts.append(Vector((x0 + x1, y, z0)))
+                    verts.append(Vector((x0 + x2, y, z0)))
+                    # faces.append((f, f + 1, f + fx + 1, f + fx))
+                    faces.append((f, f + fx, f + fx + 1, f + 1))
+                    f += 1
+                    faces.append((f, f + fx, f + fx + 1, f + 1))
+                    f += 1
+                    faces.append((f, f + fx, f + fx + 1, f + 1))
+                    f += 1
+                    matids.extend([1, mat, 1])
+                f += 1  
+            
+    def build_finish(self, context, o, finish, bm, patterns):
+
+        # offset from wall twice of remove double to prevent merge of faces
+        offset = 0.002
+        if finish.pattern_type in {'H_BOARD', 'V_BOARD'}:
+            z = finish.board_z
+            x = finish.board_x    
+            profil = [Vector(p) for p in [
+                    (0, z + offset, 0), (0, z + offset, 0.7 * x), 
+                    (0, 0.6 * z + offset, 0.8 * x), (0, 0.6 * z + offset, x)
+                    ]]
+        elif finish.pattern_type == 'TILES':
+            z = finish.tile_z
+            
+        z_bot = finish.altitude
+        z_top = z_bot + finish.z
+        
+        # target segments material index
+        location_index = 2 * (finish.location_index - 1)
+        material_index = 2 * (finish.material_index - 1)
+        if finish.side == 'INSIDE':
+            location_index += 1
+            material_index += 1
+            
+        # lateral profile in yz axis (last will be next first one)
+        # so this is profile -last vertex
+        z_axis = Vector((0, 0, 1))
+
+        for face in bm.faces:
+
+            if face.material_index == location_index and abs(face.normal.z) < 0.1:
+
+                face_normal = face.normal
+                x_face = face.normal.cross(z_axis)
+                y_face = x_face.cross(face_normal)
+                origin = face.calc_center_bounds()
+
+                # Matrix of a plane at object's 0,0,0 and with z matching face normal
+                # Prerotate to allow pattern rotations
+                face_rot = Matrix([
+                    [x_face.x, y_face.x, face_normal.x, 0],
+                    [x_face.y, y_face.y, face_normal.y, 0],
+                    [x_face.z, y_face.z, face_normal.z, 0],
+                    [0, 0, 0, 1]
+                    ]) * Matrix.Rotation(finish.rotation, 4, z_axis)
+
+                # z of face center in face_rot coordsys
+                delta_z = (face_rot.inverted() * origin).z
+
+                # Pretranslate matrix along z to face
+                face_mat = face_rot * Matrix.Translation(
+                        Vector((0, 0, delta_z))
+                        )
+
+                face_inverse = face_mat.inverted()
+
+                # loop in face coordsys
+                bounds = [face_inverse * loop.vert.co for loop in face.loops]
+
+                # in face_inverse space
+                cx = [co.x for co in bounds]
+                cy = [co.y for co in bounds]
+
+                minx = min(cx)
+                maxx = max(cx)
+                miny = max(z_bot, min(cy))
+                maxy = min(z_top, max(cy))
+
+                # extend pattern for depth on edges (arbitrary * 5)
+                dx = z * 5
+                minx -= dx
+                maxx += dx
+
+                # make minx start at multiple of profile
+                """
+                dx = minx % profil_z
+                if minx > 0:
+                    minx -= dx
+                else:
+                    minx += dx - profil_z
+                """
+                sx = maxx - minx
+
+                # enlarge for rotation
+                dy = 2 * abs(tan(finish.rotation)) * sx
+                miny -= dy
+                maxy += dy
+
+                # make miny start at multiple of profile
+                """
+                dy = miny % profil_z
+                if miny > 0:
+                    miny -= dy
+                else:
+                    miny += dy - profil_z
+                """
+                sy = maxy - miny
+
+                if sx <= 0 or sy <= 0:
+                    continue
+
+                # build our pattern
+                pattern = bmesh.new()
+
+                # fill in pattern
+                verts = []
+                faces = []
+                matids = []
+                _verts = pattern.verts
+                _faces = pattern.faces
+                _new_vert = _verts.new
+                _new_face = _faces.new
+
+                if finish.pattern_type == 'H_BOARD':
+                    self.horizontal_boards(profil, sx, sy, minx, maxx, miny, maxy, offset, finish.board_x, verts, faces)
+                elif finish.pattern_type == 'V_BOARD':
+                    self.vertical_boards(profil, sx, sy, minx, maxx, miny, maxy, offset, finish.board_x, verts, faces)
+                elif finish.pattern_type == 'TILES':
+                    self.ceiling(sx, sy, minx, maxx, miny, maxy, offset, finish, verts, faces, matids)
+
+                for v in verts:
+                    _new_vert(v)
+
+                _verts.ensure_lookup_table()
+                _verts.index_update()
+
+                for f in faces:
+                    _new_face([_verts[i] for i in f])
+
+                _faces.ensure_lookup_table()
+                _faces.index_update()
+
+                if finish.pattern_type == 'TILES':
+                    pattern.normal_update()
+                    # 20 is for mortar
+                    mats = [material_index, 20]
+                    for i, mat in enumerate(matids):
+                        _faces[i].material_index = mats[mat]
+                    
+                    # inset
+                    inset = 0.001 
+                    geom = [f for f in _faces if f.material_index == material_index]
+                    bmesh.ops.inset_individual(
+                        pattern,
+                        faces=geom,
+                        thickness=inset,
+                        depth=-inset,
+                        use_even_offset=False,
+                        use_interpolate=False,
+                        use_relative_offset=False
+                        )
+                    
+                    _faces.ensure_lookup_table()
+                    
+                    # extrude boundarys
+                    geom = [ed for ed in pattern.edges[:] if ed.is_boundary]
+                    ret = bmesh.ops.extrude_edge_only(
+                        pattern,
+                        edges=geom)
+                        
+                    geom = [v for v in ret["geom"] if isinstance(v, bmesh.types.BMVert)]
+                    del ret
+                    bmesh.ops.translate(
+                        pattern,
+                        verts=geom,
+                        vec=Vector((0, 0, offset - finish.tile_z))
+                        )
+                else:  
+                    for i in range(len(_faces)):
+                        _faces[i].material_index = material_index 
+
+                geom = [ed for ed in pattern.edges[:] if ed.is_boundary]
+                if len(geom) > 0:
+                    bmesh.ops.holes_fill(
+                            pattern,
+                            edges=geom,
+                            sides=len(geom)
+                            )
+
+                # move our pattern in object's space
+                pattern.transform(face_mat)
+                
+                # verts index in face
+                f_index = [v.index for v in face.verts]
+                
+                # Slice using linked faces
+                for edge in face.edges:
+
+                    for link_face in edge.link_faces:
+                        if link_face is not face:
+                            slice_co = edge.verts[0].co
+                            if abs(link_face.normal.z) < 0.1:
+                                y = edge.verts[1].co - slice_co
+                                # edge is not garantee to be in the right order
+                                # ensure edge is in face order
+                                last = f_index[-1]
+                                for idx in f_index:
+                                    if edge.verts[0].index == idx and edge.verts[1].index == last:
+                                        break
+                                    if edge.verts[1].index == idx and edge.verts[0].index == last:
+                                        y = -y
+                                        break
+                                    last = idx
+                                # intersection of faces using same material index
+                                if link_face.material_index == location_index:
+                                    # slice plane use both normals
+                                    # perpendicular to edge, ensure always looking inside
+                                    slice_no = (face_normal + link_face.normal).normalized().cross(y)
+                                    slice_co -= 0.00005 * slice_no
+                                else:
+                                    # faces dosen't share material index
+                                    slice_no = face_normal.cross(y)
+                            else:
+                                # either a top or bottom face
+                                # slice plane use this face normal
+                                slice_no = link_face.normal
+
+                    # slice pattern using co and no
+                    geom = pattern.verts[:]
+                    geom.extend(pattern.edges[:])
+                    geom.extend(pattern.faces[:])
+                    bmesh.ops.bisect_plane(pattern,
+                        geom=geom,
+                        dist=0.001,
+                        plane_co=slice_co,
+                        plane_no=slice_no,
+                        use_snap_center=False,
+                        clear_outer=True,
+                        clear_inner=False
+                        )
+
+                    geom = [ed for ed in pattern.edges[:] if not ed.is_manifold]
+
+                    bmesh.ops.holes_fill(
+                        pattern,
+                        edges=geom,
+                        sides=len(geom)
+                        )
+
+                # remove outside parts of loop
+                patterns.append(pattern)
 
     def fit_roof_modifier(self, o, roof, rd, apply=False):
         if self.fit_roof and roof:
@@ -1705,7 +2251,10 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         if o is not None:
             logger.debug("post_relocate %s", o.name)
             self.relocate_childs(context, o)
-
+            # update wall's finish
+            if len(self.finish) > 0:
+                self.update(context)
+            
     def relocate_childs(self, context, o):
         """
             Move and resize childs after wall edition
@@ -1722,7 +2271,8 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         # throttle relocation of childs
         if do_throttle_child or do_throttle_reloc:
             throttle.add(context, o, self, 2.0, update_func="post_relocate")
-
+            throttle.stack[o.name].update_func = "post_relocate"
+            
         # only throttle openings when number of childs > 10
         if do_throttle_child and throttle.is_active(o.name):
             return
@@ -2651,7 +3201,8 @@ class ARCHIPACK_PT_wall2(Panel):
         box.prop_search(d, "t_part", context.scene, "objects", text="T parent", icon='OBJECT_DATAMODE')
 
         box = layout.box()
-        box.prop(d, 'inside_wall')
+        box.prop(d, 'auto_synch', icon="AUTO", emboss=True)
+        # box.prop(d, 'inside_wall')
         box.prop(d, 'width_ui')
         box.prop(d, 'z')
         box.prop(d, 'z_offset')
@@ -2662,10 +3213,24 @@ class ARCHIPACK_PT_wall2(Panel):
         box.prop(d, 'step_angle')
         row = box.row()
         row.operator("archipack.wall2_fit_roof")
-        row.prop(d, "fit_roof", text="Auto")
+        row.prop(d, "fit_roof", text="Auto fit", icon="AUTO", emboss=True)
         # box = layout.box()
-        # box.prop(d, 'auto_synch')
+        # 
         d.template_parts(context, layout, draw_type=True)
+        
+        box = layout.box()
+        row = box.row()
+        icon = "TRIA_RIGHT"
+        if d.finish_expand:
+            icon = "TRIA_DOWN"
+        row.prop(d, 'finish_expand', icon=icon, text="Finishings ({})".format(len(d.finish)), icon_only=True, emboss=True)
+        row.prop(d, 'finish_enable', text="")
+        row.operator("archipack.wall2_add_finish", text="", icon="ZOOMIN")
+        
+        if d.finish_expand:
+            for index, finish in enumerate(d.finish):
+                box = layout.box()
+                finish.draw(context, box, index)
 
         box = layout.box()
         box.prop(d, "dimensions")
@@ -2679,20 +3244,7 @@ class ARCHIPACK_PT_wall2(Panel):
         row.operator("archipack.wall2_to_curve", text="In").mode = 'INSIDE'
         row.operator("archipack.wall2_to_curve", text="Out").mode = 'OUTSIDE'
         # row.operator("archipack.wall2_fit_roof", text="Inside").inside = True
-        """
-        box = layout.box()
-        row = box.row()
-        row.prop(d, 'n_parts')
-        row.prop(d, "closed")
-        n_parts = d.n_parts
-        if d.closed:
-            n_parts += 1
-        for i, part in enumerate(d.parts):
-            if i < n_parts:
-                box = layout.box()
-                part.draw(context, box, i)
-        """
-
+        
     @classmethod
     def poll(cls, context):
         return archipack_wall2.poll(context.active_object)
@@ -3005,6 +3557,45 @@ class ARCHIPACK_OT_wall2_to_curve(ArchipackObjectsManager, Operator):
         else:
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
+
+
+class ARCHIPACK_OT_wall2_add_finish(Operator):
+    bl_idname = "archipack.wall2_add_finish"
+    bl_label = "Add finish"
+    bl_description = "Add a finish"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
+
+    @classmethod
+    def poll(self, context):
+        return archipack_wall2.poll(context.active_object)
+
+    def execute(self, context):
+        o = context.active_object
+        d = archipack_wall2.datablock(o)
+        d.finish.add()
+        d.update(context)
+        return {'FINISHED'}
+
+
+class ARCHIPACK_OT_wall2_remove_finish(Operator):
+    bl_idname = "archipack.wall2_remove_finish"
+    bl_label = "Remove finish"
+    bl_description = "Remove a finish"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
+    index = IntProperty(default=0)
+
+    @classmethod
+    def poll(self, context):
+        return archipack_wall2.poll(context.active_object)
+
+    def execute(self, context):
+        o = context.active_object
+        d = archipack_wall2.datablock(o)
+        d.finish.remove(self.index)
+        d.update(context)
+        return {'FINISHED'}
 
 
 # ------------------------------------------------------------------
@@ -3360,11 +3951,14 @@ class ARCHIPACK_OT_wall2_draw(ArchipackDrawTool, Operator):
 def register():
     bpy.utils.register_class(archipack_wall2_part)
     bpy.utils.register_class(archipack_wall2_child)
+    bpy.utils.register_class(archipack_wall2_finish)
     bpy.utils.register_class(archipack_wall2_relocate_child)
     bpy.utils.register_class(archipack_wall2)
     Mesh.archipack_wall2 = CollectionProperty(type=archipack_wall2)
     bpy.utils.register_class(ARCHIPACK_PT_wall2)
     bpy.utils.register_class(ARCHIPACK_OT_wall2)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_add_finish)
+    bpy.utils.register_class(ARCHIPACK_OT_wall2_remove_finish)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_draw)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_from_curve)
     bpy.utils.register_class(ARCHIPACK_OT_wall2_from_slab)
@@ -3375,11 +3969,14 @@ def register():
 def unregister():
     bpy.utils.unregister_class(archipack_wall2_part)
     bpy.utils.unregister_class(archipack_wall2_child)
+    bpy.utils.unregister_class(archipack_wall2_finishs)
     bpy.utils.unregister_class(archipack_wall2_relocate_child)
     bpy.utils.unregister_class(archipack_wall2)
     del Mesh.archipack_wall2
     bpy.utils.unregister_class(ARCHIPACK_PT_wall2)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_add_finish)
+    bpy.utils.unregister_class(ARCHIPACK_OT_wall2_remove_finish)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_draw)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_from_curve)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall2_from_slab)

@@ -311,7 +311,9 @@ class ArchipackDrawTool(ArchipackObjectsManager):
         Draw tools
     """
     bl_options = {'INTERNAL', 'UNDO'}
-
+    
+    disabled_walls = {}
+    
     def region_2d_to_orig_and_vect(self, context, event):
 
         region = context.region
@@ -366,7 +368,15 @@ class ArchipackDrawTool(ArchipackObjectsManager):
             orig,
             vec)
         return res, pos, normal, face_index, object, matrix_world
-
+    
+    def restore_walls(self, context):
+        """
+         Enable finish on wall
+        """
+        for name, o in self.disabled_walls.items():        
+            d = o.data.archipack_wall2[0]
+            d.finish_enable = True
+        
     def mouse_hover_wall(self, context, event):
         """
             convert mouse pos to matrix at bottom of surrounded wall, y oriented outside wall
@@ -379,7 +389,20 @@ class ArchipackDrawTool(ArchipackObjectsManager):
             x = y.cross(z)
 
             if 'archipack_wall2' in o.data:
+                
                 d = o.data.archipack_wall2[0]
+                
+                # @TODO:
+                # identify wall segment and pass finishing overflow_out
+                
+                if d.finish_enable and len(d.finish) > 0:
+                    print("Disable finish for %s" % o.name)
+                    last = context.active_object
+                    self.select_object(context, o, True)
+                    d.finish_enable = False
+                    self.disabled_walls[o.name] = o
+                    self.select_object(context, last, True)
+                    
                 pt += (0.5 * d.width) * y.normalized()
                 return True, Matrix([
                     [x.x, y.x, z.x, pt.x],

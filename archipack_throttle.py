@@ -118,8 +118,10 @@ class ThrottleHandler():
         if o.name not in self.stack:
             self.stack[o.name] = ThrottleObject(d, duration, update_func)
         else:
-            self.stack[o.name].timeout = time.time() + duration
-
+            tim = time.time() + duration
+            if tim > self.stack[o.name].timeout:
+                self.stack[o.name].timeout = tim
+            
         if start:
             bpy.ops.archipack.throttle_update('INVOKE_DEFAULT')
 
