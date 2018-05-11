@@ -106,19 +106,19 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
             bevel = d.bevel_amount
         else:
             bevel = 0
-        
+
         # mesh for realtime
-        realtime =  active or d.pattern == "realtime"
-        
+        realtime = active or d.pattern == "realtime"
+
         thickness = d.thickness
         bottom = 0
-        
+
         if d.add_grout:
             thickness = min(d.thickness - d.mortar_depth, d.thickness - 0.0001)
             bottom = min(d.thickness - (d.mortar_depth + bevel), d.thickness - 0.0001)
-        
+
         self.top = d.thickness
-        
+
         if not realtime:
             self.generate_pattern(d, verts, faces, matids, uvs)
             bm = bmed.buildmesh(
@@ -177,11 +177,11 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
         if realtime or d.add_grout:
             verts = []
             self.get_verts(verts)
-            
+
             if realtime:
                 for v in verts:
                     v.z = self.top
-                    
+
             bm = bmesh.new()
             for v in verts:
                 bm.verts.new(v)
@@ -204,9 +204,9 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
 
             bm.verts.ensure_lookup_table()
             bm.faces.ensure_lookup_table()
-            
+
             geom = bm.faces[:]
-            # realtime might use extrude instead ? 
+            # realtime might use extrude instead ?
             if not realtime:
                 bmesh.ops.solidify(bm, geom=geom, thickness=thickness)
             bmed.bmesh_join(context, o, [bm], normal_update=True)
@@ -227,7 +227,9 @@ class FloorGenerator(CutAblePolygon, CutAbleGenerator):
           |____||____||____|
         """
         off = False
-        o = 1 / (100 / d.offset) if d.offset != 0 else 0
+        o = 1
+        if d.offset != 0:
+            o = 1 / (100 / d.offset)
         y = self.ymin
 
         while y < self.ymax:
@@ -1227,16 +1229,16 @@ class ARCHIPACK_PT_floor(Panel):
         expand = props.template_user_path(context, box)
         if expand:
             box.prop(props, 'x_offset')
-        
+
         props.template_parts(context, layout)
 
         layout.separator()
         box = layout.box()
         box.prop(props, 'pattern', text="")
-        
+
         if not_realtime:
             box.prop(props, 'rotation')
-        
+
         # thickness
         box.separator()
         box.prop(props, 'thickness')
@@ -1498,19 +1500,12 @@ class ARCHIPACK_OT_floor_from_wall(ArchipackCreateTool, Operator):
         sel = []
         logger.debug("floor_from_wall() curves :%.4f seconds", time.time() - tim)
 
-        # load and compile preset once for all
-        # f = open(self.filepath)
-        # py = compile(f.read(), self.filepath, 'exec')
-
         for poly in polys:
 
             boundary = io._to_curve(poly.exterior, "{}-boundary".format(w.name), '2D')
             boundary.location.z = w.matrix_world.translation.z - wd.z_offset
             logger.debug("floor_from_wall() boundary :%.4f seconds", time.time() - tim)
             o = self.create(context)
-            # exec(py)
-            # bpy.ops.archipack.floor(auto_manipulate=False, filepath=self.filepath)
-            # o = context.active_object
             sel.append(o)
             o.matrix_world = w.matrix_world.copy()
             d = archipack_floor.datablock(o)
@@ -1711,7 +1706,7 @@ class ARCHIPACK_OT_floor_preset(ArchipackPreset, Operator):
 
     @property
     def blacklist(self):
-        return ['manipulators', 'parts', 'n_parts', 'user_defined_path', 'user_defined_resolution']
+        return ['manipulators', 'parts', 'thickness', 'n_parts', 'user_defined_path', 'user_defined_resolution']
 
 
 def register():

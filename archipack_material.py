@@ -183,7 +183,7 @@ class MatlibsManager():
             pass
 
     def apply(self, context, o, slot_index, name, link=False):
-        
+
         # material with same name exist in scene
         mat = self.from_data(name)
         # mat not in scene: try to load from lib
@@ -198,21 +198,20 @@ class MatlibsManager():
                 mat = lib.get_mat(name, link)
                 if mat is not None:
                     break
-            
+
         # nothing found, build a default mat
         if mat is None:
             mat = bpy.data.materials.new(name)
 
         # o.material_slots[slot_index].material = None
         o.material_slots[slot_index].material = mat
-            
+
         if break_link and not link:
             # break link
             o.active_material_index = slot_index
             bpy.ops.object.make_local(type="SELECT_OBDATA_MATERIAL")
-            
-        
-        
+
+
 class MaterialSetManager():
     """
         Manage material sets for objects
@@ -383,17 +382,17 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
 
     def apply_material(self, context, o, slot_index, name):
         global libman
-        
+
         if libman is None:
             libman = MatlibsManager()
 
         libman.apply(context, o, slot_index, name, link=False)
-        
+
     def update(self, context):
         global setman
         if setman is None:
             setman = MaterialSetManager()
-        
+
         o = context.active_object
         sel = [
             c for c in o.children
@@ -411,7 +410,7 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
         sel.append(o)
 
         mats = setman.get_materials(self.category, self.material)
-        
+
         if mats is None:
             return False
 
@@ -424,9 +423,9 @@ class archipack_material(ArchipackObjectsManager, PropertyGroup):
                     ob.data.materials.append(None)
                 self.apply_material(context, ob, slot_index, mat_name)
                 self.select_object(context, ob, True)
-                
+
         self.select_object(context, o, True)
-        
+
         return True
 
 

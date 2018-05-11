@@ -71,7 +71,42 @@ class Roof():
         self.triangular_end = False
         # seg is part of hole
         self.is_hole = False
+    
+    def copy_params(self, s):
+        s.angle_0 = self.angle_0
+        s.v0_idx = self.v0_idx
+        s.v1_idx = self.v1_idx
+        s.constraint_type = self.constraint_type
+        s.slope_left = self.slope_left
+        s.slope_right = self.slope_right
+        s.width_left = self.width_left
+        s.width_right = self.width_right
+        s.auto_left = self.auto_left
+        s.auto_right = self.auto_right
+        s.side_type = self.side_type
+        s.enforce_part = self.enforce_part
+        s.triangular_end = self.triangular_end
+        # segment is part of hole / slice
+        s.is_hole = self.is_hole
 
+    @property
+    def copy(self):
+        s = StraightRoof(self.p.copy(), self.v.copy())
+        self.copy_params(s)
+        return s
+        
+    def offset(self, offset):
+        o = self.copy
+        o.p += offset * self.cross_z.normalized()
+        return o
+
+    @property
+    def oposite(self):
+        o = self.copy
+        o.p += o.v
+        o.v = -o.v
+        return o
+        
     def set_offset(self, offset, last=None):
         """
             Offset line and compute intersection point
@@ -1544,7 +1579,7 @@ class RoofGenerator(CutAbleGenerator):
 
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    def couverture(self, context, o, d):
+    def couverture(self, context, o, d, quick_edit):
 
         idmat = 7
         rand = 3
@@ -1569,8 +1604,13 @@ class RoofGenerator(CutAbleGenerator):
             offset = - d.tile_offset / 100
         else:
             offset = 0
-
-        if d.tile_model == 'BRAAS2':
+        
+        if quick_edit:
+            tile_model = 'REALTIME'
+        else:
+            tile_model = d.tile_model
+            
+        if tile_model == 'BRAAS2':
             t_pts = [Vector(p) for p in [
                 (0.06, -1.0, 1.0), (0.19, -1.0, 0.5), (0.31, -1.0, 0.5), (0.44, -1.0, 1.0),
                 (0.56, -1.0, 1.0), (0.69, -1.0, 0.5), (0.81, -1.0, 0.5), (0.94, -1.0, 1.0),
@@ -1580,18 +1620,18 @@ class RoofGenerator(CutAbleGenerator):
             t_faces = [
                 (16, 0, 8, 17), (0, 1, 9, 8), (1, 2, 10, 9), (2, 3, 11, 10),
                 (3, 4, 12, 11), (4, 5, 13, 12), (5, 6, 14, 13), (6, 7, 15, 14), (7, 18, 19, 15)]
-        elif d.tile_model == 'BRAAS1':
+        elif tile_model == 'BRAAS1':
             t_pts = [Vector(p) for p in [
                 (0.1, -1.0, 1.0), (0.2, -1.0, 0.5), (0.6, -1.0, 0.5), (0.7, -1.0, 1.0),
                 (0.1, 0.0, 0.5), (0.2, 0.0, 0.0), (0.6, 0.0, 0.0), (0.7, 0.0, 0.5),
                 (-0.0, -1.0, 1.0), (-0.0, 0.0, 0.5), (1.0, -1.0, 1.0), (1.0, 0.0, 0.5)]]
             t_faces = [(8, 0, 4, 9), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 10, 11, 7)]
-        elif d.tile_model == 'ETERNIT':
+        elif tile_model == 'ETERNIT':
             t_pts = [Vector(p) for p in [
                 (0.11, -1.0, 1.0), (0.9, -1.0, 1.0), (0.0, -0.79, 0.79),
                 (1.0, -0.79, 0.79), (0.0, 2.0, -2.0), (1.0, 2.0, -2.0)]]
             t_faces = [(0, 1, 3, 5, 4, 2)]
-        elif d.tile_model == 'ONDULEE':
+        elif tile_model == 'ONDULEE':
             t_pts = [Vector(p) for p in [
                 (0.0, -1.0, 0.1), (0.05, -1.0, 1.0), (0.1, -1.0, 0.1),
                 (0.15, -1.0, 1.0), (0.2, -1.0, 0.1), (0.25, -1.0, 1.0),
@@ -1615,21 +1655,21 @@ class RoofGenerator(CutAbleGenerator):
                 (12, 13, 34, 33), (13, 14, 35, 34), (14, 15, 36, 35),
                 (15, 16, 37, 36), (16, 17, 38, 37), (17, 18, 39, 38),
                 (18, 19, 40, 39), (19, 20, 41, 40)]
-        elif d.tile_model == 'METAL':
+        elif tile_model == 'METAL':
             t_pts = [Vector(p) for p in [
                 (0.0, -1.0, 0.0), (0.99, -1.0, 0.0), (1.0, -1.0, 0.0),
                 (0.0, 0.0, 0.0), (0.99, 0.0, 0.0), (1.0, 0.0, 0.0),
                 (0.99, -1.0, 1.0), (1.0, -1.0, 1.0), (1.0, 0.0, 1.0), (0.99, 0.0, 1.0)]]
             t_faces = [(0, 1, 4, 3), (7, 2, 5, 8), (1, 6, 9, 4), (6, 7, 8, 9)]
-        elif d.tile_model == 'LAUZE':
+        elif tile_model == 'LAUZE':
             t_pts = [Vector(p) for p in [
                 (0.75, -0.8, 0.8), (0.5, -1.0, 1.0), (0.25, -0.8, 0.8),
                 (0.0, -0.5, 0.5), (1.0, -0.5, 0.5), (0.0, 0.5, -0.5), (1.0, 0.5, -0.5)]]
             t_faces = [(1, 0, 4, 6, 5, 3, 2)]
-        elif d.tile_model == 'PLACEHOLDER':
+        elif tile_model == 'PLACEHOLDER':
             t_pts = [Vector(p) for p in [(0.0, -1.0, 1.0), (1.0, -1.0, 1.0), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]]
             t_faces = [(0, 1, 3, 2)]
-        elif d.tile_model == 'ROMAN':
+        elif tile_model == 'ROMAN':
             t_pts = [Vector(p) for p in [
                 (0.18, 0.0, 0.3), (0.24, 0.0, 0.58), (0.76, 0.0, 0.58),
                 (0.82, 0.0, 0.3), (0.05, -1.0, 0.5), (0.14, -1.0, 0.8),
@@ -1644,7 +1684,7 @@ class RoofGenerator(CutAbleGenerator):
                 (13, 12, 8, 9), (18, 13, 9, 19), (15, 14, 10, 11),
                 (14, 18, 19, 10), (1, 5, 17, 16)
             ]
-        elif d.tile_model == 'ROUND':
+        elif tile_model == 'ROUND':
             t_pts = [Vector(p) for p in [
                 (0.0, -0.5, 0.5), (1.0, -0.5, 0.5), (0.0, 0.0, 0.0),
                 (1.0, 0.0, 0.0), (0.93, -0.71, 0.71), (0.78, -0.88, 0.88),
@@ -1652,6 +1692,11 @@ class RoofGenerator(CutAbleGenerator):
                 (0.22, -0.88, 0.88)]
             ]
             t_faces = [(6, 7, 5, 4, 1, 3, 2, 0, 8, 9)]
+        elif tile_model == 'REALTIME':
+            t_faces = [(0, 1, 3, 2)]
+            t_pts = [Vector(p) for p in [
+                (0, 0), (0, 1), (1, 0), (1, 1)
+                ]]
         else:
             return
 
@@ -1662,7 +1707,7 @@ class RoofGenerator(CutAbleGenerator):
 
         step = 100 / ttl
 
-        if d.quick_edit:
+        if d.quick_edit and not quick_edit:
             context.scene.archipack_progress_text = "Build tiles:"
 
         for i, pan in enumerate(self.pans):
@@ -1710,43 +1755,53 @@ class RoofGenerator(CutAbleGenerator):
             # steps for this pan
             substep = step / n_y
             # print("step:%s sub:%s" % (step, substep))
+            if tile_model == 'REALTIME':
+                t_pts = [tM * Vector(p) for p in [
+                    (0, 0, 0), (0, -space_y, 0),
+                    (pan.xsize + 3, -space_y, 0), (pan.xsize + 3, 0, 0)
+                    ]]
+                v = len(verts)
+                verts.extend(t_pts)
+                faces.extend([(v, v + 1, v + 2, v + 3)])
+                matids.append(idmat)
+                uvs.extend(t_uvs)
+            else:
+                for k in range(n_y):
 
-            for k in range(n_y):
+                    progress = step * i + substep * k
+                    # print("progress %s" % (progress))
+                    if d.quick_edit:
+                        context.scene.archipack_progress = progress
 
-                progress = step * i + substep * k
-                # print("progress %s" % (progress))
-                if d.quick_edit:
-                    context.scene.archipack_progress = progress
+                    y = k * dy
 
-                y = k * dy
+                    x0 = offset * dx - d.tile_side
+                    nx = n_x
 
-                x0 = offset * dx - d.tile_side
-                nx = n_x
+                    if d.tile_alternate and k % 2 == 1:
+                        x0 -= 0.5 * dx
+                        nx += 1
 
-                if d.tile_alternate and k % 2 == 1:
-                    x0 -= 0.5 * dx
-                    nx += 1
+                    if d.tile_offset > 0:
+                        nx += 1
 
-                if d.tile_offset > 0:
-                    nx += 1
+                    for j in range(nx):
+                        x = x0 + j * dx
+                        lM = tM * Matrix([
+                            [sx, 0, 0, x],
+                            [0, sy, 0, -y],
+                            [0, 0, sz, 0],
+                            [0, 0, 0, 1]
+                        ])
 
-                for j in range(nx):
-                    x = x0 + j * dx
-                    lM = tM * Matrix([
-                        [sx, 0, 0, x],
-                        [0, sy, 0, -y],
-                        [0, 0, sz, 0],
-                        [0, 0, 0, 1]
-                    ])
+                        v = len(verts)
 
-                    v = len(verts)
-
-                    verts.extend([lM * p for p in t_pts])
-                    faces.extend([tuple(i + v for i in f) for f in t_faces])
-                    mid = randint(idmat, idmat + rand)
-                    t_mats = [mid for i in range(n_faces)]
-                    matids.extend(t_mats)
-                    uvs.extend(t_uvs)
+                        verts.extend([lM * p for p in t_pts])
+                        faces.extend([tuple(i + v for i in f) for f in t_faces])
+                        mid = randint(idmat, idmat + rand)
+                        t_mats = [mid for i in range(n_faces)]
+                        matids.extend(t_mats)
+                        uvs.extend(t_uvs)
 
             # build temp bmesh and bissect
             bm = bmed.buildmesh(
@@ -1854,7 +1909,7 @@ class RoofGenerator(CutAbleGenerator):
             bmed.bmesh_join(context, o, [bm], normal_update=True)
             bpy.ops.object.mode_set(mode='OBJECT')
 
-        if d.quick_edit:
+        if d.quick_edit and not quick_edit:
             context.scene.archipack_progress = -1
 
     def _bargeboard(self, s, i, boundary, pan,
@@ -3867,6 +3922,7 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, DimensionProv
                 ('PLACEHOLDER', 'Square', '', 6),
                 ('ONDULEE', 'Ondule', '', 7),
                 ('METAL', 'Metal', '', 8),
+                ('REALTIME', 'RealTime', '', 9)
                 # ('USER', 'User defined', '', 7)
                 ),
             default="BRAAS2",
@@ -4485,7 +4541,9 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, DimensionProv
         if o is None:
             return
 
-        if self.quick_edit and not self.schrinkwrap_target:
+        if (self.quick_edit and 
+                self.tile_model != 'REALTIME' and 
+                not self.schrinkwrap_target):
             throttle.add(context, o, self)
 
         # clean up manipulators before any data model change
@@ -4660,16 +4718,10 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, DimensionProv
                     # bpy.ops.object.mode_set(mode='EDIT')
                     g.rafter(context, o, self)
                     # print("rafter")
-                """
-                if self.quick_edit and:
-                    if self.tile_enable:
-                        bpy.ops.archipack.roof_throttle_update(name=o.name)
-                else:
-                """
-                if not throttle.is_active(o.name):
-                    # throttle here
-                    if self.tile_enable:
-                        g.couverture(context, o, self)
+                          
+                if self.tile_enable:
+                    # when throttle active use 'REALTIME' tiles
+                    g.couverture(context, o, self, throttle.is_active(o.name) or self.tile_model == 'REALTIME')
 
         if not self.schrinkwrap_target:
             target = self.find_shrinkwrap(o)

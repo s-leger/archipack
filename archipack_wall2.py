@@ -787,7 +787,9 @@ class archipack_wall2_finish(PropertyGroup):
         items=(
             ('V_BOARD', "Vertical board", "Vertical board"),
             ('H_BOARD', "Horizontal board", "Horizontal board"),
-            ('TILES', "Tiles", "Ceramic tiles")
+            ('TILES', "Tiles", "Ceramic tiles"),
+            ('LOGGING', "Logs", "Round logs"),
+            ('USER_DEFINED', "User defined", "User defined object as finishing")
             ),
         default='H_BOARD',
         update=update
@@ -805,14 +807,14 @@ class archipack_wall2_finish(PropertyGroup):
             name="Width",
             description="Tile width",
             min=0.01,
-            default=0.15,
+            default=0.3,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )   
     tile_y = FloatProperty(
             name="Height",
             description="Tile height",
-            default=0.15,
+            default=0.6,
             min=0.01,
             unit='LENGTH', subtype='DISTANCE',
             update=update
@@ -853,7 +855,11 @@ class archipack_wall2_finish(PropertyGroup):
         default=False,
         options={'SKIP_SAVE'}
         )
-            
+    user_pattern = StringProperty(
+        default="",
+        update=update
+        )    
+      
     def draw(self, context, layout, index):
         row = layout.row(align=True)
         icon = "TRIA_RIGHT"
@@ -877,10 +883,17 @@ class archipack_wall2_finish(PropertyGroup):
                 layout.prop(self, 'tile_y')
                 layout.prop(self, 'tile_z')
                 layout.prop(self, 'tile_space')
-            else:
+                
+            elif 'BOARD' in self.pattern_type or self.pattern_type == 'LOGGING':
                 layout.prop(self, 'board_x')
+            
+            if 'BOARD' in self.pattern_type:
                 layout.prop(self, 'board_z')
-        
+            
+            if self.pattern_type == 'USER_DEFINED':
+                row = layout.row()
+                row.prop_search(self, "user_pattern", context.scene, "objects", text="")
+                
     def find_datablock_in_selection(self, context):
         """
          Return selected object this instance belongs to
@@ -1005,12 +1018,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             description="Flag indicate whenever geometry path is always closed",
             options={'SKIP_SAVE'}
             )
-    inside_wall = BoolProperty(
-            name="Inside wall",
-            description="When checked use only inside material index on both sides",
-            default=False,
-            update=update
-            )
+    
     auto_update = BoolProperty(
             options={'SKIP_SAVE'},
             default=True,
@@ -1039,6 +1047,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
     finish = CollectionProperty(type=archipack_wall2_finish)
     finish_expand = BoolProperty(
             name="Finishings",
+            description="Display finishings options",
             default=False,
             options={'SKIP_SAVE'}
             )
@@ -1056,6 +1065,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             )
     fit_roof = BoolProperty(
             name="Auto fit roof",
+            description="Automatically fit surrounding roof",
             default=False,
             update=update
             )
@@ -1258,13 +1268,6 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         matinside = 0
         rim = 21
         
-        """
-        if self.inside_wall:
-            matoffset = 2
-            matinside = 1
-            # rim = 0
-        """
-        
         if self.flip:
             matids = [2 * matid + 1 for matid in matids]
             matoffset = -matoffset
@@ -1293,8 +1296,8 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
         # Height
         self.manipulators[2].set_pts([
-            Vector((0, 0, 0)),
-            Vector((0, 0, self.z)),
+            Vector((0, 0, -self.z_offset)),
+            Vector((0, 0, self.z - self.z_offset)),
             (-1, 0, 0)
             ], normal=g.segs[0].straight(side, 0).v.to_3d())
 
@@ -1496,9 +1499,28 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                     f += 1
                     matids.extend([1, mat, 1])
                 f += 1  
-            
+    
+    def make_user_pattern(self, 
+                        sx, sy, 
+                        minx, maxx, miny, maxy, offset, 
+                        finish, 
+                        user_x, user_y, user_verts, user_faces, user_matids, user_uvs,
+                        verts, faces, matids):
+        
+        n_y = 2 + int(sy / user_y)
+        n_x = 2 + int(sx / user_x)
+        
+        for nx in range(n_x):
+            x = minx + nx * user_x
+            for ny in range(n_y):
+                y = miny + ny * user_y
+                tM = Matrix.Translation(Vector((x, y, offset)))
+                f = len(verts)
+                verts.extend([tM * p for p in user_verts])
+                faces.extend([tuple([i + f for i in p]) for p in user_faces])
+                matids.extend(user_matids)
+        
     def build_finish(self, context, o, finish, bm, patterns):
-
         # offset from wall twice of remove double to prevent merge of faces
         offset = 0.002
         if finish.pattern_type in {'H_BOARD', 'V_BOARD'}:
@@ -1508,8 +1530,33 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                     (0, z + offset, 0), (0, z + offset, 0.7 * x), 
                     (0, 0.6 * z + offset, 0.8 * x), (0, 0.6 * z + offset, x)
                     ]]
+        
+        elif finish.pattern_type == 'LOGGING':
+            z = finish.board_x
+            x = finish.board_x
+            r = 0.5 * z
+            a0 = -pi / 2
+            segs = 16
+            a = pi / segs
+            profil = [Vector((0, r * cos(a0 + a * i) + 2 * offset, r + r * sin(a0 + a * i))) for i in range(segs)]
+        
         elif finish.pattern_type == 'TILES':
             z = finish.tile_z
+        
+        elif finish.pattern_type == 'USER_DEFINED':
+            pattern_obj = self.get_scene_object(context, finish.user_pattern)
+            if pattern_obj is None:
+                return
+            user_x, user_y, z = pattern_obj.dimensions
+            d = pattern_obj.data
+            user_verts = [Vector((-v.co.x, v.co.y, v.co.z)) for v in d.vertices]
+            user_faces = [tuple(p.vertices[:]) for p in d.polygons]
+            if len(d.uv_layers) > 0:
+                uv_layer = d.uv_layers[0].data
+                user_uvs = [[uv_layer[v].uv for v in p.loop_indices] for p in d.polygons]
+            else:
+                user_uvs = [[user_verts[v].to_2d() for v in f] for f in user_faces]
+            user_idmat = [p.material_index for p in d.polygons] 
             
         z_bot = finish.altitude
         z_top = z_bot + finish.z
@@ -1524,13 +1571,13 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
         # lateral profile in yz axis (last will be next first one)
         # so this is profile -last vertex
         z_axis = Vector((0, 0, 1))
-
+        
         for face in bm.faces:
 
             if face.material_index == location_index and abs(face.normal.z) < 0.1:
 
                 face_normal = face.normal
-                x_face = face.normal.cross(z_axis)
+                x_face = face_normal.cross(z_axis)
                 y_face = x_face.cross(face_normal)
                 origin = face.calc_center_bounds()
 
@@ -1562,9 +1609,11 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
                 minx = min(cx)
                 maxx = max(cx)
-                miny = max(z_bot, min(cy))
+                miny = z_bot
                 maxy = min(z_top, max(cy))
-
+                
+                print(minx, maxx, miny, maxy)
+                
                 # extend pattern for depth on edges (arbitrary * 5)
                 dx = z * 5
                 minx -= dx
@@ -1614,9 +1663,18 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                     self.horizontal_boards(profil, sx, sy, minx, maxx, miny, maxy, offset, finish.board_x, verts, faces)
                 elif finish.pattern_type == 'V_BOARD':
                     self.vertical_boards(profil, sx, sy, minx, maxx, miny, maxy, offset, finish.board_x, verts, faces)
+                elif finish.pattern_type == 'LOGGING':
+                    self.horizontal_boards(profil, sx, sy, minx, maxx, miny, maxy, offset, finish.board_x, verts, faces)
                 elif finish.pattern_type == 'TILES':
                     self.ceiling(sx, sy, minx, maxx, miny, maxy, offset, finish, verts, faces, matids)
-
+                elif finish.pattern_type == 'USER_DEFINED':
+                    self.make_user_pattern(
+                        sx, sy, 
+                        minx, maxx, miny, maxy, offset, 
+                        finish, 
+                        user_x, user_y, user_verts, user_faces, user_idmat, user_uvs,
+                        verts, faces, matids)
+                    
                 for v in verts:
                     _new_vert(v)
 
@@ -1639,32 +1697,67 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                     # inset
                     inset = 0.001 
                     geom = [f for f in _faces if f.material_index == material_index]
-                    bmesh.ops.inset_individual(
-                        pattern,
-                        faces=geom,
-                        thickness=inset,
-                        depth=-inset,
-                        use_even_offset=False,
-                        use_interpolate=False,
-                        use_relative_offset=False
-                        )
                     
-                    _faces.ensure_lookup_table()
+                    if len(geom) > 0:
+                        bmesh.ops.inset_individual(
+                            pattern,
+                            faces=geom,
+                            thickness=inset,
+                            depth=-inset,
+                            use_even_offset=False,
+                            use_interpolate=False,
+                            use_relative_offset=False
+                            )
+                        
+                        _faces.ensure_lookup_table()
                     
                     # extrude boundarys
                     geom = [ed for ed in pattern.edges[:] if ed.is_boundary]
-                    ret = bmesh.ops.extrude_edge_only(
-                        pattern,
-                        edges=geom)
+                    if len(geom) > 0:
+                        ret = bmesh.ops.extrude_edge_only(
+                            pattern,
+                            edges=geom)
                         
-                    geom = [v for v in ret["geom"] if isinstance(v, bmesh.types.BMVert)]
-                    del ret
-                    bmesh.ops.translate(
-                        pattern,
-                        verts=geom,
-                        vec=Vector((0, 0, offset - finish.tile_z))
-                        )
-                else:  
+                        geom = [v for v in ret["geom"] if isinstance(v, bmesh.types.BMVert)]
+                        del ret
+                        bmesh.ops.translate(
+                            pattern,
+                            verts=geom,
+                            vec=Vector((0, 0, offset - finish.tile_z))
+                            )
+                            
+                elif finish.pattern_type == 'USER_DEFINED':
+                    
+                    pattern.normal_update()
+                    
+                    for i, mat in enumerate(matids):
+                        _faces[i].material_index = mat 
+                    
+                    # weld
+                    geom = [v for v in pattern.verts[:] if v.is_boundary]
+                    if len(geom) > 0:
+                        bmesh.ops.remove_doubles(
+                            pattern,
+                            verts=geom,
+                            dist=0.0001
+                            )
+                    
+                    # extrude boundarys
+                    geom = [ed for ed in pattern.edges[:] if ed.is_boundary]
+                    if len(geom) > 0:
+                        ret = bmesh.ops.extrude_edge_only(
+                            pattern,
+                            edges=geom)
+                        
+                        geom = [v for v in ret["geom"] if isinstance(v, bmesh.types.BMVert)]
+                        del ret
+                        bmesh.ops.translate(
+                            pattern,
+                            verts=geom,
+                            vec=Vector((0, 0, -0.5 * offset))
+                            )
+                        
+                else: 
                     for i in range(len(_faces)):
                         _faces[i].material_index = material_index 
 
@@ -1713,32 +1806,43 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                                 # either a top or bottom face
                                 # slice plane use this face normal
                                 slice_no = link_face.normal
-
-                    # slice pattern using co and no
-                    geom = pattern.verts[:]
-                    geom.extend(pattern.edges[:])
-                    geom.extend(pattern.faces[:])
-                    bmesh.ops.bisect_plane(pattern,
-                        geom=geom,
-                        dist=0.001,
-                        plane_co=slice_co,
-                        plane_no=slice_no,
-                        use_snap_center=False,
-                        clear_outer=True,
-                        clear_inner=False
-                        )
-
-                    geom = [ed for ed in pattern.edges[:] if not ed.is_manifold]
-
-                    bmesh.ops.holes_fill(
-                        pattern,
-                        edges=geom,
-                        sides=len(geom)
-                        )
-
+                                # slice bottom part when pattern is under wall bottom
+                                if link_face.normal.z < -0.5:
+                                    slice_co = Vector((0, 0, finish.altitude))
+                                
+                            # slice pattern using co and no
+                            self.slice_pattern(pattern, slice_co, slice_no)
+                
+                # slice top
+                slice_co = Vector((0, 0, finish.altitude + finish.z))
+                slice_no = Vector((0, 0, 1))
+                self.slice_pattern(pattern, slice_co, slice_no)
+                
                 # remove outside parts of loop
                 patterns.append(pattern)
+                
+    def slice_pattern(self, pattern, slice_co, slice_no):
+        geom = pattern.verts[:]
+        geom.extend(pattern.edges[:])
+        geom.extend(pattern.faces[:])
+        bmesh.ops.bisect_plane(pattern,
+            geom=geom,
+            dist=0.001,
+            plane_co=slice_co,
+            plane_no=slice_no,
+            use_snap_center=False,
+            clear_outer=True,
+            clear_inner=False
+            )
 
+        geom = [ed for ed in pattern.edges[:] if not ed.is_manifold]
+        if len(geom) > 0:
+            bmesh.ops.holes_fill(
+                pattern,
+                edges=geom,
+                sides=len(geom)
+                )
+                
     def fit_roof_modifier(self, o, roof, rd, apply=False):
         if self.fit_roof and roof:
             target = rd.find_shrinkwrap(roof)
@@ -2252,7 +2356,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             logger.debug("post_relocate %s", o.name)
             self.relocate_childs(context, o)
             # update wall's finish
-            if len(self.finish) > 0:
+            if self.finish_enable and len(self.finish) > 0:
                 self.update(context)
             
     def relocate_childs(self, context, o):
@@ -3202,7 +3306,6 @@ class ARCHIPACK_PT_wall2(Panel):
 
         box = layout.box()
         box.prop(d, 'auto_synch', icon="AUTO", emboss=True)
-        # box.prop(d, 'inside_wall')
         box.prop(d, 'width_ui')
         box.prop(d, 'z')
         box.prop(d, 'z_offset')
@@ -3561,8 +3664,8 @@ class ARCHIPACK_OT_wall2_to_curve(ArchipackObjectsManager, Operator):
 
 class ARCHIPACK_OT_wall2_add_finish(Operator):
     bl_idname = "archipack.wall2_add_finish"
-    bl_label = "Add finish"
-    bl_description = "Add a finish"
+    bl_label = "Add finishings"
+    bl_description = "Add finishing"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
 
@@ -3580,8 +3683,8 @@ class ARCHIPACK_OT_wall2_add_finish(Operator):
 
 class ARCHIPACK_OT_wall2_remove_finish(Operator):
     bl_idname = "archipack.wall2_remove_finish"
-    bl_label = "Remove finish"
-    bl_description = "Remove a finish"
+    bl_label = "Remove finishings"
+    bl_description = "Remove finishing"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
     index = IntProperty(default=0)

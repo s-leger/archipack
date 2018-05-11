@@ -19,7 +19,6 @@ d.random_offset = False
 d.random_uvs = True
 d.short_board_length = 0.15
 d.spacing = 0.005
-d.thickness = 0.1
 d.thickness_variance = 25.0
 d.tile_length = 0.3
 d.tile_width = 0.6
