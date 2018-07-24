@@ -2979,6 +2979,16 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
          Build 2d symbol of walls as pygeos entity for further processing
          cut windows and doors
          w, it = C.object.data.archipack_wall2[0].as_2d(C, C.object)
+         
+         
+         TODO:
+         Adopt fastest and strongest strategy for floors taking advantage or parent child with reference point
+         Generate walls polygons, then boolean merge.
+         Extract inside polygons of result and use them for floors and moldings.
+         
+         This will allow more than one wall on the outside, 
+         as long as the result is closed and also allow to generate using any wall of the floor.
+         
         """
 
         # objs contains wall and openings wich belongs to this wall
