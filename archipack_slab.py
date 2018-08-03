@@ -232,6 +232,7 @@ class archipack_slab_relocate_child(PropertyGroup):
 
     def get_child(self, context):
         d = None
+        # 2.8 ???
         o = context.scene.objects.get(self.child_name)
         d = self.filter_child(o)
         return o, d
@@ -733,7 +734,7 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
     def update(self, context, manipulable_refresh=False, update_childs=False):
 
         o = self.find_in_selection(context, self.auto_update)
-
+        
         if o is None:
             return
 

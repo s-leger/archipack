@@ -79,7 +79,10 @@ class ArchipackBoolManager(ArchipackObjectsManager):
     def filter_wall(self, wall):
         d = wall.data
         return d is not None and (
-               'archipack_wall2' in d or 'archipack_wall' in d)
+               'archipack_wall2' in d or 
+               'archipack_wall' in d or
+               'archipack_custom_wall' in wall
+               )
 
     def datablock(self, o):
         """
@@ -105,7 +108,7 @@ class ArchipackBoolManager(ArchipackObjectsManager):
             hole.lock_rotation = (True, True, True)
             hole.lock_scale = (True, True, True)
             hole.hide_select = True
-
+            hole.hide = True
         # hide hole from cycles
         hole.cycles_visibility.camera = False
         hole.cycles_visibility.diffuse = False
@@ -191,19 +194,11 @@ class ArchipackBoolManager(ArchipackObjectsManager):
         """
             Update all holes modifiers
             remove holes not found in childs
-
-            robust -> mixed:
-                there is only one object taged with "archipack_robusthole"
-            interactive -> mixed:
-                many modifisers on wall taged with "archipack_hole"
-                keep objects
         """
-        existing = []
-        to_delete = []
-
-        # remove modifier and holes not found in new list
-        self.remove_modif_and_object(context, wall, to_delete)
-
+        existing = {}
+        to_delete = {}
+        hole_names = {h.name:h for h in holes}
+        
         m = wall.modifiers.get("AutoMixedBoolean")
         if m is None:
             m = wall.modifiers.new('AutoMixedBoolean', 'BOOLEAN')
@@ -217,27 +212,35 @@ class ArchipackBoolManager(ArchipackObjectsManager):
 
         self.prepare_hole(context, hole_obj)
 
-        to_delete = []
-
         # mixed-> mixed
         for m in hole_obj.modifiers:
             h = m.object
-            if h in holes:
-                existing.append(h)
+            if h is not None:
+                if h.name in hole_names:
+                    existing[h.name] = True
+                else:
+                    to_delete[h.name] = [m, h]
             else:
-                to_delete.append([m, h])
-
+                to_delete[m.name] = [m, h]
+                
         # remove modifier and holes not found in new list
-        self.remove_modif_and_object(context, hole_obj, to_delete)
-
+        self.remove_modif_and_object(context, hole_obj, to_delete.values())
+        
         # add modifier and holes not found in existing
         for h in holes:
-            if h not in existing:
+            if h.name not in existing:
                 self.union(hole_obj, h)
+                existing[h.name] = True
 
-        # AutoBoolean will be child of reference point
-        childs.append(hole_obj)
-
+        if len(hole_obj.modifiers) < 1:
+            # Clean up hole and AutoBoolean target when not needed
+            m = wall.modifiers.get("AutoMixedBoolean")
+            if m is not None:
+                self.remove_modif_and_object(context, wall, [[m, hole_obj]])
+        else:
+            # AutoBoolean will be child of reference point
+            childs.append(hole_obj)
+               
     def autoboolean(self, context, wall):
         """
             Entry point for multi-boolean operations like
@@ -256,6 +259,9 @@ class ArchipackBoolManager(ArchipackObjectsManager):
                 wd.update(context)
 
         bpy.ops.object.select_all(action='DESELECT')
+        
+        # XXX 2.8 ???
+        
         context.scene.objects.active = None
         childs = []
         holes = []
@@ -263,8 +269,6 @@ class ArchipackBoolManager(ArchipackObjectsManager):
         self._init_bounding_box(wall)
 
         # either generate hole or get existing one
-
-
         for o in self.get_scene_objects(context):
             # filter holes found in wall bounding box
             if o.type == 'MESH' and self._contains(o):
@@ -303,18 +307,7 @@ class ArchipackBoolManager(ArchipackObjectsManager):
 
         bpy.ops.object.select_all(action='DESELECT')
         # parenting childs to wall reference point
-        """
-        if wall.parent is None:
-            x, y, z = wall.bound_box[0]
-            context.scene.cursor_location = wall.matrix_world * Vector((x, y, z))
-            # fix issue #9
-            self.select_object(context, wall, True)
-            bpy.ops.archipack.reference_point()
-        else:
-            self.show_object(wall.parent)
-            wall.parent.hide_select = False
-            self.select_object(context, wall.parent, True)
-        """
+
         self.select_object(context, wall, True)
         for o in childs:
             # parent archipack_custom
@@ -327,9 +320,6 @@ class ArchipackBoolManager(ArchipackObjectsManager):
         
         bpy.ops.archipack.add_reference_point()
         
-        # if bpy.ops.archipack.parent_to_reference.poll():
-        #    bpy.ops.archipack.parent_to_reference()
-
         for o in childs:
             if "archipack_hole" in o or "archipack_hybridhole" in o:
                 o.hide_select = True
@@ -409,7 +399,8 @@ class ARCHIPACK_OT_single_boolean(ArchipackObjectsManager, Operator):
         w = context.active_object
         return (w.data is not None and
             ("archipack_wall2" in w.data or
-            "archipack_wall" in w.data) and
+            "archipack_wall" in w.data or 
+            "archipack_custom_wall" in w) and
             len(context.selected_objects) == 2
             )
 
@@ -496,40 +487,83 @@ class ARCHIPACK_OT_custom_hole(ArchipackObjectsManager, Operator):
     bl_description = "Make active object a hole for autoboolean"
     bl_category = 'Archipack'
     bl_options = {'REGISTER', 'UNDO'}
-    remove = BoolProperty(name="Clear hole parameter", default=False)
-
+    
     @classmethod
     def poll(self, context):
         o = context.active_object
         return (o is not None and
-            o.type == 'MESH' and
+            o.type == 'MESH' and 
+            "archipack_custom_hole" not in o and
             not ArchipackBoolManager.filter_wall(None, o))
 
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
-            if self.remove:
-                if "archipack_custom_hole" in o:
-                    del o["archipack_custom_hole"]
-                    o.draw_type = 'TEXTURED'
-                    for hole in self.get_scene_objects(context):
-                        if "archipack_hybridhole" in hole:
-                            for m in hole.modifiers:
-                                if m.object == o:
-                                    m.object = None
-                                    hole.modifiers.remove(m)
-            else:
-                o["archipack_custom_hole"] = 1
-                o.draw_type = 'WIRE'
-                manager = ArchipackBoolManager()
-                manager._init_bounding_box(o)
-                walls = [wall for wall in self.get_scene_objects(context)
-                    if manager.filter_wall(wall) and manager._contains(wall)]
-                for wall in walls:
-                    self.select_object(context, wall, True)
-                    bpy.ops.archipack.auto_boolean()
-                    self.unselect_object(wall)
-                self.select_object(context, o, True)
+            o["archipack_custom_hole"] = 1
+            o.draw_type = 'WIRE'
+            manager = ArchipackBoolManager()
+            manager._init_bounding_box(o)
+            walls = [wall for wall in self.get_scene_objects(context)
+                if manager.filter_wall(wall) and manager._contains(wall)]
+            for wall in walls:
+                self.select_object(context, wall)
+                
+            bpy.ops.archipack.auto_boolean()
+            
+            for wall in walls: 
+                self.unselect_object(wall)
+            self.select_object(context, o, True)
+
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+
+            
+class ARCHIPACK_OT_custom_hole_remove(ArchipackObjectsManager, Operator):
+    bl_idname = "archipack.custom_hole_remove"
+    bl_label = "Custom hole"
+    bl_description = "Remove hole params from active object"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(self, context):
+        o = context.active_object
+        return (o is not None and
+            o.type == 'MESH' and 
+            "archipack_custom_hole" in o)
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            o = context.active_object
+            del o["archipack_custom_hole"]
+            o.draw_type = 'TEXTURED'
+            o.hide_render = False
+            
+            holes = {}
+            objs = self.get_scene_objects(context)
+            for hole in objs:
+                if "archipack_hybridhole" in hole:
+                    for m in hole.modifiers:
+                        if m.object == o:
+                            m.object = None
+                            hole.modifiers.remove(m)
+                            holes[hole.name] = hole
+                            
+            manager = ArchipackBoolManager()
+            manager._init_bounding_box(o)
+            walls = [wall for wall in objs
+                if manager.filter_wall(wall) and manager._contains(wall)]
+                
+            # find target wall(s) and cleanup
+            for wall in walls:
+                for m in wall.modifiers:
+                    if m.type == 'BOOLEAN' and m.object and m.object.name in holes:
+                        self.select_object(context, wall, True)
+                        bpy.ops.archipack.auto_boolean()
+                self.unselect_object(wall)
+            self.select_object(context, o, True)
 
             return {'FINISHED'}
         else:
@@ -577,7 +611,10 @@ class ARCHIPACK_OT_apply_holes(ArchipackObjectsManager, Operator):
             self.get_boolobjects(o, to_remove)
 
         for o in objects:
-            if o.data is not None and ("archipack_wall2" in o.data or "archipack_wall" in o.data):
+            if o.data is not None and (
+                "archipack_wall2" in o.data or 
+                "archipack_wall" in o.data or 
+                "archipack_custom_wall" in o):
                 self.modifiers_apply(context, o)
 
         bpy.ops.object.select_all(action="DESELECT")
@@ -607,6 +644,7 @@ def register():
     bpy.utils.register_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.register_class(ARCHIPACK_OT_auto_boolean)
     bpy.utils.register_class(ARCHIPACK_OT_custom_hole)
+    bpy.utils.register_class(ARCHIPACK_OT_custom_hole_remove)
     bpy.utils.register_class(ARCHIPACK_OT_apply_holes)
 
 
@@ -615,4 +653,5 @@ def unregister():
     bpy.utils.unregister_class(ARCHIPACK_OT_single_boolean)
     bpy.utils.unregister_class(ARCHIPACK_OT_auto_boolean)
     bpy.utils.unregister_class(ARCHIPACK_OT_custom_hole)
+    bpy.utils.unregister_class(ARCHIPACK_OT_custom_hole_remove)
     bpy.utils.unregister_class(ARCHIPACK_OT_apply_holes)

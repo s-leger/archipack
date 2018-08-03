@@ -29,7 +29,7 @@ import logging
 logger = logging.getLogger("archipack_bmesh")
 import bpy
 import bmesh
-from .archipack_object import ArchipackObjectsManager
+from .archipack_object import objman
 
 
 class BmeshEdit():
@@ -45,10 +45,12 @@ class BmeshEdit():
         """
             private, start bmesh editing of active object
         """
-        ArchipackObjectsManager.select_object(None, context, o, True)
-        bpy.ops.object.mode_set(mode='EDIT')
-        bm = bmesh.from_edit_mesh(o.data)
+        objman.select_object(context, o, True)
+        # bpy.ops.object.mode_set(mode='EDIT')
+        # bm = bmesh.from_edit_mesh(o.data)
         # BmeshEdit.ensure_bmesh(bm)
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
         return bm
     
     @staticmethod
@@ -106,9 +108,10 @@ class BmeshEdit():
             private, end bmesh editing of active object
         """
         bm.normal_update()
-        bmesh.update_edit_mesh(o.data, True)
-        bpy.ops.object.mode_set(mode='OBJECT')
-        bm.free()
+        bm.to_mesh(o.data)
+        # bmesh.update_edit_mesh(o.data, True)
+        # bpy.ops.object.mode_set(mode='OBJECT')
+        # bm.free()
 
     @staticmethod
     def _matids(bm, matids):
@@ -151,8 +154,8 @@ class BmeshEdit():
         if o is not None:
             # ensure object is visible 
             # otherwhise it is not editable
-            vis_state = ArchipackObjectsManager.is_visible(None, o)
-            ArchipackObjectsManager.show_object(None, o)
+            vis_state = objman.is_visible(o)
+            objman.show_object(o)
             
         if temporary:
             bm = bmesh.new()
@@ -218,7 +221,7 @@ class BmeshEdit():
         logger.debug("BmeshEdit.buildmesh() mesh ops :%.2f seconds", time.time() - tim)
         
         if o is not None and not vis_state:
-            ArchipackObjectsManager.hide_object(None, o)
+            objman.hide_object(o)
                
     @staticmethod
     def addmesh(context, o, verts, faces, matids=None, uvs=None, weld=False, clean=False, auto_smooth=True):

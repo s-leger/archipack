@@ -201,26 +201,25 @@ def SVG_dimension(itM, dimension, scale, style):
     return SvgGroup("{}".format(dimension.name), components)
 
 
-def SVG_wall_childs(context, itM, wall, scale, styles, openings, dimensions):
+def SVG_wall_childs(context, itM, wall, scale, styles, openings, dimensions, skip):
 
     wd = wall.data.archipack_wall2[0]
+    for child in wd.reloc_childs:
+        c, d = child.get_child(context)
+        if "archipack_wall2" in c.data:
+            SVG_wall_childs(context, itM, c, scale, styles, openings, dimensions, skip)
+    
     # windows / doors
     for child in wd.childs:
         c, d = child.get_child(context)
-        if d is None:
-            if "archipack_wall2" in c.data:
-                SVG_wall_childs(context, itM, c, scale, styles, openings, dimensions)
-        else:
-            symbol = d.as_2d(context, c)
-            # add window in her own group, let separate curves so panels fill override frame
-            openings.append(SVG_blenderCurve(itM, symbol, styles['openings'], [], as_group=True))
-            objman.delete_object(context, symbol)
-            # window / door dimensions
-            for child in c.children:
-                d = child.data
-                if d:
-                    if "archipack_dimension_auto" in d:
-                        dimensions.append(SVG_dimension(itM, child, scale, styles['dim']))
+        if d is not None:
+            if c.name not in skip:
+                skip[c.name] = True
+                symbol = d.as_2d(context, c)
+                # add window in her own group, let separate curves so panels fill override frame
+                openings.append(SVG_blenderCurve(itM, symbol, styles['openings'], [], as_group=True))
+                objman.delete_object(context, symbol)
+                
     # wall dimensions
     for child in wall.children:
         d = child.data
@@ -253,7 +252,8 @@ def SVG_wall(context, itM, wall, scale, styles):
         objman.delete_object(context, f)
 
     # windows / doors
-    SVG_wall_childs(context, itM, wall, scale, styles, openings, dimensions)
+    skip = {}
+    SVG_wall_childs(context, itM, wall, scale, styles, openings, dimensions, skip)
 
     parts.append(SvgGroup("{}-openings".format(wall.name), openings))
     parts.append(SvgGroup("{}-dimensions".format(wall.name), dimensions))

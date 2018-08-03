@@ -106,3 +106,38 @@ class Keymaps:
         file = open(filename, "w")
         file.write(str)
         file.close()
+
+        
+        
+class EventHandler():
+    """
+     A class to provide reliable event handling through
+     well defined events handling user preferences
+     
+     event structure 
+     {alt: ctrl: shift: type: value:}
+     events type:
+     SELECT
+     
+    """
+    def is_select_event(self, context, evt):
+        """
+         Identify select event 
+        """
+        if context.user_preferences.inputs.select_mouse == 'LEFT':
+            typ = 'LEFTMOUSE'
+        else:
+            typ = 'RIGHTMOUSE'
+            
+        return event.type == typ and event.value == 'PRESS'
+    
+    def is_drag_event(self, context, evt):
+        pass
+    
+    def handle_event(self, context, evt):
+        if evt.type == 'NONE':
+            return evt
+        pass
+        
+        
+    

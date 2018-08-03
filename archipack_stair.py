@@ -36,7 +36,7 @@ from .bmesh_utils import BmeshEdit as bmed
 from .panel import Panel as Lofter
 from mathutils import Vector, Matrix
 from math import sin, cos, pi, floor, acos, atan2, degrees
-from .archipack_manipulator import Manipulable, archipack_manipulator
+from .archipack_manipulator import Manipulable, archipack_manipulator, empty_stack
 from .archipack_2d import Line, Arc
 from .archipack_gl import GlText
 from .archipack_preset import ArchipackPreset, PresetMenuOperator
@@ -250,7 +250,7 @@ class Stair():
         z, s = part.proj_z(t, dz0, next, dz1)
         v_z = s * Vector((-xy.y * z.x, xy.x * z.x, z.y))
         x, y = part.lerp(t)
-        verts += [Vector((x, y, z0)) + v.x * v_xy + v.y * v_z for v in profile]
+        verts.extend([Vector((x, y, z0)) + v.x * v_xy + v.y * v_z for v in profile])
 
     def project_uv(self, rM, uvs, verts, indexes, up_axis='Z'):
         if up_axis == 'Z':
@@ -1315,8 +1315,13 @@ class StairGenerator():
         self.set_height(height / n_steps)
         l_posts = []
         n_stairs = len(self.stairs) - 1
-
+        # no section on small stairs
+        if self.stairs[-1].length < 0.1:
+            n_stairs -= 1
+            
         for s, stair in enumerate(self.stairs):
+            if s > n_stairs:
+                continue
             if type(stair).__name__ in ['CurvedStair', 'CurvedLanding']:
                 stair.l_arc, stair.l_t0, stair.l_t1, stair.l_tc = stair.set_offset(move_x - x_offset, stair.l_shape)
                 stair.r_arc, stair.r_t0, stair.r_t1, stair.r_tc = stair.set_offset(move_x + x_offset, stair.r_shape)
@@ -1460,7 +1465,11 @@ class StairGenerator():
         self.set_height(height / n_steps)
 
         n_stairs = len(self.stairs) - 1
-
+        
+        # no section on small stairs fix issue #42
+        if self.stairs[-1].length < 0.1:
+            n_stairs -= 1
+        
         if n_stairs < 0:
             return
 
@@ -1473,6 +1482,10 @@ class StairGenerator():
             self.stairs[0].get_lerp_vect(sections[-1], side, 1, t, True)
 
         for s, stair in enumerate(self.stairs):
+            
+            if s > n_stairs:
+                continue
+                
             n_step = 1
             is_circle = False
 
@@ -1536,19 +1549,21 @@ class StairGenerator():
                         t = -extend / self.stairs[s + 1].length
                         self.stairs[s + 1].get_lerp_vect(sections[-1], side, 1, t, True)
 
-        t = 1 + extend / self.stairs[-1].length
-        self.stairs[-1].get_lerp_vect(sections[-1], side, 1, t, True)
+        t = 1 + extend / self.stairs[n_stairs].length
+        self.stairs[n_stairs].get_lerp_vect(sections[-1], side, 1, t, True)
 
         for cur_sect in sections:
             user_path_verts = len(cur_sect)
             f = len(verts)
             if user_path_verts > 0:
                 user_path_uv_v = []
-                n, dz, z0, z1 = cur_sect[-1]
-                cur_sect[-1] = (n, dz, z0 - stair.step_height, z1)
+                n, dz, z0, zl = cur_sect[-1]
+                cur_sect[-1] = (n, dz, z0 - stair.step_height, zl)
                 n_sections = user_path_verts - 1
                 n, dz, zs, zl = cur_sect[0]
+                z0 = zl
                 p0 = n.p
+                p_0 = n.p
                 v0 = n.v.normalized()
                 for s, section in enumerate(cur_sect):
                     n, dz, zs, zl = section
@@ -1557,16 +1572,20 @@ class StairGenerator():
                         v1 = cur_sect[s + 1][0].v.normalized()
                     dir = (v0 + v1).normalized()
                     scale = 1 / cos(0.5 * acos(min(1, max(-1, v0 * v1))))
+                    # Ensure delta_z < 5 * length
+                    
                     for p in profile:
                         x, y = n.p + scale * p.x * dir
                         z = zl + p.y + z_offset
                         verts.append((x, y, z))
                     if s > 0:
                         user_path_uv_v.append((p1 - p0).length)
-                    p0 = p1
+                        
+                    p_0 = p1
                     v0 = v1
-
-                if not mode_2d:
+                    z0 = zl
+                
+                if not mode_2d and user_path_verts > 1:
                     # build faces using Panel
                     lofter = Lofter(
                         # closed_shape, index, x, y, idmat
@@ -3140,13 +3159,14 @@ class ARCHIPACK_OT_stair_to_curve(ArchipackObjectsManager, Operator):
         layout.prop(self, 'mode')
         if self.mode in {'FENCE', 'HOLE'}:
             layout.prop(self, 'min_space')
-
+    
     def execute(self, context):
         if context.mode == "OBJECT":
             o = context.active_object
             d = archipack_stair.datablock(o)
             if d is None:
                 return {'CANCELLED'}
+            bpy.ops.archipack.disable_manipulate()
             io, geom = d.as_geom(context, o, mode=self.mode, min_space=self.min_space)
             bpy.ops.object.select_all(action="DESELECT")
             res = io._to_curve(geom, "{}-{}".format(o.name, self.mode.lower()), '3D')

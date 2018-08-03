@@ -163,14 +163,23 @@ class ArchipackCurveManager():
             else:
                 pts.append(wM * points[-1].co)
 
-        # pts = [p for i, p in enumerate(pts) if i == 0 or pts[i - 1] != p]
-
         if ccw or cw:
             is_cw = self.is_cw(pts)
             if (ccw and is_cw) or (cw and not is_cw):
                 pts = list(reversed(pts))
 
-        return pts
+        if len(pts) < 1:
+            return []
+
+        # skip duplicate points using arbitrary set distance threshold
+        # to handle precision issues
+        new_pts = [pts[0]]
+        for p in pts:
+            if (p - new_pts[-1]).length < 0.0001:
+                continue
+            new_pts.append(p)
+
+        return new_pts
 
 
 def update_path(self, context):
@@ -254,10 +263,28 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
         # p is in o coordsys
         if o.parent:
             o.location = p * o.parent.matrix_world.inverted()
+            o.matrix_world.translation = p
+            """
+            # Update linked objects location too
+            act = context.active_object
+            sel = context.selected_objects[:]
+            bpy.ops.object.select_all(action="DESELECT")
+            self.select_object(context, o, True)
+            bpy.ops.object.select_linked()
+            self.unselect_object(o)
+            for c in context.selected_objects:
+                c.location = p * c.parent.matrix_world.inverted()
+                c.matrix_world.translation = p
+            bpy.ops.object.select_all(action="DESELECT")
+
+            # restore selection and active
+            for o in sel:
+                self.select_object(context, o)
+            self.select_object(context, act, True)
+            """
         else:
             o.location = p
-        # update matrix_world by hand
-        o.matrix_world.translation = p
+            o.matrix_world.translation = p
 
     def from_points(self, pts):
         """
@@ -273,6 +300,7 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
                 break
             dp = p1 - p0
             da = atan2(dp.y, dp.x) - a0
+            # keep da in range -180 | +180 degree
             if da > pi:
                 da -= 2 * pi
             if da < -pi:
@@ -283,6 +311,11 @@ class ArchipackUserDefinedPath(ArchipackCurveManager):
             p.dz = dp.z
             p.a0 = da
             a0 += da
+            # keep a0 in range -180 | +180 degree
+            if a0 > pi:
+                a0 -= 2 * pi
+            if a0 < -pi:
+                a0 += 2 * pi
             p0 = p1
 
     def relocate_childs(self, context, o):

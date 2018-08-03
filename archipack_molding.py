@@ -562,7 +562,7 @@ class ARCHIPACK_OT_molding_from_wall(ArchipackCreateTool, Operator):
         """
         tim = time.time()
         # wall is either a single or collection of polygons
-        io, wall, childs = wd.as_geom(context, w, 'FLOOR_MOLDINGS', [], [], [])
+        io, wall, childs = wd.as_geom(context, w, 'FLOORS_MOLDINGS', [], [], [])
         logger.debug("molding_from_wall wd.as_geom :%.4f seconds", time.time() - tim)
 
         # find slab holes if any

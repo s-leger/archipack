@@ -2703,7 +2703,7 @@ class archipack_kitchen(ArchipackObject, Manipulable, DimensionProvider, Propert
                 dx += max(cab_depth + s_left, cab.x) + board_right
                 loc = tM * Vector((dx, 0, dz))
             elif cab_type in {3, 7}:
-                # Corner 45
+            # Corner 45
                 a += pi / 2
                 dx += max(cab_depth + max(0, cab.dy), cab.x)
                 dy -= max(cab_depth + max(0, cab.dy), cab.x) + board_right

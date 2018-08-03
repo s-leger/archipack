@@ -63,6 +63,7 @@ layer_map = {
     "profile":17,
     "dimension_auto":18,
     "section":18,
+    "section_target":18,
     "layout":18,
     "hole":19,
     "hybridhole":19,
@@ -100,6 +101,7 @@ layer_names = {
     "roof_cutter":"Roofs",
     "dimension_auto":"2d",
     "section":"2d",
+    "section_target":"2d",
     "layout":"2d",
     "profile":"Profile",
     "hole":"Holes",
@@ -180,7 +182,7 @@ class ArchipackLayerManager_27():
         o.layers[:] = put_on_layers(layers)        
         logger.debug("add_to_layer() :%.4f seconds", time.time() - tim)
         
- 
+    
 class ArchipackLayerManager_28():
     
     """
@@ -221,8 +223,8 @@ class ArchipackLayerManager_28():
             collection_name = self.collection_by_name(context, "All")
             if 20 > index > -1:
                 o.layers[index] = True
-                
-
+    
+       
 class ArchipackObjectsManagerBase():
 
     def _cleanup_datablock(self, d, typ):
@@ -262,7 +264,7 @@ class ArchipackObjectsManagerBase():
                 new_o.data = o.data
             else:
                 new_o.data = o.data.copy()
-        self.link_object_to_scene(new_o)
+        self.link_object_to_scene(context, new_o)
         return new_o
 
     def _duplicate_childs(self, context, o, linked):
@@ -369,10 +371,10 @@ class ArchipackObjectsManager_27(ArchipackLayerManager_27, ArchipackObjectsManag
             o.select = True
             if active:
                 context.scene.objects.active = o
-
+            
     def unselect_object(self, o):
         o.select = False
-
+        
     def link_object_to_scene(self, context, o, layer_name=None, default_layer=False):
         tim = time.time()
         context.scene.objects.link(o)
@@ -424,7 +426,7 @@ class ArchipackObjectsManager_28(ArchipackLayerManager_28, ArchipackObjectsManag
          Select object and optionnaly make active
         """
         if o is not None:
-            act = context.active_object
+            act = context.object
             o.select_set(action='SELECT')
             if act is not None and not active:
                 # reselect active object so it remains active one
@@ -447,11 +449,8 @@ class ArchipackObjectsManager_28(ArchipackLayerManager_28, ArchipackObjectsManag
         return o.select_get()
 
     def hide_object(self, o):
-        pass
-        # use collection hide instead
-        # o.visible_set()
-
+        o.hide_viewport = True
+        
     def show_object(self, o):
-        pass
-        # use collection hide instead
-        # o.hide = False
+        o.hide_viewport = False
+        

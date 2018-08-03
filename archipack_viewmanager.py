@@ -67,7 +67,7 @@ class ViewManager():
     
     def safe_ortho_view(self, radius, location):
         """
-         Set view projection so it is able to handle knife project
+            Set view projection so it is able to handle knife project
          Knife project work best in ortho oblique view
          Center view on target, set distance and
          optimize view clip so whole target is visible

@@ -47,6 +47,12 @@ class IconsCollectionManager(dict):
     """
      Global icons management for archipack ui and presets
      Handle icons for ui
+     Provide 
+      - loading icon from folder 
+      - reload single icon after change
+      - remove icon / category
+      - new icons loading after render
+      - watch for icon changes on folder
      Icons for presets:
       - Icons for gl menuitems
       - Icons for dynamic enum for use in template_icon_view

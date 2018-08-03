@@ -293,23 +293,30 @@ class GlBaseLine(Gl):
         """
 
         # print("draw_line %s" % (type(self).__name__))
+        # not in 2.8
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         if self.style == bgl.GL_LINE_STIPPLE:
+            # not in 2.8
             bgl.glLineStipple(1, 0x9999)
         bgl.glEnable(self.style)
         bgl.glEnable(bgl.GL_BLEND)
         if render:
             # enable anti-alias on lines
             bgl.glEnable(bgl.GL_LINE_SMOOTH)
+        # not in 2.8
         bgl.glColor4f(*self.colour)
+        
         bgl.glLineWidth(self.width)
         if self.closed:
+            # not in 2.8
             bgl.glBegin(bgl.GL_LINE_LOOP)
         else:
+            # not in 2.8
             bgl.glBegin(bgl.GL_LINE_STRIP)
 
         for pt in self.pts:
             p = self.position_2d_from_coord(context, pt, render)
+            # not in 2.8
             bgl.glVertex2f(p.x, p.y)
         self._end()
 
@@ -630,7 +637,7 @@ class GlImage(Gl):
     def __init__(self,
         d=2,
         image=None):
-        # GImage bindcode[0]
+        # GImage bindcode[0] -> Buffer adress
         self.image = image
         self.colour_inactive = (1, 1, 1, 1)
         Gl.__init__(self, d)

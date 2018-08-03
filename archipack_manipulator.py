@@ -2851,7 +2851,7 @@ class ARCHIPACK_OT_manipulate(ArchipackGenericOperator, Operator):
     bl_idname = "archipack.manipulate"
     bl_label = "Manipulate"
     bl_description = "Manipulate archipack objects (only work in object mode)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER'} #, 'UNDO'
 
     def invoke(self, context, event):
         o = context.active_object
@@ -2867,7 +2867,7 @@ class ARCHIPACK_OT_manipulate_modal(Operator):
     bl_idname = "archipack.manipulate_modal"
     bl_label = "Manipulate"
     bl_description = "Manipulate"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+    bl_options = {'REGISTER', 'INTERNAL'}
 
     object_name = StringProperty(default="")
 
@@ -2920,7 +2920,7 @@ class ARCHIPACK_OT_manipulate_modal(Operator):
             self.exit_selectmode(context, key)
             remove_manipulable(key)
             # print("modal exit by {FINISHED}")
-
+            
         return res
 
     def invoke(self, context, event):
@@ -2936,7 +2936,7 @@ class ARCHIPACK_OT_disable_manipulate(Operator):
     bl_idname = "archipack.disable_manipulate"
     bl_label = "Disable Manipulate"
     bl_description = "Disable any active manipulator"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER'} #, 'UNDO'
 
     @classmethod
     def poll(self, context):

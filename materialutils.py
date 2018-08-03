@@ -27,8 +27,29 @@
 import bpy
 
 
-class MaterialUtils():
+"""
+    Materials :
+    name :
+        object_set_part
+        - prefix: object class based name
+        - material set name
+        - suffix: object part name
+    
+    store on object:
+        - prefix: not exposed
+        - set name    
+"""
 
+      
+        
+class MaterialUtils():
+    
+    @property
+    def wall2(cls):
+        return ["DEFAULT"]
+    
+    
+    
     @staticmethod
     def build_default_mat(name, color=(1.0, 1.0, 1.0)):
         midx = bpy.data.materials.find(name)
@@ -138,12 +159,12 @@ class MaterialUtils():
         alt2_mat = MaterialUtils.build_default_mat('Roof_eaves', (0.28, 0.2, 0.1))
         alt3_mat = MaterialUtils.build_default_mat('Roof_ridge', (0.28, 0.2, 0.1))
         alt4_mat = MaterialUtils.build_default_mat('Roof_rafter', (0.28, 0.2, 0.1))
-        alt5_mat = MaterialUtils.build_default_mat('Roof_hip_tiles', (0.191, 0.108, 0.1))
-        alt6_mat = MaterialUtils.build_default_mat('Roof_tiles', (0.191, 0.108, 0.1))
-        alt7_mat = MaterialUtils.build_default_mat('Roof_alt7', (0.5, 1.0, 0.5))
-        alt8_mat = MaterialUtils.build_default_mat('Roof_alt8', (1.0, 0.2, 1.0))
-        alt9_mat = MaterialUtils.build_default_mat('Roof_alt9', (0.28, 0.2, 0.5))
-        alt10_mat = MaterialUtils.build_default_mat('Roof_alt10', (0.5, 0.2, 0.1))
+        alt5_mat = MaterialUtils.build_default_mat('Roof_valley', (0.1505, 0.0203, 0.0203))
+        alt6_mat = MaterialUtils.build_default_mat('Roof_hip_tiles', (0.206, 0.063, 0.063))
+        alt7_mat = MaterialUtils.build_default_mat('Roof_tiles', (0.206, 0.063, 0.063))
+        alt8_mat = MaterialUtils.build_default_mat('Roof_alt8', (0.149, 0.047, 0.047))
+        alt9_mat = MaterialUtils.build_default_mat('Roof_alt9', (0.259, 0.077, 0.077))
+        alt10_mat = MaterialUtils.build_default_mat('Roof_alt10', (0.186, 0.057, 0.057))
         obj.data.materials.append(con_mat)
         obj.data.materials.append(alt1_mat)
         obj.data.materials.append(alt2_mat)

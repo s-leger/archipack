@@ -42,6 +42,9 @@ else:
     from .archipack_abstraction import ArchipackObjectsManager_27 as ArchipackObjectsManager
 
 
+objman = ArchipackObjectsManager()  
+    
+    
 import logging
 logger = logging.getLogger("archipack")
 
@@ -136,12 +139,12 @@ class ArchipackObject(ArchipackObjectsManager):
         """
         res = False
         try:
-            res = cls.__name__ in o.data
+            res = cls.__name__ in o.data and getattr(o.data, cls.__name__)[0]
         except:
             pass
         if not res:
             try:
-                res = cls.__name__ in o
+                res = cls.__name__ in o and getattr(o, cls.__name__)[0]
             except:
                 pass
         return res
@@ -195,19 +198,27 @@ class ArchipackObject(ArchipackObjectsManager):
             provide support for "copy to selected"
             return
             object or None when instance not found in selected objects
+            
+            context.active_object is None when object's layer is hidden
+            context.object does work in any case
         """
         if auto_update is False:
             return None
 
-        active = context.active_object
+        active = context.object
         selected = context.selected_objects[:]
-
+        
+        if self.__class__.datablock(active) == self:
+            self.previously_selected = selected
+            self.previously_active = active
+            return active
+        
         for o in selected:
             if self.__class__.datablock(o) == self:
                 self.previously_selected = selected
                 self.previously_active = active
                 return o
-
+        
         return None
 
     def restore_context(self, context):
@@ -411,7 +422,9 @@ class ArchipackDrawTool(ArchipackObjectsManager):
                     [0, 0, 0, 1]
                     ]), o, d.width, y, d.z_offset
 
-            elif 'archipack_wall' in o.data:
+            elif ('archipack_wall' in o.data or 
+                'archipack_custom_wall' in o):
+                
                 # one point on the oposite to raycast side (1 unit inside)
                 # @TODO: estimate the needed width - increase and re-cast when nothing is found
                 #        within a limit of n iterations so single sided walls wont make it fail

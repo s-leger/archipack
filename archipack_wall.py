@@ -119,6 +119,7 @@ class ARCHIPACK_OT_wall(Operator, ArchipackCreateTool):
         o = context.active_object
         return (o is not None and 
             o.type == 'MESH' and 
+            not archipack_wall.filter(o) and
             "archipack_wall2" not in o.data and 
             "archipack_custom_hole" not in o)
 
@@ -142,12 +143,79 @@ class ARCHIPACK_OT_wall(Operator, ArchipackCreateTool):
             self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
             return {'CANCELLED'}
 
+            
+class ARCHIPACK_OT_custom_wall(Operator, ArchipackCreateTool):
+    bl_idname = "archipack.custom_wall"
+    bl_label = "Wall"
+    bl_description = "Add wall parameters to active object to draw windows and doors and use autoboolean"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        o = context.active_object
+        return (o is not None and o.type == 'MESH' and (
+                "archipack_custom_wall" not in o and
+                "archipack_custom_hole" not in o and 
+                "archipack_wall" not in o.data and
+                "archipack_wall2" not in o.data
+            ))
 
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Use Properties panel (N) to define parms", icon='INFO')
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            o = context.active_object
+            o['archipack_custom_wall'] = True
+            bpy.ops.archipack.auto_boolean()
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+            
+            
+class ARCHIPACK_OT_custom_wall_remove(Operator, ArchipackCreateTool):
+    bl_idname = "archipack.custom_wall_remove"
+    bl_label = "Wall"
+    bl_description = "Remove wall parameters from active object"
+    bl_category = 'Archipack'
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        o = context.active_object
+        return o is not None and 'archipack_custom_wall' in o
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.label("Use Properties panel (N) to define parms", icon='INFO')
+
+    def execute(self, context):
+        if context.mode == "OBJECT":
+            o = context.active_object
+            del o['archipack_custom_wall']
+            for m in o.modifiers:
+                if m.type == 'BOOLEAN':
+                    if m.object is not None:
+                        self.delete_object(context, m.object)
+                    o.modifiers.remove(m)
+            return {'FINISHED'}
+        else:
+            self.report({'WARNING'}, "Archipack: Option only valid in Object mode")
+            return {'CANCELLED'}
+            
+            
 def register():
     bpy.utils.register_class(archipack_wall)
     Mesh.archipack_wall = CollectionProperty(type=archipack_wall)
     bpy.utils.register_class(ARCHIPACK_PT_wall)
     bpy.utils.register_class(ARCHIPACK_OT_wall)
+    bpy.utils.register_class(ARCHIPACK_OT_custom_wall)
+    bpy.utils.register_class(ARCHIPACK_OT_custom_wall_remove)
 
 
 def unregister():
@@ -155,3 +223,5 @@ def unregister():
     del Mesh.archipack_wall
     bpy.utils.unregister_class(ARCHIPACK_PT_wall)
     bpy.utils.unregister_class(ARCHIPACK_OT_wall)
+    bpy.utils.unregister_class(ARCHIPACK_OT_custom_wall)
+    bpy.utils.unregister_class(ARCHIPACK_OT_custom_wall_remove)

@@ -1303,7 +1303,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             side_cap_front=1,     # cap index
             side_cap_back=0
             )
-
+    
     @property
     def frame(self):
         # profil cadre
@@ -1554,12 +1554,11 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
                     randomize=True,
                     auto_manipulate=False
                     )
-                blind = context.active_object
+                blind = context.object
                 blind.parent = o
-                blind.select = False
+                self.select_object(context, blind, True)
             else:
-                blind.select = True
-                context.scene.objects.active = blind
+                self.select_object(context, blind, True)
                 d = blind.data.archipack_blind[0]
                 if (d.x != x or
                         d.z != z or
@@ -1571,7 +1570,8 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
                     d.offset_y = y
                     d.altitude = a
                     d.auto_update = True
-                blind.select = False
+                    
+                self.unselect_object(blind)
 
             if inside:
                 tM = Matrix([
@@ -1592,7 +1592,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         else:
             self.delete_object(context, blind)
 
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
 
     def find_portal(self, o):
         for child in o.children:
@@ -1627,7 +1627,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
         else:
             self.delete_object(context, lamp)
 
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
     
     def get_generator(self, o=None):
         return OpeningGenerator(self, o)
@@ -2273,10 +2273,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             self.link_object_to_scene(context, hole_obj)
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-        else:
-            # must ensure the hole layer is visible
-            self.add_to_layer(context, hole_obj)
-            
+        
         hole = self.hole
         center, origin, size, radius = self.get_radius(self._x, self._z)
         x0 = 0
@@ -2407,7 +2404,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             return [(-x, -y, 0), (-x, y, 0), (x, y, 0), (x, -y, 0), (-x, -y, 0)]
 
         center, origin, size, radius = self.get_radius(self._x, self._z)
-        if mode == 'FLOORS':
+        if mode in {'FLOORS', 'FLOORS_CHILD'}  :
             coords = self.inside_hole.as_2d(self.curve_steps,
                 Vector((0, 0, 0)),
                 center, origin, size, radius,
@@ -2685,22 +2682,34 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
         self.add_material(o)
         self.load_preset(d)
         # select frame
-        o.select = True
-        context.scene.objects.active = o
+        self.select_object(context, o, True)
         return o
 
     def delete(self, context):
-        o = context.active_object
-        if archipack_window.filter(o):
-            bpy.ops.archipack.disable_manipulate()
-            parent = o.parent
-            self.delete_object(context, o)
-            # synch wall dimensions when apply
-            if parent:
-                for c in parent.children:
-                    if c.data and "archipack_wall2" in c.data:
-                        c.data.archipack_wall2[0].synch_dimension(context, c)
-
+        wall2 = {}
+        walls = {}
+        bpy.ops.archipack.disable_manipulate()
+        sel = context.selected_objects[:]    
+        for o in sel:
+            if archipack_window.filter(o):
+                parent = o.parent
+                self.delete_object(context, o)
+                # synch wall dimensions when apply
+                if parent:
+                    for c in parent.children:
+                        if c.data and "archipack_wall2" in c.data:
+                            wall2[c.name] = (c, c.data.archipack_wall2[0])
+                            walls[c.name] = c
+                        if (c.data and "archipack_wall" in c.data or
+                            "archipack_custom_wall" in c):
+                            walls[c.name] = c
+        for c, d in wall2.values():
+            d.synch_dimension(context, c)
+        for c in walls.values():
+            self.select_object(context, c, True)
+            bpy.ops.archipack.auto_boolean()
+            self.unselect_object(c)
+            
     def update(self, context):
         o = context.active_object
         d = archipack_window.datablock(o)
@@ -2717,7 +2726,7 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
 
     def unique(self, context):
         act = context.active_object
-        sel = [o for o in context.selected_objects]
+        sel = context.selected_objects[:]
         bpy.ops.object.select_all(action="DESELECT")
         for o in sel:
             if archipack_window.filter(o):
@@ -2731,19 +2740,17 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
                             'archipack_window_shutter' in d or
                             'archipack_dimension' in d
                             )):
-                        # Not available in 2.8
                         child.hide_select = False
                         self.select_object(context, child)
-                        
                         # select text and handles too
                         for c in child.children:
                             self.select_object(context, c)
                             
-        if len(context.selected_objects) > 0:
+        if len(sel) > 0:
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True,
                 obdata=True, material=False, texture=False, animation=False)
-            # Not available in 2.8
-            for child in context.selected_objects:
+            
+            for child in sel:
                 if 'archipack_hole' in child:
                     child.hide_select = True
         
@@ -2804,7 +2811,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
 
         o = context.active_object
         bpy.ops.object.select_all(action="DESELECT")
-
+        """
         if archipack_window.filter(o):
 
             # select and make active
@@ -2834,8 +2841,9 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
             self.select_object(context, o, True)
 
         else:
-            bpy.ops.archipack.window(auto_manipulate=False, filepath=self.filepath)
-            o = context.active_object
+        """    
+        bpy.ops.archipack.window(auto_manipulate=False, filepath=self.filepath)
+        o = context.active_object
 
         self.object_name = o.name
 
@@ -2863,12 +2871,12 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
             to_hide.append(hole)
 
         for obj in to_hide:
-            self.hide_object(hole)
+            self.hide_object(obj)
 
         res, tM, wall, width, y, z_offset = self.mouse_hover_wall(context, event)
 
         for obj in to_hide:
-            self.show_object(hole)
+            self.show_object(obj)
             
         if res and d is not None:
             o.matrix_world = tM.copy()
@@ -2880,6 +2888,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
             if event.type in {'C'}:
                 bpy.ops.archipack.window(mode='DELETE')
                 self.feedback.disable()
+                context.space_data.show_manipulator = True
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
                 bpy.ops.archipack.window_preset_menu('INVOKE_DEFAULT', preset_operator="archipack.window_draw")
                 self.restore_walls(context)
@@ -2888,14 +2897,36 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
 
-                    print(wall.name)
                     self.select_object(context, wall, True)
                     if bpy.ops.archipack.single_boolean.poll():
                         bpy.ops.archipack.single_boolean()
                     self.unselect_object(wall)
+                    
                     # o must be a window here
                     if d is not None:
-                        context.scene.objects.active = o
+                    
+                        # Link if y does match
+                        # with last stacked one
+                        # unless shift pressed
+                        if len(self.stack) > 0 and not event.shift:
+                            last = self.stack[-1]
+                            d_last = last.data.archipack_window[0]
+                            if d_last.y == d.y:
+                                o.data = last.data
+                                for child in last.children:
+                                    if "archipack_hole" not in child:
+                                        new_c = child.copy()
+                                        new_c.data = child.data
+                                        new_c.parent = o
+                                        self.link_object_to_scene(context, new_c)
+                                        # dup handle if any
+                                        for c in child.children:
+                                            new_h = c.copy()
+                                            new_h.data = c.data
+                                            new_h.parent = new_c
+                                            self.link_object_to_scene(context, new_h)
+                                            
+                        self.select_object(context, o, True)
                         self.stack.append(o)
                         self.add_object(context, event)
                         context.active_object.matrix_world = tM
@@ -2919,6 +2950,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
             if event.type in {'ESC', 'RIGHTMOUSE'}:
                 bpy.ops.archipack.window(mode='DELETE')
                 self.feedback.disable()
+                context.space_data.show_manipulator = True
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
                 self.restore_walls(context)
                 return {'FINISHED'}
@@ -2936,8 +2968,11 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
             # invoke with shift pressed will use current object as basis for linked copy
             if self.filepath == '' and archipack_window.filter(context.active_object):
                 o = context.active_object
+            
             # hmm 2.8 ??
             context.scene.objects.active = None
+            
+            context.space_data.show_manipulator = False
             
             bpy.ops.object.select_all(action="DESELECT")
             self.select_object(context, o, True)

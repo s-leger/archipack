@@ -602,6 +602,13 @@ class ArchipackSegment():
          Return selected object this instance belongs to
          provide support for "copy to selected"
         """
+        active = context.active_object
+        d = self.get_datablock(active)
+        if d:
+            for idx, part in enumerate(d.parts):
+                if part == self:
+                    return idx, active, d
+    
         selected = context.selected_objects[:]
         for o in selected:
             d = self.get_datablock(o)

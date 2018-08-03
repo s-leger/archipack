@@ -271,7 +271,7 @@ class ArchipackSnapBase(ArchipackObjectsManager):
 class ARCHIPACK_OT_snap(ArchipackSnapBase, Operator):
     bl_idname = 'archipack.snap'
     bl_label = 'Archipack snap'
-    bl_options = {'UNDO'}
+    bl_options = {'INTERNAL'} #, 'UNDO'
 
     def modal(self, context, event):
         

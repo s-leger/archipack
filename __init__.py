@@ -31,7 +31,7 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': '',
-    'version': (1, 4, 0),
+    'version': (1, 4, 1),
     'blender': (2, 7, 8),
     'location': 'View3D > Tools > Create > Archipack',
     'warning': '',
@@ -789,11 +789,13 @@ class TOOLS_PT_Archipack_Create_Custom(Panel):
         # icons = icon_man["main"]
         layout = self.layout
         box = layout
-        box.operator("archipack.wall", text="Custom wall")
+        row = box.row(align=True)
+        row.operator("archipack.custom_wall", text="Custom wall")
+        row.operator("archipack.custom_wall_remove", text="", icon='X')
 
         row = box.row(align=True)
-        row.operator("archipack.custom_hole", text="Custom hole").remove = False
-        row.operator("archipack.custom_hole", text="", icon='X').remove = True
+        row.operator("archipack.custom_hole", text="Custom hole")
+        row.operator("archipack.custom_hole_remove", text="", icon='X')
 
         if prefs.experimental_features:
             box = layout

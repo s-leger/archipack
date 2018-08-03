@@ -791,6 +791,7 @@ class ConvexHull():
         """
         cleaned = []
         self.cleanRing(coords, cleaned)
+        
         if len(cleaned) == 3:
             cleaned = cleaned[0:2]
             cs = self.toCoordinateSequence(cleaned)

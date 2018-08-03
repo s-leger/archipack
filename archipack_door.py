@@ -1448,9 +1448,6 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
             self.link_object_to_scene(context, hole_obj)
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-        else:
-            # must ensure the hole layer is visible
-            self.add_to_layer(context, hole_obj)
             
         hole_obj.data.materials.clear()
         for mat in o.data.materials:
@@ -1799,17 +1796,32 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
         return o
 
     def delete(self, context):
-        o = context.active_object
-        if archipack_door.filter(o):
-            bpy.ops.archipack.disable_manipulate()
-            parent = o.parent
-            self.delete_object(context, o)
-            # synch wall dimensions when apply
-            if parent:
-                for c in parent.children:
-                    if c.data and "archipack_wall2" in c.data:
-                        c.data.archipack_wall2[0].synch_dimension(context, c)
-
+        walls = {}
+        wall2 = {}
+        bpy.ops.archipack.disable_manipulate()
+        sel = context.selected_objects[:]    
+        for o in sel:
+            if archipack_door.filter(o):
+                parent = o.parent
+                self.delete_object(context, o)
+                # synch wall dimensions when apply
+                if parent:
+                    for c in parent.children:
+                        if c.data and "archipack_wall2" in c.data:
+                            wall2[c.name] = (c, c.data.archipack_wall2[0])
+                            walls[c.name] = c
+                        if (c.data and "archipack_wall" in c.data or
+                            "archipack_custom_wall" in c):
+                            walls[c.name] = c
+        
+        for c, d in wall2.values():
+            d.synch_dimension(context, c)
+        
+        for c in walls.values():
+            self.select_object(context, c, True)
+            bpy.ops.archipack.auto_boolean()
+            self.unselect_object(c)
+            
     def update(self, context):
         o = context.active_object
         d = archipack_door.datablock(o)
@@ -1899,7 +1911,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
     def add_object(self, context, event):
         o = context.active_object
         bpy.ops.object.select_all(action="DESELECT")
-
+        """
         if archipack_door.filter(o):
 
             # select and make active
@@ -1931,8 +1943,9 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
             self.select_object(context, o, True)
 
         else:
-            bpy.ops.archipack.door(auto_manipulate=False, filepath=self.filepath)
-            o = context.active_object
+        """    
+        bpy.ops.archipack.door(auto_manipulate=False, filepath=self.filepath)
+        o = context.active_object
 
         self.object_name = o.name
 
@@ -1979,6 +1992,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
             if event.type in {'C'}:
                 bpy.ops.archipack.door(mode='DELETE')
                 self.feedback.disable()
+                context.space_data.show_manipulator = True
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
                 bpy.ops.archipack.door_preset_menu(
                     'INVOKE_DEFAULT',
@@ -1996,6 +2010,24 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
                     # o must be a door here
                     if d is not None:                        
                         # select and make active
+                        if len(self.stack) > 0 and not event.shift:
+                            last = self.stack[-1]
+                            d_last = last.data.archipack_door[0]
+                            if d_last.y == d.y:
+                                o.data = last.data
+                                for child in last.children:
+                                    if "archipack_hole" not in child:
+                                        new_c = child.copy()
+                                        new_c.data = child.data
+                                        new_c.parent = o
+                                        self.link_object_to_scene(context, new_c)
+                                        # dup handle if any
+                                        for c in child.children:
+                                            new_h = c.copy()
+                                            new_h.data = c.data
+                                            new_h.parent = new_c
+                                            self.link_object_to_scene(context, new_h)
+                        
                         self.select_object(context, o, True)
                         self.stack.append(o)
                         self.add_object(context, event)
@@ -2022,6 +2054,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
             if event.type in {'ESC', 'RIGHTMOUSE'}:
                 bpy.ops.archipack.door(mode='DELETE')
                 self.feedback.disable()
+                context.space_data.show_manipulator = True
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
                 self.restore_walls(context)
                 return {'FINISHED'}
@@ -2039,7 +2072,9 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
             # invoke with alt pressed will use current object as basis for linked copy
             if self.filepath == '' and archipack_door.filter(context.active_object):
                 o = context.active_object
+                
             context.scene.objects.active = None
+            context.space_data.show_manipulator = False
             bpy.ops.object.select_all(action="DESELECT")
             
             # select and make active
