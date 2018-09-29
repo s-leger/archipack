@@ -385,7 +385,7 @@ def update_t_part(self, context):
     if o is not None:
 
         # w is parent wall
-        w = context.scene.objects.get(self.t_part)
+        w = self.get_scene_object(context, self.t_part)
         wd = archipack_wall2.datablock(w)
 
         if wd is not None:
@@ -435,7 +435,7 @@ def update_t_part(self, context):
                                 c.hide_select = False
                                 self.select_object(context, c)
 
-            parent = context.active_object
+            parent = context.object
 
             dmax = 2 * wd.width
 
@@ -468,7 +468,7 @@ def update_t_part(self, context):
                 #  p0
 
                 # NOTE:
-                # rotation here is wrong when w has not parent while o has parent
+                # rotation here is wrong when w has no parent while o has parent
                 t_bound = wall.length / self.width
                 if res and t > -t_bound and t < 1 + t_bound and abs(dist) < dmax:
                     x = wrM * wall.straight(1, t).v
@@ -2977,7 +2977,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                     t_childs.append((c, d))
                     objs.append(c)
                     self.get_childs_openings(context, d, objs)
-     
+
     def determine_extend(self, context, coordsys, _factory, c, td, walls):
         """
          Perform neighboor analysis
@@ -3012,16 +3012,6 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
          Build 2d symbol of walls as pygeos entity for further processing
          cut windows and doors
          w, it = C.object.data.archipack_wall2[0].as_2d(C, C.object)
-         
-         
-         TODO:
-         Adopt fastest and strongest strategy for floors taking advantage or parent child with reference point
-         Generate walls polygons, then boolean merge.
-         Extract inside polygons of result and use them for floors and moldings.
-         
-         This will allow more than one wall on the outside, 
-         as long as the result is closed and also allow to generate using any wall of the floor.
-         
         """
 
         # objs contains wall and openings wich belongs to this wall
@@ -3070,13 +3060,13 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
              when points near ends are inside another wall
             """
             walls = []
-            
+
             io, wall, childs = self.as_geom(context, o, 'BOTH', [], [], [], io)
             walls.append(wall)
             for c, td in t_childs:
                 io, wall, childs = td.as_geom(context, c, 'BOTH', [], [], [], io)
                 walls.append(wall)
-            
+
             self.determine_extend(context, coordsys, wall._factory, o, self, walls)
             for c, td in t_childs:
                 self.determine_extend(context, coordsys, wall._factory, c, td, walls)
@@ -3152,7 +3142,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             for tw in t_walls:
                 wall = wall.union(tw)
             # io.output(wall, name="wall_merge", multiple=False)
-            
+
         elif mode in {'FLOORS', 'FLOORS_MOLDINGS'}:
             # FLOORS -> difference t child walls
             for tw in t_walls:
@@ -3181,7 +3171,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                 if len(poly.interiors) < 1
                 ]
             # print("len(holes): %s" % len(holes))
-            
+
             for i, poly in enumerate(polys):
                 # extract inside as polygons
                 for interior in poly.interiors:
@@ -3205,7 +3195,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
 
             wall = wall._factory.buildGeometry(t_walls)
             # io.output(wall, name="wall_inside", multiple=False)
-            
+
         if mode == 'FLOORS_MOLDINGS':
             # convert wall polygons to linestrings
             # so boolean apply on lines instead of areas
@@ -3303,7 +3293,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
                             wall = polys[0]
                     else:
                         wall = wall.union(basis)
-                    
+
                 # elif mode == 'FLOORS_CHILD':
                 #     wall = wall.difference(basis)
                 elif mode == 'FLOORS_MOLDINGS':
@@ -3960,6 +3950,7 @@ class ARCHIPACK_OT_wall2_draw(ArchipackDrawTool, Operator):
         if self.keymap.check(event, self.keymap.delete):
             self.feedback.disable()
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+            self.o = None
             return {'FINISHED', 'PASS_THROUGH'}
 
         if self.state == 'STARTING' and event.type not in {'ESC', 'RIGHTMOUSE'}:
@@ -4129,10 +4120,10 @@ class ARCHIPACK_OT_wall2_draw(ArchipackDrawTool, Operator):
             self.feedback.enable()
             args = (self, context)
 
-            self.sel = [o for o in context.selected_objects]
+            self.sel = context.selected_objects[:]
             self.act = context.active_object
             bpy.ops.object.select_all(action="DESELECT")
-
+            
             self.state = 'STARTING'
 
             self._handle = bpy.types.SpaceView3D.draw_handler_add(self.draw_callback, args, 'WINDOW', 'POST_PIXEL')

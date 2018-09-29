@@ -381,7 +381,7 @@ class SelectPoints(Selectable):
             self.complete(context)
         elif event.type in {'W'}:
             sel = [self.geoms[i] for i in self.ba.list]
-            if len(sel) > 0:
+            if len(sel) > 2:
                 scene = context.scene
                 gf = GeometryFactory()
                 geom = gf.buildGeometry(sel)
@@ -397,7 +397,7 @@ class SelectPoints(Selectable):
             self.complete(context)
         elif event.type in {'D'}:
             sel = [self.geoms[i] for i in self.ba.list]
-            if len(sel) > 0:
+            if len(sel) > 2:
                 scene = context.scene
                 gf = GeometryFactory()
                 geom = gf.buildGeometry(sel)

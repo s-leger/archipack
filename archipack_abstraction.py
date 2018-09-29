@@ -276,7 +276,7 @@ class ArchipackObjectsManagerBase():
             c.matrix_local = child.matrix_local.copy()
             c.matrix_parent_inverse = child.matrix_parent_inverse.copy()
         return p
-
+    
     def duplicate_object(self, context, o, linked):
         """
           Recursively duplicate object and childs
