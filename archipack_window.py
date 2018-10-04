@@ -123,7 +123,7 @@ class archipack_window_panelrow(PropertyGroup):
     height = FloatProperty(
             name="Height",
             min=0.1,
-            default=1.0, precision=2, step=1,
+            default=1.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
@@ -217,20 +217,20 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
             unit='ROTATION',
             subtype='ANGLE',
             min=-1.5, max=1.5,
-            default=0, precision=2,
+            default=0, precision=5,
             description='angle'
             )
     frame_y = FloatProperty(
             name='Depth',
             min=0,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='frame depth'
             )
     frame_x = FloatProperty(
             name='Width',
             min=0,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width'
             )
@@ -254,7 +254,7 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
     pivot = FloatProperty(
             name='pivot',
             min=-1, max=1,
-            default=-1, precision=2,
+            default=-1, precision=5,
             description='pivot'
             )
     side_material = IntProperty(
@@ -281,7 +281,7 @@ class archipack_window_panel(ArchipackObject, PropertyGroup):
     handle_altitude = FloatProperty(
             name='handle altitude',
             min=0,
-            default=0.2, precision=2,
+            default=0.2, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='handle altitude'
             )
@@ -453,20 +453,20 @@ class archipack_window_shutter(ArchipackObject, PropertyGroup):
             unit='ROTATION',
             subtype='ANGLE',
             min=-1.5, max=1.5,
-            default=0, precision=2,
+            default=0, precision=5,
             description='angle'
             )
     depth = FloatProperty(
             name='Depth',
             min=0,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='frame depth'
             )
     border = FloatProperty(
             name='Width',
             min=0,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width'
             )
@@ -490,12 +490,12 @@ class archipack_window_shutter(ArchipackObject, PropertyGroup):
     pivot = FloatProperty(
             name='pivot',
             min=-1, max=1,
-            default=-1, precision=2,
+            default=-1, precision=5,
             description='pivot'
             )
     offset = FloatProperty(
             name='offset',
-            default=0, precision=2,
+            default=0, precision=5,
             description='x offset'
             )
     hinge_enable = BoolProperty(
@@ -510,12 +510,12 @@ class archipack_window_shutter(ArchipackObject, PropertyGroup):
             )
     hinge_space = FloatProperty(
             name='space',
-            default=0, precision=2,
+            default=0, precision=5,
             description='Vertical space for hinges'
             )
     hinge_size = FloatProperty(
             name='size',
-            default=0.03, min=0.001, precision=2,
+            default=0.03, min=0.001, precision=5,
             description='hinge vertical size'
             )
 
@@ -810,21 +810,21 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     x = FloatProperty(
             name='Width',
             min=0.1,
-            default=100.0, precision=2, step=1,
+            default=100.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Width', update=update
             )
     y = FloatProperty(
             name='Depth',
             min=0.05,
-            default=0.20, precision=2, step=1,
+            default=0.20, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Depth', update=update,
             )
     z = FloatProperty(
             name='Height',
             min=0.1,
-            default=1.2, precision=2, step=1,
+            default=1.2, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='height', update=update,
             )
@@ -833,74 +833,74 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
             unit='ROTATION',
             subtype='ANGLE',
             min=-1.5, max=1.5,
-            default=0, precision=2,
+            default=0, precision=5,
             description='angle', update=update,
             )
     radius = FloatProperty(
             name='Radius',
             min=0.1,
-            default=2.5, precision=2, step=1,
+            default=2.5, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='radius', update=update,
             )
     elipsis_b = FloatProperty(
             name='Ellipsis',
             min=0.1,
-            default=0.5, precision=2, step=1,
+            default=0.5, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='ellipsis vertical size', update=update,
             )
     altitude = FloatProperty(
             name='Altitude',
-            default=1.0, precision=2, step=1,
+            default=1.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='altitude', update=update,
             )
     offset = FloatProperty(
             name='Offset',
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='offset', update=update,
             )
     frame_y = FloatProperty(
             name='Depth',
             min=0,
-            default=0.06, precision=2, step=1,
+            default=0.06, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame depth', update=update,
             )
     frame_x = FloatProperty(
             name='Width',
             min=0,
-            default=0.06, precision=2, step=1,
+            default=0.06, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
             )
     frame_overflow = FloatProperty(
             name='Overflow lateral',
             min=0,
-            default=0.06, precision=2, step=1,
+            default=0.06, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
             )
     overflow_out = FloatProperty(
             name='Finishing thickness',
             min=0,
-            default=0, precision=2, step=1,
+            default=0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Thickness of outside wall finishing', update=update,
             )
     panel_x = FloatProperty(
             name='Width',
             min=0,
-            default=0.06, precision=2, step=1,
+            default=0.06, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='panel width', update=update,
             )
     panel_y = FloatProperty(
             name='Depth',
             min=0,
-            default=0.06, precision=2, step=1,
+            default=0.06, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='panel depth', update=update,
             )
@@ -911,21 +911,21 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     out_frame_y = FloatProperty(
             name='Side depth',
             min=0.001,
-            default=0.02, precision=2, step=1,
+            default=0.02, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame side depth', update=update,
             )
     out_frame_y2 = FloatProperty(
             name='Front depth',
             min=0.001,
-            default=0.02, precision=2, step=1,
+            default=0.02, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame front depth', update=update,
             )
     out_frame_x = FloatProperty(
             name='Front Width',
             min=0.0,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width set to 0 disable front frame', update=update,
             )
@@ -943,21 +943,21 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     out_tablet_x = FloatProperty(
             name='Width',
             min=0.0,
-            default=0.04, precision=2, step=1,
+            default=0.04, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet width', update=update,
             )
     out_tablet_y = FloatProperty(
             name='Depth',
             min=0.001,
-            default=0.04, precision=2, step=1,
+            default=0.04, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet depth', update=update,
             )
     out_tablet_z = FloatProperty(
             name='Height',
             min=0.001,
-            default=0.03, precision=2, step=1,
+            default=0.03, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
             )
@@ -968,21 +968,21 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     in_tablet_x = FloatProperty(
             name='Width',
             min=0.0,
-            default=0.04, precision=2, step=1,
+            default=0.04, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet width', update=update,
             )
     in_tablet_y = FloatProperty(
             name='Depth',
             min=0.001,
-            default=0.04, precision=2, step=1,
+            default=0.04, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet depth', update=update,
             )
     in_tablet_z = FloatProperty(
             name='Height',
             min=0.001,
-            default=0.03, precision=2, step=1,
+            default=0.03, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='tablet height', update=update,
             )
@@ -1006,14 +1006,14 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     blind_y = FloatProperty(
             name='Depth',
             min=0.001,
-            default=0.002, precision=2, step=1,
+            default=0.002, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Store depth', update=update,
             )
     blind_z = FloatProperty(
             name='Height',
             min=0.001,
-            default=0.03, precision=2, step=1,
+            default=0.03, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Store height', update=update,
             )
@@ -1088,7 +1088,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     handle_altitude = FloatProperty(
             name="Altitude",
             min=0,
-            default=1.4, precision=2, step=1,
+            default=1.4, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='handle altitude', update=update_childs,
             )
@@ -1109,7 +1109,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     shutter_border = FloatProperty(
             name='Border',
             min=0,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Shutter panels borders',
             update=update
@@ -1117,7 +1117,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     shutter_depth = FloatProperty(
             name='Depth',
             min=0.01,
-            default=0.04, precision=2, step=1,
+            default=0.04, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Shutter panels depth',
             update=update
@@ -1125,7 +1125,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     shutter_hinge = FloatProperty(
             name='Hinge',
             min=0.001,
-            default=0.03, precision=2, step=1,
+            default=0.03, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Shutter hinge size',
             update=update
@@ -1133,7 +1133,7 @@ class archipack_window(ArchipackObject, Manipulable, DimensionProvider, Property
     hole_margin = FloatProperty(
             name='Hole margin',
             min=0.0,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
             )
@@ -2629,25 +2629,25 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
     x = FloatProperty(
         name='width',
         min=0.1, max=10000,
-        default=2.0, precision=2,
+        default=2.0, precision=5,
         description='Width'
         )
     y = FloatProperty(
         name='depth',
         min=0.1, max=10000,
-        default=0.20, precision=2,
+        default=0.20, precision=5,
         description='Depth'
         )
     z = FloatProperty(
         name='height',
         min=0.1, max=10000,
-        default=1.2, precision=2,
+        default=1.2, precision=5,
         description='height'
         )
     altitude = FloatProperty(
         name='altitude',
         min=0.0, max=10000,
-        default=1.0, precision=2,
+        default=1.0, precision=5,
         description='altitude'
         )
     mode = EnumProperty(
@@ -3038,19 +3038,19 @@ class ARCHIPACK_OT_window_panel(ArchipackObjectsManager, Operator):
             unit='ROTATION',
             subtype='ANGLE',
             min=-1.5, max=1.5,
-            default=0, precision=2,
+            default=0, precision=5,
             description='angle'
             )
     frame_y = FloatProperty(
             name='Depth',
             min=0, max=100,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             description='frame depth'
             )
     frame_x = FloatProperty(
             name='Width',
             min=0, max=100,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             description='frame width'
             )
     curve_steps = IntProperty(
@@ -3073,7 +3073,7 @@ class ARCHIPACK_OT_window_panel(ArchipackObjectsManager, Operator):
     pivot = FloatProperty(
             name='pivot',
             min=-1, max=1,
-            default=-1, precision=2,
+            default=-1, precision=5,
             description='pivot'
             )
     side_material = IntProperty(
@@ -3100,7 +3100,7 @@ class ARCHIPACK_OT_window_panel(ArchipackObjectsManager, Operator):
     handle_altitude = FloatProperty(
             name='handle altitude',
             min=0, max=1000,
-            default=0.2, precision=2,
+            default=0.2, precision=5,
             description='handle altitude'
             )
     fixed = BoolProperty(
@@ -3190,19 +3190,19 @@ class ARCHIPACK_OT_window_shutter(ArchipackObjectsManager, Operator):
             unit='ROTATION',
             subtype='ANGLE',
             min=-1.5, max=1.5,
-            default=0, precision=2,
+            default=0, precision=5,
             description='angle'
             )
     depth = FloatProperty(
             name='Depth',
             min=0, max=100,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             description='frame depth'
             )
     border = FloatProperty(
             name='Width',
             min=0, max=100,
-            default=0.06, precision=2,
+            default=0.06, precision=5,
             description='frame width'
             )
     curve_steps = IntProperty(
@@ -3225,7 +3225,7 @@ class ARCHIPACK_OT_window_shutter(ArchipackObjectsManager, Operator):
     pivot = FloatProperty(
             name='pivot',
             min=-1, max=1,
-            default=-1, precision=2,
+            default=-1, precision=5,
             description='pivot'
             )
     material = StringProperty(
@@ -3234,7 +3234,7 @@ class ARCHIPACK_OT_window_shutter(ArchipackObjectsManager, Operator):
             )
     offset = FloatProperty(
             name='offset',
-            default=0, precision=2,
+            default=0, precision=5,
             description='x offset'
             )
     hinge_enable = BoolProperty(
@@ -3249,12 +3249,12 @@ class ARCHIPACK_OT_window_shutter(ArchipackObjectsManager, Operator):
             )
     hinge_space = FloatProperty(
             name='space',
-            default=0, precision=2,
+            default=0, precision=5,
             description='Vertical space for hinges'
             )
     hinge_size = FloatProperty(
             name='size',
-            default=0.03, precision=2,
+            default=0.03, precision=5,
             description='Vertical size of hinges'
             )
 

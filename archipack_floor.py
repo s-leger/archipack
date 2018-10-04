@@ -743,7 +743,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             unit='LENGTH', subtype='DISTANCE',
             min=0,
             default=0.005,
-            precision=2,
+            precision=5,
             update=update
             )
     thickness = FloatProperty(
@@ -752,7 +752,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             unit='LENGTH', subtype='DISTANCE',
             min=0.0,
             default=0.005,
-            precision=2,
+            precision=5,
             update=update
             )
     vary_thickness = BoolProperty(
@@ -766,7 +766,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             description='How much vary by',
             min=0, max=100,
             default=25,
-            precision=2,
+            precision=5,
             subtype='PERCENTAGE',
             update=update
             )
@@ -777,7 +777,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             unit='LENGTH', subtype='DISTANCE',
             min=0.02,
             default=0.2,
-            precision=2,
+            precision=5,
             update=update
             )
     vary_width = BoolProperty(
@@ -791,7 +791,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             description='How much vary by',
             subtype='PERCENTAGE',
             min=1, max=100, default=50,
-            precision=2,
+            precision=5,
             update=update
             )
     width_spacing = FloatProperty(
@@ -800,7 +800,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             unit='LENGTH', subtype='DISTANCE',
             min=0,
             default=0.002,
-            precision=2,
+            precision=5,
             update=update
             )
 
@@ -808,7 +808,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             name='Length',
             description='The length of the boards',
             unit='LENGTH', subtype='DISTANCE',
-            precision=2,
+            precision=5,
             min=0.02,
             default=2,
             update=update
@@ -817,7 +817,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             name='Length',
             description='The length of the boards',
             unit='LENGTH', subtype='DISTANCE',
-            precision=2,
+            precision=5,
             min=0.02,
             default=2,
             update=update
@@ -833,7 +833,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             description='How much board length can vary by',
             subtype='PERCENTAGE',
             min=1, max=100, default=50,
-            precision=2, update=update
+            precision=5, update=update
             )
     max_boards = IntProperty(
             name='Max Boards',
@@ -848,7 +848,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             unit='LENGTH', subtype='DISTANCE',
             min=0,
             default=0.002,
-            precision=2,
+            precision=5,
             update=update
             )
 
@@ -867,14 +867,14 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             unit='LENGTH', subtype='DISTANCE',
             min=0.002,
             default=0.2,
-            precision=2,
+            precision=5,
             update=update
             )
     tile_length = FloatProperty(
             name='Length',
             description='Length of the tiles',
             unit='LENGTH', subtype='DISTANCE',
-            precision=2,
+            precision=5,
             min=0.02,
             default=0.3,
             update=update
@@ -891,7 +891,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             name='Depth',
             description='The depth of the mortar from the surface of the tile',
             unit='LENGTH', subtype='DISTANCE',
-            precision=2,
+            precision=5,
             step=0.005,
             min=0,
             default=0.001,
@@ -908,14 +908,14 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             name='Offset',
             description='How much to offset each row of tiles',
             min=0, max=100, default=0,
-            precision=2,
+            precision=5,
             update=update
             )
     offset_variance = FloatProperty(
             name='Variance',
             description='How much to vary the offset each row of tiles',
             min=0.001, max=100, default=50,
-            precision=2,
+            precision=5,
             update=update
             )
 
@@ -931,7 +931,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             description='Bevel amount',
             unit='LENGTH', subtype='DISTANCE',
             min=0.0001, default=0.001,
-            precision=2, step=0.05,
+            precision=5, step=0.05,
             update=update
             )
     solidify = BoolProperty(
@@ -961,7 +961,7 @@ class archipack_floor(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             name='Offset',
             description='How much to offset boundary',
             default=0,
-            precision=2,
+            precision=5,
             update=update
             )
 

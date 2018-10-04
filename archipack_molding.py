@@ -157,7 +157,7 @@ class archipack_molding(
 
     x_offset = FloatProperty(
             name="Offset",
-            default=0.0, precision=2, step=1,
+            default=0.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
@@ -174,21 +174,21 @@ class archipack_molding(
     profil_x = FloatProperty(
             name="Width",
             min=0.001,
-            default=0.02, precision=2, step=1,
+            default=0.02, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     profil_y = FloatProperty(
             name="Height",
             min=0.001,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     profil_radius = FloatProperty(
             name="Radius",
             min=0.001,
-            default=0.02, precision=2, step=1,
+            default=0.02, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )

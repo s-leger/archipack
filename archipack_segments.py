@@ -473,21 +473,21 @@ class ArchipackSegment():
     # Segment length
     last_l = FloatProperty(
             description="Store last length between segments on update",
-            default=2.0,
+            default=2.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             options={'SKIP_SAVE'}
             )
     length = FloatProperty(
             description="Store segment length",
             min=0.001,
-            default=2.0,
+            default=2.0, precision=5,
             unit='LENGTH', subtype='DISTANCE'
             )
     l_ui = FloatProperty(
             name="Length",
             description="Length of segment",
             min=0.001,
-            default=2.0,
+            default=2.0, precision=5,
             set=set_l,
             get=get_l,
             update=update_length,
@@ -498,20 +498,20 @@ class ArchipackSegment():
     # Curved parts
     last_r = FloatProperty(
             description="Store last radius between segments on update",
-            default=0.7,
+            default=0.7, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             options={'SKIP_SAVE'}
             )
     radius = FloatProperty(
             description="Store segment radius",
-            default=0.7,
+            default=0.7, precision=5,
             unit='LENGTH', subtype='DISTANCE'
             )
     r_ui = FloatProperty(
             name="Radius",
             description="Radius of curved segments",
             min=0.001,
-            default=0.7,
+            default=0.7, precision=5,
             update=update_radius,
             get=get_r,
             set=set_r,
@@ -523,7 +523,7 @@ class ArchipackSegment():
             description="Store last angle of curved  segment on update",
             min=-pi,
             max=pi,
-            default=pi / 2,
+            default=pi / 2, precision=5,
             subtype='ANGLE', unit='ROTATION',
             options={'SKIP_SAVE'}
             )
@@ -531,14 +531,14 @@ class ArchipackSegment():
             description="Store angle of curved segments",
             min=-pi,
             max=pi,
-            default=pi / 2,
+            default=pi / 2, precision=5,
             subtype='ANGLE', unit='ROTATION'
             )
     da_ui = FloatProperty(
             name="Angle",
             min=-pi,
             max=pi,
-            default=pi / 2,
+            default=pi / 2, precision=5,
             subtype='ANGLE', unit='ROTATION',
             set=set_da,
             get=get_da,
@@ -551,7 +551,7 @@ class ArchipackSegment():
             description="Store last angle between segments on update",
             min=-pi,
             max=pi,
-            default=pi / 2,
+            default=pi / 2, precision=5,
             subtype='ANGLE', unit='ROTATION',
             options={'SKIP_SAVE'}
             )
@@ -559,14 +559,14 @@ class ArchipackSegment():
             description="Store angle between segments",
             min=-pi,
             max=pi,
-            default=pi / 2,
+            default=pi / 2, precision=5,
             subtype='ANGLE', unit='ROTATION'
             )
     a_ui = FloatProperty(
             name="Start angle",
             min=-pi,
             max=pi,
-            default=pi / 2,
+            default=pi / 2, precision=5,
             subtype='ANGLE', unit='ROTATION',
             set=set_a,
             get=get_a,
@@ -578,7 +578,7 @@ class ArchipackSegment():
     offset = FloatProperty(
             name="Offset",
             description="Side offset of segment",
-            default=0,
+            default=0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )

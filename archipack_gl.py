@@ -126,7 +126,7 @@ class GlText(Gl):
             d=3,
             label="",
             value=None,
-            precision=2,
+            precision=4,
             unit_mode='AUTO',
             unit_type='SIZE',
             dimension=1,
@@ -243,8 +243,16 @@ class GlText(Gl):
         elif self.dimension == 3:
             unit += "\u00b3"  # Superscript three
 
-        fmt = "%1." + str(self.precision) + "f " + unit
-        return fmt % val
+        fmt = "%1." + str(self.precision) + "f"
+        # remove trailing zeros
+        res = fmt % val
+        while res[-1] == '0':
+            res = res[:-1]
+
+        if res[-1] == ".":
+            res = res + '0'
+
+        return "{} {}".format(res, unit)
 
     def set_pos(self, context, value, pos_3d, direction, angle=0, normal=Vector((0, 0, 1))):
         self.up_axis = direction.normalized()
@@ -305,7 +313,7 @@ class GlBaseLine(Gl):
             bgl.glEnable(bgl.GL_LINE_SMOOTH)
         # not in 2.8
         bgl.glColor4f(*self.colour)
-        
+
         bgl.glLineWidth(self.width)
         if self.closed:
             # not in 2.8
@@ -593,7 +601,7 @@ class GlPolygon(Gl):
 
         # print("draw_polygon")
         self.render = render
-        
+
         bgl.glPushAttrib(bgl.GL_ENABLE_BIT)
         bgl.glEnable(bgl.GL_BLEND)
         if render:
