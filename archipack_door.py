@@ -1443,13 +1443,12 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
         if hole_obj is None:
             m = bpy.data.meshes.new("hole")
             hole_obj = bpy.data.objects.new("hole", m)
-            
+            hole_obj['archipack_hole'] = True
             # Link object into scene
             self.link_object_to_scene(context, hole_obj)
-            hole_obj['archipack_hole'] = True
             hole_obj.parent = o
             hole_obj.matrix_world = o.matrix_world.copy()
-            
+
         hole_obj.data.materials.clear()
         for mat in o.data.materials:
             hole_obj.data.materials.append(mat)
@@ -1849,7 +1848,6 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                         self.select_object(context, child)
                         for c in child.children:
                             self.select_object(context, c)
-                            
         if len(context.selected_objects) > 0:
             bpy.ops.object.make_single_user(type='SELECTED_OBJECTS', object=True,
                 obdata=True, material=False, texture=False, animation=False)
@@ -1857,7 +1855,7 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
                 if 'archipack_hole' in child:
                     child.hide_select = True
         bpy.ops.object.select_all(action="DESELECT")
-        
+
         # select and make active
         self.select_object(context, act, True)
         for o in sel:
@@ -1911,39 +1909,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
     def add_object(self, context, event):
         o = context.active_object
         bpy.ops.object.select_all(action="DESELECT")
-        """
-        if archipack_door.filter(o):
 
-            # select and make active
-            self.select_object(context, o, True)
-
-            if event.shift:
-                bpy.ops.archipack.door(mode="UNIQUE")
-
-            new_w = o.copy()
-            new_w.data = o.data
-            self.link_object_to_scene(context, new_w)
-            # instance subs
-            for child in o.children:
-                if "archipack_hole" not in child:
-                    new_c = child.copy()
-                    new_c.data = child.data
-                    new_c.parent = new_w
-                    self.link_object_to_scene(context, new_c)
-                    # dup handle if any
-                    for c in child.children:
-                        new_h = c.copy()
-                        new_h.data = c.data
-                        new_h.parent = new_c
-                        self.link_object_to_scene(context, new_h)
-
-            o = new_w
-            
-            # select and make active
-            self.select_object(context, o, True)
-
-        else:
-        """    
         bpy.ops.archipack.door(auto_manipulate=False, filepath=self.filepath)
         o = context.active_object
 
@@ -1951,13 +1917,11 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
 
         bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
         self.select_object(context, o, True)
-        return o
         
     def modal(self, context, event):
 
         context.area.tag_redraw()
-        o = self.get_scene_object(context, self.object_name)
-        
+        o = context.scene.objects.get(self.object_name)
         if o is None:
             self.restore_walls(context)
             return {'FINISHED'}
@@ -2011,29 +1975,13 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
                     self.unselect_object(wall)
                     # o must be a door here
                     if d is not None:                        
-                        # make linked object
+                        # select and make active
                         if len(self.stack) > 0 and not event.shift:
                             last = self.stack[-1]
                             d_last = last.data.archipack_door[0]
                             if d_last.y == d.y:
-                                # must realy unlink hole ?
                                 self.link_object(last, o)
-                                """
-                                o.data = last.data
-                                for child in last.children:
-                                    if "archipack_hole" not in child:
-                                        new_c = child.copy()
-                                        new_c.data = child.data
-                                        new_c.parent = o
-                                        self.link_object_to_scene(context, new_c)
-                                        # dup handle if any
-                                        for c in child.children:
-                                            new_h = c.copy()
-                                            new_h.data = c.data
-                                            new_h.parent = new_c
-                                            self.link_object_to_scene(context, new_h)
-                                """
-                        # select and make active
+
                         self.select_object(context, o, True)
                         self.stack.append(o)
                         self.add_object(context, event)
@@ -2069,27 +2017,22 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
-            o = context.active_object
+            o = None
             self.stack = []
             self.keymap = Keymaps(context)
             # exit manipulate_mode if any
             bpy.ops.archipack.disable_manipulate()
-            
-            # Hide manipulators
-            context.space_data.show_manipulator = False
-            
             # invoke with alt pressed will use current object as basis for linked copy
-            if self.filepath == '' and archipack_door.filter(o):
-                self.stack.append(o)
-                o = self.duplicate_object(context, o, False)
-                self.object_name = o.name
-            else:
-                o = self.add_object(context, event)
+            if self.filepath == '' and archipack_door.filter(context.active_object):
+                o = context.active_object
+                
+            context.scene.objects.active = None
+            context.space_data.show_manipulator = False
+            bpy.ops.object.select_all(action="DESELECT")
             
             # select and make active
-            bpy.ops.object.select_all(action="DESELECT")
             self.select_object(context, o, True)
-            
+            self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
                 ('LEFTCLICK, RET, SPACE, ENTER', 'Create a door'),

@@ -2811,37 +2811,7 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
 
         o = context.active_object
         bpy.ops.object.select_all(action="DESELECT")
-        """
-        if archipack_window.filter(o):
 
-            # select and make active
-            self.select_object(context, o, True)
-
-            if event.shift:
-                bpy.ops.archipack.window(mode="UNIQUE")
-
-            # instance subs
-            new_w = o.copy()
-            new_w.data = o.data
-            self.link_object_to_scene(context, new_w)
-            for child in o.children:
-                if "archipack_hole" not in child:
-                    new_c = child.copy()
-                    new_c.data = child.data
-                    new_c.parent = new_w
-                    self.link_object_to_scene(context, new_c)
-                    # dup handle if any
-                    for c in child.children:
-                        new_h = c.copy()
-                        new_h.data = c.data
-                        new_h.parent = new_c
-                        self.link_object_to_scene(context, new_h)
-
-            o = new_w
-            self.select_object(context, o, True)
-
-        else:
-        """    
         bpy.ops.archipack.window(auto_manipulate=False, filepath=self.filepath)
         o = context.active_object
 
@@ -2849,7 +2819,6 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
 
         bpy.ops.archipack.generate_hole('INVOKE_DEFAULT')
         self.select_object(context, o, True)
-        return o
         
     def modal(self, context, event):
 
@@ -2913,14 +2882,12 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
                             last = self.stack[-1]
                             d_last = last.data.archipack_window[0]
                             if d_last.y == d.y:
-                                # must realy unlink hole ?
                                 self.link_object(last, o)
-                                            
+
                         self.select_object(context, o, True)
                         self.stack.append(o)
                         self.add_object(context, event)
                         context.active_object.matrix_world = tM
-                        
                     return {'RUNNING_MODAL'}
             # prevent selection of other object
             if event.type in {'RIGHTMOUSE'}:
@@ -2951,27 +2918,23 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
-            o = context.active_object
+            o = None
             self.stack = []
             self.keymap = Keymaps(context)
             # exit manipulate_mode if any
             bpy.ops.archipack.disable_manipulate()
+            # invoke with shift pressed will use current object as basis for linked copy
+            if self.filepath == '' and archipack_window.filter(context.active_object):
+                o = context.active_object
             
-            # Hide manipulators
+            # hmm 2.8 ??
+            context.scene.objects.active = None
+            
             context.space_data.show_manipulator = False
             
-            # invoke with alt pressed will use current object as basis for linked copy
-            if self.filepath == '' and archipack_window.filter(o):
-                self.stack.append(o)
-                o = self.duplicate_object(context, o, False)
-                self.object_name = o.name
-            else:
-                o = self.add_object(context, event)
-            
-            # select and make active
             bpy.ops.object.select_all(action="DESELECT")
             self.select_object(context, o, True)
-            
+            self.add_object(context, event)
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a window", "Click & Drag over a wall", [
                 ('LEFTCLICK, RET, SPACE, ENTER', 'Create a window'),
