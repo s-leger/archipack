@@ -3751,29 +3751,29 @@ class archipack_roof(ArchipackLines, ArchipackObject, Manipulable, DimensionProv
     origin = FloatVectorProperty(subtype="XYZ")
     z = FloatProperty(
             name="Altitude",
-            default=3, precision=2, step=1,
+            default=3, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update_childs
             )
     slope_left = FloatProperty(
             name="L slope",
-            default=0.5, precision=2, step=1,
+            default=0.5, precision=5, step=1,
             update=update_childs
             )
     slope_right = FloatProperty(
             name="R slope",
-            default=0.5, precision=2, step=1,
+            default=0.5, precision=5, step=1,
             update=update_childs
             )
     width_left = FloatProperty(
             name="L width",
-            default=3, precision=2, step=1,
+            default=3, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update_cutter
             )
     width_right = FloatProperty(
             name="R width",
-            default=3, precision=2, step=1,
+            default=3, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update_cutter
             )

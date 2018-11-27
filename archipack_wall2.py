@@ -956,7 +956,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
     z = FloatProperty(
             name='Height',
             min=0.1,
-            default=2.7, precision=2,
+            default=2.7, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='height', update=update,
             )
@@ -976,7 +976,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             name="Offset",
             description="Lateral offset of wall",
             unit='LENGTH', subtype='DISTANCE',
-            default=0, precision=2, step=1,
+            default=0, precision=5, step=1,
             update=update_relocate
             )
     x_offset = FloatProperty(
@@ -990,7 +990,7 @@ class archipack_wall2(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Di
             unit='LENGTH', subtype='DISTANCE',
             description='Thickness of floors',
             min=0,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             update=update
             )
     radius = FloatProperty(

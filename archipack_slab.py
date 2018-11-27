@@ -272,13 +272,13 @@ class archipack_slab(ArchipackObject, ArchipackUserDefinedPath, Manipulable, Dim
     # UI layout related
     x_offset = FloatProperty(
             name="Offset",
-            default=0.0, precision=2, step=1,
+            default=0.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )
     z = FloatProperty(
             name="Thickness",
-            default=0.3, precision=2, step=1,
+            default=0.3, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             update=update
             )

@@ -71,21 +71,21 @@ class archipack_door_panel(ArchipackObject, PropertyGroup):
     x = FloatProperty(
             name='Width',
             min=0.25,
-            default=100.0, precision=2,
+            default=100.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='Width'
             )
     y = FloatProperty(
             name='Depth',
             min=0.001,
-            default=0.02, precision=2,
+            default=0.02, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='depth'
             )
     z = FloatProperty(
             name='Height',
             min=0.1,
-            default=2.0, precision=2,
+            default=2.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='height'
             )
@@ -112,21 +112,21 @@ class archipack_door_panel(ArchipackObject, PropertyGroup):
     panel_spacing = FloatProperty(
             name='Spacing',
             min=0.001,
-            default=0.1, precision=2,
+            default=0.1, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance between panels'
             )
     panel_bottom = FloatProperty(
             name='Bottom',
             min=0.0,
-            default=0.0, precision=2,
+            default=0.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from bottom'
             )
     panel_border = FloatProperty(
             name='Border',
             min=0.001,
-            default=0.2, precision=2,
+            default=0.2, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from border'
             )
@@ -635,21 +635,21 @@ class ARCHIPACK_OT_door_panel(ArchipackObjectsManager, Operator):
     x = FloatProperty(
             name='Width',
             min=0.1,
-            default=0.80, precision=2,
+            default=0.80, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='Width'
             )
     z = FloatProperty(
             name='Height',
             min=0.1,
-            default=2.0, precision=2,
+            default=2.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='height'
             )
     y = FloatProperty(
             name='Depth',
             min=0.001,
-            default=0.02, precision=2,
+            default=0.02, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='Depth'
             )
@@ -675,21 +675,21 @@ class ARCHIPACK_OT_door_panel(ArchipackObjectsManager, Operator):
     panel_spacing = FloatProperty(
             name='Spacing',
             min=0.001,
-            default=0.1, precision=2,
+            default=0.1, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance between panels'
             )
     panel_bottom = FloatProperty(
             name='Bottom',
             min=0.0,
-            default=0.0, precision=2,
+            default=0.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from bottom'
             )
     panel_border = FloatProperty(
             name='Border',
             min=0.001,
-            default=0.2, precision=2,
+            default=0.2, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from border'
             )
@@ -821,34 +821,34 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
     x = FloatProperty(
             name='Width',
             min=0.25,
-            default=100.0, precision=2, step=1,
+            default=100.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Width', update=update,
             )
     y = FloatProperty(
             name='Depth',
             min=0.1,
-            default=0.20, precision=2, step=1,
+            default=0.20, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='Depth', update=update,
             )
     z = FloatProperty(
             name='Height',
             min=0.1,
-            default=2.0, precision=2, step=1,
+            default=2.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='height', update=update,
             )
     frame_x = FloatProperty(
             name='Width',
             min=0,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame width', update=update,
             )
     frame_y = FloatProperty(
             name='Depth',
-            default=0.03, precision=2, step=1,
+            default=0.03, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='frame depth', update=update,
             )
@@ -861,14 +861,14 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
     door_y = FloatProperty(
             name='Depth',
             min=0.001,
-            default=0.02, precision=2, step=1,
+            default=0.02, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='depth', update=update,
             )
     door_offset = FloatProperty(
             name='Offset',
             min=0,
-            default=0, precision=2, step=1,
+            default=0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='offset', update=update,
             )
@@ -896,21 +896,21 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
     panel_spacing = FloatProperty(
             name='Spacing',
             min=0.001,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='distance between panels', update=update_childs,
             )
     panel_bottom = FloatProperty(
             name='Bottom',
             min=0.0,
-            default=0.0, precision=2, step=1,
+            default=0.0, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from bottom', update=update_childs,
             )
     panel_border = FloatProperty(
             name='Border',
             min=0.001,
-            default=0.2, precision=2, step=1,
+            default=0.2, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from border', update=update_childs,
             )
@@ -947,7 +947,7 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
     hole_margin = FloatProperty(
             name='Hole margin',
             min=0.0,
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             unit='LENGTH', subtype='DISTANCE',
             description='how much hole surround wall'
             )
@@ -960,7 +960,7 @@ class archipack_door(ArchipackObject, Manipulable, DimensionProvider, PropertyGr
             name="Hole depth z",
             unit='LENGTH', subtype='DISTANCE',
             description='Depth of hole under the door',
-            default=0.1, precision=2, step=1,
+            default=0.1, precision=5, step=1,
             update=update
             )
     auto_update = BoolProperty(
@@ -1665,21 +1665,21 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
     x = FloatProperty(
             name='width',
             min=0.1,
-            default=0.80, precision=2,
+            default=0.80, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='Width'
             )
     y = FloatProperty(
             name='depth',
             min=0.1,
-            default=0.20, precision=2,
+            default=0.20, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='Depth'
             )
     z = FloatProperty(
             name='height',
             min=0.1,
-            default=2.0, precision=2,
+            default=2.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='height'
             )
@@ -1706,20 +1706,20 @@ class ARCHIPACK_OT_door(ArchipackCreateTool, Operator):
     panel_spacing = FloatProperty(
             name='spacing',
             min=0.001,
-            default=0.1, precision=2,
+            default=0.1, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance between panels'
             )
     panel_bottom = FloatProperty(
             name='bottom',
-            default=0.0, precision=2,
+            default=0.0, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from bottom'
             )
     panel_border = FloatProperty(
             name='border',
             min=0.001,
-            default=0.2, precision=2,
+            default=0.2, precision=5,
             unit='LENGTH', subtype='DISTANCE',
             description='distance from border'
             )

@@ -1312,7 +1312,7 @@ class archipack_floor_heating(ArchipackObject, ArchipackUserDefinedPath, Manipul
             unit='LENGTH', subtype='DISTANCE',
             min=0.01,
             default=0.3,
-            precision=2,
+            precision=5,
             update=update
             )
     enable_radius = BoolProperty(
@@ -1326,7 +1326,7 @@ class archipack_floor_heating(ArchipackObject, ArchipackUserDefinedPath, Manipul
             unit='LENGTH', subtype='DISTANCE',
             min=0.01,
             default=0.1,
-            precision=2,
+            precision=5,
             update=update
             )
     backward = BoolProperty(
@@ -1361,7 +1361,7 @@ class archipack_floor_heating(ArchipackObject, ArchipackUserDefinedPath, Manipul
             name='Offset',
             description='How much to offset boundary',
             default=0,
-            precision=2,
+            precision=5,
             update=update
             )
     start_location = FloatProperty(
@@ -1430,7 +1430,7 @@ class archipack_floor_heating(ArchipackObject, ArchipackUserDefinedPath, Manipul
 
         self.setup_parts_manipulators('z')
 
-    def text(self, context, value, type, precision=2):
+    def text(self, context, value, type, precision=5):
 
         dimension = 1
 

@@ -40,7 +40,7 @@ class archipack_wall(ArchipackObject, DimensionProvider, PropertyGroup):
     z = FloatProperty(
             name='height',
             min=0.1, max=10000,
-            default=2.7, precision=2,
+            default=2.7, precision=5,
             description='height', update=update_wall,
             )
        
