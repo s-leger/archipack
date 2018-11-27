@@ -2017,22 +2017,27 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
     def invoke(self, context, event):
 
         if context.mode == "OBJECT":
-            o = None
+            o = context.active_object
             self.stack = []
             self.keymap = Keymaps(context)
             # exit manipulate_mode if any
             bpy.ops.archipack.disable_manipulate()
-            # invoke with alt pressed will use current object as basis for linked copy
-            if self.filepath == '' and archipack_door.filter(context.active_object):
-                o = context.active_object
-                
-            context.scene.objects.active = None
+
+            # Hide manipulators
             context.space_data.show_manipulator = False
-            bpy.ops.object.select_all(action="DESELECT")
-            
+
+            # invoke with alt pressed will use current object as basis for linked copy
+            if self.filepath == '' and archipack_door.filter(o):
+                self.stack.append(o)
+                o = self.duplicate_object(context, o, False)
+                self.object_name = o.name
+            else:
+                o = self.add_object(context, event)
+
             # select and make active
+            bpy.ops.object.select_all(action="DESELECT")
             self.select_object(context, o, True)
-            self.add_object(context, event)
+
             self.feedback = FeedbackPanel()
             self.feedback.instructions(context, "Draw a door", "Click & Drag over a wall", [
                 ('LEFTCLICK, RET, SPACE, ENTER', 'Create a door'),
