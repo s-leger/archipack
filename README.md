@@ -1,4 +1,4 @@
-# Archipack for Blender 2.78+
+# Archipack for Blender 2.79
 
 Welcome to the ArchiPack repository.
 
