@@ -1969,6 +1969,7 @@ class ARCHIPACK_OT_door_draw(ArchipackDrawTool, Operator):
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
                     # select and make active
+                    self.select_object(context, o)
                     self.select_object(context, wall, True)
                     if bpy.ops.archipack.single_boolean.poll():
                         bpy.ops.archipack.single_boolean()
