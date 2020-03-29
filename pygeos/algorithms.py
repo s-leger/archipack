@@ -879,8 +879,9 @@ class ConvexHull():
             return self._factory.createLineString(cs)
 
         # use heuristic to reduce points if large
-        if nInputPts > 50:
-            self.reduce(self.inputCoords)
+        # XXX reduce is failing for some stil unknown reason
+        # if nInputPts > 50:
+        #    self.reduce(self.inputCoords)
 
         # Sort points for Graham scan
         self.preSort(self.inputCoords)
